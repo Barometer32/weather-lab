@@ -10,6 +10,8 @@ from unittest.mock import patch
 from forecast_models import target_cycle, selected_records, blend, LOCATIONS, parse_index, decode_points
 from forecast_store import read_forecast, write_forecast
 from app import app, _cache
+from forecast_models import ModelUnavailable
+from forecast_worker import locate_common_cycle
 
 UTC = timezone.utc
 CYCLE = datetime(2026, 10, 9, 12, tzinfo=UTC)
@@ -23,6 +25,27 @@ def models():
 
 
 class ForecastTests(unittest.TestCase):
+    def test_late_model_chooses_same_complete_cycle_for_both_models(self):
+        target = CYCLE + timedelta(hours=1)
+        def locate(model, cycle):
+            if model == "RRFS" and cycle == target:
+                raise ModelUnavailable("RRFS late")
+            return (f"{model}/{cycle.hour}", "index")
+        with patch("forecast_worker.locate", side_effect=locate) as lookup:
+            cycle, feeds = locate_common_cycle(target)
+            self.assertEqual(cycle, CYCLE)
+            self.assertEqual(feeds["HRRR"][0], "HRRR/12")
+            self.assertEqual(feeds["RRFS"][0], "RRFS/12")
+            self.assertEqual(lookup.call_count, 4)
+
+    def test_late_target_does_not_redownload_stored_or_older_cycles(self):
+        target = CYCLE + timedelta(hours=1)
+        with patch("forecast_worker.locate", side_effect=ModelUnavailable("late")) as lookup:
+            self.assertIsNone(locate_common_cycle(target, "2026-10-09T12:00:00Z"))
+            self.assertEqual(lookup.call_count, 1)
+            with self.assertRaises(ModelUnavailable):
+                locate_common_cycle(target, lookback=0)
+
     def test_cached_grid_extraction_matches_independent_nearest_searches(self):
         import eccodes as ec
         handle = ec.codes_grib_new_from_samples("GRIB2")

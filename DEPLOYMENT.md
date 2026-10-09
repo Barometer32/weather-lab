@@ -18,7 +18,7 @@ bash deploy.sh NEW_PROJECT_ID
 
 The script enables APIs, creates a private forecast bucket and separate web, collector, scheduler and builder service accounts, builds the container, deploys the public website, creates a scheduled collector and runs the first collection. It prints the public HTTPS URL. Open that URL from your phone or laptop. Public means anyone with the URL can visit; traffic can affect costs.
 
-The website uses 1 CPU/1 GiB, minimum zero and maximum one instance. Collector: 2 CPU/4 GiB, one task, no automatic task retries, 15-minute timeout. One Scheduler job checks at :45 and :55 UTC hourly. An already-published cycle exits early. :55 is an availability retry, not a different forecast cycle. If neither check sees both complete models, the page keeps the previous blend. We cannot guarantee NCEP publication at :45.
+The website uses 1 CPU/1 GiB, minimum zero and maximum one instance. Collector: 2 CPU/4 GiB, one task, no automatic task retries, 15-minute timeout. One Scheduler job checks at :45 and :55 UTC hourly. An already-published preferred cycle exits early. :55 retries availability of the same preferred cycle. If that cycle is late, the job looks back up to three cycles for the newest complete pair newer than the stored forecast. No large download occurs for stored/older cycles, and original forecast times remain visible. If no newer pair is complete, the page keeps the previous blend. We cannot guarantee NCEP publication at :45.
 
 The first collection can fail simply because the current target cycle is late; the deployed observations/radar page remains available. Wait for the next scheduled check or retry with:
 

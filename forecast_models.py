@@ -30,6 +30,10 @@ _grid_points = {}
 _grid_lock = Lock()
 
 
+class ModelUnavailable(RuntimeError):
+    """A model cycle is not published with all required forecast hours yet."""
+
+
 def iso(value):
     return value.isoformat().replace("+00:00", "Z")
 
@@ -117,7 +121,7 @@ def locate(model, cycle):
                 raise
         except ValueError:
             logging.warning("Incomplete or unsupported index at %s", url)
-    raise RuntimeError(f"{model} {cycle:%Y-%m-%d %HZ} is not complete through forecast hour 18")
+    raise ModelUnavailable(f"{model} {cycle:%Y-%m-%d %HZ} is not complete through forecast hour 18")
 
 
 def decode_points(data, cycle, hour, key):
