@@ -5,7 +5,7 @@ A phone-friendly Twin Cities weather page with four views:
 - **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
 - **Radar:** MPX 0.5° base reflectivity, a two-hour loop, eight simplified colors, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
-- **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as readable seven-day cards.
+- **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
 
 ## Run locally
 
@@ -44,9 +44,9 @@ RGB colors give qualitative cloud clues, not exact cloud heights. Images load on
 
 ## NWS forecast
 
-The backend discovers the forecast endpoint from `https://api.weather.gov/points/44.9244,-93.4140` and reads the official seven-day day/night point forecast. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Cards show the period name, high/low temperature, conditions, full narrative, wind and precipitation **probability** where supplied. A chance of precipitation is not a precipitation amount.
+The backend discovers the forecast endpoint from `https://api.weather.gov/points/44.9244,-93.4140` and reads the official seven-day day/night point forecast. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Each compact row shows the period name, high/low temperature and the complete NWS narrative. Weather icons, the repeated short summary, and separate wind/precipitation-chance footers are omitted to keep the display concise. Wind and precipitation wording supplied in the full narrative is preserved.
 
-NWS source issue time appears separately from request time. Completed periods disappear; the current period remains. Upstream JSON is cached five minutes per web instance; point mapping is rechecked daily. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed cards with a warning.
+NWS source issue time appears separately from request time. Completed periods disappear; the current period remains. Upstream JSON is cached five minutes per web instance; point mapping is rechecked daily. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed rows with a warning.
 
 The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. No scheduled forecast task is necessary. Observation/radar behavior is preserved.
 

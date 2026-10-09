@@ -128,19 +128,16 @@ body.radar-expanded { overflow: hidden; }
   .forecast-placeholder { padding: 20px; }
 }
 
-/* Official point forecast: readable day/night cards on desktop and phone. */
-.forecast-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
-.forecast-card { border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: #fff; }
-.forecast-near { background: #f6faf7; border-top: 4px solid var(--green); padding-top: 21px; }
-.forecast-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.forecast-card-heading h2 { font-size: 22px; }
-.forecast-symbol { color: #23774a; font-size: 36px; line-height: 1; }
-.forecast-temperature { display: flex; align-items: baseline; gap: 10px; margin: 14px 0; }
-.forecast-temperature span { color: var(--muted); font-size: 14px; }
-.forecast-temperature strong { font-size: 42px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-.forecast-summary { color: #1c4a32; font-weight: 700; margin: 0 0 8px; }
-.forecast-detail { font-size: 15px; line-height: 1.65; margin: 0; }
-.forecast-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; border-top: 1px solid var(--border); margin-top: 18px; padding-top: 14px; color: var(--muted); font-size: 13px; }
+/* One compact row per NWS day/night period. */
+.forecast-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.forecast-row { display: grid; grid-template-columns: 145px 100px minmax(0,1fr); gap: 22px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: #fff; }
+.forecast-row:last-child { border-bottom: 0; }
+.forecast-row.forecast-near { background: #f6faf7; }
+.forecast-row h2 { font-size: 17px; line-height: 1.4; }
+.forecast-temperature { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.forecast-temperature span { color: var(--muted); font-size: 12px; }
+.forecast-temperature strong { font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: -.6px; }
+.forecast-detail { font-size: 15px; line-height: 1.55; margin: 0; }
 .satellite-product-row { display: flex; gap: 12px; align-items: center; }
 .satellite-product-row label { font-size: 14px; font-weight: 600; }
 #satellite-description { min-height: 44px; }
@@ -156,11 +153,11 @@ body.radar-expanded { overflow: hidden; }
 #satellite-surface.expanded { position: fixed; inset: 0; z-index: 2000; }
 body.satellite-expanded { overflow: hidden; }
 @media (max-width: 600px) {
-  .forecast-grid { grid-template-columns: 1fr; gap: 14px; }
-  .forecast-card { padding: 20px; }
-  .forecast-near { padding-top: 17px; }
-  .forecast-card-heading h2 { font-size: 20px; }
-  .forecast-temperature strong { font-size: 38px; }
+  .forecast-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 14px; padding: 14px 16px; }
+  .forecast-row h2 { font-size: 17px; }
+  .forecast-temperature { flex-direction: row; align-items: baseline; gap: 7px; }
+  .forecast-temperature strong { font-size: 25px; }
+  .forecast-detail { grid-column: 1 / -1; }
   #satellite-map { height: 460px; }
   .satellite-view-actions { right: 10px; top: 10px; gap: 6px; }
   .satellite-view-actions button { font-size: 13px; padding: 8px 10px; }

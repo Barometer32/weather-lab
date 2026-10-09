@@ -147,14 +147,6 @@ async function loadRadar() {
   } finally {radarBusy=false; $("refresh-radar").disabled=false;}
 }
 let forecastBusy = false, forecastData, forecastError;
-function forecastSymbol(period) {
-  const text = `${period.shortForecast || ""} ${period.detailedForecast || ""}`.toLowerCase();
-  if (/thunder/.test(text)) return "ϟ";
-  if (/snow|sleet|ice/.test(text)) return "❄";
-  if (/rain|shower|drizzle/.test(text)) return "☂";
-  if (/cloud|fog/.test(text)) return "☁";
-  return period.isDaytime ? "☀" : "☾";
-}
 function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
@@ -164,21 +156,14 @@ function renderForecast() {
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();
   periods.forEach((period, i) => {
-    const card = document.createElement("article"); card.className = `forecast-card${i < 2 ? " forecast-near" : ""}`;
-    const heading = document.createElement("div"); heading.className = "forecast-card-heading";
+    const row = document.createElement("article"); row.className = `forecast-row${i < 2 ? " forecast-near" : ""}`;
     const name = document.createElement("h2"); name.textContent = period.name;
-    const icon = document.createElement("span"); icon.className = "forecast-symbol"; icon.textContent = forecastSymbol(period); icon.setAttribute("aria-hidden","true");
-    heading.append(name, icon);
     const temperature = document.createElement("div"); temperature.className = "forecast-temperature";
     const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
     const value = document.createElement("strong"); value.textContent = period.temperature == null ? "—" : `${period.temperature}°${period.temperatureUnit || "F"}`;
     temperature.append(label, value);
-    const summary = document.createElement("p"); summary.className = "forecast-summary"; summary.textContent = period.shortForecast;
     const detail = document.createElement("p"); detail.className = "forecast-detail"; detail.textContent = period.detailedForecast;
-    const meta = document.createElement("div"); meta.className = "forecast-meta";
-    if (period.windSpeed) { const text = document.createElement("span"); text.textContent = `Wind ${period.windDirection || ""} ${period.windSpeed}`.trim(); meta.append(text); }
-    if (period.precipChancePct != null) { const text = document.createElement("span"); text.textContent = `Precip chance ${Math.round(period.precipChancePct)}%`; meta.append(text); }
-    card.append(heading,temperature,summary,detail,meta); $("forecast-periods").append(card);
+    row.append(name,temperature,detail); $("forecast-periods").append(row);
   });
 }
 async function loadForecast() {
