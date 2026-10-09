@@ -4,11 +4,11 @@ const central = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", ho
 const fullTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", month:"short", day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
 const fmt = v => v == null ? "—" : Math.round(v).toString();
 const temp = v => v == null ? "—" : `${fmt(v)}°F`;
-const directions = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const directions = ["N","NE","E","SE","S","SW","W","NW"];
 function wind(w) {
   if (w.speedMph == null) return "—";
   if (w.speedMph < 0.5) return "Calm";
-  const dir = w.direction == null ? "Variable" : directions[Math.round(w.direction / 22.5) % 16];
+  const dir = w.direction == null ? "Variable" : directions[Math.round(w.direction / 45) % 8];
   return `${dir} ${fmt(w.speedMph)} mph`;
 }
 async function api(url) {
