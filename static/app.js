@@ -155,8 +155,8 @@ function renderForecast() {
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();
-  periods.forEach((period, i) => {
-    const row = document.createElement("article"); row.className = `forecast-row${i < 2 ? " forecast-near" : ""}`;
+  periods.forEach(period => {
+    const row = document.createElement("article"); row.className = "forecast-row";
     const name = document.createElement("h2"); name.textContent = period.name;
     const temperature = document.createElement("div"); temperature.className = "forecast-temperature";
     const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
@@ -184,11 +184,12 @@ const satelliteBounds = [[0,0],[900,1600]];
 function stopSatellite() { clearInterval(satelliteTimer); satelliteTimer = undefined; $("satellite-play").textContent = "Play"; }
 function initSatelliteMap() {
   if (satelliteMap) return;
-  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0.25});
+  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0});
   satelliteMap.createPane("satellite-images"); satelliteMap.getPane("satellite-images").style.zIndex = 350;
   satelliteMap.createPane("satellite-boundaries"); satelliteMap.getPane("satellite-boundaries").style.zIndex = 410;
   satelliteMap.getPane("satellite-boundaries").style.pointerEvents = "none";
   satelliteMap.fitBounds(satelliteBounds);
+  satelliteMap.on("resize", () => satelliteMap.fitBounds(satelliteBounds, {animate:false}));
   satelliteMap.attributionControl.addAttribution('NOAA GOES / <a href="https://weather.cod.edu/satrad/">COD NEXLAB</a>');
 }
 function showSatelliteFrame(n) {
