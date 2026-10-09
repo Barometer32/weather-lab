@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 UTC = timezone.utc
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 LOCATIONS = {"KFCM": (44.8272, -93.4571), "KMSP": (44.8831, -93.2289), "KMIC": (45.0621, -93.3539)}
 BASE = "https://nomads.ncep.noaa.gov/pub/data/nccf/com"
 FIELDS = {
@@ -18,7 +18,6 @@ FIELDS = {
     "dewpointK": ("DPT", "2 m above ground"),
     "u10": ("UGRD", "10 m above ground"), "v10": ("VGRD", "10 m above ground"),
     "precipTotalMm": ("APCP", "surface"),
-    "cloudPct": ("TCDC", "entire atmosphere"),
     "lowCloudPct": ("LCDC", "low cloud layer"),
     "midCloudPct": ("MCDC", "middle cloud layer"),
     "highCloudPct": ("HCDC", "high cloud layer"),
@@ -230,7 +229,7 @@ def collect_hour(model, cycle, hour, final_url, final_index):
 def collect_model(model, cycle, located):
     url, index = located
     with ThreadPoolExecutor(max_workers=2) as pool:
-        pairs = list(pool.map(lambda h: collect_hour(model, cycle, h, url, index), range(2, 19)))
+        pairs = list(pool.map(lambda h: collect_hour(model, cycle, h, url, index), range(1, 19)))
     return dict(pairs)
 
 
@@ -244,7 +243,7 @@ def checked_point(point):
     tc, dc = t - 273.15, d - 273.15
     result = {"tempF": tc * 1.8 + 32, "dewpointF": dc * 1.8 + 32,
               "east10": u, "north10": v}
-    for key in ("cloudPct", "lowCloudPct", "midCloudPct", "highCloudPct"):
+    for key in ("lowCloudPct", "midCloudPct", "highCloudPct"):
         value = point.get(key)
         result[key] = min(100, max(0, value)) if value is not None and -0.01 <= value <= 100.01 else None
     return result
@@ -252,7 +251,7 @@ def checked_point(point):
 
 def blend(models, cycle, sources, now=None):
     hours = []
-    for hour in range(2, 18):
+    for hour in range(1, 18):
         points = []
         for model in ("HRRR", "RRFS"):
             for station in LOCATIONS:
@@ -281,7 +280,7 @@ def blend(models, cycle, sources, now=None):
         row["qa"] = "passed"  # All six core contributors required; optional fields have provenance.
         hours.append(row)
     return {"schemaVersion": SCHEMA_VERSION, "cycle": iso(cycle), "publishedAt": iso(now or datetime.now(UTC)),
-            "windowStart": hours[0]["time"], "windowEnd": hours[-1]["precipEnd"], "durationHours": 16,
+            "windowStart": hours[0]["time"], "windowEnd": hours[-1]["precipEnd"], "durationHours": 17,
             "stations": list(LOCATIONS), "weights": {"HRRR": 0.5, "RRFS": 0.5},
             "sources": sources, "hours": hours,
             "precipTotalIn": round(sum(h["precipIn"] or 0 for h in hours), 3),

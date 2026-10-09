@@ -57,13 +57,13 @@ def main():
     cycle, located = selected
     data = {}
     for model in located:
-        logging.info("Collecting %s %s forecast hours 2–18", model, iso(cycle))
+        logging.info("Collecting %s %s forecast hours 1–18", model, iso(cycle))
         data[model] = collect_model(model, cycle, located[model])
     sources = {model: {"url": located[model][0], "feed": "parallel" if "/para/" in located[model][0] else "operational"} for model in located}
     forecast = blend(data, cycle, sources)
     forecast["processingSeconds"] = round(time.monotonic() - started, 1)
     write_forecast(forecast)
-    logging.info("Published %s: 16 hourly intervals, 6 contributors; %.1f seconds", forecast["cycle"], forecast["processingSeconds"])
+    logging.info("Published %s: 17 hourly intervals, 6 contributors; %.1f seconds", forecast["cycle"], forecast["processingSeconds"])
 
 
 if __name__ == "__main__":

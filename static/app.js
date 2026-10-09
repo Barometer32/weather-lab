@@ -156,11 +156,12 @@ function renderForecast() {
   const intervals = currentSchema ? data.hours : data.hours.slice(0, -1).map((r, i) => ({
     ...r, precipIn: data.hours[i + 1].precipIn, precipEnd: data.hours[i + 1].time
   }));
-  const rows = intervals.filter(r => new Date(r.time).getTime() >= Date.now());
-  $("forecast-updated").textContent = `${String(cycle.getUTCHours()).padStart(2,"0")}Z run · ${rows.length ? fullTime.format(new Date(rows[0].time)) + " through " + fullTime.format(new Date(data.windowEnd)) : "No future hours remain"} · updated ${central.format(new Date(data.publishedAt))}`;
+  const currentHour = Math.floor(Date.now() / 3600000) * 3600000;
+  const rows = intervals.filter(r => new Date(r.time).getTime() >= currentHour);
+  $("forecast-updated").textContent = `${String(cycle.getUTCHours()).padStart(2,"0")}Z run · ${rows.length ? fullTime.format(new Date(rows[0].time)) + " through " + fullTime.format(new Date(data.windowEnd)) : "No current or future hours remain"} · updated ${central.format(new Date(data.publishedAt))}`;
   const messages = [];
   if (forecastError) messages.push(forecastError + " Any displayed forecast is from the previous successful refresh.");
-  if (data.stale) messages.push("A newer complete blend has not arrived. Only remaining future hours are shown.");
+  if (data.stale) messages.push("A newer complete blend has not arrived. The current hour and remaining future hours are shown.");
   if (!currentSchema) messages.push("Wind direction will appear after the updated model collection finishes.");
   $("forecast-status").hidden = !messages.length;
   $("forecast-status").textContent = messages.join(" ");
@@ -168,8 +169,9 @@ function renderForecast() {
   for (const r of rows) {
     const row = document.createElement("tr");
     cell(row, fullTime.format(new Date(r.time)));
-    for (const [key, suffix] of [["tempF","°F"],["dewpointF","°F"],["windMph"," mph"],["precipIn"," in"],["cloudPct","%"],["lowCloudPct","%"],["midCloudPct","%"],["highCloudPct","%"]]) {
+    for (const [key, suffix] of [["tempF","°F"],["dewpointF","°F"],["windMph"," mph"],["precipIn"," in"],["lowCloudPct","%"],["midCloudPct","%"],["highCloudPct","%"]]) {
       const td = document.createElement("td"), value = r[key], sources = r.contributors[key] || [];
+      if (key === "lowCloudPct") td.className = "cloud-start";
       if (key === "windMph") {
         td.textContent = currentSchema ? wind({speedMph:value, direction:r.windDirection}) : value == null ? "—" : `${fmt(value)} mph`;
         td.title = currentSchema && r.windDirection != null ? `From ${r.windDirection.toFixed(1)}° true · Sources: ${sources.join(" + ")}` : currentSchema ? "Calm" : "Direction pending updated model collection";
@@ -185,7 +187,7 @@ function renderForecast() {
   }
   if (!rows.length) {
     const row = document.createElement("tr"), td = document.createElement("td");
-    td.colSpan = 9; td.textContent = "No future forecast hours remain. Waiting for the next complete model run.";
+    td.colSpan = 8; td.textContent = "No current or future forecast hours remain. Waiting for the next complete model run.";
     row.append(td); $("forecast-hours").append(row);
   }
 }
@@ -197,7 +199,7 @@ async function loadForecast() {
     forecastError = null;
     renderForecast();
   } catch (error) {
-    // Even after a failed refresh, elapsed rows must disappear.
+    // Even after a failed refresh, completed hours must disappear.
     forecastError = error.message;
     renderForecast();
     $("forecast-status").hidden = false;

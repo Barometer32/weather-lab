@@ -21,8 +21,8 @@ UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 IEM = "https://mesonet.agron.iastate.edu"
 # Custom approximate intensity labels, not measured surface rainfall rates.
-BANDS = [(10, 20, "Very light", "#b7e4c7"), (20, 25, "Light", "#62c482"),
-         (25, 30, "Light–moderate", "#239b56"), (30, 38, "Moderate", "#e6cd39"),
+BANDS = [(10, 20, "Very light", "#4caf63"), (20, 25, "Light", "#258b45"),
+         (25, 30, "Light–moderate", "#0b5125"), (30, 38, "Moderate", "#e6cd39"),
          (38, 44, "Moderate–heavy", "#f6a23a"), (44, 50, "Heavy", "#e65b3b"),
          (50, 57, "Very heavy", "#c82c55"), (57, 96, "Intense", "#8a3fa0")]
 _cache, _locks = {}, {}
@@ -214,7 +214,7 @@ def raw_radar(scan_id):
     return download(base + ".png"), download(base + ".wld")
 
 
-def recolor_and_project(png, worldfile):
+def recolor_and_project(png, worldfile, smooth=True):
     image = Image.open(BytesIO(png))
     if image.mode != "P":
         raise ValueError("Radar source format changed: indexed PNG required")
@@ -237,8 +237,26 @@ def recolor_and_project(png, worldfile):
     ys = merc(north) + (np.arange(height) + 0.5) / height * (merc(south) - merc(north))
     lats = np.degrees(2 * np.arctan(np.exp(ys)) - np.pi / 2)
     rows = np.clip(np.rint((lats - y0) / dy).astype(int), 0, height - 1)
+    projected = Image.fromarray(rgba[rows], "RGBA")
+    if smooth:
+        # Anti-alias the display, never average reflectivity or change bands.
+        # Preserve the nearest-neighbor echo footprint: no colored pixels may
+        # bleed into source cells that were hidden by the 10 dBZ cutoff.
+        size = (width * 2, height * 2)
+        footprint = projected.getchannel("A").resize(size, Image.Resampling.NEAREST)
+        # Float premultiplied alpha avoids dark halos and preserves uniform
+        # band colors exactly, unlike integer RGBA interpolation.
+        source = np.array(projected, dtype=np.float32)
+        source[:, :, :3] *= source[:, :, 3:4] / 255
+        channels = [np.asarray(Image.fromarray(source[:, :, c], "F").resize(
+            size, Image.Resampling.BILINEAR)) for c in range(4)]
+        interpolated = np.stack(channels, axis=-1)
+        interpolated[:, :, :3] *= 255 / np.maximum(interpolated[:, :, 3:4], 1e-8)
+        softened = np.rint(np.clip(interpolated, 0, 255)).astype(np.uint8)
+        softened[np.asarray(footprint) == 0] = 0
+        projected = Image.fromarray(softened, "RGBA")
     output = BytesIO()
-    Image.fromarray(rgba[rows], "RGBA").save(output, format="PNG", optimize=True)
+    projected.save(output, format="PNG", optimize=True)
     return output.getvalue(), [[south, west], [north, east]]
 
 
@@ -289,7 +307,7 @@ def radar_api():
         if not scans:
             return jsonify(error="No recent MPX scans are available."), 503
         return jsonify(frames=scans, bands=[{"min": a, "max": b, "label": c, "color": d} for a, b, c, d in BANDS],
-                       renderVersion="custom-bands-v4",
+                       renderVersion="custom-bands-v5-smoothed",
                        windowStart=iso(now - timedelta(hours=2)), windowEnd=iso(now),
                        product="N0B", elevationDegrees=0.5,
                        source="NWS MPX N0B via Iowa Environmental Mesonet")

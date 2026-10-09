@@ -19,9 +19,9 @@ CYCLE = datetime(2026, 10, 9, 12, tzinfo=UTC)
 
 
 def models():
-    point = {"temperatureK": 283.15, "dewpointK": 278.15, "east10": 3., "north10": 4., "cloudPct": 60.}
+    point = {"temperatureK": 283.15, "dewpointK": 278.15, "east10": 3., "north10": 4., "lowCloudPct": 60., "midCloudPct": 20., "highCloudPct": 30.}
     return {m: {h: {s: dict(point, precipTotalMm=h * (1 if m == "HRRR" else 3)) for s in LOCATIONS}
-                for h in range(2, 19)} for m in ("HRRR", "RRFS")}
+                for h in range(1, 19)} for m in ("HRRR", "RRFS")}
 
 
 class ForecastTests(unittest.TestCase):
@@ -88,22 +88,22 @@ class ForecastTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             selected_records("\n".join(rows[:7]), CYCLE, 2)
 
-    def test_blend_is_six_way_and_16_hour_precip_is_deaccumulated(self):
+    def test_blend_is_six_way_and_17_hour_precip_is_deaccumulated(self):
         inputs = models()
-        inputs["RRFS"][2]["KMSP"]["temperatureK"] = 289.15
+        inputs["RRFS"][1]["KMSP"]["temperatureK"] = 289.15
         data = blend(inputs, CYCLE, {})
-        self.assertEqual(len(data["hours"]), 16)
-        self.assertEqual(data["windowStart"], "2026-10-09T14:00:00Z")
+        self.assertEqual(len(data["hours"]), 17)
+        self.assertEqual(data["windowStart"], "2026-10-09T13:00:00Z")
         self.assertEqual(data["windowEnd"], "2026-10-10T06:00:00Z")
         self.assertEqual(data["hours"][0]["tempF"], 51.8)
         self.assertAlmostEqual(data["hours"][0]["precipIn"], 2 / 25.4, places=3)
-        self.assertEqual(data["hours"][0]["precipEnd"], "2026-10-09T15:00:00Z")
+        self.assertEqual(data["hours"][0]["precipEnd"], "2026-10-09T14:00:00Z")
         self.assertEqual(data["hours"][-1]["forecastHour"], 17)
         self.assertEqual(data["hours"][-1]["precipEnd"], "2026-10-10T06:00:00Z")
         self.assertNotIn("gustMph", data["hours"][0])
         self.assertNotIn("humidityPct", data["hours"][0])
         self.assertAlmostEqual(data["hours"][1]["precipIn"], 2 / 25.4, places=3)
-        self.assertAlmostEqual(data["precipTotalIn"], 32 / 25.4, places=2)
+        self.assertAlmostEqual(data["precipTotalIn"], 34 / 25.4, places=2)
         self.assertAlmostEqual(data["hours"][1]["windMph"], 11.2, places=1)
 
     def test_precipitation_is_for_the_following_hour(self):
@@ -112,7 +112,7 @@ class ForecastTests(unittest.TestCase):
             for h, stations in model.items():
                 for p in stations.values(): p["precipTotalMm"] = h * h
         data = blend(inputs, CYCLE, {})
-        self.assertAlmostEqual(data["hours"][0]["precipIn"], (9 - 4) / 25.4, places=3)
+        self.assertAlmostEqual(data["hours"][0]["precipIn"], (4 - 1) / 25.4, places=3)
         self.assertAlmostEqual(data["hours"][-1]["precipIn"], (324 - 289) / 25.4, places=3)
 
     def test_vector_blend_cancellation_north_wrap_and_from_direction(self):
@@ -173,7 +173,7 @@ class ForecastTests(unittest.TestCase):
             worker_main()
             self.assertEqual(locate.call_args.args[1], "2026-10-09T11:00:00Z")
             self.assertEqual(collect.call_count, 2)
-            self.assertEqual(publish.call_args.args[0]["schemaVersion"], 2)
+            self.assertEqual(publish.call_args.args[0]["schemaVersion"], 3)
         with patch("sys.argv", ["forecast_worker.py"]), patch("forecast_worker.target_cycle", return_value=CYCLE), patch("forecast_worker.read_forecast", return_value=blend(models(), CYCLE, {})), patch("forecast_worker.collect_model") as collect:
             worker_main()
             collect.assert_not_called()
@@ -188,16 +188,18 @@ class ForecastTests(unittest.TestCase):
                 self.assertTrue(write_forecast(upgraded))
                 self.assertFalse(write_forecast(upgraded))
                 self.assertFalse(write_forecast(old))
-                older = dict(upgraded, cycle="2026-10-09T11:00:00Z", schemaVersion=3)
+                older = dict(upgraded, cycle="2026-10-09T11:00:00Z", schemaVersion=4)
                 self.assertFalse(write_forecast(older))
 
     def test_cloud_single_source_has_explicit_provenance(self):
         inputs = models()
         for h in inputs["RRFS"].values():
-            for p in h.values(): p.pop("cloudPct")
+            for p in h.values(): p.pop("lowCloudPct")
         row = blend(inputs,CYCLE,{})["hours"][0]
-        self.assertEqual(row["cloudPct"], 60)
-        self.assertEqual(row["contributors"]["cloudPct"], ["HRRR"])
+        self.assertEqual(row["lowCloudPct"], 60)
+        self.assertEqual(row["contributors"]["lowCloudPct"], ["HRRR"])
+        self.assertEqual(row["contributors"]["midCloudPct"], ["HRRR", "RRFS"])
+        self.assertEqual(row["contributors"]["highCloudPct"], ["HRRR", "RRFS"])
 
     def test_incomplete_station_and_invalid_values_fail_collection(self):
         inputs = models()
