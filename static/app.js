@@ -63,12 +63,11 @@ function sun() {
   const now = new Date(), angle = SunCalc.getPosition(now,44.925,-93.462).altitude * 180 / Math.PI;
   $("sun-angle").textContent = `${angle.toFixed(1)}°`;
 }
-let map, nativeLayer, frames = [], overlays = [], index = 0, timer, radarBusy = false, radarRequest = 0;
+let map, nativeLayer, frames = [], overlays = [], index = 0, radarBusy = false, radarRequest = 0;
 const radarSite = "KMPX";
 let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
-function stop() { clearInterval(timer); timer = undefined; $("play").textContent = "Play"; }
 function showFrame(n) {
   if (!overlays.length) return;
   index = (n + overlays.length) % overlays.length;
@@ -77,11 +76,6 @@ function showFrame(n) {
   $("timeline").style.setProperty("--progress", `${frames.length > 1 ? index / (frames.length - 1) * 100 : 0}%`);
   $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frames[index].time))}, scan ${index + 1} of ${frames.length}`);
   $("radar-time").textContent = `${fullTime.format(new Date(frames[index].time))} · ${index + 1}/${frames.length}`;
-}
-function play() {
-  stop(); if (overlays.length < 2) return;
-  $("play").textContent = "Pause";
-  timer = setInterval(() => showFrame(index+1), Number($("speed").value));
 }
 function initMap() {
   if (map) return;
@@ -117,9 +111,9 @@ function renderRadarLegend(palette) {
 async function loadRadar() {
   if (radarBusy) return;
   const request = ++radarRequest;
-  const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1, wasPlaying = Boolean(timer);
+  const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1;
   const showInitial = !overlays.length;
-  radarBusy = true; stop(); $("refresh-radar").disabled = true;
+  radarBusy = true; $("refresh-radar").disabled = true;
   try {
     initMap();
     $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
@@ -158,10 +152,9 @@ async function loadRadar() {
     for (const [key, entry] of radarLayers) if (!keep.has(key)) { radarLayers.delete(key); }
     frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.data);
     $("timeline").max = String(frames.length-1);
-    for (const id of ["play","previous","next","timeline"]) $(id).disabled = frames.length < 2;
+    $("timeline").disabled = frames.length < 2;
     const restored = !followLatest && selectedTime ? frames.findIndex(frame => new Date(frame.time) >= new Date(selectedTime)) : -1;
     showFrame(restored >= 0 ? restored : frames.length-1);
-    if (wasPlaying && !document.hidden && !$("radar").hidden) play();
     const latest = new Date(frames.at(-1).time), age = (Date.now()-latest.getTime())/60000;
     const startsLate = (new Date(frames[0].time) - new Date(data.windowStart)) / 60000 > 15;
     const gap = frames.some((frame, i) => i && (new Date(frame.time) - new Date(frames[i-1].time)) / 60000 > 15);
@@ -173,7 +166,7 @@ async function loadRadar() {
   } finally {
     if (request === radarRequest) {
       radarBusy=false; $("refresh-radar").disabled=false;
-      for(const id of ["play","previous","next","timeline"]) $(id).disabled=overlays.length<2;
+      $("timeline").disabled=overlays.length<2;
     }
   }
 }
@@ -209,12 +202,11 @@ async function loadForecast() {
   } finally { forecastBusy = false; $("refresh-forecast").disabled = false; }
 }
 
-let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0, satelliteTimer;
+let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0;
 let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
 const satelliteLayers = new Map();
 let satelliteBoundaryKey;
 const satelliteBounds = [[0,0],[900,1600]];
-function stopSatellite() { clearInterval(satelliteTimer); satelliteTimer = undefined; $("satellite-play").textContent = "Play"; }
 function fitSatelliteView() {
   if (!satelliteMap) return;
   if (window.innerWidth <= 600) {
@@ -244,21 +236,15 @@ function showSatelliteFrame(n) {
   $("satellite-timeline").style.setProperty("--progress", `${satelliteFrames.length > 1 ? satelliteIndex / (satelliteFrames.length - 1) * 100 : 0}%`);
   $("satellite-timeline").setAttribute("aria-valuetext", `${stamp}, image ${satelliteIndex + 1} of ${satelliteFrames.length}`);
 }
-function playSatellite() {
-  stopSatellite(); if (satelliteOverlays.length < 2) return;
-  $("satellite-play").textContent = "Pause";
-  satelliteTimer = setInterval(() => showSatelliteFrame(satelliteIndex + 1), Number($("satellite-speed").value));
-}
 async function loadSatellite(force = false) {
   const product = $("satellite-product").value;
   if (satelliteBusy && satelliteLoadingProduct === product && !force) return;
   const request = ++satelliteRequest;
-  const wasPlaying = Boolean(satelliteTimer);
   const selectedTime = satelliteFrames[satelliteIndex]?.time, followLatest = !satelliteFrames.length || satelliteIndex === satelliteFrames.length-1;
   const changed = satelliteLoadingProduct != null && satelliteLoadingProduct !== product;
-  satelliteLoadingProduct = product; satelliteBusy = true; stopSatellite();
+  satelliteLoadingProduct = product; satelliteBusy = true;
   $("refresh-satellite").disabled = true;
-  for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = true;
+  $("satellite-timeline").disabled = true;
   if (changed) {
     for (const overlay of [...satelliteOverlays,...satelliteBoundaries]) satelliteMap.removeLayer(overlay);
     satelliteOverlays = []; satelliteFrames = []; satelliteBoundaries = []; satelliteLayers.clear(); satelliteBoundaryKey = undefined;
@@ -310,10 +296,9 @@ async function loadSatellite(force = false) {
     for (const [key,entry] of satelliteLayers) if (!keep.has(key)) { satelliteMap.removeLayer(entry.overlay); satelliteLayers.delete(key); }
     satelliteFrames = loaded.map(x => x.frame); satelliteOverlays = loaded.map(x => x.overlay);
     $("satellite-timeline").max = String(satelliteFrames.length - 1);
-    for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = satelliteFrames.length < 2;
+    $("satellite-timeline").disabled = satelliteFrames.length < 2;
     const restored = !followLatest && !changed && selectedTime ? satelliteFrames.findIndex(f => new Date(f.time) >= new Date(selectedTime)) : -1;
     showSatelliteFrame(restored >= 0 ? restored : satelliteFrames.length - 1);
-    if (wasPlaying && !document.hidden && !$("satellite").hidden) playSatellite();
     const first = new Date(satelliteFrames[0].time), last = new Date(satelliteFrames.at(-1).time), age = (Date.now() - last.getTime()) / 60000;
     const unavailable = failures + (data.unavailableImages || 0);
     const gaps = satelliteFrames.some((f,i) => i && new Date(f.time) - new Date(satelliteFrames[i-1].time) > 15 * 60000);
@@ -322,7 +307,7 @@ async function loadSatellite(force = false) {
     if (request !== satelliteRequest) return;
     $("satellite-status").textContent = error.message;
     $("satellite-time").textContent = satelliteOverlays.length ? "Previous satellite loop · refresh failed" : "Satellite unavailable";
-    if (satelliteOverlays.length > 1) for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = false;
+    $("satellite-timeline").disabled = satelliteOverlays.length < 2;
   } finally {
     if (request === satelliteRequest) { satelliteBusy = false; $("refresh-satellite").disabled = false; }
   }
@@ -331,10 +316,10 @@ async function loadSatellite(force = false) {
 const tabs = ["observations","radar","satellite","forecast"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
-  if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { stop(); ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
+  if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "observations") loadObservations();
   if(id === "forecast") loadForecast();
-  if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { stopSatellite(); ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
+  if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
 for(const id of tabs) {
   $("tab-"+id).addEventListener("click",()=>selectTab(id));
@@ -348,12 +333,7 @@ for(const id of tabs) {
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-observations").addEventListener("click",loadObservations);
 $("refresh-radar").addEventListener("click",loadRadar);
-$("play").addEventListener("click",()=>timer?stop():play());
-$("previous").addEventListener("click",()=>{stop();showFrame(index-1);});
-$("next").addEventListener("click",()=>{stop();showFrame(index+1);});
-$("timeline").addEventListener("input",event=>{stop();showFrame(Number(event.target.value));});
-$("timeline").addEventListener("pointerdown",stop);
-$("speed").addEventListener("change",()=>{if(timer)play();});
+$("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 $("fullscreen").addEventListener("click",async()=>{
   const surface = $("radar-surface");
   if (surface.classList.contains("expanded")) {
@@ -380,7 +360,6 @@ document.addEventListener("keydown",event=>{
     if(map)map.invalidateSize();
   }
 });
-document.addEventListener("visibilitychange",()=>{if(document.hidden) { stop(); stopSatellite(); }});
 loadObservations();sun();setInterval(sun,30000);
 let observationTimer;
 function scheduleObservations() {
@@ -402,12 +381,7 @@ setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},3
 
 $("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
 $("satellite-product").addEventListener("change",()=>loadSatellite(true));
-$("satellite-play").addEventListener("click",()=>satelliteTimer ? stopSatellite() : playSatellite());
-$("satellite-previous").addEventListener("click",()=>{stopSatellite();showSatelliteFrame(satelliteIndex-1);});
-$("satellite-next").addEventListener("click",()=>{stopSatellite();showSatelliteFrame(satelliteIndex+1);});
-$("satellite-timeline").addEventListener("input",event=>{stopSatellite();showSatelliteFrame(Number(event.target.value));});
-$("satellite-timeline").addEventListener("pointerdown",stopSatellite);
-$("satellite-speed").addEventListener("change",()=>{if(satelliteTimer)playSatellite();});
+$("satellite-timeline").addEventListener("input",event=>showSatelliteFrame(Number(event.target.value)));
 $("satellite-reset").addEventListener("click",fitSatelliteView);
 $("satellite-fullscreen").addEventListener("click",async()=>{
   const surface = $("satellite-surface");

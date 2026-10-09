@@ -41,7 +41,6 @@
     <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div><div class="map-time" id="radar-time">Loading radar…</div><button id="fullscreen" class="map-fullscreen" aria-label="Expand radar">Expand</button></div>
     <div class="radar-controls">
       <div class="timeline-control"><label for="timeline">Manual timeline <span>Drag to select a scan</span></label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
-      <div class="radar-buttons"><button id="play" class="primary" disabled>Play</button><button id="previous" class="secondary" aria-label="Previous scan" disabled>Previous</button><button id="next" class="secondary" aria-label="Next scan" disabled>Next</button><label class="speed-label">Speed <select id="speed"><option value="1200">Slow</option><option value="700" selected>Normal</option><option value="400">Fast</option></select></label></div>
     </div>
   </div>
   <p id="map-note" class="small-note" role="status" hidden></p>
@@ -66,7 +65,6 @@
     <div class="satellite-view-toolbar"><div class="satellite-frame-time" id="satellite-time">Loading satellite…</div><div class="satellite-view-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div></div>
     <div class="radar-controls">
       <div class="timeline-control"><label for="satellite-timeline">Manual timeline <span>Drag to select an image</span></label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
-      <div class="radar-buttons"><button id="satellite-play" class="primary" disabled>Play</button><button id="satellite-previous" class="secondary" aria-label="Previous satellite image" disabled>Previous</button><button id="satellite-next" class="secondary" aria-label="Next satellite image" disabled>Next</button><label class="speed-label">Speed <select id="satellite-speed"><option value="1200">Slow</option><option value="700" selected>Normal</option><option value="400">Fast</option></select></label></div>
     </div>
   </div>
   <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
