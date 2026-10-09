@@ -35,11 +35,10 @@ Iowa Environmental Mesonet. Transparent county and state boundary tiles:
 https://mesonet.agron.iastate.edu/ogc/
 
 
-Forecast data: NOAA/NCEP HRRR operational and RRFS operational/parallel GRIB feeds.
-https://nomads.ncep.noaa.gov/
-https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
-https://www.nco.ncep.noaa.gov/pmb/products/rrfs/
+Forecast data: National Weather Service point forecast API.
+https://www.weather.gov/documentation/services-web-api
+https://api.weather.gov/points/44.9244,-93.4140
 
-GRIB decoding: ECMWF ecCodes (Apache 2.0), installed from PyPI at build time.
-https://github.com/ecmwf/eccodes
-https://github.com/ecmwf/eccodes-python
+Satellite imagery: NOAA GOES-East products and local sector processing/maps by
+College of DuPage NEXLAB. Original images, annotations and source credits retained.
+https://weather.cod.edu/satrad/

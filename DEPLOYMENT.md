@@ -1,71 +1,56 @@
-# Deploy Weather Lab to Google Cloud
+# Google Cloud deployment
 
-## 1. Create the accounts/resources
+Weather Lab now needs only its Cloud Run **web service**, an Artifact Registry image repository and Cloud Build for deployments. It uses public NWS and COD data with small per-instance caches. No HRRR/RRFS model job, hourly scheduler, GRIB decoder or forecast storage bucket is required.
 
-1. GitHub: https://github.com/new -> name `weather-lab`, Public, Add a README -> Create repository. Upload the project files into its root (or let the connected GitHub app commit them after repository creation). This is a Python application hosted on Cloud Run, not a GitHub Pages static site.
-2. Google Cloud: https://console.cloud.google.com/projectcreate -> name **Weather Lab**. Use a NEW unique project ID: deleted IDs cannot be reused. Reopen or create your Cloud Billing account if you previously closed it and link the new project. No deployment has happened until you run the following steps.
-3. Billing -> Budgets & alerts -> Create budget -> scope only this project -> monthly amount $30 -> alerts at 50%, 80%, 100%. Budgets send alerts and do not cap charges.
+## Update your existing project
 
-## 2. Deploy from Cloud Shell
-
-Open Cloud Shell in the new project. Substitute your real NEW_PROJECT_ID in the final command.
+Open Google Cloud Shell with project `weather-lab-511113` selected, then run:
 
 ```bash
-git clone https://github.com/Barometer32/weather-lab.git
-cd weather-lab
-bash deploy.sh NEW_PROJECT_ID
+cd ~/weather-lab
+git pull --ff-only
+bash deploy.sh weather-lab-511113
 ```
 
-The script enables APIs, creates a private forecast bucket and separate web, collector, scheduler and builder service accounts, builds the container, deploys the public website, creates a scheduled collector and runs the first collection. It prints the public HTTPS URL. Open that URL from your phone or laptop. Public means anyone with the URL can visit; traffic can affect costs.
+The script performs these steps:
 
-The website uses 1 CPU/1 GiB, minimum zero and maximum one instance. Collector: 2 CPU/4 GiB, one task, no automatic task retries, 15-minute timeout. One Scheduler job checks at :45 and :55 UTC hourly. An already-published preferred cycle exits early. :55 retries availability of the same preferred cycle. If that cycle is late, the job looks back up to three cycles for the newest complete pair newer than the stored forecast. No large download occurs for stored/older cycles, and original forecast times remain visible. If no newer pair is complete, the page keeps the previous blend. We cannot guarantee NCEP publication at :45.
+1. Deletes the old `weather-hourly` Cloud Scheduler job in `us-central1`.
+2. Deletes the old `weather-forecast` Cloud Run job. Google Cloud terminates its running executions when the job is deleted.
+3. Builds the lighter container and deploys `weather-lab` with zero minimum instances, one maximum instance, one CPU and 1 GiB memory.
+4. Clears the obsolete forecast environment variable.
+5. Removes the old `forecast/latest.json` object from `<project>-forecast` and deletes the bucket if empty. Unrelated remaining objects are retained.
+6. Prints the public service URL.
 
-The first collection can fail simply because the current target cycle is late; the deployed observations/radar page remains available. Wait for the next scheduled check or retry with:
+Only the named Weather Lab resources are retired. These cloud steps have **not** happened merely because the source was updated on GitHub; run the deployment script to apply them.
+
+After it succeeds, refresh the page. The Forecast tab should say **National Weather Service · Hopkins**, and the Satellite tab should offer the three products. Observations and radar retain their existing behavior.
+
+## New project
+
+The same script can deploy into a billing-enabled project you own. Pass that project's actual ID. If no retired jobs or bucket exist, their cleanup steps are skipped.
+
+The deployment identity needs permission to enable APIs, use Cloud Build, manage the named Cloud Run service/jobs, manage the named scheduler job, and remove the obsolete forecast object/bucket. The web runtime uses `weather-web`; the build uses `weather-builder`. No runtime storage permissions or API secrets are needed.
+
+## Verify the old recurring work is gone
+
+In the selected project's GUI, check **Cloud Scheduler** for absence of `weather-hourly`, and **Cloud Run → Jobs** for absence of `weather-forecast`.
+
+Read-only checks in Cloud Shell:
 
 ```bash
-gcloud run jobs execute weather-forecast --region=us-central1 --wait
+gcloud scheduler jobs list --project=weather-lab-511113 --location=us-central1
+gcloud run jobs list --project=weather-lab-511113 --region=us-central1
 ```
 
-The script assigns its dedicated builder `roles/cloudbuild.builds.builder` and uses regional build buckets, so it does not rely on the permissions of Google’s default builder account. For an IAM or organization-policy error, retain the exact error and resolve that specific policy rather than granting broad roles.
+## Data refresh and costs
 
-## 3. Verify
+NWS forecasts and satellite frame lists are fetched on demand and cached briefly. There is no unattended hourly forecast computation. Radar and satellite images are requested when their tabs are used; the browser fetches satellite images directly from COD, which avoids routing those image bytes through Cloud Run.
 
-1. Open the public URL. Check the observation QA dot, timestamps, manual radar slider on both devices.
-2. Forecast: verify model cycle and publication time, current and future hourly rows (up to 17 rows at model hours +1 through +17), wind direction FROM true north, and precipitation for the hour starting at each row. Clouds with only HRRR must have an asterisk. The +18 endpoint supplies the last row’s precipitation. Completed clock hours are hidden; the current clock hour remains visible.
-3. Cloud Run -> Jobs -> weather-forecast -> Executions: confirm Success and review the logged processing seconds. Compare job duration and data transfer after a few days before relying on a monthly estimate.
+Cloud Run remains configured to scale to zero. Actual charges depend on usage, free-tier eligibility, build/image storage and network traffic. Old Artifact Registry image revisions can continue to use storage; the script preserves them so previous deployments remain recoverable.
 
-```bash
-gcloud run jobs executions list --job=weather-forecast --region=us-central1
-gcloud scheduler jobs describe weather-hourly --location=us-central1
-gcloud run services describe weather-lab --region=us-central1 --format='value(status.url)'
-```
+## Troubleshooting
 
-## Cost assumptions
-
-Planning range: roughly $10–$30/month for personal traffic, efficient downloads and the free allowances otherwise unused; this is not a cap or a guaranteed quote. 720 five-minute updates/month at 2 CPUs/4 GiB are about $9.50 gross compute before free allowances, plus the short duplicate checks, frontend, storage, builds and bandwidth. A 15-minute collection every hour would substantially increase that estimate. Set alerts and check real runtimes. No GPU, database server, AI API or retraining service is deployed. Radar is requested only while its tab is viewed; shared cached processing avoids repeated work when possible.
-
-## Update code
-
-```bash
-git pull
-bash deploy.sh NEW_PROJECT_ID
-```
-
-## Pause hourly collection
-
-```bash
-gcloud scheduler jobs pause weather-hourly --location=us-central1
-```
-
-Current and future forecast rows stay visible with stale labeling; once all timestamps have passed, the table shows an unavailable message. Website/radar can still incur charges when viewed.
-
-## Remove the experiment
-
-Save the code first. Disable billing and delete this dedicated project:
-
-```bash
-gcloud billing projects unlink NEW_PROJECT_ID
-gcloud projects delete NEW_PROJECT_ID
-```
-
-Prior usage charges remain due. Deleting only the Cloud Run service can leave storage/build artifacts behind.
+- **NWS feed unavailable:** refresh later. The last displayed forecast remains with a warning; no model blend is substituted.
+- **Satellite unavailable:** ensure your browser/network allows `weather.cod.edu`. The upstream HTML/image feed can change; check the linked COD viewer.
+- **Build or deployment fails:** the old scheduler/job may already have been retired, but the previous web revision can remain live. Fix the shown error and rerun the script.
+- **Old forecast bucket not empty:** the script retains remaining objects and reports that fact; the collector/scheduler still remain deleted.

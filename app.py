@@ -38,7 +38,7 @@ def iso(t):
 
 
 def download(url):
-    req = Request(url, headers={"User-Agent": "Barometer32-weather-lab/1.0"})
+    req = Request(url, headers={"User-Agent": "Weather-Lab (https://github.com/Barometer32/weather-lab)"})
     with urlopen(req, timeout=20) as response:
         return response.read(8_000_000)
 
@@ -272,17 +272,32 @@ def index():
 
 @app.get("/api/forecast")
 def forecast_api():
-    from forecast_store import read_forecast
+    from nws_forecast import POINT_URL, normalize_forecast
     try:
-        data = cached("forecast", 60, read_forecast)
-        cycle = datetime.fromisoformat(data["cycle"].replace("Z", "+00:00"))
-        data = dict(data, stale=utcnow() >= cycle + timedelta(hours=3, minutes=15))
+        def load():
+            point = cached("nws-point", 86400, lambda: json.loads(download(POINT_URL)))
+            url = point["properties"]["forecast"]
+            if not url.startswith("https://api.weather.gov/gridpoints/"):
+                raise ValueError("Unexpected NWS forecast endpoint")
+            return json.loads(download(url))
+        data = normalize_forecast(cached("nws-forecast", 300, load), utcnow())
         return jsonify(data)
-    except FileNotFoundError:
-        return jsonify(error="The first forecast has not been collected yet."), 503
     except Exception:
-        app.logger.exception("Forecast storage unavailable")
-        return jsonify(error="Forecast unavailable. Please try again shortly."), 502
+        app.logger.exception("NWS forecast unavailable")
+        return jsonify(error="The NWS forecast is unavailable. Please try again shortly."), 502
+
+
+@app.get("/api/satellite/<product>")
+def satellite_api(product):
+    from satellite import PRODUCTS, page_url, parse_loop
+    if product not in PRODUCTS:
+        return jsonify(error="Unknown satellite product."), 404
+    try:
+        html = cached("satellite-" + product, 120, lambda: download(page_url(product)).decode())
+        return jsonify(parse_loop(html, product, utcnow()))
+    except Exception:
+        app.logger.exception("Satellite loop unavailable")
+        return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
 @app.get("/healthz")

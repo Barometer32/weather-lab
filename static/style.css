@@ -128,10 +128,40 @@ body.radar-expanded { overflow: hidden; }
   .forecast-placeholder { padding: 20px; }
 }
 
-#forecast-hours td:first-child { position: sticky; left: 0; background: #fff; }
-#forecast-hours tr:nth-child(even) td:first-child { background: #fafcfb; }
-
-#forecast th, #forecast td { border-right: 1px solid #dfe6e2; }
-#forecast th:last-child, #forecast td:last-child { border-right: 0; }
-#forecast .cloud-start { border-left: 2px solid #93a79c; }
-#forecast td { color: #182521; }
+/* Official point forecast: readable day/night cards on desktop and phone. */
+.forecast-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.forecast-card { border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: #fff; }
+.forecast-near { background: #f6faf7; border-top: 4px solid var(--green); padding-top: 21px; }
+.forecast-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.forecast-card-heading h2 { font-size: 22px; }
+.forecast-symbol { color: #23774a; font-size: 36px; line-height: 1; }
+.forecast-temperature { display: flex; align-items: baseline; gap: 10px; margin: 14px 0; }
+.forecast-temperature span { color: var(--muted); font-size: 14px; }
+.forecast-temperature strong { font-size: 42px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.forecast-summary { color: #1c4a32; font-weight: 700; margin: 0 0 8px; }
+.forecast-detail { font-size: 15px; line-height: 1.65; margin: 0; }
+.forecast-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; border-top: 1px solid var(--border); margin-top: 18px; padding-top: 14px; color: var(--muted); font-size: 13px; }
+.satellite-product-row { display: flex; gap: 12px; align-items: center; }
+.satellite-product-row label { font-size: 14px; font-weight: 600; }
+#satellite-description { min-height: 44px; }
+#satellite-surface { position: relative; background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+#satellite-map-area { position: relative; overflow: hidden; }
+#satellite-map { height: 540px; min-height: 360px; z-index: 0; background: white; }
+.satellite-view-actions { position: absolute; right: 14px; top: 14px; z-index: 500; display: flex; gap: 8px; }
+.satellite-view-actions button { background: #fffffff2; }
+#satellite-surface:fullscreen, #satellite-surface.expanded { display: flex; flex-direction: column; width: 100%; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+#satellite-surface:fullscreen #satellite-map-area, #satellite-surface.expanded #satellite-map-area { flex: 1 1 0; min-height: 0; }
+#satellite-surface:fullscreen #satellite-map, #satellite-surface.expanded #satellite-map { height: 100%; min-height: 0; }
+#satellite-surface:fullscreen .radar-controls, #satellite-surface.expanded .radar-controls { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+#satellite-surface.expanded { position: fixed; inset: 0; z-index: 2000; }
+body.satellite-expanded { overflow: hidden; }
+@media (max-width: 600px) {
+  .forecast-grid { grid-template-columns: 1fr; gap: 14px; }
+  .forecast-card { padding: 20px; }
+  .forecast-near { padding-top: 17px; }
+  .forecast-card-heading h2 { font-size: 20px; }
+  .forecast-temperature strong { font-size: 38px; }
+  #satellite-map { height: 460px; }
+  .satellite-view-actions { right: 10px; top: 10px; gap: 6px; }
+  .satellite-view-actions button { font-size: 13px; padding: 8px 10px; }
+}

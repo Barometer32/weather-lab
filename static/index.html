@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Weather Lab · Twin Cities</title>
-  <meta name="description" content="Hourly averages from Flying Cloud, MSP, and Crystal, with simplified MPX radar.">
+  <meta name="description" content="Twin Cities hourly observations, MPX radar, local GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
@@ -16,6 +16,7 @@
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-observations" aria-selected="true" aria-controls="observations">Observations</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
+    <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
   </nav>
 </header>
@@ -50,11 +51,25 @@
   <p class="source">Radar: NWS MPX N0B, provided by <a href="https://mesonet.agron.iastate.edu/GIS/ridge.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. <a href="https://weather.cod.edu/satrad/nexrad/index.php?parms=MPX-N0B-0-24-100-usa-rad" target="_blank" rel="noopener">Open College of DuPage radar</a></p>
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
-  <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMSP + KMIC</p><h1>Hourly forecast</h1><p id="forecast-updated">Waiting for the first completed model blend…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
+  <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE · HOPKINS</p><h1>Your local forecast</h1><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
   <p class="notice" id="forecast-status" role="status" hidden></p>
-  <div class="history-heading"><h2>Hourly blend</h2><span>Central time · swipe to see all fields</span></div>
-  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind (from)</th><th scope="col">Precip¹</th><th scope="col" class="cloud-start">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="8">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
-  <p class="small-note">¹ Liquid-equivalent precipitation from the listed time to one hour later: 12 p.m. means 12–1 p.m., rounded to 0.01 in. Includes rain and the melted-water equivalent of snow/ice. ² Cloud layers can overlap; percentages should not be added. * HRRR only where RRFS cloud data is unavailable.</p>
+  <div class="forecast-grid" id="forecast-periods" aria-live="polite"><p>Loading the official point forecast…</p></div>
+  <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
+</section>
+<section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
+  <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Latest 24 images · drag the timeline to explore</p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
+  <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
+  <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
+  <div id="satellite-surface">
+    <div id="satellite-map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div><div class="map-time" id="satellite-time">Loading satellite…</div><div class="satellite-view-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div></div>
+    <div class="radar-controls">
+      <div class="timeline-control"><label for="satellite-timeline">Manual timeline <span>Drag to select an image</span></label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
+      <div class="radar-buttons"><button id="satellite-play" class="primary" disabled>Play</button><button id="satellite-previous" class="secondary" aria-label="Previous satellite image" disabled>Previous</button><button id="satellite-next" class="secondary" aria-label="Next satellite image" disabled>Next</button><label class="speed-label">Speed <select id="satellite-speed"><option value="1200">Slow</option><option value="700" selected>Normal</option><option value="400">Fast</option></select></label></div>
+    </div>
+  </div>
+  <p id="satellite-status" class="small-note" role="status">Satellite images load when you open this tab.</p>
+  <p class="small-note">Pinch or use +/− to zoom; drag to pan. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
+  <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-24-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
 </section>
 </main>
 <footer>Weather Lab · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>

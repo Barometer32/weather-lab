@@ -147,71 +147,151 @@ async function loadRadar() {
   } finally {radarBusy=false; $("refresh-radar").disabled=false;}
 }
 let forecastBusy = false, forecastData, forecastError;
+function forecastSymbol(period) {
+  const text = `${period.shortForecast || ""} ${period.detailedForecast || ""}`.toLowerCase();
+  if (/thunder/.test(text)) return "ϟ";
+  if (/snow|sleet|ice/.test(text)) return "❄";
+  if (/rain|shower|drizzle/.test(text)) return "☂";
+  if (/cloud|fog/.test(text)) return "☁";
+  return period.isDaytime ? "☀" : "☾";
+}
 function renderForecast() {
   if (!forecastData) return;
-  const data = forecastData, cycle = new Date(data.cycle);
-  const currentSchema = data.schemaVersion >= 2;
-  // During deployment, old stored amounts are hour-ending. Shift each one to
-  // its interval start until the collector publishes the upgraded schema.
-  const intervals = currentSchema ? data.hours : data.hours.slice(0, -1).map((r, i) => ({
-    ...r, precipIn: data.hours[i + 1].precipIn, precipEnd: data.hours[i + 1].time
-  }));
-  const currentHour = Math.floor(Date.now() / 3600000) * 3600000;
-  const rows = intervals.filter(r => new Date(r.time).getTime() >= currentHour);
-  $("forecast-updated").textContent = `${String(cycle.getUTCHours()).padStart(2,"0")}Z run · ${rows.length ? fullTime.format(new Date(rows[0].time)) + " through " + fullTime.format(new Date(data.windowEnd)) : "No current or future hours remain"} · updated ${central.format(new Date(data.publishedAt))}`;
-  const messages = [];
-  if (forecastError) messages.push(forecastError + " Any displayed forecast is from the previous successful refresh.");
-  if (data.stale) messages.push("A newer complete blend has not arrived. The current hour and remaining future hours are shown.");
-  if (!currentSchema) messages.push("Wind direction will appear after the updated model collection finishes.");
-  $("forecast-status").hidden = !messages.length;
-  $("forecast-status").textContent = messages.join(" ");
-  $("forecast-hours").replaceChildren();
-  for (const r of rows) {
-    const row = document.createElement("tr");
-    cell(row, fullTime.format(new Date(r.time)));
-    for (const [key, suffix] of [["tempF","°F"],["dewpointF","°F"],["windMph"," mph"],["precipIn"," in"],["lowCloudPct","%"],["midCloudPct","%"],["highCloudPct","%"]]) {
-      const td = document.createElement("td"), value = r[key], sources = r.contributors[key] || [];
-      if (key === "lowCloudPct") td.className = "cloud-start";
-      if (key === "windMph") {
-        td.textContent = currentSchema ? wind({speedMph:value, direction:r.windDirection}) : value == null ? "—" : `${fmt(value)} mph`;
-        td.title = currentSchema && r.windDirection != null ? `From ${r.windDirection.toFixed(1)}° true · Sources: ${sources.join(" + ")}` : currentSchema ? "Calm" : "Direction pending updated model collection";
-      } else {
-        const text = value == null ? "—" : key === "precipIn" ? value.toFixed(2) : fmt(value);
-        td.textContent = text + (value == null ? "" : suffix) + (value != null && sources.length === 1 && key.toLowerCase().includes("cloud") ? "*" : "");
-        td.title = value == null ? "Unavailable" : `Sources: ${sources.join(" + ")}`;
-        if (key === "precipIn") td.title += ` · ${central.format(new Date(r.time))} to ${central.format(new Date(r.precipEnd))}`;
-      }
-      row.append(td);
-    }
-    $("forecast-hours").append(row);
-  }
-  if (!rows.length) {
-    const row = document.createElement("tr"), td = document.createElement("td");
-    td.colSpan = 8; td.textContent = "No current or future forecast hours remain. Waiting for the next complete model run.";
-    row.append(td); $("forecast-hours").append(row);
-  }
+  const data = forecastData;
+  const periods = data.periods.filter(p => new Date(p.endTime).getTime() > Date.now());
+  $("forecast-updated").textContent = data.updatedAt ? `NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
+  $("forecast-status").hidden = !forecastError && periods.length > 0;
+  $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
+  $("forecast-periods").replaceChildren();
+  periods.forEach((period, i) => {
+    const card = document.createElement("article"); card.className = `forecast-card${i < 2 ? " forecast-near" : ""}`;
+    const heading = document.createElement("div"); heading.className = "forecast-card-heading";
+    const name = document.createElement("h2"); name.textContent = period.name;
+    const icon = document.createElement("span"); icon.className = "forecast-symbol"; icon.textContent = forecastSymbol(period); icon.setAttribute("aria-hidden","true");
+    heading.append(name, icon);
+    const temperature = document.createElement("div"); temperature.className = "forecast-temperature";
+    const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
+    const value = document.createElement("strong"); value.textContent = period.temperature == null ? "—" : `${period.temperature}°${period.temperatureUnit || "F"}`;
+    temperature.append(label, value);
+    const summary = document.createElement("p"); summary.className = "forecast-summary"; summary.textContent = period.shortForecast;
+    const detail = document.createElement("p"); detail.className = "forecast-detail"; detail.textContent = period.detailedForecast;
+    const meta = document.createElement("div"); meta.className = "forecast-meta";
+    if (period.windSpeed) { const text = document.createElement("span"); text.textContent = `Wind ${period.windDirection || ""} ${period.windSpeed}`.trim(); meta.append(text); }
+    if (period.precipChancePct != null) { const text = document.createElement("span"); text.textContent = `Precip chance ${Math.round(period.precipChancePct)}%`; meta.append(text); }
+    card.append(heading,temperature,summary,detail,meta); $("forecast-periods").append(card);
+  });
 }
 async function loadForecast() {
   if (forecastBusy) return;
   forecastBusy = true; $("refresh-forecast").disabled = true;
   try {
-    forecastData = await api("/api/forecast");
-    forecastError = null;
-    renderForecast();
+    forecastData = await api("/api/forecast"); forecastError = null; renderForecast();
   } catch (error) {
-    // Even after a failed refresh, completed hours must disappear.
-    forecastError = error.message;
-    renderForecast();
+    forecastError = error.message; renderForecast();
     $("forecast-status").hidden = false;
-    $("forecast-status").textContent = error.message + " Any displayed forecast is from the previous successful refresh.";
+    $("forecast-status").textContent = `${error.message} Any displayed forecast is from the previous successful refresh.`;
   } finally { forecastBusy = false; $("refresh-forecast").disabled = false; }
 }
 
-const tabs = ["observations","radar","forecast"];
+let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0, satelliteTimer;
+let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
+const satelliteBounds = [[0,0],[900,1600]];
+function stopSatellite() { clearInterval(satelliteTimer); satelliteTimer = undefined; $("satellite-play").textContent = "Play"; }
+function initSatelliteMap() {
+  if (satelliteMap) return;
+  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0.25});
+  satelliteMap.createPane("satellite-images"); satelliteMap.getPane("satellite-images").style.zIndex = 350;
+  satelliteMap.createPane("satellite-boundaries"); satelliteMap.getPane("satellite-boundaries").style.zIndex = 410;
+  satelliteMap.getPane("satellite-boundaries").style.pointerEvents = "none";
+  satelliteMap.fitBounds(satelliteBounds);
+  satelliteMap.attributionControl.addAttribution('NOAA GOES / <a href="https://weather.cod.edu/satrad/">COD NEXLAB</a>');
+}
+function showSatelliteFrame(n) {
+  if (!satelliteOverlays.length) return;
+  satelliteIndex = (n + satelliteOverlays.length) % satelliteOverlays.length;
+  satelliteOverlays.forEach((overlay,i) => overlay.setOpacity(i === satelliteIndex ? 1 : 0));
+  const stamp = fullTime.format(new Date(satelliteFrames[satelliteIndex].time));
+  $("satellite-time").textContent = `${stamp} · ${satelliteIndex + 1}/${satelliteFrames.length}`;
+  $("satellite-timeline").value = String(satelliteIndex);
+  $("satellite-timeline").style.setProperty("--progress", `${satelliteFrames.length > 1 ? satelliteIndex / (satelliteFrames.length - 1) * 100 : 0}%`);
+  $("satellite-timeline").setAttribute("aria-valuetext", `${stamp}, image ${satelliteIndex + 1} of ${satelliteFrames.length}`);
+}
+function playSatellite() {
+  stopSatellite(); if (satelliteOverlays.length < 2) return;
+  $("satellite-play").textContent = "Pause";
+  satelliteTimer = setInterval(() => showSatelliteFrame(satelliteIndex + 1), Number($("satellite-speed").value));
+}
+async function loadSatellite(force = false) {
+  const product = $("satellite-product").value;
+  if (satelliteBusy && satelliteLoadingProduct === product && !force) return;
+  const request = ++satelliteRequest;
+  const wasPlaying = Boolean(satelliteTimer);
+  const selectedTime = satelliteFrames[satelliteIndex]?.time;
+  const changed = satelliteLoadingProduct != null && satelliteLoadingProduct !== product;
+  satelliteLoadingProduct = product; satelliteBusy = true; stopSatellite();
+  $("refresh-satellite").disabled = true;
+  for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = true;
+  if (changed) {
+    for (const overlay of [...satelliteOverlays,...satelliteBoundaries]) satelliteMap.removeLayer(overlay);
+    satelliteOverlays = []; satelliteFrames = []; satelliteBoundaries = [];
+    $("satellite-time").textContent = "Loading selected product…";
+  }
+  try {
+    initSatelliteMap();
+    $("satellite-status").textContent = "Loading local satellite imagery…";
+    const data = await api(`/api/satellite/${product}`);
+    if (request !== satelliteRequest) return;
+    $("satellite-description").textContent = data.description;
+    $("satellite-source").href = data.sourceUrl;
+    const queue = [...data.frames], loaded = []; let failures = 0, completed = 0;
+    async function worker() {
+      while (queue.length && request === satelliteRequest && !document.hidden && !$("satellite").hidden) {
+        const frame = queue.shift();
+        try {
+          const image = new Image(); image.src = frame.url; await image.decode();
+          if (image.naturalWidth !== data.width || image.naturalHeight !== data.height) throw new Error("Satellite image size changed");
+          loaded.push({frame,image});
+        } catch (_) { failures++; }
+        completed++;
+        if (request === satelliteRequest) $("satellite-status").textContent = `Loading satellite ${completed}/${data.frames.length} images…`;
+      }
+    }
+    await Promise.all([worker(),worker()]);
+    if (request !== satelliteRequest) return;
+    if (!loaded.length) throw new Error("Satellite images could not load. Please try Refresh images.");
+    loaded.sort((a,b) => a.frame.time.localeCompare(b.frame.time));
+    for (const overlay of [...satelliteOverlays,...satelliteBoundaries]) satelliteMap.removeLayer(overlay);
+    satelliteFrames = loaded.map(x => x.frame);
+    satelliteOverlays = loaded.map(x => L.imageOverlay(x.image,satelliteBounds,{opacity:0,pane:"satellite-images",interactive:false}).addTo(satelliteMap));
+    satelliteBoundaries = data.boundaries.map(url => {
+      const overlay = L.imageOverlay(url,satelliteBounds,{pane:"satellite-boundaries",interactive:false}).addTo(satelliteMap);
+      overlay.on("error", () => { $("satellite-status").textContent = "Some boundaries could not load. Satellite imagery remains available."; });
+      return overlay;
+    });
+    $("satellite-timeline").max = String(satelliteFrames.length - 1);
+    for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = satelliteFrames.length < 2;
+    const restored = selectedTime ? satelliteFrames.findIndex(f => new Date(f.time) >= new Date(selectedTime)) : -1;
+    showSatelliteFrame(restored >= 0 ? restored : satelliteFrames.length - 1);
+    if (wasPlaying && !document.hidden && !$("satellite").hidden) playSatellite();
+    const first = new Date(satelliteFrames[0].time), last = new Date(satelliteFrames.at(-1).time), age = (Date.now() - last.getTime()) / 60000;
+    const gaps = satelliteFrames.some((f,i) => i && new Date(f.time) - new Date(satelliteFrames[i-1].time) > 15 * 60000);
+    $("satellite-status").textContent = `${data.label} · ${satelliteFrames.length} images · ${central.format(first)} to ${central.format(last)}${failures ? ` · ${failures} images unavailable` : ""}${gaps ? " · Some images are missing" : ""}${age > 20 ? ` · Latest image is ${Math.round(age)} minutes old` : ""}`;
+  } catch (error) {
+    if (request !== satelliteRequest) return;
+    $("satellite-status").textContent = error.message;
+    $("satellite-time").textContent = satelliteOverlays.length ? "Previous satellite loop · refresh failed" : "Satellite unavailable";
+    if (satelliteOverlays.length > 1) for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = false;
+  } finally {
+    if (request === satelliteRequest) { satelliteBusy = false; $("refresh-satellite").disabled = false; }
+  }
+}
+
+const tabs = ["observations","radar","satellite","forecast"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else stop();
   if(id === "forecast") loadForecast();
+  if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { stopSatellite(); ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
 for(const id of tabs) {
   $("tab-"+id).addEventListener("click",()=>selectTab(id));
@@ -257,7 +337,7 @@ document.addEventListener("keydown",event=>{
     if(map)map.invalidateSize();
   }
 });
-document.addEventListener("visibilitychange",()=>{if(document.hidden)stop();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden) { stop(); stopSatellite(); }});
 loadObservations();sun();setInterval(sun,30000);
 setInterval(()=>{if(!document.hidden)loadObservations();},120000);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},300000);
@@ -265,3 +345,41 @@ setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},300000);
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},30000);
+
+$("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
+$("satellite-product").addEventListener("change",()=>loadSatellite(true));
+$("satellite-play").addEventListener("click",()=>satelliteTimer ? stopSatellite() : playSatellite());
+$("satellite-previous").addEventListener("click",()=>{stopSatellite();showSatelliteFrame(satelliteIndex-1);});
+$("satellite-next").addEventListener("click",()=>{stopSatellite();showSatelliteFrame(satelliteIndex+1);});
+$("satellite-timeline").addEventListener("input",event=>{stopSatellite();showSatelliteFrame(Number(event.target.value));});
+$("satellite-timeline").addEventListener("pointerdown",stopSatellite);
+$("satellite-speed").addEventListener("change",()=>{if(satelliteTimer)playSatellite();});
+$("satellite-reset").addEventListener("click",()=>satelliteMap && satelliteMap.fitBounds(satelliteBounds));
+$("satellite-fullscreen").addEventListener("click",async()=>{
+  const surface = $("satellite-surface");
+  if (surface.classList.contains("expanded")) {
+    surface.classList.remove("expanded"); document.body.classList.remove("satellite-expanded");
+  } else if (document.fullscreenElement) {
+    await document.exitFullscreen();
+  } else {
+    try { await surface.requestFullscreen(); }
+    catch (_) { surface.classList.add("expanded"); document.body.classList.add("satellite-expanded"); }
+  }
+  $("satellite-fullscreen").textContent = document.fullscreenElement || surface.classList.contains("expanded") ? "Close" : "Expand";
+  $("satellite-fullscreen").setAttribute("aria-label", $("satellite-fullscreen").textContent === "Close" ? "Close expanded satellite" : "Expand satellite");
+  if(satelliteMap) setTimeout(()=>satelliteMap.invalidateSize(),0);
+});
+document.addEventListener("fullscreenchange",()=>{
+  if (!document.fullscreenElement && !$("satellite-surface").classList.contains("expanded")) {
+    $("satellite-fullscreen").textContent = "Expand"; $("satellite-fullscreen").setAttribute("aria-label","Expand satellite");
+  }
+  if(satelliteMap)satelliteMap.invalidateSize();
+});
+document.addEventListener("keydown",event=>{
+  if (event.key === "Escape" && $("satellite-surface").classList.contains("expanded")) {
+    $("satellite-surface").classList.remove("expanded"); document.body.classList.remove("satellite-expanded");
+    $("satellite-fullscreen").textContent = "Expand"; $("satellite-fullscreen").setAttribute("aria-label","Expand satellite");
+    if(satelliteMap)satelliteMap.invalidateSize();
+  }
+});
+setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},300000);

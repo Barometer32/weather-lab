@@ -1,30 +1,11 @@
 # Weather Lab
 
-A responsive Twin Cities weather page with three tabs: combined routine observations, on-demand simplified MPX radar, and an hourly HRRR/RRFS blend. No AI API, GPU or training.
+A phone-friendly Twin Cities weather page with four views:
 
-## Observations
-
-KFCM, KMSP and KMIC routine METARs near :53 (:50–:59) are labeled with the following hour. SPECI reports are excluded. Equal station weights; small green/amber dots show basic range QA and whether all three sites were used. The sun angle uses Hopkins coordinates without a Hopkins label. Historical values cover 12 hours.
-
-## Radar
-
-MPX N0B 0.5° base reflectivity, all available scans from the previous two hours. White background, county/state boundaries only, no city labels. Manual slider works on mobile and desktop, with play/pause and fullscreen. No radar collection when the tab is closed or the page is hidden; a request already in progress may finish. A displayed radar tab refreshes every five minutes. Images and server calculations are cached. Radar display edges are anti-aliased at twice the raster resolution using premultiplied alpha; the original classified echo footprint is retained, so smoothing adds no echoes outside the source cells passing 10 dBZ. Uniform band colors remain exact; transition colors are presentation interpolation, not additional measured intensities. The first three greens get progressively darker, then moderate starts yellow.
-
-Echoes below 10 dBZ are transparent. Bands: 10–20 very light, 20–25 light, 25–30 light–moderate, 30–38 moderate, 38–44 moderate–heavy, 44–50 heavy, 50–57 very heavy, 57+ intense. These labels describe echo strength, not measured rain at the ground.
-
-## Forecast
-
-The job checks at :45 UTC and :55 UTC for the same preferred cycle. At 13:45/13:55, it prefers 12Z; at 00:45, it prefers the previous day's 23Z. Model availability is checked through f018 before collecting anything large. If the preferred cycle is late, it searches up to three earlier cycles for the newest complete HRRR/RRFS pair, never mixing initialization times. A stored equal/newer cycle is retained without another large download. Invalid data also retains the previous complete forecast; cycle, publication time, original valid times and stale status remain visible. Keep the current clock hour and future hours; for example, at 11:15 a.m. the 11 a.m. row remains visible through 11:59. Earlier completed hours are removed automatically. A late run can have a shorter remaining window; it is never relabeled as the current cycle.
-
-Collect model hours +1 through +18, and display up to 17 hourly rows at +1 through +17 before filtering completed clock hours. Each row's temperature, dew point and wind are valid at its timestamp; precipitation is the amount from that timestamp to one hour later. Example: 12Z -> rows 13Z through 05Z next day; the 05Z row contains precipitation from 05Z to 06Z. Hour +18 supplies the endpoint for the final precipitation interval, with no separate +18 row. Each model/site's cumulative precipitation is differenced before averaging. Display precipitation rounded to 0.01 inch; retain internal precision for totals. Amounts are liquid equivalents, not probabilities.
-
-Six equally weighted contributors (2 models × 3 sites), all from the same initialization cycle and exact valid time. Temperature/dewpoint are at 2 m. Wind is at 10 m: read each GRIB's wind orientation flag, rotate grid-relative Lambert U/V components at the extracted grid point to true east/north, then average the six earth-relative vectors. Derive speed and the meteorological direction FROM true north from that average; opposing winds can cancel. Both observation and forecast labels round the resulting direction to the nearest of N, NE, E, SE, S, SW, W or NW; underlying direction angles retain their precision. Calm blends below 0.5 mph have no direction. Only low, mid and high cloud cover is displayed, separated from the other variables by a stronger table divider. Layers overlap and must not be added to obtain total cloud cover. RH, gust, pressure and total cloud cover are not collected or displayed. Lambert grids with non-spherical earth geometry are rejected for grid-relative wind rotation.
-
-Schema version 2 adds vector winds and start-of-hour precipitation; version 3 also collects hour +1 to cover the current clock hour when a cycle arrives before the next hour. On deployment, the collector can rebuild the stored cycle once if it has the previous schema. Atomic generation checks permit a higher schema at the same cycle and always reject older cycles. Until rebuilt, the frontend shifts the old hour-ending amounts to interval starts and identifies direction as pending rather than inventing it.
-
-The collector automatically checks RRFS operational and parallel feeds and supports regular and subhourly surface files. For subhourly files it extracts only the exact whole-hour messages. Some parallel subhourly files lack cloud-cover fields: in those cases HRRR-only cloud low/mid/high values have explicit provenance and are marked with an asterisk. Regular RRFS files that contain clouds contribute to the blend automatically. No observation bias adjustment or AI is applied.
-
-Only selected GRIB byte ranges are downloaded; servers ignoring Range are rejected. GRIB cycle/valid time, nearest-point distance, core numeric ranges and precipitation monotonicity are validated. All six core contributors are required before publication. Forecast JSON is written atomically and stored in a private Cloud Storage bucket, with separate web-reader and collector identities.
+- **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
+- **Radar:** MPX 0.5° base reflectivity, a two-hour loop, eight simplified colors, and a manual timeline.
+- **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
+- **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as readable seven-day cards.
 
 ## Run locally
 
@@ -32,15 +13,59 @@ Only selected GRIB byte ranges are downloaded; servers ignoring Range are reject
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python forecast_worker.py
 python app.py
 ```
 
-Open http://localhost:8080. Until a collection succeeds the Forecast tab shows an honest unavailable state. Local output is `data/forecast.json`, ignored by git. You may explicitly collect a cycle using `python forecast_worker.py --cycle 2026-10-09T10:00:00Z` while that cycle remains on NOAA.
+Open http://localhost:8080. No API keys or model files are needed.
+
+## Observations
+
+Routine METAR reports near :53 (:50–:59) receive the following-hour label: 8:53 p.m. becomes 9 p.m. Special SPECI reports are excluded. The report is shown once received; the label can briefly be ahead of the clock. Missing reports stay missing. The last twelve hourly snapshots are displayed in America/Chicago time.
+
+Temperature/dew point use equal valid-station weights. Wind speed is averaged separately; direction uses speed-weighted circular averaging and is displayed with eight compass directions. Green QA dots require valid temperature, dew point, and wind from all three stations. Amber dots indicate missing/invalid readings or a failed refresh. Basic QA catches missing/impossible numbers but does not detect all sensor biases. Sun angle is calculated locally in the browser for the existing Hopkins reference.
+
+## Radar
+
+NWS MPX N0B imagery is obtained through Iowa Environmental Mesonet. All available scans in the previous two hours are included. The minimum is 10 dBZ. Indexed data values, not RGB colors, determine echo classes. Antialiasing smooths the display while retaining the source echo footprint and hiding values below 10 dBZ. Echo labels approximate intensity, not measured rainfall reaching the ground.
+
+The map has a white background, state/county boundaries, no city labels, play/pause, previous/next, speed selection, zoom/pan, and a manual slider on both phones and desktop. Scan gaps or stale images are flagged.
+
+## Satellite
+
+The page reads the public College of DuPage NEXLAB loop for its `local-S_Minnesota` sector and loads the original GOES-East images directly from COD. Each view contains the latest available 24 images (typically about two hours at five-minute intervals). COD supplies the correctly aligned state and county overlays; city labels are omitted.
+
+The Leaflet viewer uses the source's **native image coordinates**, not a latitude/longitude radar reprojection. This preserves image/overlay alignment and provides pinch zoom, drag to pan, reset view, expand, play/pause, speed control, and a manual slider. The original 1600×900 RGB image and its source annotation are retained. The surrounding viewer and controls are white. Replacing ground colors with white would alter the RGB product and is not done.
+
+- **True color:** natural daytime cloud/ground appearance; requires daylight.
+- **Day Cloud Phase:** daytime cloud-phase RGB; its interpretation depends on sunlight.
+- **NT Microphysics:** nighttime RGB for low-cloud/fog and other cloud distinctions; daytime solar reflection affects interpretation.
+
+RGB colors give qualitative cloud clues, not exact cloud heights. Images load only while the Satellite tab is opened; switching tabs or hiding the page pauses animation. Failed images, gaps and stale acquisition times are indicated. Product switches cancel obsolete loads so the old product cannot replace the new one.
+
+## NWS forecast
+
+The backend discovers the forecast endpoint from `https://api.weather.gov/points/44.9244,-93.4140` and reads the official seven-day day/night point forecast. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Cards show the period name, high/low temperature, conditions, full narrative, wind and precipitation **probability** where supplied. A chance of precipitation is not a precipitation amount.
+
+NWS source issue time appears separately from request time. Completed periods disappear; the current period remains. Upstream JSON is cached five minutes per web instance; point mapping is rechecked daily. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed cards with a warning.
+
+The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. No scheduled forecast task is necessary. Observation/radar behavior is preserved.
+
+## Deploy/update
+
+See [DEPLOYMENT.md](DEPLOYMENT.md). In the existing Google Cloud Shell checkout:
+
+```bash
+cd ~/weather-lab
+git pull --ff-only
+bash deploy.sh weather-lab-511113
+```
+
+The script deletes Weather Lab's retired `weather-hourly` scheduler and `weather-forecast` collector job, deploys the web app, and removes its obsolete forecast object and empty forecast bucket. It does not create replacement scheduled jobs. Cloud changes occur only when this script is run in authenticated Cloud Shell.
+
+## Checks
 
 ```bash
 python -m unittest discover -s tests -v
 node --check static/app.js
+bash -n deploy.sh
 ```
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for Google Cloud setup and cleanup. Upstream sources and bundled vendor licenses are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
