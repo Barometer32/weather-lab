@@ -30,7 +30,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Weather data attribution: NOAA/NWS Aviation Weather Center; native KMPX/KEVX Level II radar via NSF Unidata public S3 feeds; map boundaries via Iowa Environmental Mesonet. Transparent county and state boundary tiles:
+Weather data attribution: NOAA/NWS Aviation Weather Center; native KMPX Level II radar via NSF Unidata public S3 feeds; map boundaries via Iowa Environmental Mesonet. Transparent county and state boundary tiles:
 https://mesonet.agron.iastate.edu/ogc/
 
 

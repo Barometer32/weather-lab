@@ -18,8 +18,7 @@ import numpy as np
 
 UTC = timezone.utc
 VERSION = "level2-polar-v2"
-SITES = {"KMPX": {"name": "Twin Cities", "center": [44.925, -93.462], "zoom": 8},
-         "KEVX": {"name": "Eglin AFB", "center": [30.565, -85.922], "zoom": 7}}
+SITES = {"KMPX": {"name": "Twin Cities", "center": [44.925, -93.462], "zoom": 8}}
 ARCHIVE = "https://unidata-nexrad-level2.s3.amazonaws.com/"
 CHUNKS = "https://unidata-nexrad-level2-chunks.s3.amazonaws.com/"
 NS = {"s": "http://s3.amazonaws.com/doc/2006-03-01/"}
@@ -210,6 +209,7 @@ def consume(radials, site, pending=None, cuts=None):
 
 
 def manifest(frames, now, site, palette):
+    # Keep every available scan in the time window, regardless of scan frequency.
     start = now - timedelta(hours=2)
     frames = [frame for frame in frames if start <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
     frames.sort(key=lambda frame: frame["time"])

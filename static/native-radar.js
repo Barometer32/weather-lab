@@ -32,7 +32,7 @@ window.NativeRadar = (() => {
     const codes = new Uint8Array(buffer,4+length);
     if (!Array.isArray(meta.azimuths) || meta.azimuths.length < 350 || meta.azimuths.length > 1440 ||
         !Number.isInteger(meta.gates) || meta.gates < 1 || meta.gates > 2000 ||
-        codes.length !== meta.gates*meta.azimuths.length || !["KMPX","KEVX"].includes(meta.site) ||
+        codes.length !== meta.gates*meta.azimuths.length || meta.site !== "KMPX" ||
         !Number.isFinite(meta.latitude) || !Number.isFinite(meta.longitude) ||
         !Number.isFinite(meta.firstGateMeters) || !(meta.gateWidthMeters > 0) ||
         meta.azimuths.some((v,i)=>!Number.isFinite(v) || v<0 || v>=360 || (i && v<meta.azimuths[i-1]))) {

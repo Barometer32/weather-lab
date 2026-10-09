@@ -18,6 +18,10 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
 if gcloud scheduler jobs describe weather-hourly --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-hourly --location="$WEATHER_REGION" --quiet
 fi
+# Remove the retired Eglin radar's background job; KMPX keeps its minute job.
+if gcloud scheduler jobs describe weather-live-radar-KEVX --location="$WEATHER_REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs delete weather-live-radar-KEVX --location="$WEATHER_REGION" --quiet
+fi
 if gcloud run jobs describe weather-forecast --region="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud run jobs delete weather-forecast --region="$WEATHER_REGION" --quiet
 fi
@@ -43,6 +47,11 @@ gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --me
 gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
 gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,300,collector:app
 gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
+for WEATHER_RETIRED_OBJECT in live/radar-KEVX.json live/radar-state-KEVX.json; do
+  if gcloud storage objects describe "gs://${WEATHER_DATA_BUCKET}/${WEATHER_RETIRED_OBJECT}" >/dev/null 2>&1; then
+    gcloud storage rm "gs://${WEATHER_DATA_BUCKET}/${WEATHER_RETIRED_OBJECT}"
+  fi
+done
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --region="$WEATHER_REGION" --format='value(status.url)')"
 
 weather_schedule() {
@@ -54,7 +63,6 @@ weather_schedule() {
   gcloud scheduler jobs run "weather-live-${weather_kind}" --location="$WEATHER_REGION"
 }
 weather_schedule radar '* * * * *' radar-KMPX
-weather_schedule radar-KEVX '* * * * *'
 weather_schedule satellite '*/5 * * * *'
 weather_schedule observations '3,56,59 * * * *'
 weather_schedule forecast '*/5 * * * *'

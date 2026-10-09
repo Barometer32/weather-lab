@@ -64,8 +64,9 @@ function sun() {
   $("sun-angle").textContent = `${angle.toFixed(1)}°`;
 }
 let map, nativeLayer, frames = [], overlays = [], index = 0, timer, radarBusy = false, radarRequest = 0;
-let radarSite = "KMPX", radarPalette = [];
-const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8},KEVX:{center:[30.565,-85.922],zoom:7}};
+const radarSite = "KMPX";
+let radarPalette = [];
+const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
 function stop() { clearInterval(timer); timer = undefined; $("play").textContent = "Play"; }
 function showFrame(n) {
@@ -347,18 +348,6 @@ for(const id of tabs) {
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-observations").addEventListener("click",loadObservations);
 $("refresh-radar").addEventListener("click",loadRadar);
-$("radar-site").addEventListener("change",()=>{
-  stop(); ++radarRequest; radarBusy=false; radarSite=$("radar-site").value;
-  frames=[];overlays=[];index=0;radarLayers.clear();
-  if(nativeLayer)nativeLayer.clear();
-  $("radar-eyebrow").textContent=`${radarSite} · 0.5° BASE REFLECTIVITY`;
-  $("radar-title").textContent=radarSite==="KMPX" ? "Local radar" : "Eglin AFB radar";
-  $("map").setAttribute("aria-label",`Interactive ${radarSite} radar with state and county boundaries`);
-  $("radar-time").textContent="Loading radar…";
-  for(const id of ["play","previous","next","timeline"])$(id).disabled=true;
-  if(map)map.setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
-  loadRadar();
-});
 $("play").addEventListener("click",()=>timer?stop():play());
 $("previous").addEventListener("click",()=>{stop();showFrame(index-1);});
 $("next").addEventListener("click",()=>{stop();showFrame(index+1);});

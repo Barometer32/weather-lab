@@ -53,18 +53,18 @@ class NativeRadarTests(unittest.TestCase):
             self.assertFalse(items)
 
     def test_scan_plan_retains_lowest_supplemental_cuts_despite_antenna_transition_angles(self):
-        rows=radar.Radials(sweep("KEVX",angle=0.3,minute=50)+sweep("KEVX",angle=0.5,minute=51)+sweep("KEVX",angle=0.3,minute=52))
-        rows.cuts={"1":{"angle":0.3,"waveform":"Contiguous Surveillance"},
-                   "2":{"angle":0.5,"waveform":"Contiguous Surveillance"},
-                   "3":{"angle":0.3,"waveform":"Contiguous Surveillance"}}
+        rows=radar.Radials(sweep(angle=0.5,minute=50)+sweep(angle=0.9,minute=51)+sweep(angle=0.5,minute=52))
+        rows.cuts={"1":{"angle":0.5,"waveform":"Contiguous Surveillance"},
+                   "2":{"angle":0.9,"waveform":"Contiguous Surveillance"},
+                   "3":{"angle":0.5,"waveform":"Contiguous Surveillance"}}
         for i,row in enumerate(rows):row.header.el_num=i//720+1
-        rows[0].header.el_angle=0.47
-        rows[720].header.el_angle=0.31
-        items,_=radar.consume(rows,"KEVX")
+        rows[0].header.el_angle=0.75
+        rows[720].header.el_angle=0.51
+        items,_=radar.consume(rows,"KMPX")
         self.assertEqual(len(items),2)
-        self.assertEqual([meta["nominalElevation"] for meta,_ in items],[0.3,0.3])
-        data=radar.manifest([{**meta,"elevationDegrees":meta["nominalElevation"]} for meta,_ in items],NOW,"KEVX",[])
-        self.assertEqual(data["elevationDegrees"],0.3)
+        self.assertEqual([meta["nominalElevation"] for meta,_ in items],[0.5,0.5])
+        data=radar.manifest([{**meta,"elevationDegrees":meta["nominalElevation"]} for meta,_ in items],NOW,"KMPX",[])
+        self.assertEqual(data["elevationDegrees"],0.5)
 
     def test_low_supplemental_scans_retained_without_split_cut_duplicates_or_other_tilts(self):
         rows=sweep(minute=50)+sweep(doppler=True,minute=51)+sweep(angle=1.5,minute=52)+sweep(minute=53)+sweep(angle=0.3,minute=54)
@@ -74,7 +74,7 @@ class NativeRadarTests(unittest.TestCase):
         self.assertIn("17:53",items[1][0]["time"])
 
     def test_site_mismatch_rejected_and_packet_roundtrips_exact_values(self):
-        with self.assertRaises(ValueError):radar.consume(sweep("KEVX"),"KMPX")
+        with self.assertRaises(ValueError):radar.consume(sweep("KXXX"),"KMPX")
         values=np.arange(256,dtype=np.uint8).reshape(2,128)
         data=radar.packet({"azimuths":[0,180],"gates":128},values)
         meta,actual=radar.unpack(data)
@@ -85,16 +85,50 @@ class NativeRadarTests(unittest.TestCase):
         now=datetime(2026,10,10,0,tzinfo=timezone.utc)
         stamps=[now-timedelta(hours=2),now-timedelta(hours=2,microseconds=1),now,now+timedelta(microseconds=1)]
         frames=[{"id":str(i),"time":radar.iso(t)} for i,t in enumerate(stamps)]
-        data=radar.manifest(frames,now,"KEVX",[])
+        data=radar.manifest(frames,now,"KMPX",[])
         self.assertEqual([f["id"] for f in data["frames"]],["0","2"])
-        self.assertEqual(data["site"],"KEVX")
+        self.assertEqual(data["site"],"KMPX")
 
-    def test_collector_keeps_sites_independent_when_one_feed_fails(self):
-        with patch("native_radar.collect_site",side_effect=[ValueError("offline"),{"frames":3}]) as collect:
+    def test_collector_only_collects_kmpx_and_retired_endpoint_is_removed(self):
+        with patch("native_radar.collect_site",return_value={"frames":100}) as collect:
             result=collector.collect_radar(MemoryStore(),NOW)
-        self.assertIn("error",result["KMPX"])
-        self.assertEqual(result["KEVX"],{"frames":3})
-        self.assertEqual([call.args[2] for call in collect.call_args_list],["KMPX","KEVX"])
+        self.assertEqual(result,{"KMPX":{"frames":100}})
+        self.assertEqual([call.args[2] for call in collect.call_args_list],["KMPX"])
+        self.assertEqual(set(radar.SITES),{"KMPX"})
+        self.assertNotIn("radar-KEVX",collector.locks)
+        with patch("collector.get_store") as store:
+            self.assertEqual(collector.app.test_client().post('/collect/radar-KEVX').status_code,404)
+            store.assert_not_called()
+
+    def test_two_hour_window_has_no_frame_count_cap(self):
+        for count in (30,100,241):
+            with self.subTest(scans=count):
+                stamps=[NOW-timedelta(hours=2)+timedelta(seconds=7200*i/(count-1)) for i in range(count)]
+                frames=[{"id":str(i),"time":radar.iso(t)} for i,t in enumerate(stamps)]
+                frames.extend([{"id":"old","time":radar.iso(NOW-timedelta(hours=2,microseconds=1))},
+                               {"id":"future","time":radar.iso(NOW+timedelta(microseconds=1))}])
+                data=radar.manifest(list(reversed(frames)),NOW,"KMPX",[])
+                self.assertEqual(len(data["frames"]),count)
+                self.assertEqual([f["id"] for f in data["frames"]],[str(i) for i in range(count)])
+                self.assertEqual(data["windowStart"],radar.iso(NOW-timedelta(hours=2)))
+                self.assertEqual(data["windowEnd"],radar.iso(NOW))
+
+    def test_public_api_retains_all_scans_and_rolls_window_without_extending_history(self):
+        store=MemoryStore()
+        frames=[{"id":str(i),"time":radar.iso(NOW-timedelta(hours=2)+timedelta(seconds=30*i))} for i in range(241)]
+        store.write_json("live/radar-KMPX.json",radar.manifest(frames,NOW,"KMPX",[]))
+        weather._cache.clear()
+        with patch("app.get_store",return_value=store),patch("app.utcnow",return_value=NOW) as clock,patch("app.download") as upstream:
+            client=weather.app.test_client()
+            data=client.get('/api/radar').json
+            self.assertEqual(len(data["frames"]),241)
+            clock.return_value=NOW+timedelta(minutes=15)
+            data=client.get('/api/radar').json
+            self.assertEqual(len(data["frames"]),211)
+            self.assertEqual(data["frames"][0]["id"],"30")
+            self.assertEqual(data["windowStart"],radar.iso(clock.return_value-timedelta(hours=2)))
+            self.assertEqual(data["windowEnd"],radar.iso(clock.return_value))
+            upstream.assert_not_called()
 
     def test_stream_cursor_and_partial_sweep_survive_restart_and_ignore_unchanged_chunks(self):
         store=MemoryStore();rows=sweep(gates=1832)
@@ -123,16 +157,17 @@ class NativeRadarTests(unittest.TestCase):
             self.assertFalse(any(k.endswith('.bin') for k in store.writes))
 
     def test_native_web_reads_site_manifest_and_gzipped_packets_without_upstream_processing(self):
-        store=MemoryStore();items,_=radar.consume(sweep("KEVX",gates=1832),"KEVX")
-        meta,data=items[0];key=f"radar/{radar.VERSION}/KEVX/{meta['id']}.bin"
+        store=MemoryStore();items,_=radar.consume(sweep(gates=1832),"KMPX")
+        meta,data=items[0];key=f"radar/{radar.VERSION}/KMPX/{meta['id']}.bin"
         store.write(key,data,"application/octet-stream")
-        store.write_json("live/radar-KEVX.json",radar.manifest([meta],NOW,"KEVX",[]))
+        store.write_json("live/radar-KMPX.json",radar.manifest([meta],NOW,"KMPX",[]))
         weather._cache.clear();weather.prepared_image.cache_clear()
         with patch("app.get_store",return_value=store),patch("app.utcnow",return_value=NOW),patch("app.download") as upstream:
-            client=weather.app.test_client();response=client.get('/api/radar?site=KEVX')
+            client=weather.app.test_client();response=client.get('/api/radar?site=KMPX')
             self.assertEqual(response.status_code,200)
-            self.assertEqual(response.json['site'],'KEVX')
-            self.assertEqual(client.get('/api/radar?site=KTLH').status_code,400)
+            self.assertEqual(response.json['site'],'KMPX')
+            self.assertEqual(client.get('/api/radar?site=KEVX').status_code,400)
+            self.assertEqual(client.get('/api/prepared/'+key.replace('/KMPX/','/KEVX/')).status_code,404)
             response=client.get('/api/prepared/'+key)
             self.assertEqual(response.headers['Content-Encoding'],'gzip')
             self.assertEqual(response.data,data)

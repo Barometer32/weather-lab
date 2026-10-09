@@ -402,7 +402,7 @@ def prepared_image(key):
 def prepared_asset(key):
     # Public visitors may read only immutable image objects, never manifests or
     # arbitrary bucket files. Only the private collector can trigger processing.
-    allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/(KMPX|KEVX)/\d{17}\.bin", key)
+    allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))

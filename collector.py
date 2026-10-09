@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "radar-KEVX", "satellite", "observations", "forecast")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast")}
 
 
 def collect_radar_legacy(store, now):
@@ -54,20 +54,7 @@ def collect_radar_legacy(store, now):
 
 
 def collect_radar(store, now):
-    from native_radar import SITES, collect_site
-    palette = [{"dbz": value, "color": color} for value, color in weather.PALETTE]
-    results = {}
-    # Run sites sequentially to bound decoder memory, with a separate time
-    # budget so heavy weather or a failed feed cannot starve the other site.
-    for site in SITES:
-        try:
-            results[site] = collect_site(store, now, site, palette)
-        except Exception:
-            app.logger.exception("Native radar collection failed: %s", site)
-            results[site] = {"error": "Collection failed; previous data retained"}
-    if all("error" in value for value in results.values()):
-        raise ValueError("Both native radar feeds failed")
-    return results
+    return {"KMPX": collect_radar_site(store, now, "KMPX")}
 
 
 def collect_radar_site(store, now, site):
@@ -172,7 +159,7 @@ def health():
 @app.post("/collect/<kind>")
 def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
-            "radar-KEVX": lambda store, now: collect_radar_site(store, now, "KEVX"), "satellite": collect_satellite,
+            "satellite": collect_satellite,
             "observations": collect_observations, "forecast": collect_forecast}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404

@@ -147,9 +147,6 @@ body.radar-expanded { overflow: hidden; }
 .reflectivity-gradient { height: 18px; border-radius: 4px; }
 #map .leaflet-image-layer { image-rendering: crisp-edges; image-rendering: pixelated; }
 .native-radar-canvas { position:absolute; image-rendering:pixelated; }
-.radar-site-control { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
-.radar-site-control label { font-weight:600; }
-.radar-site-control select { max-width:100%; padding:9px 12px; background:#fff; border:1px solid var(--border); border-radius:8px; font:inherit; color:inherit; }
 .reflectivity-ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .satellite-view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); background: white; }
 .satellite-frame-time { font-size: 14px; font-variant-numeric: tabular-nums; }
