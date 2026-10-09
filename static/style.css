@@ -145,6 +145,7 @@ body.radar-expanded { overflow: hidden; }
 #satellite-map { width: 100%; height: auto; aspect-ratio: 16 / 9; min-height: 0; z-index: 0; background: white; }
 .legend.continuous-legend { display: block; }
 .reflectivity-gradient { height: 18px; border-radius: 4px; }
+#map .leaflet-image-layer { image-rendering: crisp-edges; image-rendering: pixelated; }
 .reflectivity-ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .satellite-view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); background: white; }
 .satellite-frame-time { font-size: 14px; font-variant-numeric: tabular-nums; }

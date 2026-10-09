@@ -30,7 +30,7 @@ PALETTE = [(10, "#02621e"), (15, "#117f26"), (20, "#24a32f"),
            (60, "#f00000"), (64.99, "#a40000"), (65, "#e600c8"),
            (70, "#f349e4"), (75, "#e88df8"), (79.99, "#bdbeff"),
            (80, "#00d5d0")]
-RENDER_VERSION = "cod-gradient-v6"
+RENDER_VERSION = "cod-gradient-v7-native"
 _cache, _locks = {}, {}
 _lock_guard = threading.Lock()
 
@@ -220,7 +220,7 @@ def raw_radar(scan_id):
     return download(base + ".png"), download(base + ".wld")
 
 
-def recolor_and_project(png, worldfile, smooth=True):
+def recolor_and_project(png, worldfile):
     image = Image.open(BytesIO(png))
     if image.mode != "P":
         raise ValueError("Radar source format changed: indexed PNG required")
@@ -247,23 +247,8 @@ def recolor_and_project(png, worldfile, smooth=True):
     lats = np.degrees(2 * np.arctan(np.exp(ys)) - np.pi / 2)
     rows = np.clip(np.rint((lats - y0) / dy).astype(int), 0, height - 1)
     projected = Image.fromarray(rgba[rows], "RGBA")
-    if smooth:
-        # Anti-alias the display, never average reflectivity or change bands.
-        # Preserve the nearest-neighbor echo footprint: no colored pixels may
-        # bleed into source cells that were hidden by the 10 dBZ cutoff.
-        size = (width * 2, height * 2)
-        footprint = projected.getchannel("A").resize(size, Image.Resampling.NEAREST)
-        # Float premultiplied alpha avoids dark halos and preserves uniform
-        # band colors exactly, unlike integer RGBA interpolation.
-        source = np.array(projected, dtype=np.float32)
-        source[:, :, :3] *= source[:, :, 3:4] / 255
-        channels = [np.asarray(Image.fromarray(source[:, :, c], "F").resize(
-            size, Image.Resampling.BILINEAR)) for c in range(4)]
-        interpolated = np.stack(channels, axis=-1)
-        interpolated[:, :, :3] *= 255 / np.maximum(interpolated[:, :, 3:4], 1e-8)
-        softened = np.rint(np.clip(interpolated, 0, 255)).astype(np.uint8)
-        softened[np.asarray(footprint) == 0] = 0
-        projected = Image.fromarray(softened, "RGBA")
+    # Retain the source raster dimensions and nearest-source-cell projection.
+    # No antialiasing, extra display pixels, or blending of neighboring echoes.
     output = BytesIO()
     projected.save(output, format="PNG", optimize=True)
     return output.getvalue(), [[south, west], [north, east]]

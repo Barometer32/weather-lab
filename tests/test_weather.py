@@ -146,7 +146,7 @@ class WeatherTests(unittest.TestCase):
         # Codes 85/86 straddle the 9.5/10 dBZ cutoff. Missing codes stay transparent.
         data = np.tile(np.array([0,1,85,86,106,126,146,166,255],dtype="uint8"),(9,1))
         image = Image.fromarray(data).convert("P"); b = io.BytesIO();image.save(b,format="PNG")
-        png,bounds = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n", smooth=False)
+        png,bounds = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n")
         out = np.asarray(Image.open(io.BytesIO(png)))
         self.assertTrue((out[0,:3,3] == 0).all())
         self.assertEqual(tuple(out[0,3]),(2,98,30,220))
@@ -159,7 +159,7 @@ class WeatherTests(unittest.TestCase):
         codes = np.arange(256,dtype="uint8")
         data = np.tile(codes,(8,1))
         image = Image.fromarray(data).convert("P"); b=io.BytesIO(); image.save(b,format="PNG")
-        png,_ = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n", smooth=False)
+        png,_ = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n")
         out = np.asarray(Image.open(io.BytesIO(png)))[0]
         self.assertTrue((out[:86] == 0).all())
         # Selected values read from the reference color bar, independent of the
@@ -171,23 +171,20 @@ class WeatherTests(unittest.TestCase):
         for code, color in expected.items(): self.assertEqual(tuple(out[code]),color)
         self.assertGreater(len(np.unique(out[86:227,:3],axis=0)),100)
 
-    def test_radar_smoothing_preserves_cutoff_footprint_and_core_colors(self):
+    def test_radar_retains_source_dimensions_sharp_edges_and_exact_colors(self):
         data = np.zeros((64,64), dtype="uint8")
         data[12:52,12:52] = 86  # Exactly 10 dBZ.
         data[24:40,24:40] = 126  # Exactly 30 dBZ.
         image = Image.fromarray(data).convert("P"); b = io.BytesIO(); image.save(b,format="PNG")
-        world = b"0.01\n0\n0\n-0.01\n-93\n45\n"
-        exact, exact_bounds = recolor_and_project(b.getvalue(),world,smooth=False)
-        smooth, smooth_bounds = recolor_and_project(b.getvalue(),world)
-        original = np.asarray(Image.open(io.BytesIO(exact)))
-        softened = np.asarray(Image.open(io.BytesIO(smooth)))
-        self.assertEqual(softened.shape, (128,128,4))
-        self.assertEqual(exact_bounds, smooth_bounds)
-        footprint = np.repeat(np.repeat(original[:,:,3] > 0,2,axis=0),2,axis=1)
-        self.assertTrue((softened[~footprint] == 0).all())
-        self.assertEqual(tuple(softened[64,64]), (74,233,66,220))
-        self.assertEqual(tuple(softened[40,40]), (2,98,30,220))
-        self.assertGreater(len(np.unique(softened.reshape(-1,4),axis=0)), len(np.unique(original.reshape(-1,4),axis=0)))
+        png,bounds = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n")
+        out = np.asarray(Image.open(io.BytesIO(png)))
+        self.assertEqual(out.shape,(64,64,4))
+        colors={tuple(pixel) for pixel in out.reshape(-1,4)}
+        self.assertEqual(colors,{(0,0,0,0),(2,98,30,220),(74,233,66,220)})
+        self.assertTrue((out[:8,:,3] == 0).all())
+        self.assertEqual(tuple(out[32,32]),(74,233,66,220))
+        self.assertEqual(tuple(out[20,20]),(2,98,30,220))
+        self.assertAlmostEqual(bounds[1][0],45.005)
 
     def test_non_indexed_radar_rejected(self):
         b=io.BytesIO();Image.new("RGB",(10,10)).save(b,format="PNG")
