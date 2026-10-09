@@ -46,13 +46,13 @@ class RealtimeTests(unittest.TestCase):
 
     def test_radar_publishes_images_before_manifest_and_only_processes_new_frames(self):
         with patch("app.get_scans", return_value=[frame(10),frame(5)]), patch("app.radar_frame", return_value=(b"png",[[44,-94],[46,-92]])) as render:
-            collector.collect_radar(self.store, NOW)
+            collector.collect_radar_legacy(self.store, NOW)
             self.assertEqual(render.call_args_list[0].args[0],frame(5)["id"])
             self.assertEqual(self.store.writes[-1],"live/radar.json")
-            collector.collect_radar(self.store, NOW)
+            collector.collect_radar_legacy(self.store, NOW)
             self.assertEqual(render.call_count,2)
         with patch("app.get_scans", return_value=[frame(5),frame(0)]), patch("app.radar_frame", return_value=(b"new",[[44,-94],[46,-92]])) as render:
-            collector.collect_radar(self.store,NOW)
+            collector.collect_radar_legacy(self.store,NOW)
             self.assertEqual(render.call_count,1)
         self.assertEqual(len(self.store.read_json("live/radar.json")["frames"]),2)
 
@@ -60,22 +60,22 @@ class RealtimeTests(unittest.TestCase):
         self.store.write_json("live/radar.json", {"checkedAt":weather.iso(NOW),"frames":[]})
         before = self.store.read("live/radar.json")
         with patch("app.get_scans",return_value=[frame(0)]), patch("app.radar_frame",side_effect=TimeoutError):
-            with self.assertRaises(ValueError): collector.collect_radar(self.store,NOW)
+            with self.assertRaises(ValueError): collector.collect_radar_legacy(self.store,NOW)
         self.assertEqual(self.store.read("live/radar.json"),before)
 
     def test_initial_backfill_checkpoints_and_resumes_without_reprocessing_latest(self):
         with patch("app.get_scans",return_value=[frame(5),frame(0)]), patch("app.radar_frame",return_value=(b"png",[[44,-94],[46,-92]])) as render:
             with patch("collector.time.monotonic",side_effect=[0,1,200]):
-                result=collector.collect_radar(self.store,NOW)
+                result=collector.collect_radar_legacy(self.store,NOW)
             self.assertEqual(result["unavailable"],1)
             self.assertEqual(self.store.read_json("live/radar.json")["frames"][0]["id"],frame(0)["id"])
-            collector.collect_radar(self.store,NOW)
+            collector.collect_radar_legacy(self.store,NOW)
             self.assertEqual(render.call_count,2)
             self.assertEqual(len(self.store.read_json("live/radar.json")["frames"]),2)
 
     def test_partial_collection_publishes_only_valid_available_frames(self):
         with patch("app.get_scans",return_value=[frame(5),frame(0)]), patch("app.radar_frame",side_effect=[(b"new",[[44,-94],[46,-92]]),TimeoutError]):
-            collector.collect_radar(self.store,NOW)
+            collector.collect_radar_legacy(self.store,NOW)
         data = self.store.read_json("live/radar.json")
         self.assertEqual([f["id"] for f in data["frames"]],[frame(0)["id"]])
         self.assertEqual(data["unavailableScans"],1)
@@ -97,7 +97,7 @@ class RealtimeTests(unittest.TestCase):
 
     def test_cold_web_reads_prepared_radar_without_upstream_processing_and_refilters_window(self):
         data=weather.radar_manifest([frame(121),frame(5)],NOW); data["checkedAt"]=weather.iso(NOW)
-        self.store.write_json("live/radar.json",data)
+        self.store.write_json("live/radar-KMPX.json",{**data,"site":"KMPX","renderVersion":weather.NATIVE_VERSION})
         with patch("app.get_store",return_value=self.store), patch("app.utcnow",return_value=NOW), patch("app.download") as upstream, patch("app.radar_frame") as render:
             response=weather.app.test_client().get("/api/radar")
             self.assertEqual(response.status_code,200)

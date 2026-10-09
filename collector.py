@@ -15,10 +15,10 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar", "satellite", "observations", "forecast")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "radar-KEVX", "satellite", "observations", "forecast")}
 
 
-def collect_radar(store, now):
+def collect_radar_legacy(store, now):
     previous = store.read_json("live/radar.json") or {}
     old = {f["id"]: f for f in previous.get("frames", [])} if previous.get("renderVersion") == weather.RENDER_VERSION else {}
     scans = weather.get_scans(now)
@@ -51,6 +51,29 @@ def collect_radar(store, now):
         raise ValueError("No radar frames prepared; previous manifest retained")
     publish()
     return {"frames": len(frames), "unavailable": len(scans)-len(frames)}
+
+
+def collect_radar(store, now):
+    from native_radar import SITES, collect_site
+    palette = [{"dbz": value, "color": color} for value, color in weather.PALETTE]
+    results = {}
+    # Run sites sequentially to bound decoder memory, with a separate time
+    # budget so heavy weather or a failed feed cannot starve the other site.
+    for site in SITES:
+        try:
+            results[site] = collect_site(store, now, site, palette)
+        except Exception:
+            app.logger.exception("Native radar collection failed: %s", site)
+            results[site] = {"error": "Collection failed; previous data retained"}
+    if all("error" in value for value in results.values()):
+        raise ValueError("Both native radar feeds failed")
+    return results
+
+
+def collect_radar_site(store, now, site):
+    from native_radar import collect_site
+    palette = [{"dbz": value, "color": color} for value, color in weather.PALETTE]
+    return collect_site(store, now, site, palette, budget=45)
 
 
 def collect_product(store, product, now):
@@ -148,12 +171,13 @@ def health():
 
 @app.post("/collect/<kind>")
 def collect(kind):
-    jobs = {"radar": collect_radar, "satellite": collect_satellite,
+    jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
+            "radar-KEVX": lambda store, now: collect_radar_site(store, now, "KEVX"), "satellite": collect_satellite,
             "observations": collect_observations, "forecast": collect_forecast}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     if not locks[kind].acquire(blocking=False):
-        return jsonify(status="already collecting"), 409
+        return jsonify(status="already collecting"), 200
     try:
         store = get_store()
         if store is None:

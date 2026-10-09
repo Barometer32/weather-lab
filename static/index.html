@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/vendor/suncalc.js"></script>
+  <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/app.js"></script>
 </head>
 <body>
@@ -35,7 +36,8 @@
   <details class="method"><summary>How the average and basic QA work</summary><p>For KFCM, KMSP and KMIC, use the routine hourly METAR near :53 and label it with the following hour: 8:53 p.m. becomes 9 p.m. Allow :50–:59 for small changes in routine report timing. Exclude special (SPECI) reports and reports after the labeled hour. The newest routine report appears as soon as it is received, so its rounded hour label may be a few minutes ahead of the clock. Missing routine reports are flagged rather than replaced with another kind of observation. Temperature and dew point use equal station weights.</p><p>A green dot means basic QA passed and all three stations supplied valid routine temperature, dew point and wind readings. An amber dot means incomplete data or a failed refresh. Hover or focus on a dot for details. Checks reject missing or out-of-range numbers, invalid wind directions, and dew points above temperature (allowing 0.5°C for rounding). Calm and explicitly variable winds are valid. Incomplete hours show a warning and use valid contributors for each field. This does not detect every sensor error or bias.</p><p>Wind speed is averaged separately; direction uses speed-weighted circular averaging of known directions. Variable winds have no fixed direction. The sun angle is calculated live. Times use America/Chicago, including daylight saving changes.</p></details>
 </section>
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
-  <div class="section-heading"><div><p class="eyebrow">MPX · 0.5° BASE REFLECTIVITY</p><h1>Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
+  <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
+  <div class="radar-site-control"><label for="radar-site">Radar site</label><select id="radar-site"><option value="KMPX" selected>KMPX · Twin Cities</option><option value="KEVX">KEVX · Eglin AFB, Florida</option></select></div>
   <div id="radar-surface">
     <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div><div class="map-time" id="radar-time">Loading radar…</div><button id="fullscreen" class="map-fullscreen" aria-label="Expand radar">Expand</button></div>
     <div class="radar-controls">
@@ -46,9 +48,9 @@
   <p id="map-note" class="small-note" role="status" hidden></p>
   <p id="radar-status" role="status">Loading available MPX scans…</p>
   <div class="legend" id="legend" aria-label="Radar echo strength legend"></div>
-  <p class="small-note">Below 10 dBZ is hidden. Source image cells are displayed without smoothing or blending. Colors show reflectivity; echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
-  <details class="method"><summary>About this radar</summary><p>All available MPX N0B scans from the previous two-hour window are used; scan times are irregular and missing scans are flagged. New scans are prepared in the background every two minutes. This is 0.5° base reflectivity. The beam rises with distance and does not directly measure rainfall at the surface. The continuous color scale follows the source's 0.5 dBZ increments; it does not measure rain reaching the ground.</p></details>
-  <p class="source">Radar: NWS MPX N0B, provided by <a href="https://mesonet.agron.iastate.edu/GIS/ridge.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. <a href="https://weather.cod.edu/satrad/nexrad/index.php?parms=MPX-N0B-0-24-100-usa-rad" target="_blank" rel="noopener">Open College of DuPage radar</a></p>
+  <p class="small-note">Below 10 dBZ is hidden. Native radar cells are displayed without smoothing or blending. Colors show reflectivity; echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
+  <details class="method"><summary>About this radar</summary><p>Native Level II lowest-tilt surveillance reflectivity is collected every minute for both sites. Completed low-level scans are published from the real-time chunk feed without waiting for the full radar volume; supplemental low-level scans are included when produced. KMPX uses 0.5°; KEVX uses its lowest available tilt (currently 0.3°), labeled above. Scan frequency is controlled by the radar operator and is not guaranteed. Incomplete sweeps are withheld, and the completed-volume archive fills the previous two hours. Super-resolution scans have 250-meter range gates and 0.5° azimuth spacing; the beam footprint widens with distance. Display pixels sample the nearest native gate without smoothing. The beam rises with distance and does not directly measure rainfall at the surface. Times are shown in Central time for both sites.</p></details>
+  <p class="source">Radar: NOAA/NWS Level II data via <a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NSF Unidata public archive and real-time feed</a>. Map boundaries: Iowa Environmental Mesonet.</p>
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
   <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE · HENNEPIN</p><h1>Your local forecast</h1><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>

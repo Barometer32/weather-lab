@@ -3,7 +3,7 @@
 A phone-friendly Twin Cities weather page with four views:
 
 - **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
-- **Radar:** MPX 0.5° base reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
+- **Radar:** KMPX/KEVX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
 
@@ -26,9 +26,15 @@ Temperature/dew point use equal valid-station weights. Wind speed is averaged se
 
 ## Radar
 
-NWS MPX N0B imagery is obtained through Iowa Environmental Mesonet. All available scans in the previous two hours are included. The minimum is 10 dBZ. Indexed data values, not RGB colors, determine echo colors. The gradient follows the supplied COD reference: dark-to-bright green, yellow/orange/red, then magenta/pale purple/cyan. Each native 0.5 dBZ code retains a distinct interpolated color through most of the range; 80+ dBZ uses cyan. The renderer keeps the original IEM raster dimensions, projects rows using nearest-source pixels, and does not antialias or blend adjacent echoes. The browser displays the radar layer with nearest-neighbor pixel scaling. Values below 10 dBZ remain hidden. These are colored Level III image cells, not untouched Level II radial samples; the upstream image generation still sets the effective display resolution.
+Native radar requires the background collector and `WEATHER_DATA_BUCKET`; starting only the local public Flask process does not collect native scans.
 
-The map has a white background, state/county boundaries, no city labels, play/pause, previous/next, speed selection, zoom/pan, and a manual slider on both phones and desktop. Scan gaps or stale images are flagged.
+NOAA/NWS native Level II reflectivity is collected for **KMPX (Twin Cities)** and **KEVX (Eglin AFB)** from NSF Unidata's public real-time chunk and completed-volume archive buckets. KMPX remains the default; a selector switches sites. KMPX uses its 0.5° base tilt. KEVX has an additional 0.3° base tilt, which is used for its rapid lowest-level scans and labeled explicitly. The VCP scan plan selects the surveillance cut, so brief antenna transitions do not misclassify scans. Only complete lowest-tilt surveillance reflectivity sweeps are published. Split-cut Doppler REF duplicates, higher tilts, incomplete sweeps and missing chunk sequences are excluded. Supplemental low-level surveillance scans are kept when produced; their frequency is controlled by the radar operator.
+
+Each radar site has its own authenticated minute Scheduler job and 45-second steady-state work budget (up to 120 seconds for first backfill), so one site cannot block the other. The collector checks every minute. It locates the current streaming volume with a 24-byte archive header request, processes new chunks in sequence, saves a partial low-tilt sweep across cold starts, and publishes each completed scan without waiting for the volume to finish. The completed-volume archive fills the preceding two hours and recovers missed streaming data. Bounded backfill resumes on later invocations. The public app serves prepared data only and never launches per-visitor collection.
+
+Native super-resolution reflectivity has 250-meter range gates and 0.5° azimuth spacing. These are polar measurements, not 250-meter square geographic pixels; cross-beam resolution worsens with distance. Compressed binary frame packets keep native azimuths and range geometry. The canvas viewer samples the nearest native gate at the current zoom using WGS84 geodesic distances/bearings and standard 4/3-earth beam geometry, without smoothing or averaging. The 10 dBZ cutoff and approved continuous COD-style palette are preserved; codes below 10 dBZ/missing/range-folded are transparent. No geographic PNG raster limits the displayed detail.
+
+The map retains its white background, state/county boundaries, no city labels, play/pause, previous/next, speed selection, zoom/pan, and manual slider on phones and desktop. Zoom can reach level 13. Both sites use Central time. History backfill, gaps and stale scans are flagged. The scan timestamp is its start; the native packet also retains its completion time.
 
 ## Satellite
 
@@ -60,12 +66,13 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: radar every two minutes; all three satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
+The script retires the old model job, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: one independent minute job for each radar site; all three satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
 
 ## Checks
 
 ```bash
 python -m unittest discover -s tests -v
 node --check static/app.js
+node --check static/native-radar.js
 bash -n deploy.sh
 ```

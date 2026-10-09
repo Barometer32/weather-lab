@@ -46,14 +46,15 @@ gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --region="$WEATHER_REGION" --format='value(status.url)')"
 
 weather_schedule() {
-  local weather_kind="$1" weather_cron="$2" weather_action=create
+  local weather_kind="$1" weather_cron="$2" weather_endpoint="${3:-$1}" weather_action=create
   if gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" >/dev/null 2>&1; then
     weather_action=update
   fi
-  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_kind}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline=300s --max-retry-attempts=2 --min-backoff=60s --max-backoff=120s
+  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline=300s --max-retry-attempts=2 --min-backoff=60s --max-backoff=120s
   gcloud scheduler jobs run "weather-live-${weather_kind}" --location="$WEATHER_REGION"
 }
-weather_schedule radar '*/2 * * * *'
+weather_schedule radar '* * * * *' radar-KMPX
+weather_schedule radar-KEVX '* * * * *'
 weather_schedule satellite '*/5 * * * *'
 weather_schedule observations '3,56,59 * * * *'
 weather_schedule forecast '*/5 * * * *'

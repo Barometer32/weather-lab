@@ -3,3 +3,4 @@ gunicorn==26.2.0
 numpy==2.3.5
 Pillow==12.3.0
 google-cloud-storage==3.17.0
+MetPy==1.7.1

@@ -30,8 +30,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Weather data attribution: NOAA/NWS Aviation Weather Center; NWS MPX radar via
-Iowa Environmental Mesonet. Transparent county and state boundary tiles:
+Weather data attribution: NOAA/NWS Aviation Weather Center; native KMPX/KEVX Level II radar via NSF Unidata public S3 feeds; map boundaries via Iowa Environmental Mesonet. Transparent county and state boundary tiles:
 https://mesonet.agron.iastate.edu/ogc/
 
 
@@ -42,3 +41,7 @@ https://api.weather.gov/points/44.9244,-93.4140
 Satellite imagery: NOAA GOES-East products and local sector processing/maps by
 College of DuPage NEXLAB. Original images, annotations and source credits retained.
 https://weather.cod.edu/satrad/
+
+Native radar decoder: MetPy 1.7.1 (NSF Unidata), BSD 3-Clause.
+https://github.com/Unidata/MetPy
+https://registry.opendata.aws/noaa-nexrad/

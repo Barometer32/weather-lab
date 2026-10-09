@@ -12,10 +12,11 @@ import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, Response, jsonify, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
 import numpy as np
 from PIL import Image
 from realtime import get_store
+from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 
 app = Flask(__name__, static_folder="static")
 UTC = timezone.utc
@@ -344,20 +345,17 @@ def observation_api():
 def radar_api():
     try:
         now = utcnow()
-        data = prepared_snapshot("radar", 600)
-        if data:
-            if data.get("renderVersion") != RENDER_VERSION:
-                return jsonify(error="The new radar colors are being prepared. Please refresh shortly."), 503
-            scans = [frame for frame in data["frames"]
-                     if now - timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
-        else:
-            scans = get_scans(now)
+        site = request.args.get("site", "KMPX")
+        if site not in RADAR_SITES:
+            return jsonify(error="Unknown radar site."), 400
+        data = prepared_snapshot("radar-" + site, 180)
+        if not data or data.get("renderVersion") != NATIVE_VERSION:
+            return jsonify(error="Native radar is being prepared. Please refresh shortly."), 503
+        scans = [frame for frame in data["frames"]
+                 if now - timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
         if not scans:
-            return jsonify(error="No recent MPX scans are available."), 503
-        result = radar_manifest(scans, now)
-        if data:
-            result.update(checkedAt=data["checkedAt"], stale=data["stale"], unavailableScans=data.get("unavailableScans", 0))
-        return jsonify(result)
+            return jsonify(error=f"No recent {site} scans are available."), 503
+        return jsonify({**data, "frames": scans, "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
     except Exception:
         app.logger.exception("Radar scan list failed")
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
@@ -404,7 +402,8 @@ def prepared_image(key):
 def prepared_asset(key):
     # Public visitors may read only immutable image objects, never manifests or
     # arbitrary bucket files. Only the private collector can trigger processing.
-    allowed = (re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
+    allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/(KMPX|KEVX)/\d{17}\.bin", key)
+               or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
     if not allowed:
@@ -414,8 +413,11 @@ def prepared_asset(key):
         if image is None:
             prepared_image.cache_clear()  # Do not permanently cache a missing object.
             return jsonify(error="Image not prepared yet"), 404
-        return Response(image, mimetype="image/jpeg" if key.endswith(".jpg") else "image/png",
-                        headers={"Cache-Control": "public, max-age=86400, immutable"})
+        headers = {"Cache-Control": "public, max-age=86400, immutable"}
+        if key.endswith(".bin"):
+            headers["Content-Encoding"] = "gzip"
+        return Response(image, mimetype="application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
+                        headers=headers)
     except Exception:
         app.logger.exception("Prepared image read failed")
         return jsonify(error="Prepared image temporarily unavailable"), 502

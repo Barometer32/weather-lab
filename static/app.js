@@ -63,13 +63,15 @@ function sun() {
   const now = new Date(), angle = SunCalc.getPosition(now,44.925,-93.462).altitude * 180 / Math.PI;
   $("sun-angle").textContent = `${angle.toFixed(1)}°`;
 }
-let map, frames = [], overlays = [], index = 0, timer, radarBusy = false, radarRequest = 0;
+let map, nativeLayer, frames = [], overlays = [], index = 0, timer, radarBusy = false, radarRequest = 0;
+let radarSite = "KMPX", radarPalette = [];
+const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8},KEVX:{center:[30.565,-85.922],zoom:7}};
 const radarLayers = new Map();
 function stop() { clearInterval(timer); timer = undefined; $("play").textContent = "Play"; }
 function showFrame(n) {
   if (!overlays.length) return;
   index = (n + overlays.length) % overlays.length;
-  for (let i = 0; i < overlays.length; i++) overlays[i].setOpacity(i === index ? 1 : 0);
+  nativeLayer.setFrame(overlays[index],radarPalette);
   $("timeline").value = String(index);
   $("timeline").style.setProperty("--progress", `${frames.length > 1 ? index / (frames.length - 1) * 100 : 0}%`);
   $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frames[index].time))}, scan ${index + 1} of ${frames.length}`);
@@ -82,8 +84,9 @@ function play() {
 }
 function initMap() {
   if (map) return;
-  map = L.map("map", {minZoom:5,maxZoom:11}).setView([44.925,-93.462],8);
+  map = L.map("map", {minZoom:5,maxZoom:13}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
+  nativeLayer=NativeRadar.layer().addTo(map);
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
   for (const [layer, opacity] of [["uscounties", 0.35], ["usstates", 0.8]]) {
@@ -118,27 +121,29 @@ async function loadRadar() {
   radarBusy = true; stop(); $("refresh-radar").disabled = true;
   try {
     initMap();
-    $("radar-status").textContent = "Checking latest MPX scans…";
-    const data = await api("/api/radar");
+    $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
+    const data = await api(`/api/radar?site=${radarSite}`);
     if (request !== radarRequest) return;
-    renderRadarLegend(data.palette);
+    renderRadarLegend(data.palette); radarPalette=data.palette;
+    $("radar-eyebrow").textContent=`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
     const loaded = []; let completed = 0, failures = 0;
     // Show the newest image first. Fetch only frames not already decoded.
     const queue = [...data.frames].reverse();
     async function worker() {
       while(queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
-        const frame = queue.shift(), key = `${data.renderVersion}/${frame.id}`;
+        const frame = queue.shift(), key = `${data.site}/${data.renderVersion}/${frame.id}`;
         try {
           let entry = radarLayers.get(key);
           if (!entry) {
-            const bounds = frame.bounds || (await api(`/api/radar/${frame.id}/metadata`)).bounds;
-            const image = new Image(); image.src = frame.url || `/api/radar/${frame.id}.png?style=${encodeURIComponent(data.renderVersion)}`; await image.decode();
+            const response=await fetch(frame.url);
+            if(!response.ok)throw new Error("Native scan could not load");
+            const decoded=NativeRadar.decode(await response.arrayBuffer());
+            if(decoded.meta.site!==data.site || decoded.meta.id!==frame.id)throw new Error("Radar scan mismatch");
             if (request !== radarRequest) return;
-            const overlay = L.imageOverlay(image,bounds,{opacity:0,pane:"radar",interactive:false}).addTo(map);
-            entry = {frame,overlay}; radarLayers.set(key,entry);
+            entry = {frame,data:decoded}; radarLayers.set(key,entry);
           }
           loaded.push(entry);
-          if (showInitial && (!frames.length || frame.time > frames[index].time)) { frames = [entry.frame]; overlays = [entry.overlay]; showFrame(0); }
+          if (showInitial && (!frames.length || frame.time > frames[index].time)) { frames = [entry.frame]; overlays = [entry.data]; showFrame(0); }
         } catch (_) { failures++; }
         completed++;
         if (request === radarRequest) $("radar-status").textContent = `Latest image ready · loading loop ${completed}/${data.frames.length} scans…`;
@@ -148,9 +153,9 @@ async function loadRadar() {
     if (request !== radarRequest) return;
     if (!loaded.length) throw new Error("Radar scans could not be loaded. Please try Refresh scans.");
     loaded.sort((a,b)=>a.frame.id.localeCompare(b.frame.id));
-    const keep = new Set(loaded.map(entry => `${data.renderVersion}/${entry.frame.id}`));
-    for (const [key, entry] of radarLayers) if (!keep.has(key)) { map.removeLayer(entry.overlay); radarLayers.delete(key); }
-    frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.overlay);
+    const keep = new Set(loaded.map(entry => `${data.site}/${data.renderVersion}/${entry.frame.id}`));
+    for (const [key, entry] of radarLayers) if (!keep.has(key)) { radarLayers.delete(key); }
+    frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.data);
     $("timeline").max = String(frames.length-1);
     for (const id of ["play","previous","next","timeline"]) $(id).disabled = frames.length < 2;
     const restored = !followLatest && selectedTime ? frames.findIndex(frame => new Date(frame.time) >= new Date(selectedTime)) : -1;
@@ -159,8 +164,8 @@ async function loadRadar() {
     const latest = new Date(frames.at(-1).time), age = (Date.now()-latest.getTime())/60000;
     const startsLate = (new Date(frames[0].time) - new Date(data.windowStart)) / 60000 > 15;
     const gap = frames.some((frame, i) => i && (new Date(frame.time) - new Date(frames[i-1].time)) / 60000 > 15);
-    const unavailable = failures + (data.unavailableScans || 0);
-    $("radar-status").textContent = `Past 2 hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} scans unavailable` : ""}${startsLate || gap ? " · Some of the two-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.stale ? " · Background updates delayed" : ""}`;
+    const unavailable = failures + (data.collectionErrors || 0);
+    $("radar-status").textContent = `${data.site} · Past 2 hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} collection/loading errors` : ""}${startsLate || gap ? " · Some of the two-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.historyPending ? " · Earlier scans are filling in" : ""}${data.stale ? " · Background updates delayed" : ""}`;
   } catch(error) {
     if (request !== radarRequest) return;
     $("radar-status").textContent=error.message; $("radar-time").textContent=overlays.length?"Previous radar loop · refresh failed":"Radar unavailable";
@@ -342,6 +347,18 @@ for(const id of tabs) {
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-observations").addEventListener("click",loadObservations);
 $("refresh-radar").addEventListener("click",loadRadar);
+$("radar-site").addEventListener("change",()=>{
+  stop(); ++radarRequest; radarBusy=false; radarSite=$("radar-site").value;
+  frames=[];overlays=[];index=0;radarLayers.clear();
+  if(nativeLayer)nativeLayer.clear();
+  $("radar-eyebrow").textContent=`${radarSite} · 0.5° BASE REFLECTIVITY`;
+  $("radar-title").textContent=radarSite==="KMPX" ? "Local radar" : "Eglin AFB radar";
+  $("map").setAttribute("aria-label",`Interactive ${radarSite} radar with state and county boundaries`);
+  $("radar-time").textContent="Loading radar…";
+  for(const id of ["play","previous","next","timeline"])$(id).disabled=true;
+  if(map)map.setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
+  loadRadar();
+});
 $("play").addEventListener("click",()=>timer?stop():play());
 $("previous").addEventListener("click",()=>{stop();showFrame(index-1);});
 $("next").addEventListener("click",()=>{stop();showFrame(index+1);});
