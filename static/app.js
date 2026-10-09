@@ -37,15 +37,15 @@ async function loadObservations() {
     $("temperature").textContent = temp(c.tempF);
     $("dewpoint").textContent = temp(c.dewpointF);
     $("wind").textContent = wind(c.wind);
-    const qa = c.qa;
-    const status = $("observation-status"); status.hidden = qa.allStationsUsed;
-    status.textContent = `Partial hourly average: ${qa.stationsAvailable}/3 reports available. Valid checks: temperature ${qa.checks.temperature}/3, dew point ${qa.checks.dewpoint}/3, wind ${qa.checks.wind}/3. Missing or invalid fields are excluded.`;
+    const qa = c.qa, stale = Boolean(data.stale);
+    const status = $("observation-status"); status.hidden = qa.allStationsUsed && !stale;
+    status.textContent = stale ? "Background observation updates are delayed; displayed readings may be stale." : `Partial hourly average: ${qa.stationsAvailable}/3 reports available. Valid checks: temperature ${qa.checks.temperature}/3, dew point ${qa.checks.dewpoint}/3, wind ${qa.checks.wind}/3. Missing or invalid fields are excluded.`;
     $("history").replaceChildren();
     for (const h of data.history) {
       const row = document.createElement("tr");
       const hourCell = document.createElement("td"), hourLine = document.createElement("span"), time = document.createElement("span");
       hourLine.className = "hour-line"; time.textContent = central.format(new Date(h.hour));
-      hourLine.append(qualityDot(h.qa), time); hourCell.append(hourLine); row.append(hourCell);
+      hourLine.append(qualityDot(h.qa, stale), time); hourCell.append(hourLine); row.append(hourCell);
       cell(row,temp(h.tempF)); cell(row,temp(h.dewpointF)); cell(row,wind(h.wind));
       $("history").append(row);
     }
@@ -63,7 +63,8 @@ function sun() {
   const now = new Date(), angle = SunCalc.getPosition(now,44.925,-93.462).altitude * 180 / Math.PI;
   $("sun-angle").textContent = `${angle.toFixed(1)}°`;
 }
-let map, frames = [], overlays = [], index = 0, timer, radarBusy = false;
+let map, frames = [], overlays = [], index = 0, timer, radarBusy = false, radarRequest = 0;
+const radarLayers = new Map();
 function stop() { clearInterval(timer); timer = undefined; $("play").textContent = "Play"; }
 function showFrame(n) {
   if (!overlays.length) return;
@@ -97,54 +98,78 @@ function initMap() {
   }
 
 }
+function renderRadarLegend(palette) {
+  const minimum = 10, maximum = 80;
+  $("legend").replaceChildren(); $("legend").className = "legend continuous-legend";
+  const bar = document.createElement("div"); bar.className = "reflectivity-gradient";
+  bar.style.background = `linear-gradient(to right, ${palette.map(p => `${p.color} ${(p.dbz-minimum)/(maximum-minimum)*100}%`).join(", ")})`;
+  const ticks = document.createElement("div"); ticks.className = "reflectivity-ticks";
+  for (let dbz=10; dbz<=80; dbz+=10) {
+    const tick = document.createElement("span"); tick.textContent = dbz === 80 ? "80+" : String(dbz); ticks.append(tick);
+  }
+  const label = document.createElement("p"); label.className = "small-note"; label.textContent = "Reflectivity · dBZ";
+  $("legend").append(bar,ticks,label);
+}
 async function loadRadar() {
   if (radarBusy) return;
-  const selectedTime = frames[index]?.time, wasPlaying = Boolean(timer);
+  const request = ++radarRequest;
+  const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1, wasPlaying = Boolean(timer);
+  const showInitial = !overlays.length;
   radarBusy = true; stop(); $("refresh-radar").disabled = true;
-  for (const id of ["play","previous","next","timeline"]) $(id).disabled = true;
   try {
     initMap();
-    $("radar-status").textContent = "Loading available MPX scans…";
+    $("radar-status").textContent = "Checking latest MPX scans…";
     const data = await api("/api/radar");
-    $("legend").replaceChildren();
-    for (const b of data.bands) {
-      const item = document.createElement("div"); item.className="legend-item";
-      const swatch = document.createElement("span"); swatch.className="swatch"; swatch.style.backgroundColor=b.color;
-      const text = document.createElement("span"), label = document.createElement("span"), range = document.createElement("small"); label.textContent=b.label; range.textContent=b.max>=96?`${b.min}+ dBZ`:`${b.min}–<${b.max} dBZ`;
-      text.append(label,range); item.append(swatch,text); $("legend").append(item);
-    }
+    if (request !== radarRequest) return;
+    renderRadarLegend(data.palette);
     const loaded = []; let completed = 0, failures = 0;
-    // One full raster per scan, shared across all map zoom levels. Bound concurrency.
-    const queue = [...data.frames];
+    // Show the newest image first. Fetch only frames not already decoded.
+    const queue = [...data.frames].reverse();
     async function worker() {
-      while(queue.length && !document.hidden && !$("radar").hidden) {
-        const frame = queue.shift();
+      while(queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
+        const frame = queue.shift(), key = `${data.renderVersion}/${frame.id}`;
         try {
-          const meta = await api(`/api/radar/${frame.id}/metadata`);
-          const image = new Image(); image.src = `/api/radar/${frame.id}.png?style=${encodeURIComponent(data.renderVersion)}`; await image.decode();
-          loaded.push({frame,image,bounds:meta.bounds});
+          let entry = radarLayers.get(key);
+          if (!entry) {
+            const bounds = frame.bounds || (await api(`/api/radar/${frame.id}/metadata`)).bounds;
+            const image = new Image(); image.src = frame.url || `/api/radar/${frame.id}.png?style=${encodeURIComponent(data.renderVersion)}`; await image.decode();
+            if (request !== radarRequest) return;
+            const overlay = L.imageOverlay(image,bounds,{opacity:0,pane:"radar",interactive:false}).addTo(map);
+            entry = {frame,overlay}; radarLayers.set(key,entry);
+          }
+          loaded.push(entry);
+          if (showInitial && (!frames.length || frame.time > frames[index].time)) { frames = [entry.frame]; overlays = [entry.overlay]; showFrame(0); }
         } catch (_) { failures++; }
-        completed++; $("radar-status").textContent = `Loading radar ${completed}/${data.frames.length} scans…`;
+        completed++;
+        if (request === radarRequest) $("radar-status").textContent = `Latest image ready · loading loop ${completed}/${data.frames.length} scans…`;
       }
     }
     await Promise.all([worker(),worker(),worker()]);
+    if (request !== radarRequest) return;
     if (!loaded.length) throw new Error("Radar scans could not be loaded. Please try Refresh scans.");
     loaded.sort((a,b)=>a.frame.id.localeCompare(b.frame.id));
-    for (const overlay of overlays) map.removeLayer(overlay);
-    frames = loaded.map(x=>x.frame);
-    overlays = loaded.map(x=>L.imageOverlay(x.image,x.bounds,{opacity:0,pane:"radar",interactive:false}).addTo(map));
+    const keep = new Set(loaded.map(entry => `${data.renderVersion}/${entry.frame.id}`));
+    for (const [key, entry] of radarLayers) if (!keep.has(key)) { map.removeLayer(entry.overlay); radarLayers.delete(key); }
+    frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.overlay);
     $("timeline").max = String(frames.length-1);
     for (const id of ["play","previous","next","timeline"]) $(id).disabled = frames.length < 2;
-    const restored = selectedTime ? frames.findIndex(frame => new Date(frame.time) >= new Date(selectedTime)) : -1;
+    const restored = !followLatest && selectedTime ? frames.findIndex(frame => new Date(frame.time) >= new Date(selectedTime)) : -1;
     showFrame(restored >= 0 ? restored : frames.length-1);
-    if (wasPlaying) play();
-    const latest = new Date(frames[frames.length-1].time), age = (Date.now()-latest.getTime())/60000;
+    if (wasPlaying && !document.hidden && !$("radar").hidden) play();
+    const latest = new Date(frames.at(-1).time), age = (Date.now()-latest.getTime())/60000;
     const startsLate = (new Date(frames[0].time) - new Date(data.windowStart)) / 60000 > 15;
     const gap = frames.some((frame, i) => i && (new Date(frame.time) - new Date(frames[i-1].time)) / 60000 > 15);
-    $("radar-status").textContent =  `Past 2 hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${failures ? ` · ${failures} scans unavailable` : ""}${startsLate || gap ? " · Some of the two-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}`;
-  } catch(error) { $("radar-status").textContent=error.message; $("radar-time").textContent=overlays.length?"Previous radar loop · refresh failed":"Radar unavailable";
-    if(overlays.length>1) for(const id of ["play","previous","next","timeline"]) $(id).disabled=false;
-  } finally {radarBusy=false; $("refresh-radar").disabled=false;}
+    const unavailable = failures + (data.unavailableScans || 0);
+    $("radar-status").textContent = `Past 2 hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} scans unavailable` : ""}${startsLate || gap ? " · Some of the two-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.stale ? " · Background updates delayed" : ""}`;
+  } catch(error) {
+    if (request !== radarRequest) return;
+    $("radar-status").textContent=error.message; $("radar-time").textContent=overlays.length?"Previous radar loop · refresh failed":"Radar unavailable";
+  } finally {
+    if (request === radarRequest) {
+      radarBusy=false; $("refresh-radar").disabled=false;
+      for(const id of ["play","previous","next","timeline"]) $(id).disabled=overlays.length<2;
+    }
+  }
 }
 let forecastBusy = false, forecastData, forecastError;
 function renderForecast() {
@@ -170,7 +195,7 @@ async function loadForecast() {
   if (forecastBusy) return;
   forecastBusy = true; $("refresh-forecast").disabled = true;
   try {
-    forecastData = await api("/api/forecast"); forecastError = null; renderForecast();
+    forecastData = await api("/api/forecast"); forecastError = forecastData.stale ? "Background forecast updates are delayed." : null; renderForecast();
   } catch (error) {
     forecastError = error.message; renderForecast();
     $("forecast-status").hidden = false;
@@ -180,16 +205,27 @@ async function loadForecast() {
 
 let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0, satelliteTimer;
 let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
+const satelliteLayers = new Map();
+let satelliteBoundaryKey;
 const satelliteBounds = [[0,0],[900,1600]];
 function stopSatellite() { clearInterval(satelliteTimer); satelliteTimer = undefined; $("satellite-play").textContent = "Play"; }
+function fitSatelliteView() {
+  if (!satelliteMap) return;
+  if (window.innerWidth <= 600) {
+    const size = satelliteMap.getSize();
+    // Fill the taller phone viewer with the central part of the native image.
+    // The complete original remains available by panning or zooming out.
+    satelliteMap.setView([450,800], Math.log2(Math.max(size.x/1600,size.y/900)), {animate:false});
+  } else satelliteMap.fitBounds(satelliteBounds, {animate:false});
+}
 function initSatelliteMap() {
   if (satelliteMap) return;
   satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0});
   satelliteMap.createPane("satellite-images"); satelliteMap.getPane("satellite-images").style.zIndex = 350;
   satelliteMap.createPane("satellite-boundaries"); satelliteMap.getPane("satellite-boundaries").style.zIndex = 410;
   satelliteMap.getPane("satellite-boundaries").style.pointerEvents = "none";
-  satelliteMap.fitBounds(satelliteBounds);
-  satelliteMap.on("resize", () => satelliteMap.fitBounds(satelliteBounds, {animate:false}));
+  fitSatelliteView();
+  satelliteMap.on("resize", fitSatelliteView);
   satelliteMap.attributionControl.addAttribution('NOAA GOES / <a href="https://weather.cod.edu/satrad/">COD NEXLAB</a>');
 }
 function showSatelliteFrame(n) {
@@ -212,16 +248,17 @@ async function loadSatellite(force = false) {
   if (satelliteBusy && satelliteLoadingProduct === product && !force) return;
   const request = ++satelliteRequest;
   const wasPlaying = Boolean(satelliteTimer);
-  const selectedTime = satelliteFrames[satelliteIndex]?.time;
+  const selectedTime = satelliteFrames[satelliteIndex]?.time, followLatest = !satelliteFrames.length || satelliteIndex === satelliteFrames.length-1;
   const changed = satelliteLoadingProduct != null && satelliteLoadingProduct !== product;
   satelliteLoadingProduct = product; satelliteBusy = true; stopSatellite();
   $("refresh-satellite").disabled = true;
   for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = true;
   if (changed) {
     for (const overlay of [...satelliteOverlays,...satelliteBoundaries]) satelliteMap.removeLayer(overlay);
-    satelliteOverlays = []; satelliteFrames = []; satelliteBoundaries = [];
+    satelliteOverlays = []; satelliteFrames = []; satelliteBoundaries = []; satelliteLayers.clear(); satelliteBoundaryKey = undefined;
     $("satellite-time").textContent = "Loading selected product…";
   }
+  const showInitial = !satelliteOverlays.length;
   try {
     initSatelliteMap();
     $("satellite-status").textContent = "Loading local satellite imagery…";
@@ -229,39 +266,52 @@ async function loadSatellite(force = false) {
     if (request !== satelliteRequest) return;
     $("satellite-description").textContent = data.description;
     $("satellite-source").href = data.sourceUrl;
-    const queue = [...data.frames], loaded = []; let failures = 0, completed = 0;
+    const boundaryKey = JSON.stringify(data.boundaries);
+    if (boundaryKey !== satelliteBoundaryKey) {
+      for (const overlay of satelliteBoundaries) satelliteMap.removeLayer(overlay);
+      satelliteBoundaries = data.boundaries.map(url => {
+        const overlay = L.imageOverlay(url,satelliteBounds,{pane:"satellite-boundaries",interactive:false}).addTo(satelliteMap);
+        overlay.on("error", () => { $("satellite-status").textContent = "Some boundaries could not load. Satellite imagery remains available."; });
+        return overlay;
+      });
+      satelliteBoundaryKey = boundaryKey;
+    }
+    const queue = [...data.frames].reverse(), loaded = []; let failures = 0, completed = 0;
     async function worker() {
       while (queue.length && request === satelliteRequest && !document.hidden && !$("satellite").hidden) {
         const frame = queue.shift();
         try {
-          const image = new Image(); image.src = frame.url; await image.decode();
-          if (image.naturalWidth !== data.width || image.naturalHeight !== data.height) throw new Error("Satellite image size changed");
-          loaded.push({frame,image});
+          let entry = satelliteLayers.get(frame.url);
+          if (!entry) {
+            const image = new Image(); image.src = frame.url; await image.decode();
+            if (request !== satelliteRequest) return;
+            if (image.naturalWidth !== data.width || image.naturalHeight !== data.height) throw new Error("Satellite image size changed");
+            const overlay = L.imageOverlay(image,satelliteBounds,{opacity:0,pane:"satellite-images",interactive:false}).addTo(satelliteMap);
+            entry = {frame,overlay}; satelliteLayers.set(frame.url,entry);
+          }
+          loaded.push(entry);
+          if (showInitial && (!satelliteFrames.length || frame.time > satelliteFrames[satelliteIndex].time)) { satelliteFrames=[entry.frame]; satelliteOverlays=[entry.overlay]; showSatelliteFrame(0); }
         } catch (_) { failures++; }
         completed++;
-        if (request === satelliteRequest) $("satellite-status").textContent = `Loading satellite ${completed}/${data.frames.length} images…`;
+        if (request === satelliteRequest) $("satellite-status").textContent = `Latest image ready · loading loop ${completed}/${data.frames.length} images…`;
       }
     }
     await Promise.all([worker(),worker()]);
     if (request !== satelliteRequest) return;
     if (!loaded.length) throw new Error("Satellite images could not load. Please try Refresh images.");
     loaded.sort((a,b) => a.frame.time.localeCompare(b.frame.time));
-    for (const overlay of [...satelliteOverlays,...satelliteBoundaries]) satelliteMap.removeLayer(overlay);
-    satelliteFrames = loaded.map(x => x.frame);
-    satelliteOverlays = loaded.map(x => L.imageOverlay(x.image,satelliteBounds,{opacity:0,pane:"satellite-images",interactive:false}).addTo(satelliteMap));
-    satelliteBoundaries = data.boundaries.map(url => {
-      const overlay = L.imageOverlay(url,satelliteBounds,{pane:"satellite-boundaries",interactive:false}).addTo(satelliteMap);
-      overlay.on("error", () => { $("satellite-status").textContent = "Some boundaries could not load. Satellite imagery remains available."; });
-      return overlay;
-    });
+    const keep = new Set(loaded.map(entry=>entry.frame.url));
+    for (const [key,entry] of satelliteLayers) if (!keep.has(key)) { satelliteMap.removeLayer(entry.overlay); satelliteLayers.delete(key); }
+    satelliteFrames = loaded.map(x => x.frame); satelliteOverlays = loaded.map(x => x.overlay);
     $("satellite-timeline").max = String(satelliteFrames.length - 1);
     for (const id of ["play","previous","next","timeline"]) $("satellite-" + id).disabled = satelliteFrames.length < 2;
-    const restored = selectedTime ? satelliteFrames.findIndex(f => new Date(f.time) >= new Date(selectedTime)) : -1;
+    const restored = !followLatest && !changed && selectedTime ? satelliteFrames.findIndex(f => new Date(f.time) >= new Date(selectedTime)) : -1;
     showSatelliteFrame(restored >= 0 ? restored : satelliteFrames.length - 1);
     if (wasPlaying && !document.hidden && !$("satellite").hidden) playSatellite();
     const first = new Date(satelliteFrames[0].time), last = new Date(satelliteFrames.at(-1).time), age = (Date.now() - last.getTime()) / 60000;
+    const unavailable = failures + (data.unavailableImages || 0);
     const gaps = satelliteFrames.some((f,i) => i && new Date(f.time) - new Date(satelliteFrames[i-1].time) > 15 * 60000);
-    $("satellite-status").textContent = `${data.label} · ${satelliteFrames.length} images · ${central.format(first)} to ${central.format(last)}${failures ? ` · ${failures} images unavailable` : ""}${gaps ? " · Some images are missing" : ""}${age > 20 ? ` · Latest image is ${Math.round(age)} minutes old` : ""}`;
+    $("satellite-status").textContent = `${data.label} · ${satelliteFrames.length} images · ${central.format(first)} to ${central.format(last)}${unavailable ? ` · ${unavailable} images unavailable` : ""}${gaps ? " · Some images are missing" : ""}${age > 20 ? ` · Latest image is ${Math.round(age)} minutes old` : ""}${data.stale ? " · Background updates delayed" : ""}`;
   } catch (error) {
     if (request !== satelliteRequest) return;
     $("satellite-status").textContent = error.message;
@@ -275,7 +325,8 @@ async function loadSatellite(force = false) {
 const tabs = ["observations","radar","satellite","forecast"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
-  if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else stop();
+  if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { stop(); ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
+  if(id === "observations") loadObservations();
   if(id === "forecast") loadForecast();
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { stopSatellite(); ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
@@ -325,8 +376,19 @@ document.addEventListener("keydown",event=>{
 });
 document.addEventListener("visibilitychange",()=>{if(document.hidden) { stop(); stopSatellite(); }});
 loadObservations();sun();setInterval(sun,30000);
-setInterval(()=>{if(!document.hidden)loadObservations();},120000);
-setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},300000);
+let observationTimer;
+function scheduleObservations() {
+  clearTimeout(observationTimer);
+  const now = new Date(), candidates = [];
+  for (let hour=0; hour<=1; hour++) for (const minute of [3,56,59]) {
+    const next = new Date(now); next.setUTCHours(now.getUTCHours()+hour,minute,20,0);
+    if (next > now) candidates.push(next);
+  }
+  const delay = Math.min(...candidates.map(next=>next-now));
+  observationTimer = setTimeout(()=>{ if(!document.hidden)loadObservations(); scheduleObservations(); },delay);
+}
+scheduleObservations();
+setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
 
@@ -340,7 +402,7 @@ $("satellite-next").addEventListener("click",()=>{stopSatellite();showSatelliteF
 $("satellite-timeline").addEventListener("input",event=>{stopSatellite();showSatelliteFrame(Number(event.target.value));});
 $("satellite-timeline").addEventListener("pointerdown",stopSatellite);
 $("satellite-speed").addEventListener("change",()=>{if(satelliteTimer)playSatellite();});
-$("satellite-reset").addEventListener("click",()=>satelliteMap && satelliteMap.fitBounds(satelliteBounds));
+$("satellite-reset").addEventListener("click",fitSatelliteView);
 $("satellite-fullscreen").addEventListener("click",async()=>{
   const surface = $("satellite-surface");
   if (surface.classList.contains("expanded")) {
@@ -368,4 +430,14 @@ document.addEventListener("keydown",event=>{
     if(satelliteMap)satelliteMap.invalidateSize();
   }
 });
-setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},300000);
+setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
+
+document.addEventListener("visibilitychange",()=>{
+  if (!document.hidden) {
+    scheduleObservations();
+    if (!$("observations").hidden) loadObservations();
+    if (!$("radar").hidden) loadRadar();
+    if (!$("satellite").hidden) loadSatellite();
+    if (!$("forecast").hidden) loadForecast();
+  }
+});

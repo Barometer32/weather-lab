@@ -149,27 +149,27 @@ class WeatherTests(unittest.TestCase):
         png,bounds = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n", smooth=False)
         out = np.asarray(Image.open(io.BytesIO(png)))
         self.assertTrue((out[0,:3,3] == 0).all())
-        self.assertEqual(tuple(out[0,3]),(76,175,99,220))
-        self.assertEqual(tuple(out[0,7]),(200,44,85,220))
-        self.assertEqual(tuple(out[0,8]),(138,63,160,220))
+        self.assertEqual(tuple(out[0,3]),(2,98,30,220))
+        self.assertEqual(tuple(out[0,7]),(255,88,14,220))
+        self.assertEqual(tuple(out[0,8]),(0,213,208,220))
         self.assertAlmostEqual(bounds[1][0],45.005)
         self.assertAlmostEqual(bounds[0][1],-93.005)
 
-    def test_eight_radar_bands_classify_both_sides_of_every_boundary(self):
-        codes = [85,86,105,106,115,116,125,126,141,142,153,154,165,166,179,180,255]
-        data = np.tile(np.array(codes,dtype="uint8"),(17,1))
+    def test_continuous_radar_palette_tracks_reference_and_keeps_half_dbz_detail(self):
+        codes = np.arange(256,dtype="uint8")
+        data = np.tile(codes,(8,1))
         image = Image.fromarray(data).convert("P"); b=io.BytesIO(); image.save(b,format="PNG")
         png,_ = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n", smooth=False)
         out = np.asarray(Image.open(io.BytesIO(png)))[0]
-        expected = [(0,0,0,0), (76,175,99,220),(76,175,99,220),
-                    (37,139,69,220),(37,139,69,220),
-                    (11,81,37,220),(11,81,37,220),
-                    (230,205,57,220),(230,205,57,220),
-                    (246,162,58,220),(246,162,58,220),
-                    (230,91,59,220),(230,91,59,220),
-                    (200,44,85,220),(200,44,85,220),
-                    (138,63,160,220),(138,63,160,220)]
-        self.assertEqual([tuple(pixel) for pixel in out],expected)
+        self.assertTrue((out[:86] == 0).all())
+        # Selected values read from the reference color bar, independent of the
+        # implementation's stop list. 31.5/32 dBZ cross green into yellow.
+        expected = {86:(2,98,30,220), 106:(36,163,47,220), 126:(74,233,66,220),
+                    129:(80,243,70,220), 130:(255,248,39,220), 146:(255,181,28,220),
+                    166:(255,88,14,220), 186:(240,0,0,220), 196:(230,0,200,220),
+                    206:(243,73,228,220), 226:(0,213,208,220), 255:(0,213,208,220)}
+        for code, color in expected.items(): self.assertEqual(tuple(out[code]),color)
+        self.assertGreater(len(np.unique(out[86:227,:3],axis=0)),100)
 
     def test_radar_smoothing_preserves_cutoff_footprint_and_core_colors(self):
         data = np.zeros((64,64), dtype="uint8")
@@ -185,8 +185,8 @@ class WeatherTests(unittest.TestCase):
         self.assertEqual(exact_bounds, smooth_bounds)
         footprint = np.repeat(np.repeat(original[:,:,3] > 0,2,axis=0),2,axis=1)
         self.assertTrue((softened[~footprint] == 0).all())
-        self.assertEqual(tuple(softened[64,64]), (230,205,57,220))
-        self.assertEqual(tuple(softened[40,40]), (76,175,99,220))
+        self.assertEqual(tuple(softened[64,64]), (74,233,66,220))
+        self.assertEqual(tuple(softened[40,40]), (2,98,30,220))
         self.assertGreater(len(np.unique(softened.reshape(-1,4),axis=0)), len(np.unique(original.reshape(-1,4),axis=0)))
 
     def test_non_indexed_radar_rejected(self):

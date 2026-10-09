@@ -15,16 +15,22 @@ from urllib.request import Request, urlopen
 from flask import Flask, Response, jsonify, send_from_directory
 import numpy as np
 from PIL import Image
+from realtime import get_store
 
 app = Flask(__name__, static_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 IEM = "https://mesonet.agron.iastate.edu"
-# Custom approximate intensity labels, not measured surface rainfall rates.
-BANDS = [(10, 20, "Very light", "#4caf63"), (20, 25, "Light", "#258b45"),
-         (25, 30, "Light–moderate", "#0b5125"), (30, 38, "Moderate", "#e6cd39"),
-         (38, 44, "Moderate–heavy", "#f6a23a"), (44, 50, "Heavy", "#e65b3b"),
-         (50, 57, "Very heavy", "#c82c55"), (57, 96, "Intense", "#8a3fa0")]
+# Reflectivity color stops sampled from the user's COD reference, starting at
+# 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
+PALETTE = [(10, "#02621e"), (15, "#117f26"), (20, "#24a32f"),
+           (25, "#36c538"), (30, "#4ae942"), (31.5, "#50f346"),
+           (31.51, "#fffb27"), (35, "#ffe524"), (40, "#ffb51c"),
+           (45, "#ff8815"), (50, "#ff580e"), (55, "#ff2606"),
+           (60, "#f00000"), (64.99, "#a40000"), (65, "#e600c8"),
+           (70, "#f349e4"), (75, "#e88df8"), (79.99, "#bdbeff"),
+           (80, "#00d5d0")]
+RENDER_VERSION = "cod-gradient-v6"
 _cache, _locks = {}, {}
 _lock_guard = threading.Lock()
 
@@ -223,9 +229,12 @@ def recolor_and_project(png, worldfile, smooth=True):
     codes = np.asarray(image)
     dbz = (codes.astype(float) - 2) * 0.5 - 32
     rgba = np.zeros((*codes.shape, 4), dtype=np.uint8)
-    for low, high, _, color in BANDS:
-        rgb = [int(color[i:i+2], 16) for i in (1, 3, 5)]
-        rgba[(codes >= 2) & (dbz >= low) & (dbz < high)] = rgb + [220]
+    stops = np.array([p[0] for p in PALETTE])
+    colors = np.array([[int(color[i:i+2], 16) for i in (1, 3, 5)] for _, color in PALETTE])
+    visible = (codes >= 2) & (dbz >= 10)
+    for channel in range(3):
+        rgba[:, :, channel][visible] = np.rint(np.interp(dbz[visible], stops, colors[:, channel])).astype(np.uint8)
+    rgba[:, :, 3][visible] = 220
     dx, rot1, rot2, dy, x0, y0 = map(float, worldfile.decode().split())
     if rot1 != 0 or rot2 != 0 or dx <= 0 or dy >= 0:
         raise ValueError("Unsupported radar georeferencing")
@@ -265,6 +274,37 @@ def radar_frame(scan_id):
     return recolor_and_project(*raw_radar(scan_id))
 
 
+def radar_manifest(scans, now):
+    return {"frames": scans, "palette": [{"dbz": value, "color": color} for value, color in PALETTE],
+            "renderVersion": RENDER_VERSION, "windowStart": iso(now - timedelta(hours=2)),
+            "windowEnd": iso(now), "product": "N0B", "elevationDegrees": 0.5,
+            "source": "NWS MPX N0B via Iowa Environmental Mesonet"}
+
+
+def prepared_snapshot(name, max_age):
+    store = get_store()
+    if store is None:
+        return None
+    data = cached("prepared-" + name, 10, lambda: store.read_json(f"live/{name}.json"))
+    if not data:
+        raise ValueError("Background collector has not prepared data yet")
+    data = dict(data)
+    checked = datetime.fromisoformat(data["checkedAt"].replace("Z", "+00:00"))
+    data["stale"] = (utcnow() - checked).total_seconds() > max_age
+    return data
+
+
+def get_forecast(now=None):
+    from nws_forecast import POINT_URL, normalize_forecast
+    def load():
+        point = cached("nws-point", 86400, lambda: json.loads(download(POINT_URL)))
+        url = point["properties"]["forecast"]
+        if not url.startswith("https://api.weather.gov/gridpoints/"):
+            raise ValueError("Unexpected NWS forecast endpoint")
+        return json.loads(download(url))
+    return normalize_forecast(cached("nws-forecast", 300, load), now or utcnow())
+
+
 @app.get("/")
 def index():
     return send_from_directory("static", "index.html")
@@ -272,15 +312,8 @@ def index():
 
 @app.get("/api/forecast")
 def forecast_api():
-    from nws_forecast import POINT_URL, normalize_forecast
     try:
-        def load():
-            point = cached("nws-point", 86400, lambda: json.loads(download(POINT_URL)))
-            url = point["properties"]["forecast"]
-            if not url.startswith("https://api.weather.gov/gridpoints/"):
-                raise ValueError("Unexpected NWS forecast endpoint")
-            return json.loads(download(url))
-        data = normalize_forecast(cached("nws-forecast", 300, load), utcnow())
+        data = prepared_snapshot("forecast", 900) or get_forecast()
         return jsonify(data)
     except Exception:
         app.logger.exception("NWS forecast unavailable")
@@ -293,6 +326,10 @@ def satellite_api(product):
     if product not in PRODUCTS:
         return jsonify(error="Unknown satellite product."), 404
     try:
+        data = prepared_snapshot("satellite-" + product, 900)
+        if data:
+            data.pop("boundarySources", None)
+            return jsonify(data)
         html = cached("satellite-" + product, 120, lambda: download(page_url(product)).decode())
         return jsonify(parse_loop(html, product, utcnow()))
     except Exception:
@@ -308,7 +345,11 @@ def health():
 @app.get("/api/observations")
 def observation_api():
     try:
-        return jsonify(observations())
+        data = prepared_snapshot("observations", 4200)
+        result = observations(data["reports"]) if data else observations()
+        if data:
+            result.update(checkedAt=data["checkedAt"], stale=data["stale"])
+        return jsonify(result)
     except Exception:
         app.logger.exception("Observation feed failed")
         return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
@@ -318,14 +359,20 @@ def observation_api():
 def radar_api():
     try:
         now = utcnow()
-        scans = get_scans(now)
+        data = prepared_snapshot("radar", 600)
+        if data:
+            if data.get("renderVersion") != RENDER_VERSION:
+                return jsonify(error="The new radar colors are being prepared. Please refresh shortly."), 503
+            scans = [frame for frame in data["frames"]
+                     if now - timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
+        else:
+            scans = get_scans(now)
         if not scans:
             return jsonify(error="No recent MPX scans are available."), 503
-        return jsonify(frames=scans, bands=[{"min": a, "max": b, "label": c, "color": d} for a, b, c, d in BANDS],
-                       renderVersion="custom-bands-v5-smoothed",
-                       windowStart=iso(now - timedelta(hours=2)), windowEnd=iso(now),
-                       product="N0B", elevationDegrees=0.5,
-                       source="NWS MPX N0B via Iowa Environmental Mesonet")
+        result = radar_manifest(scans, now)
+        if data:
+            result.update(checkedAt=data["checkedAt"], stale=data["stale"], unavailableScans=data.get("unavailableScans", 0))
+        return jsonify(result)
     except Exception:
         app.logger.exception("Radar scan list failed")
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
@@ -334,6 +381,10 @@ def radar_api():
 @app.get("/api/radar/<scan_id>/metadata")
 def radar_metadata(scan_id):
     try:
+        data = prepared_snapshot("radar", 600)
+        if data:
+            frame = next((f for f in data["frames"] if f["id"] == scan_id), None)
+            return jsonify(bounds=frame["bounds"]) if frame else (jsonify(error="Unknown prepared scan"), 404)
         if scan_id not in {s["id"] for s in get_scans()}:
             return jsonify(error="Scan is outside the current loop."), 404
         _, bounds = radar_frame(scan_id)
@@ -346,6 +397,8 @@ def radar_metadata(scan_id):
 @app.get("/api/radar/<scan_id>.png")
 def radar_png(scan_id):
     try:
+        if get_store() is not None:
+            return prepared_asset(f"radar/{RENDER_VERSION}/{scan_id}.png")
         # Cached frames remain valid even if the scan list has just advanced.
         if scan_id not in {s["id"] for s in get_scans()}:
             return jsonify(error="Scan is outside the current loop."), 404
@@ -354,6 +407,33 @@ def radar_png(scan_id):
     except Exception:
         app.logger.exception("Radar frame failed")
         return jsonify(error="This radar scan could not be loaded."), 502
+
+
+@lru_cache(maxsize=16)
+def prepared_image(key):
+    store = get_store()
+    return store.read(key) if store else None
+
+
+@app.get("/api/prepared/<path:key>")
+def prepared_asset(key):
+    # Public visitors may read only immutable image objects, never manifests or
+    # arbitrary bucket files. Only the private collector can trigger processing.
+    allowed = (re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
+               or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
+    if not allowed:
+        return jsonify(error="Unknown image"), 404
+    try:
+        image = prepared_image(key)
+        if image is None:
+            prepared_image.cache_clear()  # Do not permanently cache a missing object.
+            return jsonify(error="Image not prepared yet"), 404
+        return Response(image, mimetype="image/jpeg" if key.endswith(".jpg") else "image/png",
+                        headers={"Cache-Control": "public, max-age=86400, immutable"})
+    except Exception:
+        app.logger.exception("Prepared image read failed")
+        return jsonify(error="Prepared image temporarily unavailable"), 502
 
 
 if __name__ == "__main__":

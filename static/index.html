@@ -35,7 +35,7 @@
   <details class="method"><summary>How the average and basic QA work</summary><p>For KFCM, KMSP and KMIC, use the routine hourly METAR near :53 and label it with the following hour: 8:53 p.m. becomes 9 p.m. Allow :50–:59 for small changes in routine report timing. Exclude special (SPECI) reports and reports after the labeled hour. The newest routine report appears as soon as it is received, so its rounded hour label may be a few minutes ahead of the clock. Missing routine reports are flagged rather than replaced with another kind of observation. Temperature and dew point use equal station weights.</p><p>A green dot means basic QA passed and all three stations supplied valid routine temperature, dew point and wind readings. An amber dot means incomplete data or a failed refresh. Hover or focus on a dot for details. Checks reject missing or out-of-range numbers, invalid wind directions, and dew points above temperature (allowing 0.5°C for rounding). Calm and explicitly variable winds are valid. Incomplete hours show a warning and use valid contributors for each field. This does not detect every sensor error or bias.</p><p>Wind speed is averaged separately; direction uses speed-weighted circular averaging of known directions. Variable winds have no fixed direction. The sun angle is calculated live. Times use America/Chicago, including daylight saving changes.</p></details>
 </section>
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
-  <div class="section-heading"><div><p class="eyebrow">MPX · 0.5° BASE REFLECTIVITY</p><h1>Local radar</h1><p>Past 2 hours · eight intensity bands · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
+  <div class="section-heading"><div><p class="eyebrow">MPX · 0.5° BASE REFLECTIVITY</p><h1>Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface">
     <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div><div class="map-time" id="radar-time">Loading radar…</div><button id="fullscreen" class="map-fullscreen" aria-label="Expand radar">Expand</button></div>
     <div class="radar-controls">
@@ -46,8 +46,8 @@
   <p id="map-note" class="small-note" role="status" hidden></p>
   <p id="radar-status" role="status">Loading available MPX scans…</p>
   <div class="legend" id="legend" aria-label="Radar echo strength legend"></div>
-  <p class="small-note">Below 10 dBZ is hidden. Edges are gently smoothed for display, with the original echo footprint retained. Intensity labels are approximate; radar echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
-  <details class="method"><summary>About this radar</summary><p>All available MPX N0B scans from the previous two-hour window are used; scan times are irregular and missing scans are flagged. This is 0.5° base reflectivity. The beam rises with distance and does not directly measure rainfall at the surface. Colors group echo strength in dBZ; they do not measure rain reaching the ground.</p></details>
+  <p class="small-note">Below 10 dBZ is hidden. Edges are gently smoothed for display, with the original echo footprint retained. Colors show reflectivity; echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
+  <details class="method"><summary>About this radar</summary><p>All available MPX N0B scans from the previous two-hour window are used; scan times are irregular and missing scans are flagged. New scans are prepared in the background every two minutes. This is 0.5° base reflectivity. The beam rises with distance and does not directly measure rainfall at the surface. The continuous color scale follows the source's 0.5 dBZ increments; it does not measure rain reaching the ground.</p></details>
   <p class="source">Radar: NWS MPX N0B, provided by <a href="https://mesonet.agron.iastate.edu/GIS/ridge.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. <a href="https://weather.cod.edu/satrad/nexrad/index.php?parms=MPX-N0B-0-24-100-usa-rad" target="_blank" rel="noopener">Open College of DuPage radar</a></p>
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
@@ -61,14 +61,15 @@
   <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
   <div id="satellite-surface">
-    <div id="satellite-map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div><div class="map-time" id="satellite-time">Loading satellite…</div><div class="satellite-view-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div></div>
+    <div id="satellite-map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
+    <div class="satellite-view-toolbar"><div class="satellite-frame-time" id="satellite-time">Loading satellite…</div><div class="satellite-view-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div></div>
     <div class="radar-controls">
       <div class="timeline-control"><label for="satellite-timeline">Manual timeline <span>Drag to select an image</span></label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
       <div class="radar-buttons"><button id="satellite-play" class="primary" disabled>Play</button><button id="satellite-previous" class="secondary" aria-label="Previous satellite image" disabled>Previous</button><button id="satellite-next" class="secondary" aria-label="Next satellite image" disabled>Next</button><label class="speed-label">Speed <select id="satellite-speed"><option value="1200">Slow</option><option value="700" selected>Normal</option><option value="400">Fast</option></select></label></div>
     </div>
   </div>
-  <p id="satellite-status" class="small-note" role="status">Satellite images load when you open this tab.</p>
-  <p class="small-note">Pinch or use +/− to zoom; drag to pan. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
+  <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
+  <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
   <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-24-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
 </section>
 </main>
