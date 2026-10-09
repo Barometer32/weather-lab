@@ -38,12 +38,6 @@ async function loadObservations() {
     $("dewpoint").textContent = temp(c.dewpointF);
     $("wind").textContent = wind(c.wind);
     const qa = c.qa;
-    $("temp-count").textContent = "Routine hourly average";
-    $("dewpoint-count").textContent = "Routine hourly average";
-    $("wind-count").textContent = "Mean speed · circular direction";
-    const qualityLabel = document.createElement("span");
-    qualityLabel.textContent = qa.allStationsUsed ? "Combined · 3/3 stations" : `Combined · ${qa.stationsAvailable}/3 reports · QA incomplete`;
-    $("qa-status").replaceChildren(qualityDot(qa), qualityLabel);
     const status = $("observation-status"); status.hidden = qa.allStationsUsed;
     status.textContent = `Partial hourly average: ${qa.stationsAvailable}/3 reports available. Valid checks: temperature ${qa.checks.temperature}/3, dew point ${qa.checks.dewpoint}/3, wind ${qa.checks.wind}/3. Missing or invalid fields are excluded.`;
     $("history").replaceChildren();
@@ -56,8 +50,6 @@ async function loadObservations() {
       $("history").append(row);
     }
   } catch (error) {
-    const stale = document.createElement("span"); stale.textContent = "Refresh failed · readings may be stale";
-    $("qa-status").replaceChildren(qualityDot(null, true), stale);
     for (const dot of $("history").querySelectorAll(".qa-dot")) {
       dot.className = "qa-dot incomplete"; dot.title = "Refresh failed; displayed history may be stale";
       dot.setAttribute("aria-label", dot.title);
@@ -70,7 +62,6 @@ function sun() {
   if (!window.SunCalc) return;
   const now = new Date(), angle = SunCalc.getPosition(now,44.925,-93.462).altitude * 180 / Math.PI;
   $("sun-angle").textContent = `${angle.toFixed(1)}°`;
-  $("sun-time").textContent = `Live · ${central.format(now)}`;
 }
 let map, frames = [], overlays = [], index = 0, timer, radarBusy = false;
 function stop() { clearInterval(timer); timer = undefined; $("play").textContent = "Play"; }
@@ -162,25 +153,15 @@ async function loadForecast() {
   try {
     const data = await api("/api/forecast"), rows = data.hours;
     const cycle = new Date(data.cycle);
-    $("forecast-updated").textContent = `${fullTime.format(new Date(data.windowStart))} through ${fullTime.format(new Date(data.windowEnd))} · updated ${central.format(new Date(data.publishedAt))}`;
-    $("forecast-cycle").textContent = `${String(cycle.getUTCHours()).padStart(2,"0")}Z`;
-    const parallel = data.sources.RRFS.feed === "parallel";
-    $("forecast-feed").textContent = parallel ? "RRFS parallel · HRRR operational" : "HRRR + RRFS operational";
-    const dot = document.createElement("span"); dot.className = `qa-dot ${data.stale ? "incomplete" : "passed"}`;
-    const label = document.createElement("span"); label.textContent = `${data.stale ? "Older forecast · " : ""}50/50 models · 3/3 sites · ${fullTime.format(cycle)} cycle`;
-    $("forecast-quality").replaceChildren(dot, label);
+    $("forecast-updated").textContent = `${String(cycle.getUTCHours()).padStart(2,"0")}Z run · ${fullTime.format(new Date(data.windowStart))} through ${fullTime.format(new Date(data.windowEnd))} · updated ${central.format(new Date(data.publishedAt))}`;
     $("forecast-status").hidden = !data.stale;
     $("forecast-status").textContent = "A newer complete blend has not arrived. The table retains its original forecast times; past rows are marked.";
-    const temperatures = rows.map(r=>r.tempF);
-    $("forecast-temperature").textContent = `${fmt(Math.min(...temperatures))}–${fmt(Math.max(...temperatures))}°F`;
-    $("forecast-rain").textContent = `${data.precipTotalIn.toFixed(2)} in`;
-    $("forecast-wind").textContent = `${fmt(Math.max(...rows.map(r=>r.windMph)))} mph`;
     $("forecast-hours").replaceChildren();
     for (const r of rows) {
       const row = document.createElement("tr"), stamp = new Date(r.time), past = stamp.getTime() < Date.now();
       if (past) row.className = "past-forecast";
       const when = document.createElement("td"); when.textContent = fullTime.format(stamp) + (past ? " · past" : ""); row.append(when);
-      for (const [key, suffix] of [["tempF","°F"],["dewpointF","°F"],["humidityPct","%"],["windMph"," mph"],["gustMph"," mph"],["precipIn"," in"],["cloudPct","%"],["lowCloudPct","%"],["midCloudPct","%"],["highCloudPct","%"],["surfacePressureHpa"," hPa"]]) {
+      for (const [key, suffix] of [["tempF","°F"],["dewpointF","°F"],["humidityPct","%"],["windMph"," mph"],["gustMph"," mph"],["precipIn"," in"],["cloudPct","%"],["lowCloudPct","%"],["midCloudPct","%"],["highCloudPct","%"]]) {
         const td = document.createElement("td"), value = r[key], sources = r.contributors[key];
         const text = value == null ? "—" : key === "precipIn" ? value.toFixed(3) : fmt(value);
         td.textContent = text + (value == null ? "" : suffix) + (value != null && sources.length === 1 && key.toLowerCase().includes("cloud") ? "*" : "");
@@ -192,7 +173,6 @@ async function loadForecast() {
   } catch (error) {
     $("forecast-status").hidden = false;
     $("forecast-status").textContent = error.message + " Any displayed forecast is from the previous successful refresh.";
-    $("forecast-quality").textContent = "Forecast refresh unavailable";
   } finally { forecastBusy = false; $("refresh-forecast").disabled = false; }
 }
 

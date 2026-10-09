@@ -16,14 +16,14 @@ FIELDS = {
     "temperatureK": ("TMP", "2 m above ground"),
     "dewpointK": ("DPT", "2 m above ground"),
     "u10": ("UGRD", "10 m above ground"), "v10": ("VGRD", "10 m above ground"),
-    "gustMs": ("GUST", "surface"), "surfacePressurePa": ("PRES", "surface"),
+    "gustMs": ("GUST", "surface"),
     "precipTotalMm": ("APCP", "surface"),
     "cloudPct": ("TCDC", "entire atmosphere"),
     "lowCloudPct": ("LCDC", "low cloud layer"),
     "midCloudPct": ("MCDC", "middle cloud layer"),
     "highCloudPct": ("HCDC", "high cloud layer"),
 }
-CORE = {"temperatureK", "dewpointK", "u10", "v10", "gustMs", "surfacePressurePa", "precipTotalMm"}
+CORE = {"temperatureK", "dewpointK", "u10", "v10", "gustMs", "precipTotalMm"}
 GRID_KEYS = ("gridType", "Nx", "Ny", "latitudeOfFirstGridPoint", "longitudeOfFirstGridPoint",
              "Dx", "Dy", "LoV", "LaD", "Latin1", "Latin2", "scanningMode", "numberOfPoints")
 _grid_points = {}
@@ -200,14 +200,14 @@ def checked_point(point):
     t, d, u, v = (point[key] for key in ("temperatureK", "dewpointK", "u10", "v10"))
     if not 183 <= d <= t + 0.5 or not 183 <= t <= 333 or math.hypot(u, v) > 100:
         raise ValueError("Model temperature/dewpoint/wind failed range QA")
-    gust, pressure, rain = (point[k] for k in ("gustMs", "surfacePressurePa", "precipTotalMm"))
-    if not 0 <= gust <= 150 or not 50000 <= pressure <= 110000 or not 0 <= rain <= 2000:
-        raise ValueError("Model gust/pressure/precipitation failed range QA")
+    gust, rain = (point[k] for k in ("gustMs", "precipTotalMm"))
+    if not 0 <= gust <= 150 or not 0 <= rain <= 2000:
+        raise ValueError("Model gust/precipitation failed range QA")
     tc, dc = t - 273.15, d - 273.15
     rh = min(100, max(0, 100 * math.exp(17.625 * dc / (243.04 + dc) - 17.625 * tc / (243.04 + tc))))
     result = {"tempF": tc * 1.8 + 32, "dewpointF": dc * 1.8 + 32,
               "humidityPct": rh, "windMph": math.hypot(u, v) * 2.236936,
-              "gustMph": gust * 2.236936, "surfacePressureHpa": pressure / 100}
+              "gustMph": gust * 2.236936}
     for key in ("cloudPct", "lowCloudPct", "midCloudPct", "highCloudPct"):
         value = point.get(key)
         result[key] = min(100, max(0, value)) if value is not None and -0.01 <= value <= 100.01 else None

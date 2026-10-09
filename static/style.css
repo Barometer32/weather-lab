@@ -29,8 +29,7 @@ p { line-height: 1.55; }
 .eyebrow { font-size: 13px; letter-spacing: 1.5px; font-weight: bold; color: var(--green)!important; }
 .secondary { background: white; color: #243d2e; }
 .primary { background: var(--green); color: white; border-color: var(--green); }
-.observation-quality { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; font-size: 14px; color: var(--muted); }
-.quality-line, .hour-line { display: inline-flex; align-items: center; gap: 9px; }
+.hour-line { display: inline-flex; align-items: center; gap: 9px; }
 .qa-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9ba79f; flex: 0 0 8px; }
 .qa-dot.passed { background: #15864c; }
 .qa-dot.incomplete { background: #bf850d; }
@@ -39,9 +38,8 @@ p { line-height: 1.55; }
 .metric { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 23px 24px; min-width: 0; }
 .metric.featured { border-top: 4px solid var(--green); padding-top: 20px; }
 .metric h2 { font-size: 16px; font-weight: 400; color: var(--muted); }
-.metric-value { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin: 14px 0 10px; font-variant-numeric: tabular-nums; }
+.metric-value { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin: 14px 0 0; font-variant-numeric: tabular-nums; }
 .metric-value.wind { font-size: 30px; min-height: 46px; display: flex; align-items: center; }
-.metric p { font-size: 13px; color: var(--muted); margin: 0; }
 .history-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
 .history-heading span { font-size: 14px; color: var(--muted); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }
@@ -111,7 +109,6 @@ body.radar-expanded { overflow: hidden; }
   h1 { font-size: 25px; }
   .section-heading p { font-size: 14px; }
   .section-heading button { font-size: 14px; padding: 10px; }
-  .observation-quality { gap: 8px; font-size: 12px; }
   .metrics { gap: 10px; margin-bottom: 26px; }
   .metric { padding: 18px 16px; }
   .metric.featured { padding-top: 15px; }

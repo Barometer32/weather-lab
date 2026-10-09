@@ -19,7 +19,7 @@ CYCLE = datetime(2026, 10, 9, 12, tzinfo=UTC)
 
 def models():
     point = {"temperatureK": 283.15, "dewpointK": 278.15, "u10": 3., "v10": 4.,
-             "gustMs": 8., "surfacePressurePa": 98000., "cloudPct": 60.}
+             "gustMs": 8., "cloudPct": 60.}
     return {m: {h: {s: dict(point, precipTotalMm=h * (1 if m == "HRRR" else 3)) for s in LOCATIONS}
                 for h in range(2, 19)} for m in ("HRRR", "RRFS")}
 

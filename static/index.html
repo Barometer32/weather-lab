@@ -22,13 +22,12 @@
 <main>
 <section id="observations" role="tabpanel" aria-labelledby="tab-observations">
   <div class="section-heading"><div><p class="eyebrow">KFCM + KMSP + KMIC</p><h1>Current conditions</h1><p id="updated">Loading hourly observations…</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
-  <div class="observation-quality" role="status"><span class="quality-line" id="qa-status">Loading combined observations…</span></div>
   <p class="notice" id="observation-status" role="status" hidden></p>
   <div class="metrics">
-    <article class="metric featured"><h2>Temperature</h2><div class="metric-value" id="temperature">—</div><p id="temp-count">Three-station hourly average</p></article>
-    <article class="metric"><h2>Dew point</h2><div class="metric-value" id="dewpoint">—</div><p id="dewpoint-count">Hourly average</p></article>
-    <article class="metric"><h2>Wind</h2><div class="metric-value wind" id="wind">—</div><p id="wind-count">Mean speed · circular direction</p></article>
-    <article class="metric"><h2>Sun angle</h2><div class="metric-value" id="sun-angle">—</div><p id="sun-time">Live solar elevation</p></article>
+    <article class="metric featured"><h2>Temperature</h2><div class="metric-value" id="temperature">—</div></article>
+    <article class="metric"><h2>Dew point</h2><div class="metric-value" id="dewpoint">—</div></article>
+    <article class="metric"><h2>Wind</h2><div class="metric-value wind" id="wind">—</div></article>
+    <article class="metric"><h2>Sun angle</h2><div class="metric-value" id="sun-angle">—</div></article>
   </div>
   <div class="history-heading"><h2>Last 12 hours</h2><span>Central time · °F · mph</span></div>
   <div class="table-wrap"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind</th></tr></thead><tbody id="history"><tr><td colspan="4">Loading observations…</td></tr></tbody></table></div>
@@ -52,18 +51,10 @@
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
   <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMSP + KMIC</p><h1>16-hour forecast</h1><p id="forecast-updated">Waiting for the first completed model blend…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
-  <div class="observation-quality"><span class="quality-line" id="forecast-quality" role="status"></span></div>
   <p class="notice" id="forecast-status" role="status" hidden></p>
-  <div class="metrics">
-    <article class="metric featured"><h2>Temperature range</h2><div class="metric-value wind" id="forecast-temperature">—</div><p>Across the forecast window</p></article>
-    <article class="metric"><h2>Precipitation</h2><div class="metric-value wind" id="forecast-rain">—</div><p>16-hour liquid-equivalent amount</p></article>
-    <article class="metric"><h2>Peak wind</h2><div class="metric-value wind" id="forecast-wind">—</div><p>Maximum hourly mean speed</p></article>
-    <article class="metric"><h2>Model cycle</h2><div class="metric-value wind" id="forecast-cycle">—</div><p id="forecast-feed">Waiting for model data</p></article>
-  </div>
   <div class="history-heading"><h2>Hourly blend</h2><span>Central time · swipe to see all fields</span></div>
-  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">RH</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">Precip¹</th><th scope="col">Cloud²</th><th scope="col">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th><th scope="col">Pressure³</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="12">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
-  <p class="small-note">¹ Precipitation covers the hour ending at the row's time; the first row is the start of the 16-hour window. Amounts include the liquid equivalent of snow and ice and are not rain probabilities. ² An asterisk means HRRR only: the current RRFS parallel surface feed does not include cloud-cover fields. ³ Surface pressure, not sea-level pressure.</p>
-  <details class="method"><summary>How this forecast works</summary><p>Each hour, target the model initialized one hour earlier at :45 UTC; check again at :55 if it is late. Only publish after both models are complete through forecast hour 18. The display uses hours +2 through +18: 17 hourly timestamps spanning 16 hours. Example: collect the 12Z cycle around 13:45Z and show 14Z through 06Z the following day. Late data keeps the previous complete forecast, with its original cycle and times.</p><p>At each airport, extract the nearest model grid cell. Temperature, dew point, humidity, scalar wind speed, gust and surface pressure use equal model and station weights. Precipitation uses differences of cumulative amounts before averaging. All six core contributors must pass basic range and timestamp checks. Available cloud-cover fields are marked with their contributing models. Cloud layers overlap and do not add up to total cover.</p><p>This is a direct model blend with no AI and no adjustment to match the observations. Wind is at 10 m; temperature and dew point are at 2 m. Model disagreement and local terrain can still produce forecast errors.</p></details>
+  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">RH</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">Precip¹</th><th scope="col">Cloud²</th><th scope="col">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="11">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
+  <p class="small-note">¹ Liquid-equivalent precipitation for the hour ending at the listed time; the first row starts the window. ² Cloud layers can overlap. * HRRR only where RRFS cloud data is unavailable.</p>
 </section>
 </main>
 <footer>Weather Lab · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
