@@ -1,0 +1,328 @@
+"""Twin Cities observations and MPX radar. Run locally: python app.py."""
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
+from io import BytesIO
+import json
+import logging
+import math
+import os
+import re
+import threading
+import time
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from flask import Flask, Response, jsonify, send_from_directory
+import numpy as np
+from PIL import Image
+
+app = Flask(__name__, static_folder="static")
+UTC = timezone.utc
+STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
+IEM = "https://mesonet.agron.iastate.edu"
+# Custom approximate intensity labels, not measured surface rainfall rates.
+BANDS = [(10, 20, "Very light", "#b7e4c7"), (20, 25, "Light", "#62c482"),
+         (25, 30, "Light–moderate", "#239b56"), (30, 38, "Moderate", "#e6cd39"),
+         (38, 44, "Moderate–heavy", "#f6a23a"), (44, 50, "Heavy", "#e65b3b"),
+         (50, 57, "Very heavy", "#c82c55"), (57, 96, "Intense", "#8a3fa0")]
+_cache, _locks = {}, {}
+_lock_guard = threading.Lock()
+
+
+def utcnow():
+    return datetime.now(UTC)
+
+
+def iso(t):
+    return t.isoformat().replace("+00:00", "Z")
+
+
+def download(url):
+    req = Request(url, headers={"User-Agent": "Barometer32-weather-lab/1.0"})
+    with urlopen(req, timeout=20) as response:
+        return response.read(8_000_000)
+
+
+def cached(key, seconds, loader):
+    # One upstream request per cache key even with simultaneous browser requests.
+    with _lock_guard:
+        lock = _locks.setdefault(key, threading.Lock())
+    with lock:
+        entry = _cache.get(key)
+        if entry and time.monotonic() - entry[0] < seconds:
+            return entry[1]
+        value = loader()
+        _cache[key] = (time.monotonic(), value)
+        return value
+
+
+def get_reports():
+    url = "https://aviationweather.gov/api/data/metar?" + urlencode(
+        {"ids": ",".join(STATIONS), "format": "json", "hours": 16})
+    return cached("metar", 120, lambda: json.loads(download(url)))
+
+
+def valid_number(value, minimum, maximum):
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and minimum <= value <= maximum
+
+
+def valid_dewpoint(report):
+    value, temperature = report.get("dewp"), report.get("temp")
+    # Allow half a degree for reported-value rounding near saturation.
+    return valid_number(value, -100, 60) and (not valid_number(temperature, -90, 60)
+                                            or value <= temperature + 0.5)
+
+
+def quality_summary(chosen):
+    checks = {"temperature": 0, "dewpoint": 0, "wind": 0}
+    used = 0
+    for report in chosen:
+        passed = {"temperature": valid_number(report.get("temp"), -90, 60),
+                  "dewpoint": valid_dewpoint(report),
+                  "wind": valid_number(report.get("wspd"), 0, 200) and (
+                      report.get("wspd") == 0 or report.get("wdir") == "VRB"
+                      or valid_number(report.get("wdir"), 0, 360))}
+        for field, ok in passed.items():
+            checks[field] += int(ok)
+        used += int(all(passed.values()))
+    all_used = used == len(STATIONS)
+    return {"status": "passed" if all_used else "incomplete",
+            "stationsUsed": used, "stationsAvailable": len(chosen),
+            "stationsExpected": len(STATIONS), "allStationsUsed": all_used,
+            "checks": checks}
+
+
+def average(values):
+    return round(sum(values) / len(values), 1) if values else None
+
+
+def wind_mean(reports):
+    speeds = [r["wspd"] for r in reports if valid_number(r.get("wspd"), 0, 200)]
+    vectors = []
+    for r in reports:
+        speed, direction = r.get("wspd"), r.get("wdir")
+        if not valid_number(speed, 0, 200):
+            continue
+        if speed == 0:
+            vectors.append((0, 0))
+        elif valid_number(direction, 0, 360):
+            rad = math.radians(direction)
+            vectors.append((speed * math.sin(rad), speed * math.cos(rad)))
+    # Mean speed is scalar; direction is speed-weighted circular, never arithmetic.
+    direction = None
+    if vectors:
+        u, v = (sum(x[i] for x in vectors) for i in range(2))
+        if math.hypot(u, v) > 0.01:
+            direction = round(math.degrees(math.atan2(u, v)) % 360)
+    return {"speedMph": round(average(speeds) * 1.150779, 1) if speeds else None,
+            "direction": direction, "speedCount": len(speeds), "directionCount": len(vectors)}
+
+
+def routine_hour(report, as_of):
+    """Label the scheduled :53 METAR with the following hour; exclude SPECIs."""
+    if report.get("metarType") != "METAR" or str(report.get("rawOb", "")).startswith("SPECI"):
+        return None
+    stamp = report.get("obsTime")
+    if not valid_number(stamp, 0, as_of.timestamp()):
+        return None
+    observed = datetime.fromtimestamp(stamp, UTC)
+    # Permit small changes in the routine reporting minute, never other reports.
+    if not 50 <= observed.minute <= 59:
+        return None
+    return (observed + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+
+def receipt_timestamp(report):
+    try:
+        return datetime.fromisoformat(report.get("receiptTime", "").replace("Z", "+00:00")).timestamp()
+    except (ValueError, AttributeError):
+        return 0
+
+
+def hourly_snapshot(reports, target, as_of):
+    chosen = []
+    for station in STATIONS:
+        eligible = [r for r in reports if r.get("icaoId") == station
+                    and routine_hour(r, as_of) == target]
+        # Prefer :53, then newest report/correction receipt at the same timestamp.
+        if eligible:
+            expected = (target - timedelta(minutes=7)).timestamp()
+            chosen.append(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
+                -r["obsTime"], -receipt_timestamp(r))))
+    temps = [r["temp"] * 9 / 5 + 32 for r in chosen if valid_number(r.get("temp"), -90, 60)]
+    dewpoints = [r["dewp"] * 9 / 5 + 32 for r in chosen if valid_dewpoint(r)]
+    pressure = [r["altim"] for r in chosen if valid_number(r.get("altim"), 800, 1100)]
+    stations = []
+    for code, name in STATIONS.items():
+        r = next((r for r in chosen if r["icaoId"] == code), None)
+        stations.append({"code": code, "name": name, "available": r is not None,
+            "observedAt": iso(datetime.fromtimestamp(r["obsTime"], UTC)) if r else None,
+            "tempF": round(r["temp"] * 9 / 5 + 32, 1) if r and valid_number(r.get("temp"), -90, 60) else None,
+            "dewpointF": round(r["dewp"] * 9 / 5 + 32, 1) if r and valid_dewpoint(r) else None,
+            "cloudCover": r.get("cover") if r else None, "weather": r.get("wxString") if r else None,
+            "rawMetar": r.get("rawOb") if r else None})
+    return {"hour": iso(target), "tempF": average(temps), "dewpointF": average(dewpoints),
+            "pressureHpa": average(pressure), "wind": wind_mean(chosen), "count": len(chosen),
+            "tempCount": len(temps), "dewpointCount": len(dewpoints), "stations": stations,
+            "qa": quality_summary(chosen)}
+
+
+def observations(reports=None, now=None):
+    now = now or utcnow()
+    reports = get_reports() if reports is None else reports
+    # Display a routine report as soon as received, using its rounded hour label.
+    # An outage must not leave an old complete hour looking current indefinitely.
+    current_hour = now.replace(minute=0, second=0, microsecond=0)
+    hours = [routine_hour(r, now) for r in reports if r.get("icaoId") in STATIONS]
+    target = max([current_hour] + [hour for hour in hours if hour is not None])
+    history = [hourly_snapshot(reports, target - timedelta(hours=i), now) for i in range(12)]
+    return {"fetchedAt": iso(now), "current": history[0], "history": history,
+            "method": "Routine METAR near :53 (:50–:59), labeled with the following hour. SPECI excluded. Equal station weights.",
+            "source": "NOAA Aviation Weather Center"}
+
+
+def scans_in_window(scans, now):
+    start = now - timedelta(hours=2)
+    times = set()
+    for scan in scans:
+        try:
+            stamp = datetime.fromisoformat(scan["ts"].replace("Z", "+00:00"))
+            if stamp.tzinfo is not None and start <= stamp <= now:
+                times.add(stamp)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            continue
+    return [{"time": iso(t), "id": t.strftime("%Y%m%d%H%M")} for t in sorted(times)]
+
+
+def get_scans(now=None):
+    now = now or utcnow()
+    def load():
+        query = urlencode({"operation": "list", "radar": "MPX", "product": "N0B",
+            "start": (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%MZ"),
+            "end": now.strftime("%Y-%m-%dT%H:%MZ")})
+        data = json.loads(download(IEM + "/json/radar.py?" + query))
+        return data.get("scans", [])
+    # Refilter cached results so an old frame cannot extend the two-hour window.
+    return scans_in_window(cached("radar-scans", 120, load), now)
+
+
+def raw_radar(scan_id):
+    if not re.fullmatch(r"\d{12}", scan_id):
+        raise ValueError("Invalid scan")
+    t = datetime.strptime(scan_id, "%Y%m%d%H%M").replace(tzinfo=UTC)
+    base = f"{IEM}/archive/data/{t:%Y/%m/%d}/GIS/ridge/MPX/N0B/MPX_N0B_{scan_id}"
+    return download(base + ".png"), download(base + ".wld")
+
+
+def recolor_and_project(png, worldfile):
+    image = Image.open(BytesIO(png))
+    if image.mode != "P":
+        raise ValueError("Radar source format changed: indexed PNG required")
+    # IEM N0B PNG indexes retain Level III data codes: 0/1 missing; 2 = -32 dBZ,
+    # each subsequent index adds 0.5 dBZ. Classify data indexes, not RGB guesses.
+    codes = np.asarray(image)
+    dbz = (codes.astype(float) - 2) * 0.5 - 32
+    rgba = np.zeros((*codes.shape, 4), dtype=np.uint8)
+    for low, high, _, color in BANDS:
+        rgb = [int(color[i:i+2], 16) for i in (1, 3, 5)]
+        rgba[(codes >= 2) & (dbz >= low) & (dbz < high)] = rgb + [220]
+    dx, rot1, rot2, dy, x0, y0 = map(float, worldfile.decode().split())
+    if rot1 != 0 or rot2 != 0 or dx <= 0 or dy >= 0:
+        raise ValueError("Unsupported radar georeferencing")
+    height, width = codes.shape
+    west, east = x0 - dx / 2, x0 + dx * (width - 0.5)
+    north, south = y0 - dy / 2, y0 + dy * (height - 0.5)
+    # Reproject latitude-linear image rows to Web Mercator for Leaflet alignment.
+    merc = lambda lat: math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+    ys = merc(north) + (np.arange(height) + 0.5) / height * (merc(south) - merc(north))
+    lats = np.degrees(2 * np.arctan(np.exp(ys)) - np.pi / 2)
+    rows = np.clip(np.rint((lats - y0) / dy).astype(int), 0, height - 1)
+    output = BytesIO()
+    Image.fromarray(rgba[rows], "RGBA").save(output, format="PNG", optimize=True)
+    return output.getvalue(), [[south, west], [north, east]]
+
+
+@lru_cache(maxsize=128)
+def radar_frame(scan_id):
+    return recolor_and_project(*raw_radar(scan_id))
+
+
+@app.get("/")
+def index():
+    return send_from_directory("static", "index.html")
+
+
+@app.get("/api/forecast")
+def forecast_api():
+    from forecast_store import read_forecast
+    try:
+        data = cached("forecast", 60, read_forecast)
+        cycle = datetime.fromisoformat(data["cycle"].replace("Z", "+00:00"))
+        data = dict(data, stale=utcnow() >= cycle + timedelta(hours=3, minutes=15))
+        return jsonify(data)
+    except FileNotFoundError:
+        return jsonify(error="The first forecast has not been collected yet."), 503
+    except Exception:
+        app.logger.exception("Forecast storage unavailable")
+        return jsonify(error="Forecast unavailable. Please try again shortly."), 502
+
+
+@app.get("/healthz")
+def health():
+    return jsonify(status="ok")
+
+
+@app.get("/api/observations")
+def observation_api():
+    try:
+        return jsonify(observations())
+    except Exception:
+        app.logger.exception("Observation feed failed")
+        return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
+
+
+@app.get("/api/radar")
+def radar_api():
+    try:
+        now = utcnow()
+        scans = get_scans(now)
+        if not scans:
+            return jsonify(error="No recent MPX scans are available."), 503
+        return jsonify(frames=scans, bands=[{"min": a, "max": b, "label": c, "color": d} for a, b, c, d in BANDS],
+                       renderVersion="custom-bands-v4",
+                       windowStart=iso(now - timedelta(hours=2)), windowEnd=iso(now),
+                       product="N0B", elevationDegrees=0.5,
+                       source="NWS MPX N0B via Iowa Environmental Mesonet")
+    except Exception:
+        app.logger.exception("Radar scan list failed")
+        return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
+
+
+@app.get("/api/radar/<scan_id>/metadata")
+def radar_metadata(scan_id):
+    try:
+        if scan_id not in {s["id"] for s in get_scans()}:
+            return jsonify(error="Scan is outside the current loop."), 404
+        _, bounds = radar_frame(scan_id)
+        return jsonify(bounds=bounds)
+    except Exception:
+        app.logger.exception("Radar frame failed")
+        return jsonify(error="This radar scan could not be loaded."), 502
+
+
+@app.get("/api/radar/<scan_id>.png")
+def radar_png(scan_id):
+    try:
+        # Cached frames remain valid even if the scan list has just advanced.
+        if scan_id not in {s["id"] for s in get_scans()}:
+            return jsonify(error="Scan is outside the current loop."), 404
+        png, _ = radar_frame(scan_id)
+        return Response(png, mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    except Exception:
+        app.logger.exception("Radar frame failed")
+        return jsonify(error="This radar scan could not be loaded."), 502
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), debug=False)

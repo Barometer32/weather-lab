@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Weather Lab · Twin Cities</title>
+  <meta name="description" content="Hourly averages from Flying Cloud, MSP, and Crystal, with simplified MPX radar.">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/vendor/leaflet.css">
+  <link rel="stylesheet" href="/static/style.css">
+  <script defer src="/static/vendor/leaflet.js"></script>
+  <script defer src="/static/vendor/suncalc.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+<header><div class="header-inner"><a class="brand" href="/">Weather Lab <span>Twin Cities</span></a></div>
+  <nav aria-label="Weather views" role="tablist">
+    <button role="tab" id="tab-observations" aria-selected="true" aria-controls="observations">Observations</button>
+    <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
+    <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
+  </nav>
+</header>
+<main>
+<section id="observations" role="tabpanel" aria-labelledby="tab-observations">
+  <div class="section-heading"><div><p class="eyebrow">KFCM + KMSP + KMIC</p><h1>Current conditions</h1><p id="updated">Loading hourly observations…</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
+  <div class="observation-quality" role="status"><span class="quality-line" id="qa-status">Loading combined observations…</span></div>
+  <p class="notice" id="observation-status" role="status" hidden></p>
+  <div class="metrics">
+    <article class="metric featured"><h2>Temperature</h2><div class="metric-value" id="temperature">—</div><p id="temp-count">Three-station hourly average</p></article>
+    <article class="metric"><h2>Dew point</h2><div class="metric-value" id="dewpoint">—</div><p id="dewpoint-count">Hourly average</p></article>
+    <article class="metric"><h2>Wind</h2><div class="metric-value wind" id="wind">—</div><p id="wind-count">Mean speed · circular direction</p></article>
+    <article class="metric"><h2>Sun angle</h2><div class="metric-value" id="sun-angle">—</div><p id="sun-time">Live solar elevation</p></article>
+  </div>
+  <div class="history-heading"><h2>Last 12 hours</h2><span>Central time · °F · mph</span></div>
+  <div class="table-wrap"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind</th></tr></thead><tbody id="history"><tr><td colspan="4">Loading observations…</td></tr></tbody></table></div>
+  <details class="method"><summary>How the average and basic QA work</summary><p>For KFCM, KMSP and KMIC, use the routine hourly METAR near :53 and label it with the following hour: 8:53 p.m. becomes 9 p.m. Allow :50–:59 for small changes in routine report timing. Exclude special (SPECI) reports and reports after the labeled hour. The newest routine report appears as soon as it is received, so its rounded hour label may be a few minutes ahead of the clock. Missing routine reports are flagged rather than replaced with another kind of observation. Temperature and dew point use equal station weights.</p><p>A green dot means basic QA passed and all three stations supplied valid routine temperature, dew point and wind readings. An amber dot means incomplete data or a failed refresh. Hover or focus on a dot for details. Checks reject missing or out-of-range numbers, invalid wind directions, and dew points above temperature (allowing 0.5°C for rounding). Calm and explicitly variable winds are valid. Incomplete hours show a warning and use valid contributors for each field. This does not detect every sensor error or bias.</p><p>Wind speed is averaged separately; direction uses speed-weighted circular averaging of known directions. Variable winds have no fixed direction. The sun angle is calculated live. Times use America/Chicago, including daylight saving changes.</p></details>
+</section>
+<section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
+  <div class="section-heading"><div><p class="eyebrow">MPX · 0.5° BASE REFLECTIVITY</p><h1>Local radar</h1><p>Past 2 hours · eight colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
+  <div id="radar-surface">
+    <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div><div class="map-time" id="radar-time">Loading radar…</div><button id="fullscreen" class="map-fullscreen" aria-label="Expand radar">Expand</button></div>
+    <div class="radar-controls">
+      <div class="timeline-control"><label for="timeline">Manual timeline <span>Drag to select a scan</span></label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
+      <div class="radar-buttons"><button id="play" class="primary" disabled>Play</button><button id="previous" class="secondary" aria-label="Previous scan" disabled>Previous</button><button id="next" class="secondary" aria-label="Next scan" disabled>Next</button><label class="speed-label">Speed <select id="speed"><option value="1200">Slow</option><option value="700" selected>Normal</option><option value="400">Fast</option></select></label></div>
+    </div>
+  </div>
+  <p id="map-note" class="small-note" role="status" hidden></p>
+  <p id="radar-status" role="status">Loading available MPX scans…</p>
+  <div class="legend" id="legend" aria-label="Radar echo strength legend"></div>
+  <p class="small-note">Below 10 dBZ is hidden. Intensity labels are approximate; radar echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
+  <details class="method"><summary>About this radar</summary><p>All available MPX N0B scans from the previous two-hour window are used; scan times are irregular and missing scans are flagged. This is 0.5° base reflectivity. The beam rises with distance and does not directly measure rainfall at the surface. Colors group echo strength in dBZ; they do not measure rain reaching the ground.</p></details>
+  <p class="source">Radar: NWS MPX N0B, provided by <a href="https://mesonet.agron.iastate.edu/GIS/ridge.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. <a href="https://weather.cod.edu/satrad/nexrad/index.php?parms=MPX-N0B-0-24-100-usa-rad" target="_blank" rel="noopener">Open College of DuPage radar</a></p>
+</section>
+<section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
+  <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMSP + KMIC</p><h1>16-hour forecast</h1><p id="forecast-updated">Waiting for the first completed model blend…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
+  <div class="observation-quality"><span class="quality-line" id="forecast-quality" role="status"></span></div>
+  <p class="notice" id="forecast-status" role="status" hidden></p>
+  <div class="metrics">
+    <article class="metric featured"><h2>Temperature range</h2><div class="metric-value wind" id="forecast-temperature">—</div><p>Across the forecast window</p></article>
+    <article class="metric"><h2>Precipitation</h2><div class="metric-value wind" id="forecast-rain">—</div><p>16-hour liquid-equivalent amount</p></article>
+    <article class="metric"><h2>Peak wind</h2><div class="metric-value wind" id="forecast-wind">—</div><p>Maximum hourly mean speed</p></article>
+    <article class="metric"><h2>Model cycle</h2><div class="metric-value wind" id="forecast-cycle">—</div><p id="forecast-feed">Waiting for model data</p></article>
+  </div>
+  <div class="history-heading"><h2>Hourly blend</h2><span>Central time · swipe to see all fields</span></div>
+  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">RH</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">Precip¹</th><th scope="col">Cloud²</th><th scope="col">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th><th scope="col">Pressure³</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="12">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
+  <p class="small-note">¹ Precipitation covers the hour ending at the row's time; the first row is the start of the 16-hour window. Amounts include the liquid equivalent of snow and ice and are not rain probabilities. ² An asterisk means HRRR only: the current RRFS parallel surface feed does not include cloud-cover fields. ³ Surface pressure, not sea-level pressure.</p>
+  <details class="method"><summary>How this forecast works</summary><p>Each hour, target the model initialized one hour earlier at :45 UTC; check again at :55 if it is late. Only publish after both models are complete through forecast hour 18. The display uses hours +2 through +18: 17 hourly timestamps spanning 16 hours. Example: collect the 12Z cycle around 13:45Z and show 14Z through 06Z the following day. Late data keeps the previous complete forecast, with its original cycle and times.</p><p>At each airport, extract the nearest model grid cell. Temperature, dew point, humidity, scalar wind speed, gust and surface pressure use equal model and station weights. Precipitation uses differences of cumulative amounts before averaging. All six core contributors must pass basic range and timestamp checks. Available cloud-cover fields are marked with their contributing models. Cloud layers overlap and do not add up to total cover.</p><p>This is a direct model blend with no AI and no adjustment to match the observations. Wind is at 10 m; temperature and dew point are at 2 m. Model disagreement and local terrain can still produce forecast errors.</p></details>
+</section>
+</main>
+<footer>Weather Lab · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
+</body></html>
