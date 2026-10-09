@@ -31,7 +31,7 @@ The script assigns its dedicated builder `roles/cloudbuild.builds.builder` and u
 ## 3. Verify
 
 1. Open the public URL. Check the observation QA dot, timestamps, manual radar slider on both devices.
-2. Forecast: verify model cycle, publication time, 17 timestamps spanning 16 hours, and RRFS parallel/operational label. Clouds with only HRRR must have an asterisk.
+2. Forecast: verify model cycle and publication time, future hourly rows (up to 16 rows at model hours +2 through +17), wind direction FROM true north, and precipitation for the hour starting at each row. Clouds with only HRRR must have an asterisk. The +18 endpoint supplies the last row’s precipitation. Elapsed rows are hidden.
 3. Cloud Run -> Jobs -> weather-forecast -> Executions: confirm Success and review the logged processing seconds. Compare job duration and data transfer after a few days before relying on a monthly estimate.
 
 ```bash
@@ -57,7 +57,7 @@ bash deploy.sh NEW_PROJECT_ID
 gcloud scheduler jobs pause weather-hourly --location=us-central1
 ```
 
-Existing forecast remains visible with stale labeling. Website/radar can still incur charges when viewed.
+Remaining future forecast rows stay visible with stale labeling; once all timestamps have passed, the table shows an unavailable message. Website/radar can still incur charges when viewed.
 
 ## Remove the experiment
 

@@ -128,6 +128,5 @@ body.radar-expanded { overflow: hidden; }
   .forecast-placeholder { padding: 20px; }
 }
 
-.past-forecast { color: #66736c; }
 #forecast-hours td:first-child { position: sticky; left: 0; background: #fff; }
 #forecast-hours tr:nth-child(even) td:first-child { background: #fafcfb; }

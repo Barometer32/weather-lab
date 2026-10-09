@@ -16,6 +16,12 @@ def read_forecast():
     return json.loads(Path(os.environ.get("FORECAST_FILE", "data/forecast.json")).read_text())
 
 
+def newer_forecast(data, old):
+    # A schema upgrade may replace the same cycle, but never a newer cycle.
+    return data["cycle"] > old["cycle"] or (data["cycle"] == old["cycle"]
+        and data.get("schemaVersion", 1) > old.get("schemaVersion", 1))
+
+
 def write_forecast(data):
     text = json.dumps(data, allow_nan=False, separators=(",", ":"))
     bucket = os.environ.get("FORECAST_BUCKET")
@@ -29,7 +35,7 @@ def write_forecast(data):
             generation = blob.generation or 0
             if generation:
                 old = json.loads(blob.download_as_bytes(if_generation_match=generation))
-                if old["cycle"] >= data["cycle"]:
+                if not newer_forecast(data, old):
                     return False
             try:
                 blob.upload_from_string(text, content_type="application/json", if_generation_match=generation)
@@ -39,7 +45,7 @@ def write_forecast(data):
         raise RuntimeError("Forecast changed during publication; retry later")
     path = Path(os.environ.get("FORECAST_FILE", "data/forecast.json"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and json.loads(path.read_text())["cycle"] >= data["cycle"]:
+    if path.exists() and not newer_forecast(data, json.loads(path.read_text())):
         return False
     temp = path.with_suffix(".tmp")
     temp.write_text(text)

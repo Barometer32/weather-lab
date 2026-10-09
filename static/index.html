@@ -50,11 +50,11 @@
   <p class="source">Radar: NWS MPX N0B, provided by <a href="https://mesonet.agron.iastate.edu/GIS/ridge.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. <a href="https://weather.cod.edu/satrad/nexrad/index.php?parms=MPX-N0B-0-24-100-usa-rad" target="_blank" rel="noopener">Open College of DuPage radar</a></p>
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
-  <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMSP + KMIC</p><h1>16-hour forecast</h1><p id="forecast-updated">Waiting for the first completed model blend…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
+  <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMSP + KMIC</p><h1>Hourly forecast</h1><p id="forecast-updated">Waiting for the first completed model blend…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
   <p class="notice" id="forecast-status" role="status" hidden></p>
   <div class="history-heading"><h2>Hourly blend</h2><span>Central time · swipe to see all fields</span></div>
-  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">RH</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">Precip¹</th><th scope="col">Cloud²</th><th scope="col">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="11">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
-  <p class="small-note">¹ Liquid-equivalent precipitation for the hour ending at the listed time; the first row starts the window. ² Cloud layers can overlap. * HRRR only where RRFS cloud data is unavailable.</p>
+  <div class="table-wrap" tabindex="0" aria-label="Hourly forecast, horizontally scrollable"><table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind (from)</th><th scope="col">Precip¹</th><th scope="col">Cloud²</th><th scope="col">Low²</th><th scope="col">Mid²</th><th scope="col">High²</th></tr></thead><tbody id="forecast-hours"><tr><td colspan="9">The hourly collection job has not published a forecast yet.</td></tr></tbody></table></div>
+  <p class="small-note">¹ Liquid-equivalent precipitation from the listed time to one hour later: 12 p.m. means 12–1 p.m., rounded to 0.01 in. ² Cloud layers can overlap. * HRRR only where RRFS cloud data is unavailable.</p>
 </section>
 </main>
 <footer>Weather Lab · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>

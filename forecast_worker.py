@@ -3,7 +3,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import logging
 import time
-from forecast_models import target_cycle, locate, collect_model, blend, iso, ModelUnavailable
+from forecast_models import target_cycle, locate, collect_model, blend, iso, ModelUnavailable, SCHEMA_VERSION
 from forecast_store import read_forecast, write_forecast
 
 
@@ -42,9 +42,12 @@ def main():
     try:
         old = read_forecast()
         published_cycle = old["cycle"]
-        if old["cycle"] >= cycle.isoformat().replace("+00:00", "Z"):
+        if old["cycle"] > iso(cycle) or (old["cycle"] == iso(cycle) and old.get("schemaVersion", 1) >= SCHEMA_VERSION):
             logging.info("Cycle already published; skipping downloads")
             return
+        if old.get("schemaVersion", 1) < SCHEMA_VERSION:
+            # Permit rebuilding the stored cycle once for the new wind/precip schema.
+            published_cycle = iso(datetime.fromisoformat(old["cycle"].replace("Z", "+00:00")) - timedelta(hours=1))
     except FileNotFoundError:
         pass
     # Check both f018 indexes first. Don't spend minutes downloading half a blend.
@@ -60,7 +63,7 @@ def main():
     forecast = blend(data, cycle, sources)
     forecast["processingSeconds"] = round(time.monotonic() - started, 1)
     write_forecast(forecast)
-    logging.info("Published %s: 17 timestamps, 16 hours, 6 contributors; %.1f seconds", forecast["cycle"], forecast["processingSeconds"])
+    logging.info("Published %s: 16 hourly intervals, 6 contributors; %.1f seconds", forecast["cycle"], forecast["processingSeconds"])
 
 
 if __name__ == "__main__":

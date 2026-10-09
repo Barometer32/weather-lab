@@ -10,22 +10,22 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 UTC = timezone.utc
+SCHEMA_VERSION = 2
 LOCATIONS = {"KFCM": (44.8272, -93.4571), "KMSP": (44.8831, -93.2289), "KMIC": (45.0621, -93.3539)}
 BASE = "https://nomads.ncep.noaa.gov/pub/data/nccf/com"
 FIELDS = {
     "temperatureK": ("TMP", "2 m above ground"),
     "dewpointK": ("DPT", "2 m above ground"),
     "u10": ("UGRD", "10 m above ground"), "v10": ("VGRD", "10 m above ground"),
-    "gustMs": ("GUST", "surface"),
     "precipTotalMm": ("APCP", "surface"),
     "cloudPct": ("TCDC", "entire atmosphere"),
     "lowCloudPct": ("LCDC", "low cloud layer"),
     "midCloudPct": ("MCDC", "middle cloud layer"),
     "highCloudPct": ("HCDC", "high cloud layer"),
 }
-CORE = {"temperatureK", "dewpointK", "u10", "v10", "gustMs", "precipTotalMm"}
+CORE = {"temperatureK", "dewpointK", "u10", "v10", "precipTotalMm"}
 GRID_KEYS = ("gridType", "Nx", "Ny", "latitudeOfFirstGridPoint", "longitudeOfFirstGridPoint",
-             "Dx", "Dy", "LoV", "LaD", "Latin1", "Latin2", "scanningMode", "numberOfPoints")
+             "Dx", "Dy", "LoV", "LaD", "Latin1", "Latin2", "scanningMode", "numberOfPoints", "shapeOfTheEarth", "radius")
 _grid_points = {}
 _grid_lock = Lock()
 
@@ -124,7 +124,26 @@ def locate(model, cycle):
     raise ModelUnavailable(f"{model} {cycle:%Y-%m-%d %HZ} is not complete through forecast hour 18")
 
 
-def decode_points(data, cycle, hour, key):
+def lambert_rotation(longitude, orientation, latitude1, latitude2):
+    """Meridian convergence in radians for the spherical Lambert model grids."""
+    p1, p2 = math.radians(latitude1), math.radians(latitude2)
+    if abs(p1 - p2) < 1e-10:
+        cone = math.sin(p1)
+    else:
+        cone = math.log(math.cos(p1) / math.cos(p2)) / math.log(
+            math.tan(math.pi / 4 + p2 / 2) / math.tan(math.pi / 4 + p1 / 2))
+    if not math.isfinite(cone) or abs(cone) < 1e-10:
+        raise ValueError("Unsupported Lambert standard parallels")
+    delta = (longitude - orientation + 180) % 360 - 180
+    return cone * math.radians(delta)
+
+
+def earth_wind(u, v, angle):
+    """Rotate grid x/y components to true east/north before any averaging."""
+    return u * math.cos(angle) + v * math.sin(angle), -u * math.sin(angle) + v * math.cos(angle)
+
+
+def decode_points(data, cycle, hour, key, wind_metadata=None):
     import eccodes as ec
     handle = ec.codes_new_from_message(data)
     if handle is None:
@@ -149,8 +168,21 @@ def decode_points(data, cycle, hour, key):
                     [p[0] for p in LOCATIONS.values()], [p[1] % 360 for p in LOCATIONS.values()])
                 if any(p["distance"] > 8 for p in nearest):
                     raise ValueError("Station is too far from a model grid point")
-                _grid_points[geometry] = tuple(p["index"] for p in nearest)
-            indices = _grid_points[geometry]
+                _grid_points[geometry] = tuple((p["index"], p["lon"]) for p in nearest)
+            nearest_points = _grid_points[geometry]
+        indices = [p[0] for p in nearest_points]
+        if key in ("u10", "v10"):
+            if wind_metadata is None:
+                raise ValueError("Wind components require grid orientation metadata")
+            relative = int(ec.codes_get(handle, "uvRelativeToGrid"))
+            if relative not in (0, 1):
+                raise ValueError("Unknown wind component orientation")
+            if relative and int(ec.codes_get(handle, "shapeOfTheEarth")) not in (0, 1, 6, 8):
+                raise ValueError("Unsupported non-spherical Lambert wind grid")
+            for station, (_, longitude) in zip(LOCATIONS, nearest_points):
+                angle = lambert_rotation(longitude, ec.codes_get(handle, "LoVInDegrees"),
+                    ec.codes_get(handle, "Latin1InDegrees"), ec.codes_get(handle, "Latin2InDegrees")) if relative else 0.0
+                wind_metadata[station][key] = (geometry, angle)
         selected = ec.codes_get_elements(handle, "values", indices)
         values = {}
         for station, selected_value in zip(LOCATIONS, selected):
@@ -167,6 +199,7 @@ def collect_hour(model, cycle, hour, final_url, final_index):
     url = re.sub(r'f(?:\d{2}|\d{3})(?=\.grib2|\.conus)', lambda _: f'f{hour:02}' if model == "HRRR" else f'f{hour:03}', final_url)
     records = selected_records(final_index if hour == 18 else fetch(url + ".idx").decode(), cycle, hour)
     points = {station: {} for station in LOCATIONS}
+    wind_metadata = {station: {} for station in LOCATIONS}
     # Consolidate nearby fields to avoid hundreds of small HTTP round trips.
     # Fetching a few intervening messages is cheaper than separate long waits.
     groups = []
@@ -183,9 +216,14 @@ def collect_hour(model, cycle, hour, final_url, final_index):
         chunk = fetch(url, start, end)
         for key, record in group:
             message_end = record["end"] - start + 1 if record["end"] is not None else len(chunk)
-            values = decode_points(chunk[record["offset"] - start:message_end], cycle, hour, key)
+            values = decode_points(chunk[record["offset"] - start:message_end], cycle, hour, key, wind_metadata)
             for station, value in values.items():
                 points[station][key] = value
+    for station, point in points.items():
+        if wind_metadata[station]["u10"] != wind_metadata[station]["v10"]:
+            raise ValueError("U/V components use different grids or orientations")
+        angle = wind_metadata[station]["u10"][1]
+        point["east10"], point["north10"] = earth_wind(point.pop("u10"), point.pop("v10"), angle)
     return hour, points
 
 
@@ -197,17 +235,15 @@ def collect_model(model, cycle, located):
 
 
 def checked_point(point):
-    t, d, u, v = (point[key] for key in ("temperatureK", "dewpointK", "u10", "v10"))
-    if not 183 <= d <= t + 0.5 or not 183 <= t <= 333 or math.hypot(u, v) > 100:
+    t, d, u, v = (point[key] for key in ("temperatureK", "dewpointK", "east10", "north10"))
+    if not all(math.isfinite(x) for x in (t, d, u, v)) or not 183 <= d <= t + 0.5 or not 183 <= t <= 333 or math.hypot(u, v) > 100:
         raise ValueError("Model temperature/dewpoint/wind failed range QA")
-    gust, rain = (point[k] for k in ("gustMs", "precipTotalMm"))
-    if not 0 <= gust <= 150 or not 0 <= rain <= 2000:
-        raise ValueError("Model gust/precipitation failed range QA")
+    rain = point["precipTotalMm"]
+    if not math.isfinite(rain) or not 0 <= rain <= 2000:
+        raise ValueError("Model precipitation failed range QA")
     tc, dc = t - 273.15, d - 273.15
-    rh = min(100, max(0, 100 * math.exp(17.625 * dc / (243.04 + dc) - 17.625 * tc / (243.04 + tc))))
     result = {"tempF": tc * 1.8 + 32, "dewpointF": dc * 1.8 + 32,
-              "humidityPct": rh, "windMph": math.hypot(u, v) * 2.236936,
-              "gustMph": gust * 2.236936}
+              "east10": u, "north10": v}
     for key in ("cloudPct", "lowCloudPct", "midCloudPct", "highCloudPct"):
         value = point.get(key)
         result[key] = min(100, max(0, value)) if value is not None and -0.01 <= value <= 100.01 else None
@@ -216,29 +252,37 @@ def checked_point(point):
 
 def blend(models, cycle, sources, now=None):
     hours = []
-    for hour in range(2, 19):
+    for hour in range(2, 18):
         points = []
         for model in ("HRRR", "RRFS"):
             for station in LOCATIONS:
                 raw = models[model][hour][station]
                 values = checked_point(raw)
-                values["precipIn"] = None
-                if hour > 2:
-                    diff = raw["precipTotalMm"] - models[model][hour - 1][station]["precipTotalMm"]
-                    if diff < -0.05:
-                        raise ValueError("Cumulative model precipitation decreased")
-                    values["precipIn"] = max(0, diff) / 25.4
+                following = models[model][hour + 1][station]
+                checked_point(following)  # Validate the final interval endpoint as well.
+                diff = following["precipTotalMm"] - raw["precipTotalMm"]
+                if diff < -0.05:
+                    raise ValueError("Cumulative model precipitation decreased")
+                values["precipIn"] = max(0, diff) / 25.4
                 points.append((model, values))
-        row = {"time": iso(cycle + timedelta(hours=hour)), "forecastHour": hour, "contributors": {}}
+        row = {"time": iso(cycle + timedelta(hours=hour)), "precipEnd": iso(cycle + timedelta(hours=hour + 1)), "forecastHour": hour, "contributors": {}}
         for key in points[0][1]:
+            if key in ("east10", "north10"):
+                continue
             valid = [(model, p[key]) for model, p in points if p[key] is not None]
             row[key] = round(sum(v for _, v in valid) / len(valid), 3 if key == "precipIn" else 1) if valid else None
             row["contributors"][key] = sorted({m for m, _ in valid})
+        east = sum(p["east10"] for _, p in points) / len(points)
+        north = sum(p["north10"] for _, p in points) / len(points)
+        speed = math.hypot(east, north) * 2.236936
+        row["windMph"] = round(speed, 1)
+        row["windDirection"] = round(math.degrees(math.atan2(-east, -north)) % 360, 1) % 360 if speed >= 0.5 else None
+        row["contributors"]["windMph"] = row["contributors"]["windDirection"] = ["HRRR", "RRFS"]
         row["qa"] = "passed"  # All six core contributors required; optional fields have provenance.
         hours.append(row)
-    return {"cycle": iso(cycle), "publishedAt": iso(now or datetime.now(UTC)),
-            "windowStart": hours[0]["time"], "windowEnd": hours[-1]["time"], "durationHours": 16,
+    return {"schemaVersion": SCHEMA_VERSION, "cycle": iso(cycle), "publishedAt": iso(now or datetime.now(UTC)),
+            "windowStart": hours[0]["time"], "windowEnd": hours[-1]["precipEnd"], "durationHours": 16,
             "stations": list(LOCATIONS), "weights": {"HRRR": 0.5, "RRFS": 0.5},
             "sources": sources, "hours": hours,
             "precipTotalIn": round(sum(h["precipIn"] or 0 for h in hours), 3),
-            "method": "Equal HRRR/RRFS and station weights. Nearest grid cell at each airport. No AI or observation correction. Wind speed is a scalar mean. Rain is liquid-equivalent amount, not probability. Cloud fields with only one source are identified."}
+            "method": "Equal HRRR/RRFS and station weights. Nearest grid cell at each airport. No AI or observation correction. Wind uses averaged earth-relative east/north components; direction is FROM true north. Rain covers the following hour and is liquid-equivalent amount, not probability. Cloud fields with only one source are identified."}
