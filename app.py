@@ -281,14 +281,11 @@ def prepared_snapshot(name, max_age):
 
 
 def get_forecast(now=None):
-    from nws_forecast import POINT_URL, normalize_forecast
-    def load():
-        point = cached("nws-point", 86400, lambda: json.loads(download(POINT_URL)))
-        url = point["properties"]["forecast"]
-        if not url.startswith("https://api.weather.gov/gridpoints/"):
-            raise ValueError("Unexpected NWS forecast endpoint")
-        return json.loads(download(url))
-    return normalize_forecast(cached("nws-forecast", 300, load), now or utcnow())
+    from nws_forecast import FORECAST_URL, normalize_forecast
+    # Use MapClick's structured feed so wording and period selection match the
+    # linked NWS webpage. Do not mix its issuance timestamp with another feed.
+    document = cached("nws-forecast", 300, lambda: json.loads(download(FORECAST_URL)))
+    return normalize_forecast(document, now or utcnow())
 
 
 @app.get("/")
@@ -299,8 +296,15 @@ def index():
 @app.get("/api/forecast")
 def forecast_api():
     try:
-        data = prepared_snapshot("forecast", 900) or get_forecast()
-        return jsonify(data)
+        from nws_forecast import FORECAST_VERSION, current_periods
+        now = utcnow()
+        data = prepared_snapshot("forecast", 900) or get_forecast(now)
+        if data.get("forecastVersion") != FORECAST_VERSION:
+            return jsonify(error="The matching NWS webpage forecast is being prepared. Please refresh shortly."), 503
+        periods = current_periods(data["periods"], now)
+        if not periods:
+            return jsonify(error="No current forecast periods remain. Background updates may be delayed."), 503
+        return jsonify({**data, "periods": periods}), 200, {"Cache-Control": "no-store"}
     except Exception:
         app.logger.exception("NWS forecast unavailable")
         return jsonify(error="The NWS forecast is unavailable. Please try again shortly."), 502

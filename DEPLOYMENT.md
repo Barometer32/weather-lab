@@ -22,7 +22,7 @@ The script creates or updates these resources in `us-central1`:
 - `weather-live-radar`: every minute for KMPX, using `/collect/radar-KMPX`.
 - `weather-live-satellite`: every five minutes, collecting all three products.
 - `weather-live-observations`: :56, :59 and :03 each hour (UTC minute offsets also match Central time).
-- `weather-live-forecast`: every five minutes, checking for the latest NWS issuance.
+- `weather-live-forecast`: every five minutes, checking the NWS MapClick JSON forecast that matches the linked webpage.
 
 It creates `weather-collector` and `weather-scheduler` service identities alongside the existing web/build identities. The Scheduler identity may invoke only the collector. The dedicated data bucket uses one-day image cleanup, no object versioning and no soft-delete retention, to avoid accumulating replaceable history. Map overlays and current manifests are retained. The script still removes only the specifically named obsolete model job/scheduler and its old forecast object/empty bucket. It also deletes the retired `weather-live-radar-KEVX` Scheduler job and its two live manifest/checkpoint objects. Old KEVX binary frames become inaccessible and expire under the existing one-day radar lifecycle. It preserves Artifact Registry revisions for rollback.
 
@@ -34,7 +34,7 @@ Radar and satellite prepare data even when nobody has the site open. Viewing the
 
 Observation sampling remains restricted to routine :50–:59 METARs, favoring :53 and labeling the next hour. The background checks at :56 and :59 collect those reports; :03 catches modest feed delays. The browser reads at :56:20, :59:20 and :03:20, and when opened, returned to, or refreshed manually. It preserves station QA and never replaces a missing current hour with an old complete one.
 
-NWS retains its own issuance schedule; checking every five minutes does not create new NWS forecasts. Original satellite RGB imagery, grid, boundaries and attribution are preserved. Radar boundary tiles and white background are unchanged. Native Level II replaces the coarse image feed and keeps complete KMPX lowest-tilt surveillance scans, including supplemental scans. Every available completed scan in the preceding two hours is included, without a frame-count limit. Missing source scans are indicated rather than extending the loop beyond two hours. Radar operator settings and feed latency determine the actual interval; minute polling does not force faster antenna scans.
+NWS retains its own issuance schedule; checking every five minutes does not create new NWS forecasts. Forecast periods, narrative and issue time all come from the same MapClick response. Saved periods are filtered again at request time so an expired afternoon cannot linger in the API. During deployment, the forecast job is triggered to prepare the new source; until it succeeds, an old API-format snapshot is not presented as the matching webpage feed. Original satellite RGB imagery, grid, boundaries and attribution are preserved. Radar boundary tiles and white background are unchanged. Native Level II replaces the coarse image feed and keeps complete KMPX lowest-tilt surveillance scans, including supplemental scans. Every available completed scan in the preceding two hours is included, without a frame-count limit. Missing source scans are indicated rather than extending the loop beyond two hours. Radar operator settings and feed latency determine the actual interval; minute polling does not force faster antenna scans.
 
 ## Verify
 
