@@ -1,13 +1,12 @@
 # Weather Lab
 
-A phone-friendly Twin Cities weather page with six views:
+A phone-friendly Twin Cities weather page with five views:
 
 - **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
 - **METAR clouds:** every available regional reporting station, cloud coverage and cloud-base heights, with a searchable layer list.
-- **Alternate clouds:** a north-up local NOAA cloud map on white ground, with all cloud-top height ranges and an optional optical-thickness view through day and night.
 
 ## Run locally
 
@@ -52,19 +51,11 @@ RGB colors give qualitative cloud clues, not exact cloud heights. All three prod
 
 ## METAR clouds
 
-The collector downloads Aviation Weather Center's complete METAR XML cache every five minutes and selects the latest available METAR or SPECI per station within 40–50°N, 100–85°W. A bounded API query can truncate the station list, so this tab uses the complete cache with no station-count cap. Reports older than two hours are excluded; reports over 90 minutes old are marked amber. This independent latest-report view does not change the three-station routine hourly observation average.
+The cloud-only map covers all available reporting sites in 40–50°N, 100–85°W, using AWC's complete cache for station discovery. Each of twelve hourly snapshots selects one routine METAR per station, closest to :53 within :50–:59, excludes SPECI, and labels the following hour using the same selection rule as main observations. Stations without an eligible report stay missing for that hour. Initial collection backfills thirteen hours from small station groups; responses at AWC's 400-report cap are split, with requests spaced to avoid excessive load. Later collections merge a short overlap into durable twelve-hour history. A failed query leaves the previous successful snapshot intact.
 
-The white state/county map shows coverage and the lowest reported cloud layer. Circle fill carries coverage: few quarter-full, scattered half-full, broken three-quarters-full, overcast full and clear open. Labels contain only the height in **hundreds of feet**, not decameters: `009` = 900 ft, `090` = 9,000 ft and `120` = 12,000 ft. Clear reports have no height label; unknown heights retain a question mark, and VV retains its distinct vertical-visibility label. Tap a marker for every reported layer and its actual observation time, or search the station list. All available regional markers remain present when zooming; only text labels hide at wider zoom levels to reduce overlap. Bases are feet **above the airport ground level (AGL)**, not sea level. Reported layers above 12,000 feet are retained. Automated CLR means no clouds detected at or below 12,000 feet; it does not establish that higher clouds exist or are thin. Missing cloud information remains unknown. VV is vertical visibility into an obscuration, not a measured cloud base. See [AWC help](https://aviationweather.gov/help/data/).
+A manual slider selects the hour. Circle fill represents cloud coverage; map numbers show whole thousands of feet AGL, rounded to the nearest thousand with a minimum of 1 (25,000→25, 9,000→9, 2,200→2, below 1,000→1). Clear reports have no height number. Tap a station for actual observation time, exact heights, and every reported layer. Unknown height stays unknown; VV denotes vertical visibility into an obscured sky. CLR does not prove high clouds exist or measure their thickness. The original COD satellite products remain unchanged.
 
-## Alternate clouds
-
-This independent experiment reads raw NOAA GOES-19 **ACMC cloud mask**, **ACHAC cloud-top height**, and **CODC cloud optical depth**. The original COD Satellite tab, map and products are preserved. A north-up geographic map with transparent cloud layers sits over white ground and the same state/county boundary source as radar. The local footprint is 43.3–46.9°N, 98.85–89.85°W, based on the original S_Minnesota sector's graticule. It covers the same region rather than exactly matching the corners of the original tilted projection. GOES still observes obliquely; high-cloud parallax is not corrected.
-
-The default **Cloud tops · all heights** view combines low tops below 2 km (blue), middle tops 2–6 km (teal), and high tops at/above 6 km (purple) in one consistent day/night scheme. Gray means a detected cloud with no trusted height estimate. These are tops above sea level, not airport bases or three separately resolved stacked decks. The **Optical thickness** option colors trusted optical depth in bins 0–2, 2–6, 6–16 and ≥16. It is a measure of light extinction, not geometric thickness in feet. Degraded/unavailable estimates and saturated nighttime estimates are hatched. Opaque upper clouds can hide lower decks; use METAR observations for that comparison.
-
-Source quality flags are enforced. Good mask pixels retain clear/probably clear vs cloudy/probably cloudy; unknown mask coverage is faintly hatched, never labeled clear. Height must have good DQF; optional height or optical failures keep the cloud mask. Products are paired by exactly the same scan-start identifier. Cloud detection/optical fields have nominal 2 km spacing; the currently available CONUS height field has nominal 10 km spacing. Reprojection uses nearest source cells onto a 1024×576 Web Mercator image; display pixels add no source detail. NOAA flags optical estimates at twilight and for other degraded conditions; nighttime sensitivity is limited near optical depth 16. See [NOAA optical-depth documentation](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C01508).
-
-The server caches NOAA object listings for two minutes on demand. Each requested scan downloads the three small CONUS products, subsets/reprojects the local fields, and caches both output PNGs for the rolling two-hour window. Image URLs identify the exact source-file revision, so late height/optical fields or corrections replace provisional gray pixels on refresh. Raw files are released after rendering, and netCDF access is serialized for thread safety. There is no added Scheduler job or bucket image copy. While the tab is visible, the browser checks every minute, shows the latest scan first, and prepares the two-hour history. The first history load can take a minute or two on a cold service. Decoded images are reused and a manual slider selects a scan; refresh and view changes preserve a selected time while available. This experiment adds on-demand web-service processing and image traffic, with no unattended collection when not viewed.
+Manual timelines are half-width above 600px and full-width on phones.
 
 ## NWS forecast
 
@@ -84,7 +75,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes; regional METAR clouds every five minutes. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 original satellite frames. Alternate clouds loads NOAA imagery on demand. Cloud changes occur only when this script is run in authenticated Cloud Shell.
+The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes; regional METAR clouds at :56, :59 and :03. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 original satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
 
 ## Checks
 

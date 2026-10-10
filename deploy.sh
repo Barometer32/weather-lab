@@ -66,7 +66,7 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule observations '3,56,59 * * * *'
 weather_schedule forecast '*/5 * * * *'
-weather_schedule metar-clouds '*/5 * * * *'
+weather_schedule metar-clouds '3,56,59 * * * *'
 
 gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
 

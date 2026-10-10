@@ -1,9 +1,11 @@
-"""Cloud-only latest station reports from AWC's complete METAR cache."""
+"""Cloud-only routine hourly METAR history across the Upper Midwest."""
 from datetime import datetime, timedelta, timezone
 import gzip
 from io import BytesIO
 import math
 import re
+import time
+from urllib.parse import urlencode
 import xml.etree.ElementTree as ET
 
 SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
@@ -20,7 +22,7 @@ def value(text, low, high):
         return None
 
 
-def reports(xml, now):
+def parse_reports(xml, now, hours=13):
     if xml.startswith(b"\x1f\x8b"):
         with gzip.GzipFile(fileobj=BytesIO(xml)) as file:
             xml = file.read(30_000_001)
@@ -29,7 +31,7 @@ def reports(xml, now):
     root = ET.fromstring(xml)
     if root.find("errors") is not None and list(root.find("errors")):
         raise ValueError("AWC returned an error")
-    latest = {}
+    entries = []
     for row in root.findall(".//METAR"):
         station = row.findtext("station_id", "")
         lat, lon = value(row.findtext("latitude"), 40, 50), value(row.findtext("longitude"), -100, -85)
@@ -37,7 +39,7 @@ def reports(xml, now):
             continue
         try:
             stamp = datetime.fromisoformat(row.findtext("observation_time", "").replace("Z", "+00:00"))
-            if stamp.tzinfo is None or not now-timedelta(hours=2) <= stamp <= now:
+            if stamp.tzinfo is None or not now-timedelta(hours=hours) <= stamp <= now:
                 continue
             stamp = stamp.astimezone(timezone.utc)
         except ValueError:
@@ -68,25 +70,105 @@ def reports(xml, now):
                 layers = [{"cover": clear.group(1), "baseFtAGL": None, "heightType": "cloudBase"}]
         layers.sort(key=lambda layer: (layer["baseFtAGL"] is None, layer["baseFtAGL"] or 0))
         item = {"station": station, "lat": lat, "lon": lon, "time": stamp.isoformat().replace("+00:00", "Z"),
-                "reportType": row.findtext("metar_type", "METAR"), "layers": layers,
+                "reportType": "SPECI" if raw.startswith("SPECI") else row.findtext("metar_type", "METAR"),
+                "receiptTime": row.findtext("receipt_time", ""), "layers": layers,
                 "cloudDataAvailable": bool(layers), "delayed": (now-stamp).total_seconds() > 5400}
-        # Keep the last cache entry if equally timed. An older clear report
-        # must not mask a newer missing-cloud report or special observation.
-        previous = latest.get(station)
+        entries.append(item)
+    return entries
+
+
+def reports(xml, now):
+    """Complete current cache for station discovery, including off-hour sites."""
+    latest = {}
+    for item in parse_reports(xml, now, hours=2):
+        previous = latest.get(item["station"])
         if previous is None or item["time"] >= previous["time"]:
-            latest[station] = item
+            latest[item["station"]] = item
     if not latest:
         raise ValueError("No recent regional METAR cloud reports are available")
     return {"stations": sorted(latest.values(), key=lambda row: row["station"]),
-            "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": now.isoformat().replace("+00:00", "Z"),
+            "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": SOURCE_URL}
 
 
+def iso(moment):
+    return moment.isoformat().replace("+00:00", "Z")
+
+
+def snapshot(rows, now, checked_at=None):
+    # Reuse the main observations' exact selection and correction tie breakers.
+    from app import routine_hour, receipt_timestamp
+    chosen = {}
+    latest = now.replace(minute=0, second=0, microsecond=0)
+    for row in rows:
+        stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
+        if stamp < now-timedelta(hours=13):
+            continue
+        report = {"metarType": row["reportType"], "obsTime": stamp.timestamp(),
+                  "receiptTime": row.get("receiptTime", "")}
+        hour = routine_hour(report, now)
+        if hour is None:
+            continue
+        latest = max(latest, hour)
+        rank = (abs((stamp-(hour-timedelta(minutes=7))).total_seconds()),
+                -stamp.timestamp(), -receipt_timestamp(report))
+        key = (iso(hour), row["station"])
+        if key not in chosen or rank <= chosen[key][0]:
+            chosen[key] = (rank, row)
+    history = []
+    for i in reversed(range(12)):
+        hour = iso(latest-timedelta(hours=i))
+        stations = sorted((item[1] for (label, _), item in chosen.items() if label == hour),
+                          key=lambda row: row["station"])
+        history.append({"hour": hour, "stations": stations})
+    return {"version": 2, "history": history, "stations": history[-1]["stations"],
+            "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": checked_at or iso(now),
+            "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
+
+
 def current(data, now):
-    rows = []
-    for station in data["stations"]:
-        moment = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
-        age = (now-moment).total_seconds()
-        if 0 <= age <= 7200:
-            rows.append({**station, "delayed": age > 5400})
-    return {**data, "stations": rows}
+    rows = [row for hour in data.get("history", []) for row in hour["stations"]]
+    # A legacy latest-only snapshot cannot supply the requested hourly history.
+    if data.get("version") != 2:
+        rows = data.get("stations", [])
+    return {**snapshot(rows, now, data["checkedAt"]), "stale": data.get("stale", False)}
+
+
+def collect(download, now, previous=None):
+    previous = previous or {}
+    cache = reports(download(SOURCE_URL), now)
+    retained = [row for hour in previous.get("history", []) for row in hour["stations"]]
+    ids = sorted({row["station"] for row in cache["stations"]+retained})
+    hours = 13
+    if previous.get("version") == 2:
+        gap = (now-datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))).total_seconds()
+        hours = min(13, max(2, math.ceil(gap/3600)+1))
+    # Bootstrap all twelve hours once. Later runs merge a short overlap with
+    # durable history. Split capped responses; never silently lose stations.
+    batch_size = 8 if hours > 3 else 40
+    rows = retained + cache["stations"]
+    last_request = None
+    def fetch_group(group):
+        nonlocal last_request
+        if last_request is not None:
+            time.sleep(max(0, 1-(time.monotonic()-last_request)))
+        last_request = time.monotonic()
+        url = "https://aviationweather.gov/api/data/metar?" + urlencode(
+            {"ids": ",".join(group), "format": "xml", "hours": hours})
+        raw = download(url)
+        if not raw:  # AWC 204: a valid request with no reports.
+            return []
+        parsed = parse_reports(raw, now, hours=13)
+        count = len(ET.fromstring(raw).findall(".//METAR"))
+        if count >= 400:
+            if len(group) == 1:
+                raise ValueError("AWC report limit reached for a station; previous history retained")
+            mid = len(group)//2
+            return fetch_group(group[:mid])+fetch_group(group[mid:])
+        return parsed
+    for start in range(0, len(ids), batch_size):
+        rows.extend(fetch_group(ids[start:start+batch_size]))
+    data = snapshot(rows, now)
+    if not any(hour["stations"] for hour in data["history"]):
+        raise ValueError("No routine hourly regional reports; previous history retained")
+    return data

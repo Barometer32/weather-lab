@@ -144,8 +144,9 @@ def collect_observations(store, now):
 
 
 def collect_metar_clouds(store, now):
-    from metar_clouds import SOURCE_URL, reports
-    data = reports(weather.download(SOURCE_URL), now)
+    from metar_clouds import collect
+    previous = store.read_json("live/metar-clouds.json")
+    data = collect(weather.download, now, previous)
     store.write_json("live/metar-clouds.json", data)
     return {"stations": len(data["stations"])}
 

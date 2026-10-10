@@ -6,11 +6,7 @@ from unittest.mock import patch
 
 import app as weather
 import collector
-from metar_clouds import reports, current
-import alternate_clouds as clouds
-import numpy as np
-from io import BytesIO
-from PIL import Image
+from metar_clouds import reports, current, snapshot, collect, parse_reports
 from test_realtime import MemoryStore
 
 NOW=datetime(2026,10,10,2,tzinfo=timezone.utc)
@@ -59,7 +55,6 @@ class CloudReportTests(unittest.TestCase):
                       metar('KOUT').replace('<latitude>44.9</latitude>','<latitude>35</latitude>')),NOW)
         self.assertEqual([s['station'] for s in d['stations']],['KOK1'])
         self.assertTrue(d['stations'][0]['delayed'])
-        self.assertEqual(current(d,NOW+timedelta(minutes=8))['stations'],[])
 
     def test_full_dataset_is_not_limited_to_four_hundred_reports(self):
         d=reports(xml(*(metar('K'+str(i).zfill(3)) for i in range(500))),NOW)
@@ -71,7 +66,7 @@ class CloudReportTests(unittest.TestCase):
         self.assertEqual(store.read('live/metar-clouds.json'),before)
 
     def test_cold_public_app_reads_snapshot_without_upstream_collection(self):
-        store=MemoryStore();store.write_json('live/metar-clouds.json',reports(xml(metar()),NOW))
+        store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(parse_reports(xml(metar(stamp=(NOW-timedelta(minutes=7)).isoformat())),NOW),NOW))
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
             response=weather.app.test_client().get('/api/metar-clouds')
             self.assertEqual(response.status_code,200)
@@ -80,115 +75,103 @@ class CloudReportTests(unittest.TestCase):
             fetch.assert_not_called()
 
 
-class AlternateCloudTests(unittest.TestCase):
-    def setUp(self):
-        weather._cache.clear();clouds.FRAME_CACHE.clear()
+class HourlyCloudTests(unittest.TestCase):
+    def rows(self, *items):return parse_reports(xml(*items), NOW)
 
-    def stamp(self,t=NOW):return t.strftime('%Y%j%H%M%S')+'0'
+    def report(self, minutes=7, **kwargs):
+        return metar(stamp=(NOW-timedelta(minutes=minutes)).isoformat(), **kwargs)
 
-    def row(self,t=NOW):
-        return {'id':self.stamp(t),'time':clouds.iso(t),'keys':{'mask':'mask.nc','height':'height.nc','optical':'optical.nc'}}
+    def test_exactly_twelve_hours_and_same_routine_rule_as_main_observations(self):
+        items=[self.report(7+60*i) for i in range(13)]
+        data=snapshot(self.rows(*items),NOW)
+        self.assertEqual(len(data['history']),12)
+        self.assertEqual(data['history'][0]['hour'],'2026-10-09T15:00:00Z')
+        self.assertEqual(data['history'][-1]['hour'],'2026-10-10T02:00:00Z')
+        self.assertTrue(all(len(h['stations'])==1 for h in data['history']))
+        core=[{'icaoId':'KMSP','metarType':'METAR','obsTime':(NOW-timedelta(minutes=7+60*i)).timestamp()} for i in range(13)]
+        self.assertEqual([h['hour'] for h in data['history']],list(reversed([h['hour'] for h in weather.observations(core,NOW)['history']])))
 
-    def blob(self,field,value,q=0):
-        from netCDF4 import Dataset
-        d=Dataset('test','w',memory=100000)
-        d.createDimension('y',16);d.createDimension('x',24)
-        x=d.createVariable('x','f4',('x',));x[:]=np.linspace(-.12,.02,24)
-        y=d.createVariable('y','f4',('y',));y[:]=np.linspace(.14,.02,16)
-        p=d.createVariable('goes_imager_projection','i4')
-        for a,v in {'perspective_point_height':35786023.,'longitude_of_projection_origin':-75.,'semi_major_axis':6378137.,'semi_minor_axis':6356752.31414,'sweep_angle_axis':'x'}.items():setattr(p,a,v)
-        v=d.createVariable(field,'f4',('y','x'),fill_value=-9999);v[:]=value
-        qv=d.createVariable('DQF','i4',('y','x'));qv[:]=q
-        return bytes(d.close())
+    def test_prefers_53_and_correction_receipt_excludes_speci_future_and_off_hour(self):
+        items=[self.report(6,cloud='<sky_condition sky_cover="BKN" cloud_base_ft_agl="6000"/>'),
+               self.report(7), self.report(7,cloud='<sky_condition sky_cover="OVC" cloud_base_ft_agl="9000"/>',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>'),
+               self.report(5,kind='SPECI'), self.report(7,raw='SPECI KAAA OVC001'),
+               self.report(30,station='KOFF'),metar('KFUT',stamp=(NOW+timedelta(minutes=53)).isoformat())]
+        data=snapshot(self.rows(*items),NOW)
+        self.assertEqual([r['station'] for r in data['stations']],['KAAA'])
+        self.assertEqual(data['stations'][0]['layers'][0]['baseFtAGL'],9000)
 
-    def pixel(self,blob):return np.asarray(Image.open(BytesIO(blob)))[0,0]
+    def test_closest_minute_fallback_is_labeled_following_hour(self):
+        data=snapshot(self.rows(self.report(10),self.report(5,cloud='<sky_condition sky_cover="SCT" cloud_base_ft_agl="3000"/>')),NOW)
+        self.assertEqual(data['stations'][0]['time'],'2026-10-10T01:55:00Z')
+        self.assertEqual(data['history'][-1]['hour'],'2026-10-10T02:00:00Z')
 
-    def test_utc_identifier_and_recent_window_and_product_validation(self):
-        self.assertEqual(clouds.stamp_time(self.stamp()),NOW)
-        with self.assertRaises(ValueError):clouds.stamp_time('20263670000000')
-        rows=[self.row(NOW-timedelta(hours=2)),self.row(),self.row(NOW+timedelta(seconds=1)),self.row(NOW-timedelta(hours=2,seconds=1))]
-        d=clouds.manifest(rows,NOW)
-        self.assertEqual(len(d['frames']),2);self.assertEqual(d['bounds'],clouds.BOUNDS)
-        self.assertTrue(all('/combined.png?v=' in f['url'] for f in d['frames']))
-        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans') as upstream:
-            for path in ['/api/alternate-clouds/frame/invalid/combined.png','/api/alternate-clouds/frame/'+self.stamp()+'/evil.png','/api/alternate-clouds/frame/'+self.stamp(NOW+timedelta(seconds=1))+'/combined.png']:
-                self.assertEqual(weather.app.test_client().get(path).status_code,404)
-            upstream.assert_not_called()
+    def test_does_not_carry_forward_reports_into_missing_station_or_hour(self):
+        data=snapshot(self.rows(self.report(7),self.report(67,station='KBBB')),NOW)
+        self.assertEqual([r['station'] for r in data['stations']],['KAAA'])
+        later=current(data,NOW+timedelta(hours=1))
+        self.assertEqual(later['stations'],[])
+        self.assertEqual([r['station'] for r in later['history'][-2]['stations']],['KAAA'])
+        self.assertEqual(later['checkedAt'],data['checkedAt'])
 
-    def test_exact_scan_pairing_across_midnight_and_optional_fields(self):
-        def listing(feed,hour,now):
-            t=NOW-timedelta(minutes=5)
-            return {self.stamp(t):feed+'.nc'} if hour.hour==1 and feed!='ABI-L2-CODC' else {}
-        with patch('alternate_clouds.list_hour',side_effect=listing) as read:
-            rows=clouds.scans(NOW)
-        self.assertEqual(len(rows),1);self.assertIsNone(rows[0]['keys']['optical'])
-        self.assertEqual(rows[0]['keys']['height'],'ABI-L2-ACHAC.nc');self.assertEqual(read.call_count,9)
+    def test_rounded_hour_can_appear_ahead_of_clock_just_like_observations(self):
+        now=NOW-timedelta(minutes=5)
+        data=snapshot(parse_reports(xml(self.report()),now),now)
+        self.assertEqual(data['history'][-1]['hour'],'2026-10-10T02:00:00Z')
 
-    def test_height_classes_clear_missing_and_unknown_height_remain_distinct(self):
-        mask=np.array([[3,3,3,0,3,3]]);ok=np.array([[1,1,1,1,1,0]],dtype=bool)
-        heights=np.array([[1000,4000,9000,0,0,0]]);h_ok=np.array([[1,1,1,0,0,0]],dtype=bool)
-        images=clouds.palette(mask,ok,heights,h_ok,np.zeros(mask.shape),np.zeros(mask.shape,dtype=bool))
-        a=images['combined'];self.assertEqual(list(a[0,0,:3]),[56,118,188]);self.assertEqual(list(a[0,1,:3]),[20,150,143]);self.assertEqual(list(a[0,2,:3]),[129,85,179])
-        self.assertEqual(a[0,3,3],0);self.assertGreater(a[0,4,3],0)
+    def test_empty_cloud_data_stays_unknown_instead_of_previous_clear(self):
+        data=snapshot(self.rows(self.report(7),self.report(7,cloud='',raw='METAR KAAA',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>')),NOW)
+        self.assertEqual(data['stations'][0]['layers'],[])
 
-    def test_real_netcdf_projection_sampling_and_source_quality_flags(self):
-        sources={'mask':self.blob('ACM',3),'height':self.blob('HT',9000),'optical':self.blob('COD',30,q=2)}
-        images=clouds.render(sources)
-        self.assertEqual(list(self.pixel(images['combined'])[:3]),[129,85,179])
-        self.assertEqual(list(self.pixel(images['optical'])[:3]),[16,66,115])
-        sources['height']=self.blob('HT',9000,q=1);sources['optical']=self.blob('COD',30,q=1)
-        images=clouds.render(sources)
-        self.assertEqual(list(self.pixel(images['combined'])[:3]),[138,146,153])
-        self.assertNotEqual(list(self.pixel(images['optical'])[:3]),[16,66,115])
-        sources['mask']=self.blob('ACM',3,q=1);images=clouds.render(sources)
-        self.assertLess(self.pixel(images['combined'])[3],100)
+    def test_bootstrap_recovers_routine_report_replaced_in_latest_cache_by_speci(self):
+        cache=xml(self.report(5,kind='SPECI'))
+        with patch('metar_clouds.time.sleep'),patch('metar_clouds.time.monotonic',return_value=0):
+            result=collect(lambda url:cache if 'cache' in url else xml(self.report(7),self.report(67)),NOW)
+        self.assertEqual(result['stations'][0]['time'],'2026-10-10T01:53:00Z')
+        self.assertEqual(len(result['history'][-2]['stations']),1)
 
-    def test_north_up_mercator_rows_and_west_to_east_columns(self):
-        lon,lat=clouds.output_grid()
-        self.assertGreater(lat[0,0],lat[-1,0]);self.assertGreater(lon[0,-1],lon[0,0])
-        merc=np.log(np.tan(np.pi/4+np.radians(lat[:,0])/2))
-        np.testing.assert_allclose(np.diff(merc),np.diff(merc)[0],rtol=1e-9)
-        self.assertEqual(lon.shape,(576,1024))
+    def test_capped_response_is_split_and_both_stations_survive(self):
+        requests=[]
+        def fetch(url):
+            requests.append(url)
+            if 'cache' in url:return xml(self.report(station='KAAA'),self.report(station='KBBB'))
+            if 'KAAA%2CKBBB' in url:return xml(*(self.report() for _ in range(400)))
+            return xml(self.report(station='KBBB' if 'KBBB' in url else 'KAAA'))
+        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW)
+        self.assertEqual([s['station'] for s in data['stations']],['KAAA','KBBB'])
+        self.assertEqual(len(requests),4)
 
-    def test_optional_product_failure_keeps_cloud_mask(self):
-        images=clouds.render({'mask':self.blob('ACM',3),'height':b'bad file'})
-        self.assertEqual(list(self.pixel(images['combined'])[:3]),[138,146,153])
-        with self.assertRaises(Exception):clouds.render({'mask':b'bad file'})
+    def test_warm_collection_merges_durable_history_and_requests_short_overlap(self):
+        old=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
+        urls=[]
+        def fetch(url):
+            urls.append(url)
+            return xml(metar(stamp=(NOW+timedelta(minutes=53)).isoformat()))
+        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW+timedelta(hours=1),old)
+        self.assertEqual(len(data['history']),12)
+        self.assertTrue(all(h['stations'] for h in data['history']))
+        self.assertIn('hours=2',urls[-1])
+        self.assertEqual(data['history'][-1]['hour'],'2026-10-10T03:00:00Z')
 
-    def test_output_cache_reuses_scan_for_both_views_and_prunes_old(self):
-        old=self.stamp(NOW-timedelta(hours=3));clouds.FRAME_CACHE[old]={'combined':b'old'}
-        with patch('alternate_clouds.fetch',return_value=b'raw') as fetch,patch('alternate_clouds.render',return_value={'combined':b'height','optical':b'depth'}) as render:
-            self.assertEqual(clouds.frame(self.row(),'combined',NOW),b'height')
-            self.assertEqual(clouds.frame(self.row(),'optical',NOW),b'depth')
-        self.assertEqual(fetch.call_count,3);self.assertEqual(render.call_count,1);self.assertNotIn(old,clouds.FRAME_CACHE)
+    def test_failed_history_query_retains_previous_durable_snapshot(self):
+        store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(self.rows(self.report()),NOW))
+        before=store.read('live/metar-clouds.json')
+        with patch('app.download',side_effect=[xml(self.report()),TimeoutError()]),self.assertRaises(TimeoutError):
+            collector.collect_metar_clouds(store,NOW)
+        self.assertEqual(store.read('live/metar-clouds.json'),before)
 
-    def test_public_routes_use_only_independent_noaa_feed(self):
-        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans',return_value=[self.row()]) as scans,patch('alternate_clouds.frame',return_value=b'PNG') as render,patch('app.get_store') as bucket,patch('app.download') as cod:
-            c=weather.app.test_client();self.assertEqual(c.get('/api/alternate-clouds').status_code,200)
-            r=c.get('/api/alternate-clouds/frame/'+self.stamp()+'/combined.png')
-            self.assertEqual(r.status_code,200);self.assertEqual(r.mimetype,'image/png');self.assertEqual(scans.call_count,1)
-            bucket.assert_not_called();cod.assert_not_called();render.assert_called_once()
+    def test_legacy_deployed_snapshot_waits_for_collector_without_visitor_backfill(self):
+        store=MemoryStore();store.write_json('live/metar-clouds.json',reports(xml(self.report()),NOW))
+        weather._cache.clear()
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
+            response=weather.app.test_client().get('/api/metar-clouds')
+            self.assertEqual(response.status_code,503)
+            self.assertIn('being prepared',response.json['error'])
+            fetch.assert_not_called()
 
-    def test_late_optional_fields_change_urls_and_replace_provisional_output(self):
-        provisional=self.row();provisional['keys']['height']=None
-        complete=self.row()
-        self.assertNotEqual(clouds.manifest([provisional],NOW)['frames'][0]['url'],clouds.manifest([complete],NOW)['frames'][0]['url'])
-        with patch('alternate_clouds.fetch',return_value=b'raw'),patch('alternate_clouds.render',side_effect=[{'combined':b'gray'},{'combined':b'height'}]) as render:
-            self.assertEqual(clouds.frame(provisional,'combined',NOW),b'gray')
-            self.assertEqual(clouds.frame(complete,'combined',NOW),b'height')
-            self.assertEqual(render.call_count,2)
-        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans',return_value=[complete]),patch('alternate_clouds.frame') as image:
-            old=clouds.revision(provisional)
-            self.assertEqual(weather.app.test_client().get('/api/alternate-clouds/frame/'+self.stamp()+'/combined.png?v='+old).status_code,409)
-            image.assert_not_called()
-
-    def test_failed_download_is_not_cached_as_permanent_missing_data(self):
-        def read(url):
-            if url.endswith('height.nc'):raise TimeoutError()
-            return b'raw'
-        with patch('alternate_clouds.fetch',side_effect=read),patch('alternate_clouds.render') as render:
-            with self.assertRaises(TimeoutError):clouds.frame(self.row(),'combined',NOW)
-            render.assert_not_called();self.assertEqual(clouds.FRAME_CACHE,{})
+    def test_removed_alternate_routes_return_not_found(self):
+        client=weather.app.test_client()
+        self.assertEqual(client.get('/api/alternate-clouds').status_code,404)
+        self.assertEqual(client.get('/api/alternate-clouds/frame/20261010015300/combined.png').status_code,404)
 
 
 if __name__=='__main__':unittest.main()
