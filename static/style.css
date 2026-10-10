@@ -57,14 +57,16 @@ a { color: #137241; }
 button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #58a3db; outline-offset: 3px; }
 #radar-surface { position: relative; background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 #radar-map-area { position: relative; overflow: hidden; }
-#map { height: 540px; min-height: 360px; z-index: 0; background: white; }
-.map-time { position: absolute; bottom: 24px; left: 18px; z-index: 500; background: #ffffffed; border: 1px solid var(--border); color: #182521; padding: 10px 14px; border-radius: 6px; font-size: 15px; pointer-events: none; }
-.map-fullscreen { position: absolute; right: 14px; top: 14px; z-index: 500; background: white; }
-.radar-controls { padding: 12px 18px 16px; border-top: 1px solid var(--border); background: white; flex: 0 0 auto; }
-.timeline-control { width: 100%; }
-.timeline-control label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; font-weight: 600; }
-.timeline-control label span { font-size: 12px; font-weight: 400; color: var(--muted); }
-.scan-timeline { --progress: 100%; display: block; width: 100%; min-width: 0; height: 44px; margin: 2px 0 6px; padding: 0; border: 0; appearance: none; -webkit-appearance: none; background: transparent; touch-action: none; cursor: pointer; }
+#map { height: clamp(540px, 70dvh, 680px); min-height: 360px; z-index: 0; background: white; }
+.radar-controls { padding: 6px 14px; border-top: 1px solid var(--border); background: white; flex: 0 0 auto; }
+/* Shared compact toolbar: the middle column is half the desktop width. */
+.viewer-controls { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr) minmax(0,1fr); grid-template-areas: "time timeline actions"; align-items: center; column-gap: 12px; }
+.viewer-frame-time { grid-area: time; min-width: 0; font-size: 14px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.viewer-actions { grid-area: actions; display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
+.viewer-actions button { flex-shrink: 0; }
+.timeline-control { grid-area: timeline; width: 100%; min-width: 0; justify-self: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.scan-timeline { --progress: 100%; display: block; width: 100%; min-width: 0; height: 44px; margin: 0; padding: 0; border: 0; appearance: none; -webkit-appearance: none; background: transparent; touch-action: none; cursor: pointer; }
 .scan-timeline:disabled { opacity: .5; cursor: default; }
 .scan-timeline::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--green) 0%, var(--green) var(--progress), #d9e1dd var(--progress), #d9e1dd 100%); }
 .scan-timeline::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin-top: -9px; border: 2px solid white; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 1px #15864c44; }
@@ -86,7 +88,7 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 #radar-surface:fullscreen, #radar-surface.expanded { display: flex; flex-direction: column; width: 100%; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
 #radar-surface:fullscreen #radar-map-area, #radar-surface.expanded #radar-map-area { flex: 1 1 0; min-height: 0; }
 #radar-surface:fullscreen #map, #radar-surface.expanded #map { height: 100%; min-height: 0; }
-#radar-surface:fullscreen .radar-controls, #radar-surface.expanded .radar-controls { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+#radar-surface:fullscreen .radar-controls, #radar-surface.expanded .radar-controls { padding-bottom: max(6px, env(safe-area-inset-bottom)); }
 #radar-surface.expanded { position: fixed; inset: 0; z-index: 2000; }
 body.radar-expanded { overflow: hidden; }
 .leaflet-container { font-family: Arial, sans-serif; font-size: 14px; background: white; }
@@ -116,8 +118,7 @@ body.radar-expanded { overflow: hidden; }
   h2 { font-size: 20px; }
   th, td { padding: 12px 9px; font-size: 12px; }
   #map { height: 460px; }
-  .map-time { font-size: 13px; bottom: 24px; left: 10px; right: 10px; text-align: center; }
-  .radar-controls { padding: 12px; }
+  .radar-controls { padding: 6px 10px; }
   .legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .legend-item { font-size: 13px; }
   footer { padding: 20px 16px; }
@@ -144,14 +145,10 @@ body.radar-expanded { overflow: hidden; }
 #map .leaflet-image-layer { image-rendering: crisp-edges; image-rendering: pixelated; }
 .native-radar-canvas { position:absolute; image-rendering:pixelated; }
 .reflectivity-ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
-.satellite-view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); background: white; }
-.satellite-frame-time { font-size: 14px; font-variant-numeric: tabular-nums; }
-.satellite-view-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.satellite-view-actions button { min-height: 44px; }
 #satellite-surface:fullscreen, #satellite-surface.expanded { display: flex; flex-direction: column; width: 100%; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
 #satellite-surface:fullscreen #satellite-map-area, #satellite-surface.expanded #satellite-map-area { flex: 1 1 0; min-height: 0; }
 #satellite-surface:fullscreen #satellite-map, #satellite-surface.expanded #satellite-map { height: 100%; min-height: 0; }
-#satellite-surface:fullscreen .radar-controls, #satellite-surface.expanded .radar-controls { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+#satellite-surface:fullscreen .radar-controls, #satellite-surface.expanded .radar-controls { padding-bottom: max(6px, env(safe-area-inset-bottom)); }
 #satellite-surface.expanded { position: fixed; inset: 0; z-index: 2000; }
 body.satellite-expanded { overflow: hidden; }
 @media (max-width: 600px) {
@@ -161,16 +158,11 @@ body.satellite-expanded { overflow: hidden; }
   .forecast-temperature strong { font-size: 25px; }
   .forecast-detail { grid-column: 1 / -1; }
   #satellite-map { height: clamp(300px, 50svh, 420px); aspect-ratio: auto; }
-  .satellite-view-toolbar { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
-  .satellite-frame-time { flex: 1 0 100%; text-align: center; }
-  .satellite-view-actions { width: 100%; justify-content: center; gap: 8px; }
-  .satellite-view-actions button { font-size: 13px; padding: 8px 10px; }
 }
 
 /* Hourly cloud observations. */
 .cloud-map-surface { overflow:hidden; border:1px solid var(--border); border-radius:10px; background:#fff; }
 #metar-cloud-map { height:580px; background:#fff; z-index:0; }
-.cloud-map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-top:1px solid var(--border); background:#fff; font-size:14px; }
 .cloud-station { display:flex; align-items:center; white-space:nowrap; gap:3px; background:transparent; border:0; }
 .cloud-station svg { flex:0 0 20px; }
 .cloud-station-label { font:600 11px/1.3 system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; padding:2px 3px; }
@@ -184,11 +176,17 @@ body.satellite-expanded { overflow: hidden; }
 #metar-cloud-search { display:block; width:min(100%,320px); min-height:44px; margin-top:8px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font:inherit; }
 @media(max-width:600px) {
   #metar-cloud-map { height:470px; }
-  .cloud-map-toolbar { font-size:12px; padding:10px; }
-  .cloud-map-toolbar button { flex-shrink:0; padding:8px; }
   .cloud-station-table td { font-size:12px; }
 }
 
-@media (min-width:601px) {
+/* Narrow layouts keep the range immediately under the image. */
+@media (max-width:950px) {
+  .viewer-controls { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "timeline timeline" "time actions"; }
   .timeline-control { width:50%; }
+}
+@media (max-width:600px) {
+  .timeline-control { width:100%; }
+  .viewer-frame-time { font-size:12px; }
+  .viewer-actions { gap:6px; }
+  .viewer-actions button { font-size:12px; padding:8px; }
 }

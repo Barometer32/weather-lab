@@ -40,9 +40,11 @@
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface">
-    <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div><div class="map-time" id="radar-time">Loading radar…</div><button id="fullscreen" class="map-fullscreen" aria-label="Expand radar">Expand</button></div>
-    <div class="radar-controls">
-      <div class="timeline-control"><label for="timeline">Manual timeline <span>Drag to select a scan</span></label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
+    <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div></div>
+    <div class="radar-controls viewer-controls">
+      <div class="viewer-frame-time" id="radar-time">Loading radar…</div>
+      <div class="timeline-control"><label class="sr-only" for="timeline">Manual radar timeline: drag to select a scan</label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
+      <div class="viewer-actions"><button id="fullscreen" class="secondary" aria-label="Expand radar">Expand</button></div>
     </div>
   </div>
   <p id="map-note" class="small-note" role="status" hidden></p>
@@ -64,9 +66,10 @@
   <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
   <div id="satellite-surface">
     <div id="satellite-map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
-    <div class="satellite-view-toolbar"><div class="satellite-frame-time" id="satellite-time">Loading satellite…</div><div class="satellite-view-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div></div>
-    <div class="radar-controls">
-      <div class="timeline-control"><label for="satellite-timeline">Manual timeline <span>Drag to select an image</span></label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
+    <div class="radar-controls viewer-controls">
+      <div class="viewer-frame-time" id="satellite-time">Loading satellite…</div>
+      <div class="timeline-control"><label class="sr-only" for="satellite-timeline">Manual satellite timeline: drag to select an image</label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
+      <div class="viewer-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div>
     </div>
   </div>
   <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
@@ -75,7 +78,14 @@
 </section>
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
   <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1>METAR clouds</h1><p>Last 12 hourly snapshots · routine reports near :53</p></div><button class="secondary" id="refresh-metar-clouds">Refresh</button></div>
-  <div class="cloud-map-surface"><div id="metar-cloud-map" aria-label="Airport cloud observations with state and county boundaries"></div><div class="cloud-map-toolbar"><span id="metar-cloud-time" aria-live="polite">Loading hourly clouds…</span><button class="secondary" id="metar-cloud-reset">Reset view</button></div><div class="radar-controls"><div class="timeline-control"><label for="metar-cloud-timeline">Last 12 hours <span>Drag to select an hour</span></label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual hourly METAR cloud timeline" disabled></div></div></div>
+  <div class="cloud-map-surface">
+    <div id="metar-cloud-map" aria-label="Airport cloud observations with state and county boundaries"></div>
+    <div class="radar-controls viewer-controls">
+      <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly clouds…</span>
+      <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">Last 12 hours: drag to select an hour</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual hourly METAR cloud timeline" disabled></div>
+      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
+    </div>
+  </div>
   <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly cloud reports…</p>
   <p class="small-note">Circle fill: few ¼ · scattered ½ · broken ¾ · overcast full · clear open · ? unknown or obscured. Labels are rounded thousands of feet above ground: 25 = 25,000 ft · 9 = 9,000 ft · 2 = 2,200 ft rounded. Reported heights below 1,000 ft show 1. Exact heights appear when you tap a station. The map shows the lowest reported layer; tap for every layer.</p>
   <details class="method"><summary>All station cloud layers</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
