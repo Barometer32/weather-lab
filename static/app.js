@@ -313,9 +313,10 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["observations","radar","satellite","forecast"];
+const tabs = ["observations","radar","satellite","forecast","metar-clouds","alternate-clouds"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
+  WeatherCloudViews.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "observations") loadObservations();
   if(id === "forecast") loadForecast();
@@ -419,5 +420,7 @@ document.addEventListener("visibilitychange",()=>{
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();
     if (!$("forecast").hidden) loadForecast();
+    if (!$("metar-clouds").hidden) WeatherCloudViews.select("metar-clouds");
+    if (!$("alternate-clouds").hidden) WeatherCloudViews.select("alternate-clouds");
   }
 });

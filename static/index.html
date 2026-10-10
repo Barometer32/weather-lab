@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Weather Lab · Twin Cities</title>
-  <meta name="description" content="Twin Cities hourly observations, MPX radar, local GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Twin Cities observations, MPX radar, regional METAR clouds, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/vendor/suncalc.js"></script>
   <script defer src="/static/native-radar.js"></script>
+  <script defer src="/static/cloud-views.js"></script>
   <script defer src="/static/app.js"></script>
 </head>
 <body>
@@ -19,6 +20,8 @@
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
+    <button role="tab" id="tab-metar-clouds" aria-selected="false" aria-controls="metar-clouds" tabindex="-1">METAR clouds</button>
+    <button role="tab" id="tab-alternate-clouds" aria-selected="false" aria-controls="alternate-clouds" tabindex="-1">Alternate clouds</button>
   </nav>
 </header>
 <main>
@@ -70,6 +73,24 @@
   <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
   <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
   <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-24-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
+</section>
+<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
+  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1>METAR clouds</h1><p>Cloud coverage and bases · feet above ground level</p></div><button class="secondary" id="refresh-metar-clouds">Refresh</button></div>
+  <div class="cloud-map-surface"><div id="metar-cloud-map" aria-label="Airport cloud observations with state and county boundaries"></div><div class="cloud-map-toolbar"><span>Tap a station for every reported cloud layer</span><button class="secondary" id="metar-cloud-reset">Reset view</button></div></div>
+  <p id="metar-cloud-status" class="small-note" role="status">Loading latest regional cloud reports…</p>
+  <p class="small-note">Map label: lowest reported cloud layer. FEW = few · SCT = scattered · BKN = broken · OVC = overcast. Heights such as 3.5k mean 3,500 ft AGL. An amber symbol means the report is over 90 minutes old; reports older than two hours disappear.</p>
+  <details class="method"><summary>All station cloud layers</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
+  <details class="method"><summary>Compare METAR clouds with satellite</summary><p>CLR means an automated station detected no clouds at or below 12,000 ft. It does not prove clouds exist above that level or that they are thin. SKC means the observer reported a clear sky. NSC, NCD and CAVOK have different reporting criteria and are kept distinct. Missing cloud data is shown as unknown.</p><p>Cloud bases are above the airport ground level, not sea level, and do not measure cloud thickness or tops. Satellite usually shows the uppermost visible cloud layer, so opaque high clouds can hide lower layers. VV is vertical visibility into an obscured sky, not a measured cloud base. This tab uses the latest METAR or SPECI at each reporting site, including non-:53 reports; the three-station hourly average keeps its existing rules.</p></details>
+  <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a> · <a href="https://aviationweather.gov/help/data/" target="_blank" rel="noopener">Cloud reporting guide</a></p>
+</section>
+<section id="alternate-clouds" role="tabpanel" aria-labelledby="tab-alternate-clouds" hidden>
+  <div class="section-heading"><div><p class="eyebrow">DIRECT NOAA · EXPERIMENTAL</p><h1>Alternate clouds</h1><p>Upper Mississippi Valley · past two hours · manual timeline</p></div><button class="secondary" id="refresh-alternate-clouds">Refresh images</button></div>
+  <div class="satellite-product-row"><label for="alternate-cloud-product">View</label><select id="alternate-cloud-product"><option value="combo">Day / night cloud RGB</option><option value="geocolor">GeoColor</option><option value="infrared">Infrared cloud tops</option></select></div>
+  <p id="alternate-cloud-description" class="small-note">NOAA cloud imagery, independent of the original Satellite tab.</p>
+  <div class="cloud-map-surface"><div id="alternate-cloud-map" aria-label="Zoomable NOAA Upper Mississippi Valley cloud imagery"></div><div class="cloud-map-toolbar"><span id="alternate-cloud-time">Loading NOAA imagery…</span><button class="secondary" id="alternate-cloud-reset">Reset view</button></div><div class="radar-controls"><div class="timeline-control"><label for="alternate-cloud-timeline">Manual timeline <span>Drag to select an image</span></label><input id="alternate-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual NOAA cloud image timeline" disabled></div></div></div>
+  <p id="alternate-cloud-status" class="small-note" role="status">NOAA imagery loads when this tab is opened.</p>
+  <p class="small-note">Pinch or use +/− to zoom; drag to pan. NOAA's original map and image colors are retained, with white controls below the image. These RGBs give cloud clues rather than exact base heights. Use the METAR clouds tab to compare reported bases.</p>
+  <p class="source">Imagery: <a id="alternate-cloud-source" href="https://www.star.nesdis.noaa.gov/GOES/sector.php?sat=G19&amp;sector=umv" target="_blank" rel="noopener">NOAA / NESDIS / STAR</a> · GeoColor: CIRA / NOAA</p>
 </section>
 </main>
 <footer>Weather Lab · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>

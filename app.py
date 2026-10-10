@@ -327,6 +327,35 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
+@app.get("/api/metar-clouds")
+def metar_clouds_api():
+    from metar_clouds import SOURCE_URL, reports, current
+    try:
+        now = utcnow()
+        data = prepared_snapshot("metar-clouds", 900)
+        if data is None:
+            data = cached("metar-clouds", 300, lambda: reports(download(SOURCE_URL), now))
+        return jsonify(current(data, now)), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("METAR cloud reports unavailable")
+        return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
+
+
+@app.get("/api/alternate-clouds/<product>")
+def alternate_clouds_api(product):
+    from alternate_clouds import PRODUCTS, page_url, parse_loop
+    if product not in PRODUCTS:
+        return jsonify(error="Unknown NOAA cloud product."), 404
+    try:
+        # This separate experiment reads NOAA only while requested. Images are
+        # fetched by the browser directly from NOAA, never from the COD store.
+        html = cached("noaa-clouds-"+product, 120, lambda: download(page_url(product)).decode())
+        return jsonify(parse_loop(html, product, utcnow())), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("NOAA alternate clouds unavailable")
+        return jsonify(error="NOAA cloud imagery is unavailable. The original Satellite tab is still available."), 502
+
+
 @app.get("/healthz")
 def health():
     return jsonify(status="ok")

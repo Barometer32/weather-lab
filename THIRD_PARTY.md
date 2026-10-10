@@ -34,13 +34,22 @@ Weather data attribution: NOAA/NWS Aviation Weather Center; native KMPX Level II
 https://mesonet.agron.iastate.edu/ogc/
 
 
-Forecast data: National Weather Service point forecast API.
-https://www.weather.gov/documentation/services-web-api
-https://api.weather.gov/points/44.9244,-93.4140
+Forecast data: National Weather Service MapClick point forecast JSON/text feed.
+https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&FcstType=json
 
 Satellite imagery: NOAA GOES-East products and local sector processing/maps by
 College of DuPage NEXLAB. Original images, annotations and source credits retained.
 https://weather.cod.edu/satrad/
+
+Regional cloud observations: NOAA/NWS Aviation Weather Center complete METAR cache.
+Cloud bases are feet above ground level; original coverage codes are retained.
+https://aviationweather.gov/data/api/
+https://aviationweather.gov/help/data/
+
+Alternate cloud imagery and baked maps: NOAA/NESDIS/STAR GOES-19 Upper
+Mississippi Valley sector. Original imagery and source annotations retained.
+GeoColor: CIRA / NOAA. This experimental source is independent of COD NEXLAB.
+https://www.star.nesdis.noaa.gov/GOES/sector.php?sat=G19&sector=umv
 
 Native radar decoder: MetPy 1.7.1 (NSF Unidata), BSD 3-Clause.
 https://github.com/Unidata/MetPy

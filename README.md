@@ -1,11 +1,13 @@
 # Weather Lab
 
-A phone-friendly Twin Cities weather page with four views:
+A phone-friendly Twin Cities weather page with six views:
 
 - **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
+- **METAR clouds:** every available regional reporting station, cloud coverage and cloud-base heights, with a searchable layer list.
+- **Alternate clouds:** an independent NOAA STAR experiment with day/night cloud RGB, GeoColor and infrared imagery.
 
 ## Run locally
 
@@ -48,6 +50,20 @@ The Leaflet viewer uses the source's **native image coordinates**, not a latitud
 
 RGB colors give qualitative cloud clues, not exact cloud heights. All three products are collected every five minutes even without viewers. On opening, the newest image is shown while the remaining loop loads. Already decoded frames are reused on refresh. Radar and satellite history use manual sliders only, with no automatic playback or playback buttons; dragging selects a frame and updates its timestamp. Background refresh preserves a manually selected time while it remains available. Failed images, gaps and stale acquisition times are indicated. Product switches cancel obsolete loads so the old product cannot replace the new one.
 
+## METAR clouds
+
+The collector downloads Aviation Weather Center's complete METAR XML cache every five minutes and selects the latest available METAR or SPECI per station within 40–50°N, 100–85°W. A bounded API query can truncate the station list, so this tab uses the complete cache with no station-count cap. Reports older than two hours are excluded; reports over 90 minutes old are marked amber. This independent latest-report view does not change the three-station routine hourly observation average.
+
+The white state/county map shows coverage and the lowest reported cloud layer. Tap a marker for every reported layer and its actual observation time, or search the station list. All available regional markers remain present when zooming; only text labels hide at wider zoom levels to reduce overlap. Cloud quantities use METAR codes FEW, SCT, BKN and OVC. Bases are feet **above the airport ground level (AGL)**, not sea level. Reported layers above 12,000 feet are retained. Automated CLR means no clouds detected at or below 12,000 feet; it does not establish that higher clouds exist or are thin. Missing cloud information remains unknown. VV is vertical visibility into an obscuration, not a measured cloud base. See [AWC help](https://aviationweather.gov/help/data/).
+
+## Alternate clouds
+
+This separate viewer reads NOAA/NESDIS/STAR's GOES-19 Upper Mississippi Valley sector. It preserves the original COD Satellite tab, map and products. Choose **Day / night cloud RGB** (Day Cloud Phase in daylight, Nighttime Microphysics after dark), **GeoColor** (daytime natural color and nighttime infrared), or **Infrared cloud tops** (band 13). These products help interpret cloud properties; their colors do not provide exact cloud bases or heights.
+
+The server caches source-page metadata for two minutes on demand. While this tab is visible, the browser checks once per minute and downloads immutable 1200×1200 images directly from NOAA. There is no additional satellite background job or bucket image copy for this experiment. Every available image timestamp in the preceding two hours is included; a manual slider selects the image. Decoded images are reused, and refresh preserves a manually selected time while it remains available.
+
+This viewer uses native image coordinates and NOAA's own baked map/annotations. Its surrounding controls are white, but the RGB ground colors are retained. Matching the radar's geographic grid and custom white ground would require a separate raw-GOES reprojection and cloud-mask pipeline. GeoColor attribution: CIRA / NOAA; imagery/maps: NOAA / NESDIS / STAR.
+
 ## NWS forecast
 
 The collector reads the official MapClick JSON forecast (`FcstType=json`) for 44.9244, -93.4140, using the same source as the linked NWS webpage. The NWS API generates different narrative wording and can select different initial periods even with the same grid update time, so it is not used for this view. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Each compact row shows the period name, high/low temperature and the complete NWS narrative. Weather icons, the repeated short summary, and separate wind/precipitation-chance footers are omitted to keep the display concise. Wind and precipitation wording supplied in the full narrative is preserved.
@@ -66,7 +82,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
+The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes; regional METAR clouds every five minutes. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 original satellite frames. Alternate clouds loads NOAA imagery on demand. Cloud changes occur only when this script is run in authenticated Cloud Shell.
 
 ## Checks
 
@@ -74,5 +90,6 @@ The script retires the old model job and KEVX radar job, removes KEVX live manif
 python -m unittest discover -s tests -v
 node --check static/app.js
 node --check static/native-radar.js
+node --check static/cloud-views.js
 bash -n deploy.sh
 ```
