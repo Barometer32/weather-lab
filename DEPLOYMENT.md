@@ -1,5 +1,25 @@
 # Google Cloud deployment
 
+## Restore WEATHER LAB
+
+After restoring the Google project and linking an active billing account, deploy
+from a fresh clone of `https://github.com/Barometer32/weather-lab.git`. This
+preserves any older Cloud Shell checkout and uses the current saved version:
+
+```bash
+WEATHER_LAB_DIR="$(mktemp -d "$HOME/weather-lab-restore.XXXXXX")"
+git clone https://github.com/Barometer32/weather-lab.git "$WEATHER_LAB_DIR"
+cd "$WEATHER_LAB_DIR"
+bash deploy.sh weather-lab-511113
+```
+
+The deployment recreates missing managed resources and resumes any paused
+`weather-live-*` jobs it manages. Fresh history is collected if cached images
+were deleted. Some restored Google resources may take time to become available;
+if Google reports a restoration or billing propagation error, retry after the
+project and billing status have finished updating. The page name is WEATHER LAB;
+the existing service IDs and data sources remain the same.
+
 Weather Lab uses a public Cloud Run web service, a private Cloud Run collector, and a private regional Standard Storage bucket. Cloud Scheduler invokes the collector with OIDC authentication. There are no HRRR/RRFS or AI jobs.
 
 ## Update

@@ -1,4 +1,4 @@
-# Weather Lab
+# WEATHER LAB
 
 A phone-friendly Twin Cities weather page with five views:
 

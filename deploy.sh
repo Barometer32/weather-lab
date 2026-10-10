@@ -60,6 +60,11 @@ weather_schedule() {
     weather_action=update
   fi
   gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline=300s --max-retry-attempts=2 --min-backoff=60s --max-backoff=120s
+  # Updating an existing job preserves its paused state. Restore background
+  # collection when redeploying a previously stopped WEATHER LAB project.
+  if [[ "$(gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" --format='value(state)')" == "PAUSED" ]]; then
+    gcloud scheduler jobs resume "weather-live-${weather_kind}" --location="$WEATHER_REGION"
+  fi
   gcloud scheduler jobs run "weather-live-${weather_kind}" --location="$WEATHER_REGION"
 }
 weather_schedule radar '* * * * *' radar-KMPX
