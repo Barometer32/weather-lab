@@ -8,18 +8,19 @@ window.WeatherCloudViews = (() => {
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
   function heights(layer, compact=false) {
-    if(layer.cover==="CLR")return compact?"CLR":"CLR · no clouds detected ≤12,000 ft";
-    if(["SKC","NSC","NCD","CAVOK"].includes(layer.cover))return compact?layer.cover:`${layer.cover} · ${covers[layer.cover]}`;
+    if(layer.cover==="CLR")return compact?"":"CLR · no clouds detected ≤12,000 ft";
+    if(["SKC","NSC","NCD","CAVOK"].includes(layer.cover))return compact?"":`${layer.cover} · ${covers[layer.cover]}`;
     const h=layer.baseFtAGL;
-    const base=h==null?"height unknown":compact?`${Number((h/1000).toFixed(1))}k`:`${h.toLocaleString()} ft`;
-    return `${layer.cover} ${base}${!compact&&layer.cover==="VV"?" vertical visibility":""}`;
+    const base=h==null?(compact?"?":"height unknown"):compact?String(Math.round(h/100)).padStart(3,"0"):`${h.toLocaleString()} ft`;
+    if(compact)return `${layer.cover==="VV"?"VV ":""}${base}`;
+    return `${covers[layer.cover]||layer.cover} · ${base}${layer.cover==="VV"?" vertical visibility":""}`;
   }
   function circle(cover) {
     const fraction={FEW:.25,SCT:.5,BKN:.75,OVC:1}[cover]||0;
     let fill="";
     if(fraction===1)fill='<circle cx="10" cy="10" r="7" fill="#176741"/>';
     else if(fraction) { const a=-Math.PI/2+2*Math.PI*fraction,x=10+7*Math.cos(a),y=10+7*Math.sin(a);fill=`<path d="M10 10 L10 3 A7 7 0 ${fraction>.5?1:0} 1 ${x} ${y} Z" fill="#176741"/>`; }
-    const unknown=!cover||cover==="VV";
+    const unknown=!cover||["VV","NSC","NCD","CAVOK"].includes(cover);
     return `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="white" stroke="#233b31" stroke-width="1.7"/>${fill}${unknown?'<text x="10" y="14" text-anchor="middle" font-size="12">?</text>':""}</svg>`;
   }
   function initMetars() {
@@ -38,14 +39,14 @@ window.WeatherCloudViews = (() => {
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
     for(const s of stations) {
       const layer=s.layers.find(x=>x.baseFtAGL!=null)||s.layers[0];
-      const summary=layer?heights(layer,true):"Unknown";
+      const summary=layer?heights(layer,true):"";
       const delayed=now-new Date(s.time).getTime()>5400000;
-      const icon=L.divIcon({className:`cloud-station${delayed?" delayed":""}`,html:`${circle(layer?.cover)}<span class="cloud-station-label">${summary}</span>`,iconSize:[110,24],iconAnchor:[10,12]});
+      const icon=L.divIcon({className:`cloud-station${delayed?" delayed":""}`,html:`${circle(layer?.cover)}<span class="cloud-station-label">${summary}</span>`,iconSize:[62,24],iconAnchor:[10,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.station),node("p",time.format(new Date(s.time))));
       if(!s.layers.length)popup.append(node("p","Cloud information not reported."));
       for(const cloud of s.layers)popup.append(node("p",`${heights(cloud)}${cloud.baseFtAGL!=null&&cloud.cover!=="VV"?" AGL":""}`));
       if(delayed)popup.append(node("p","Report more than 90 minutes old."));
-      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${summary}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${layer?heights(layer):"Cloud information not reported"}`,keyboard:true}).bindPopup(popup).addTo(markers);
       if(query&&!s.station.includes(query))continue;
       const row=node("tr");const cell=node("td"),button=node("button",s.station,"station-link");button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
       row.append(cell,node("td",time.format(new Date(s.time))),node("td",s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));
@@ -61,12 +62,22 @@ window.WeatherCloudViews = (() => {
   }
 
   let altMap, altFrames=[], altLayers=new Map(), altIndex=0, altRequest=0, altBusy=false, altProduct;
-  const bounds=[[0,0],[1200,1200]];
-  function fitAlt(){if(altMap)altMap.fitBounds(bounds,{animate:false});}
+  let altBounds=[[43.3,-98.85],[46.9,-89.85]];
+  function fitAlt(){
+    if(!altMap)return;
+    const size=altMap.getSize();if(!size.x||!size.y)return;
+    const sw=altMap.project(altBounds[0],0),ne=altMap.project(altBounds[1],0);
+    const scales=[size.x/(ne.x-sw.x),size.y/(sw.y-ne.y)];
+    const scale=window.matchMedia("(max-width: 600px)").matches?Math.max(...scales):Math.min(...scales);
+    altMap.setView(altMap.unproject(sw.add(ne).divideBy(2),0),Math.log2(scale),{animate:false});
+  }
   function initAlt() {
     if(altMap)return;
-    altMap=L.map("alternate-cloud-map",{crs:L.CRS.Simple,minZoom:-3,maxZoom:3,zoomSnap:0});fitAlt();altMap.on("resize",fitAlt);
-    altMap.attributionControl.addAttribution("NOAA / NESDIS / STAR · GeoColor: CIRA / NOAA");
+    altMap=L.map("alternate-cloud-map",{minZoom:5,maxZoom:12,zoomSnap:0});
+    altMap.createPane("cloud-images");altMap.getPane("cloud-images").style.zIndex=350;
+    altMap.createPane("cloud-boundaries");altMap.getPane("cloud-boundaries").style.zIndex=410;altMap.getPane("cloud-boundaries").style.pointerEvents="none";
+    for(const [kind,opacity] of [["uscounties",.35],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{pane:"cloud-boundaries",opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(altMap);
+    fitAlt();altMap.on("resize",fitAlt);altMap.attributionControl.addAttribution("NOAA GOES-19 cloud products");
   }
   function showAlt(n) {
     if(!altFrames.length)return;
@@ -88,18 +99,22 @@ window.WeatherCloudViews = (() => {
       initAlt();
       if(changed){for(const layer of altLayers.values())altMap.removeLayer(layer);altLayers.clear();altFrames=[];el("alternate-cloud-time").textContent="Loading NOAA imagery…";}
       altProduct=product;
-      const data=await read(`/api/alternate-clouds/${product}`);if(request!==altRequest)return;
-      el("alternate-cloud-description").textContent=data.description;el("alternate-cloud-source").href=data.sourceUrl;
-      const loaded=[],queue=[...data.frames].reverse();let failed=0;
+      const data=await read("/api/alternate-clouds");if(request!==altRequest)return;
+      if(data.renderVersion!=="local-clouds-v1")throw Error("Local cloud map is being updated. Refresh shortly.");
+      altBounds=data.bounds;
+      const info=data.products[product];el("alternate-cloud-description").textContent=info.description;el("alternate-cloud-source").href=data.sourceUrl;
+      el("alternate-cloud-legend-tops").hidden=product!=="combined";el("alternate-cloud-legend-optical").hidden=product!=="optical";
+      const loaded=[],queue=data.frames.map(f=>({...f,url:f.url.replace("/combined.png",`/${product}.png`)})).reverse();let failed=0,completed=0;
       async function worker() {
         while(queue.length&&request===altRequest&&!document.hidden&&!el("alternate-clouds").hidden){
           const frame=queue.shift();
           try {
             let layer=altLayers.get(frame.url);
-            if(!layer){const image=new Image();image.src=frame.url;await image.decode();if(request!==altRequest)return;if(image.naturalWidth!==1200||image.naturalHeight!==1200)throw Error("Unexpected NOAA image dimensions");layer=L.imageOverlay(image,bounds,{opacity:0,interactive:false}).addTo(altMap);altLayers.set(frame.url,layer);}
+            if(!layer){const image=new Image();image.src=frame.url;await image.decode();if(request!==altRequest)return;if(image.naturalWidth!==data.width||image.naturalHeight!==data.height)throw Error("Unexpected cloud image dimensions");layer=L.imageOverlay(image,data.bounds,{opacity:0,pane:"cloud-images",interactive:false}).addTo(altMap);altLayers.set(frame.url,layer);}
             loaded.push(frame);
             if(!altFrames.length){altFrames=[frame];showAlt(0);}
           }catch(e){failed++;}
+          completed++;if(request===altRequest)el("alternate-cloud-status").textContent=`Local clouds · preparing history ${completed}/${data.frames.length} scans…`;
         }
       }
       await Promise.all([worker(),worker()]);if(request!==altRequest)return;
@@ -107,9 +122,10 @@ window.WeatherCloudViews = (() => {
       loaded.sort((a,b)=>a.time.localeCompare(b.time));const keep=new Set(loaded.map(f=>f.url));
       for(const [key,layer] of altLayers)if(!keep.has(key)){altMap.removeLayer(layer);altLayers.delete(key);}
       altFrames=loaded;el("alternate-cloud-timeline").max=String(loaded.length-1);
-      const restored=!changed&&!followLatest&&selected?loaded.findIndex(f=>f.time>=selected):-1;showAlt(restored>=0?restored:loaded.length-1);
+      const restored=!followLatest&&selected?loaded.findIndex(f=>f.time>=selected):-1;showAlt(restored>=0?restored:loaded.length-1);
       const age=(Date.now()-new Date(loaded.at(-1).time).getTime())/60000;
-      el("alternate-cloud-status").textContent=`${data.label} · ${loaded.length} images in the past two hours${failed?` · ${failed} images unavailable`:""}${age>20?` · Latest image ${Math.round(age)} minutes old`:""} · Experimental NOAA view`;
+      const gaps=new Date(loaded[0].time)-new Date(data.windowStart)>10*60000||loaded.some((f,i)=>i&&new Date(f.time)-new Date(loaded[i-1].time)>10*60000);
+      el("alternate-cloud-status").textContent=`${info.label} · ${loaded.length} scans in the past two hours${failed?` · ${failed} scans unavailable`:""}${gaps?" · Some scans are missing":""}${age>20?` · Latest scan ${Math.round(age)} minutes old`:""} · Experimental NOAA view`;
     }catch(e){if(request===altRequest)el("alternate-cloud-status").textContent=`${e.message} The original Satellite tab remains available.`;}
     finally{if(request===altRequest){altBusy=false;el("refresh-alternate-clouds").disabled=false;el("alternate-cloud-timeline").disabled=altFrames.length<2;}}
   }

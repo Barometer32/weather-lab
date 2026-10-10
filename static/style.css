@@ -173,7 +173,15 @@ body.satellite-expanded { overflow: hidden; }
 #alternate-cloud-map { height:min(680px,70vw); min-height:380px; background:#fff; z-index:0; }
 .cloud-map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-top:1px solid var(--border); background:#fff; font-size:14px; }
 .cloud-station { display:flex; align-items:center; white-space:nowrap; gap:3px; background:transparent; border:0; }
+.cloud-station svg { flex:0 0 20px; }
 .cloud-station-label { font:600 11px/1.3 system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; padding:2px 3px; }
+.cloud-station-label:empty { display:none; }
+#alternate-cloud-map .leaflet-image-layer { image-rendering:pixelated; }
+.cloud-key { display:flex; flex-wrap:wrap; gap:12px 20px; margin:16px 0; font-size:13px; }
+.cloud-key[hidden] { display:none; }
+.cloud-key span { display:inline-flex; align-items:center; gap:6px; }
+.cloud-key i { display:inline-block; width:15px; height:15px; border:1px solid #7e8990; border-radius:3px; }
+.cloud-hatch { background:repeating-linear-gradient(45deg,#abb3b9,#abb3b9 3px,#e5e9eb 3px,#e5e9eb 7px); }
 .cloud-station.delayed svg circle { stroke:#aa7421; }
 .cloud-station.delayed .cloud-station-label { color:#956116; }
 .compact-clouds .cloud-station-label { display:none; }

@@ -46,10 +46,17 @@ Cloud bases are feet above ground level; original coverage codes are retained.
 https://aviationweather.gov/data/api/
 https://aviationweather.gov/help/data/
 
-Alternate cloud imagery and baked maps: NOAA/NESDIS/STAR GOES-19 Upper
-Mississippi Valley sector. Original imagery and source annotations retained.
-GeoColor: CIRA / NOAA. This experimental source is independent of COD NEXLAB.
-https://www.star.nesdis.noaa.gov/GOES/sector.php?sat=G19&sector=umv
+Alternate cloud products: NOAA GOES-19 ABI Level 2 ACMC cloud mask, ACHAC
+cloud-top height, and CODC cloud optical depth via NOAA's public archive.
+Custom local Web Mercator rendering; state/county boundaries via IEM.
+This experimental raw-product view is independent of COD NEXLAB RGB imagery.
+https://registry.opendata.aws/noaa-goes/
+https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C01508
+
+netCDF4 Python 1.7.4: MIT license.
+https://github.com/Unidata/netcdf4-python
+pyproj 3.8.0: MIT license (PROJ geospatial transformation library).
+https://github.com/pyproj4/pyproj
 
 Native radar decoder: MetPy 1.7.1 (NSF Unidata), BSD 3-Clause.
 https://github.com/Unidata/MetPy

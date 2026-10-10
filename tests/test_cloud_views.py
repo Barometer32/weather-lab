@@ -7,7 +7,10 @@ from unittest.mock import patch
 import app as weather
 import collector
 from metar_clouds import reports, current
-from alternate_clouds import parse_loop, page_url
+import alternate_clouds as clouds
+import numpy as np
+from io import BytesIO
+from PIL import Image
 from test_realtime import MemoryStore
 
 NOW=datetime(2026,10,10,2,tzinfo=timezone.utc)
@@ -78,40 +81,114 @@ class CloudReportTests(unittest.TestCase):
 
 
 class AlternateCloudTests(unittest.TestCase):
-    def url(self,stamp,band='DayNightCloudMicroCombo'):
-        return f'https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/umv/{band}/{stamp}_GOES19-ABI-umv-{band}-1200x1200.jpg'
+    def setUp(self):
+        weather._cache.clear();clouds.FRAME_CACHE.clear()
 
-    def test_sorted_unique_two_hour_window_and_correct_product_only(self):
-        stamps=[NOW-timedelta(hours=2),NOW,NOW-timedelta(hours=2,minutes=1),NOW+timedelta(minutes=1)]
-        urls=[self.url(t.strftime('%Y%j%H%M')) for t in stamps]
-        html=' '.join(urls+urls[:1]+[self.url(stamps[1].strftime('%Y%j%H%M'),'GEOCOLOR')])
-        d=parse_loop(html,'combo',NOW)
-        self.assertEqual(len(d['frames']),2)
-        self.assertEqual(d['frames'][0]['time'],'2026-10-10T00:00:00Z')
-        self.assertEqual(d['width'],1200)
-        self.assertTrue(all('DayNightCloudMicroCombo' in f['url'] for f in d['frames']))
+    def stamp(self,t=NOW):return t.strftime('%Y%j%H%M%S')+'0'
 
-    def test_other_host_and_sector_and_bad_julian_day_do_not_enter_loop(self):
-        valid=self.url(NOW.strftime('%Y%j%H%M'))
-        html=' '.join([valid,valid.replace('cdn.star.nesdis.noaa.gov','example.com'),valid.replace('/umv/','/cgl/'),self.url('20263670000')])
-        self.assertEqual(len(parse_loop(html,'combo',NOW)['frames']),1)
+    def row(self,t=NOW):
+        return {'id':self.stamp(t),'time':clouds.iso(t),'keys':{'mask':'mask.nc','height':'height.nc','optical':'optical.nc'}}
 
-    def test_invalid_product_and_empty_feed_are_reported(self):
-        with self.assertRaises(ValueError):page_url('../evil')
-        with self.assertRaises(ValueError):parse_loop('','infrared',NOW)
-        with patch('app.download') as fetch:
-            self.assertEqual(weather.app.test_client().get('/api/alternate-clouds/unknown').status_code,404)
-            fetch.assert_not_called()
+    def blob(self,field,value,q=0):
+        from netCDF4 import Dataset
+        d=Dataset('test','w',memory=100000)
+        d.createDimension('y',16);d.createDimension('x',24)
+        x=d.createVariable('x','f4',('x',));x[:]=np.linspace(-.12,.02,24)
+        y=d.createVariable('y','f4',('y',));y[:]=np.linspace(.14,.02,16)
+        p=d.createVariable('goes_imager_projection','i4')
+        for a,v in {'perspective_point_height':35786023.,'longitude_of_projection_origin':-75.,'semi_major_axis':6378137.,'semi_minor_axis':6356752.31414,'sweep_angle_axis':'x'}.items():setattr(p,a,v)
+        v=d.createVariable(field,'f4',('y','x'),fill_value=-9999);v[:]=value
+        qv=d.createVariable('DQF','i4',('y','x'));qv[:]=q
+        return bytes(d.close())
 
-    def test_noaa_route_uses_independent_cache_and_never_cod_or_bucket(self):
-        weather._cache.clear();html=self.url(NOW.strftime('%Y%j%H%M'))
-        with patch('app.utcnow',return_value=NOW),patch('app.download',return_value=html.encode()) as fetch,patch('app.get_store') as bucket:
-            client=weather.app.test_client()
-            self.assertEqual(client.get('/api/alternate-clouds/combo').status_code,200)
-            self.assertEqual(client.get('/api/alternate-clouds/combo').status_code,200)
-            self.assertEqual(fetch.call_count,1)
-            self.assertIn('star.nesdis.noaa.gov',fetch.call_args.args[0])
-            bucket.assert_not_called()
+    def pixel(self,blob):return np.asarray(Image.open(BytesIO(blob)))[0,0]
+
+    def test_utc_identifier_and_recent_window_and_product_validation(self):
+        self.assertEqual(clouds.stamp_time(self.stamp()),NOW)
+        with self.assertRaises(ValueError):clouds.stamp_time('20263670000000')
+        rows=[self.row(NOW-timedelta(hours=2)),self.row(),self.row(NOW+timedelta(seconds=1)),self.row(NOW-timedelta(hours=2,seconds=1))]
+        d=clouds.manifest(rows,NOW)
+        self.assertEqual(len(d['frames']),2);self.assertEqual(d['bounds'],clouds.BOUNDS)
+        self.assertTrue(all('/combined.png?v=' in f['url'] for f in d['frames']))
+        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans') as upstream:
+            for path in ['/api/alternate-clouds/frame/invalid/combined.png','/api/alternate-clouds/frame/'+self.stamp()+'/evil.png','/api/alternate-clouds/frame/'+self.stamp(NOW+timedelta(seconds=1))+'/combined.png']:
+                self.assertEqual(weather.app.test_client().get(path).status_code,404)
+            upstream.assert_not_called()
+
+    def test_exact_scan_pairing_across_midnight_and_optional_fields(self):
+        def listing(feed,hour,now):
+            t=NOW-timedelta(minutes=5)
+            return {self.stamp(t):feed+'.nc'} if hour.hour==1 and feed!='ABI-L2-CODC' else {}
+        with patch('alternate_clouds.list_hour',side_effect=listing) as read:
+            rows=clouds.scans(NOW)
+        self.assertEqual(len(rows),1);self.assertIsNone(rows[0]['keys']['optical'])
+        self.assertEqual(rows[0]['keys']['height'],'ABI-L2-ACHAC.nc');self.assertEqual(read.call_count,9)
+
+    def test_height_classes_clear_missing_and_unknown_height_remain_distinct(self):
+        mask=np.array([[3,3,3,0,3,3]]);ok=np.array([[1,1,1,1,1,0]],dtype=bool)
+        heights=np.array([[1000,4000,9000,0,0,0]]);h_ok=np.array([[1,1,1,0,0,0]],dtype=bool)
+        images=clouds.palette(mask,ok,heights,h_ok,np.zeros(mask.shape),np.zeros(mask.shape,dtype=bool))
+        a=images['combined'];self.assertEqual(list(a[0,0,:3]),[56,118,188]);self.assertEqual(list(a[0,1,:3]),[20,150,143]);self.assertEqual(list(a[0,2,:3]),[129,85,179])
+        self.assertEqual(a[0,3,3],0);self.assertGreater(a[0,4,3],0)
+
+    def test_real_netcdf_projection_sampling_and_source_quality_flags(self):
+        sources={'mask':self.blob('ACM',3),'height':self.blob('HT',9000),'optical':self.blob('COD',30,q=2)}
+        images=clouds.render(sources)
+        self.assertEqual(list(self.pixel(images['combined'])[:3]),[129,85,179])
+        self.assertEqual(list(self.pixel(images['optical'])[:3]),[16,66,115])
+        sources['height']=self.blob('HT',9000,q=1);sources['optical']=self.blob('COD',30,q=1)
+        images=clouds.render(sources)
+        self.assertEqual(list(self.pixel(images['combined'])[:3]),[138,146,153])
+        self.assertNotEqual(list(self.pixel(images['optical'])[:3]),[16,66,115])
+        sources['mask']=self.blob('ACM',3,q=1);images=clouds.render(sources)
+        self.assertLess(self.pixel(images['combined'])[3],100)
+
+    def test_north_up_mercator_rows_and_west_to_east_columns(self):
+        lon,lat=clouds.output_grid()
+        self.assertGreater(lat[0,0],lat[-1,0]);self.assertGreater(lon[0,-1],lon[0,0])
+        merc=np.log(np.tan(np.pi/4+np.radians(lat[:,0])/2))
+        np.testing.assert_allclose(np.diff(merc),np.diff(merc)[0],rtol=1e-9)
+        self.assertEqual(lon.shape,(576,1024))
+
+    def test_optional_product_failure_keeps_cloud_mask(self):
+        images=clouds.render({'mask':self.blob('ACM',3),'height':b'bad file'})
+        self.assertEqual(list(self.pixel(images['combined'])[:3]),[138,146,153])
+        with self.assertRaises(Exception):clouds.render({'mask':b'bad file'})
+
+    def test_output_cache_reuses_scan_for_both_views_and_prunes_old(self):
+        old=self.stamp(NOW-timedelta(hours=3));clouds.FRAME_CACHE[old]={'combined':b'old'}
+        with patch('alternate_clouds.fetch',return_value=b'raw') as fetch,patch('alternate_clouds.render',return_value={'combined':b'height','optical':b'depth'}) as render:
+            self.assertEqual(clouds.frame(self.row(),'combined',NOW),b'height')
+            self.assertEqual(clouds.frame(self.row(),'optical',NOW),b'depth')
+        self.assertEqual(fetch.call_count,3);self.assertEqual(render.call_count,1);self.assertNotIn(old,clouds.FRAME_CACHE)
+
+    def test_public_routes_use_only_independent_noaa_feed(self):
+        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans',return_value=[self.row()]) as scans,patch('alternate_clouds.frame',return_value=b'PNG') as render,patch('app.get_store') as bucket,patch('app.download') as cod:
+            c=weather.app.test_client();self.assertEqual(c.get('/api/alternate-clouds').status_code,200)
+            r=c.get('/api/alternate-clouds/frame/'+self.stamp()+'/combined.png')
+            self.assertEqual(r.status_code,200);self.assertEqual(r.mimetype,'image/png');self.assertEqual(scans.call_count,1)
+            bucket.assert_not_called();cod.assert_not_called();render.assert_called_once()
+
+    def test_late_optional_fields_change_urls_and_replace_provisional_output(self):
+        provisional=self.row();provisional['keys']['height']=None
+        complete=self.row()
+        self.assertNotEqual(clouds.manifest([provisional],NOW)['frames'][0]['url'],clouds.manifest([complete],NOW)['frames'][0]['url'])
+        with patch('alternate_clouds.fetch',return_value=b'raw'),patch('alternate_clouds.render',side_effect=[{'combined':b'gray'},{'combined':b'height'}]) as render:
+            self.assertEqual(clouds.frame(provisional,'combined',NOW),b'gray')
+            self.assertEqual(clouds.frame(complete,'combined',NOW),b'height')
+            self.assertEqual(render.call_count,2)
+        with patch('app.utcnow',return_value=NOW),patch('alternate_clouds.scans',return_value=[complete]),patch('alternate_clouds.frame') as image:
+            old=clouds.revision(provisional)
+            self.assertEqual(weather.app.test_client().get('/api/alternate-clouds/frame/'+self.stamp()+'/combined.png?v='+old).status_code,409)
+            image.assert_not_called()
+
+    def test_failed_download_is_not_cached_as_permanent_missing_data(self):
+        def read(url):
+            if url.endswith('height.nc'):raise TimeoutError()
+            return b'raw'
+        with patch('alternate_clouds.fetch',side_effect=read),patch('alternate_clouds.render') as render:
+            with self.assertRaises(TimeoutError):clouds.frame(self.row(),'combined',NOW)
+            render.assert_not_called();self.assertEqual(clouds.FRAME_CACHE,{})
 
 
 if __name__=='__main__':unittest.main()

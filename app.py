@@ -341,19 +341,40 @@ def metar_clouds_api():
         return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/alternate-clouds/<product>")
-def alternate_clouds_api(product):
-    from alternate_clouds import PRODUCTS, page_url, parse_loop
-    if product not in PRODUCTS:
-        return jsonify(error="Unknown NOAA cloud product."), 404
+@app.get("/api/alternate-clouds")
+def alternate_clouds_api():
+    from alternate_clouds import scans, manifest
     try:
-        # This separate experiment reads NOAA only while requested. Images are
-        # fetched by the browser directly from NOAA, never from the COD store.
-        html = cached("noaa-clouds-"+product, 120, lambda: download(page_url(product)).decode())
-        return jsonify(parse_loop(html, product, utcnow())), 200, {"Cache-Control": "no-store"}
+        now = utcnow()
+        rows = cached("local-cloud-scans", 120, lambda: scans(now))
+        return jsonify(manifest(rows, now)), 200, {"Cache-Control": "no-store"}
     except Exception:
-        app.logger.exception("NOAA alternate clouds unavailable")
-        return jsonify(error="NOAA cloud imagery is unavailable. The original Satellite tab is still available."), 502
+        app.logger.exception("Local NOAA clouds unavailable")
+        return jsonify(error="Local NOAA clouds are unavailable. Please refresh shortly."), 502
+
+
+@app.get("/api/alternate-clouds/frame/<stamp>/<view>.png")
+def alternate_cloud_frame(stamp, view):
+    from alternate_clouds import PRODUCTS, stamp_time, scans, frame, revision
+    try:
+        now = utcnow()
+        if view not in PRODUCTS or not now-timedelta(hours=2) <= stamp_time(stamp) <= now:
+            return jsonify(error="Unknown or expired cloud scan."), 404
+    except ValueError:
+        return jsonify(error="Invalid cloud scan."), 404
+    try:
+        rows = cached("local-cloud-scans", 120, lambda: scans(now))
+        row = next((r for r in rows if r["id"] == stamp), None)
+        if row is None:
+            return jsonify(error="Cloud scan is not available."), 404
+        version = request.args.get("v")
+        if version and version != revision(row):
+            return jsonify(error="Cloud scan was updated. Please refresh."), 409
+        cache_header = "public, max-age=7200, immutable" if version else "public, max-age=120"
+        return Response(frame(row, view, now), mimetype="image/png", headers={"Cache-Control":cache_header})
+    except Exception:
+        app.logger.exception("Local NOAA cloud scan failed")
+        return jsonify(error="Cloud scan could not be prepared."), 502
 
 
 @app.get("/healthz")
