@@ -12,6 +12,18 @@ SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
 # Regional coverage around Minnesota; no airport list or station-count cap.
 BOUNDS = [[40, -100], [50, -85]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
+# User-excluded unreliable cloud station. Enforce on fresh and retained history.
+EXCLUDED_STATIONS = frozenset({"KCFE"})
+
+
+def cloud_summary(row):
+    """Map the lowest ceiling, while preserving every layer for the popup."""
+    layers = row.get("layers", [])
+    ceilings = [layer for layer in layers if layer["cover"] in ("BKN", "OVC", "VV")]
+    candidates = ceilings or layers
+    layer = min(candidates, key=lambda item: (item["baseFtAGL"] is None,
+                                             item["baseFtAGL"] or 0)) if candidates else None
+    return {**row, "mapLayer": layer, "hasCeiling": bool(ceilings)}
 
 
 def value(text, low, high):
@@ -34,6 +46,8 @@ def parse_reports(xml, now, hours=13):
     entries = []
     for row in root.findall(".//METAR"):
         station = row.findtext("station_id", "")
+        if station in EXCLUDED_STATIONS:
+            continue
         lat, lon = value(row.findtext("latitude"), 40, 50), value(row.findtext("longitude"), -100, -85)
         if not re.fullmatch(r"[A-Z0-9]{3,5}", station) or lat is None or lon is None:
             continue
@@ -101,6 +115,8 @@ def snapshot(rows, now, checked_at=None):
     chosen = {}
     latest = now.replace(minute=0, second=0, microsecond=0)
     for row in rows:
+        if row["station"] in EXCLUDED_STATIONS:
+            continue
         stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
         if stamp < now-timedelta(hours=13):
             continue
@@ -114,7 +130,7 @@ def snapshot(rows, now, checked_at=None):
                 -stamp.timestamp(), -receipt_timestamp(report))
         key = (iso(hour), row["station"])
         if key not in chosen or rank <= chosen[key][0]:
-            chosen[key] = (rank, row)
+            chosen[key] = (rank, cloud_summary(row))
     history = []
     for i in reversed(range(12)):
         hour = iso(latest-timedelta(hours=i))
@@ -137,7 +153,8 @@ def current(data, now):
 def collect(download, now, previous=None):
     previous = previous or {}
     cache = reports(download(SOURCE_URL), now)
-    retained = [row for hour in previous.get("history", []) for row in hour["stations"]]
+    retained = [row for hour in previous.get("history", []) for row in hour["stations"]
+                if row["station"] not in EXCLUDED_STATIONS]
     ids = sorted({row["station"] for row in cache["stations"]+retained})
     hours = 13
     if previous.get("version") == 2:

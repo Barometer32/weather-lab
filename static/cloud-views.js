@@ -45,14 +45,16 @@ window.WeatherCloudViews = (() => {
     slider.setAttribute("aria-valuetext",el("metar-cloud-time").textContent);
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
     for(const s of stations) {
-      const layer=s.layers.find(x=>x.baseFtAGL!=null)||s.layers[0];
-      const summary=layer?heights(layer,true):"";
+      const layer=s.mapLayer;
+      const summary=s.hasCeiling&&layer?heights(layer,true):"";
+      const description=layer?(s.hasCeiling?`${layer.cover==="VV"?"Indefinite ceiling":"Ceiling"}: ${heights(layer)}`:`${covers[layer.cover]||layer.cover} · No ceiling reported`):"Cloud information not reported";
 
       const icon=L.divIcon({className:"cloud-station",html:`${circle(layer?.cover)}<span class="cloud-station-label">${summary}</span>`,iconSize:[62,24],iconAnchor:[10,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.station),node("p",time.format(new Date(s.time))));
+      if(layer)popup.append(node("p",description));
       if(!s.layers.length)popup.append(node("p","Cloud information not reported."));
       for(const cloud of s.layers)popup.append(node("p",`${heights(cloud)}${cloud.baseFtAGL!=null&&cloud.cover!=="VV"?" AGL":""}`));
-      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${layer?heights(layer):"Cloud information not reported"}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${description}`,keyboard:true}).bindPopup(popup).addTo(markers);
       if(query&&!s.station.includes(query))continue;
       const row=node("tr");const cell=node("td"),button=node("button",s.station,"station-link");button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
       row.append(cell,node("td",time.format(new Date(s.time))),node("td",s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));

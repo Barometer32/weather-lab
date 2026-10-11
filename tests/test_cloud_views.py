@@ -81,6 +81,66 @@ class HourlyCloudTests(unittest.TestCase):
     def report(self, minutes=7, **kwargs):
         return metar(stamp=(NOW-timedelta(minutes=minutes)).isoformat(), **kwargs)
 
+    def test_ceiling_skips_scattered_and_selects_lowest_broken_or_overcast(self):
+        cloud='<sky_condition sky_cover="OVC" cloud_base_ft_agl="7000"/><sky_condition sky_cover="SCT" cloud_base_ft_agl="2500"/><sky_condition sky_cover="BKN" cloud_base_ft_agl="6000"/>'
+        row=snapshot(self.rows(self.report(cloud=cloud)),NOW)['stations'][0]
+        self.assertTrue(row['hasCeiling'])
+        self.assertEqual(row['mapLayer']['cover'],'BKN')
+        self.assertEqual(row['mapLayer']['baseFtAGL'],6000)
+        self.assertEqual([l['baseFtAGL'] for l in row['layers']],[2500,6000,7000])
+
+    def test_few_scattered_and_clear_are_not_ceilings_and_unknown_height_stays_unknown(self):
+        for cover in ['FEW','SCT','CLR','BKN','OVC']:
+            with self.subTest(cover=cover):
+                cloud=f'<sky_condition sky_cover="{cover}"'+(' cloud_base_ft_agl="2200"' if cover in ['FEW','SCT'] else '')+'/>'
+                row=snapshot(self.rows(self.report(cloud=cloud)),NOW)['stations'][0]
+                self.assertEqual(row['hasCeiling'],cover in ['BKN','OVC'])
+                self.assertEqual(row['mapLayer']['cover'],cover)
+                if cover in ['BKN','OVC']:
+                    self.assertIsNone(row['mapLayer']['baseFtAGL'])
+        row=snapshot(self.rows(self.report(cloud='',raw='METAR KAAA')),NOW)['stations'][0]
+        self.assertIsNone(row['mapLayer'])
+        self.assertFalse(row['hasCeiling'])
+
+    def test_vertical_visibility_remains_a_distinct_indefinite_ceiling(self):
+        row=snapshot(self.rows(self.report(cloud='<sky_condition sky_cover="OVX"/>',extra='<vert_vis_ft>300</vert_vis_ft>')),NOW)['stations'][0]
+        self.assertTrue(row['hasCeiling'])
+        self.assertEqual(row['mapLayer'],{'cover':'VV','baseFtAGL':300,'heightType':'verticalVisibility'})
+
+    def test_kcfe_excluded_from_new_reports_and_already_saved_history(self):
+        self.assertEqual([r['station'] for r in self.rows(self.report(station='KCFE'),self.report())],['KAAA'])
+        old=snapshot(self.rows(self.report(),self.report(67)),NOW)
+        for hour in old['history']:
+            hour['stations'].extend({**row,'station':'KCFE'} for row in list(hour['stations']))
+        filtered=current(old,NOW)
+        self.assertTrue(all(row['station']!='KCFE' for hour in filtered['history'] for row in hour['stations']))
+        urls=[]
+        def fetch(url):
+            urls.append(url)
+            return xml(self.report(station='KCFE'),self.report())
+        with patch('metar_clouds.time.sleep'):
+            result=collect(fetch,NOW,old)
+        self.assertTrue(all('KCFE' not in url for url in urls))
+        self.assertEqual([row['station'] for row in result['stations']],['KAAA'])
+
+    def test_public_api_filters_old_snapshot_and_derives_ceiling_without_recollection(self):
+        layers=[{'cover':'SCT','baseFtAGL':2500,'heightType':'cloudBase'},
+                {'cover':'OVC','baseFtAGL':7000,'heightType':'cloudBase'},
+                {'cover':'BKN','baseFtAGL':6000,'heightType':'cloudBase'}]
+        old=snapshot(self.rows(self.report()),NOW)
+        row=old['history'][-1]['stations'][0]
+        row['layers']=layers
+        row.pop('mapLayer');row.pop('hasCeiling')
+        old['history'][-1]['stations'].append({**row,'station':'KCFE'})
+        store=MemoryStore();store.write_json('live/metar-clouds.json',old)
+        weather._cache.clear()
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
+            response=weather.app.test_client().get('/api/metar-clouds')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual([r['station'] for r in response.json['stations']],['KAAA'])
+        self.assertEqual(response.json['stations'][0]['mapLayer']['baseFtAGL'],6000)
+        fetch.assert_not_called()
+
     def test_exactly_twelve_hours_and_same_routine_rule_as_main_observations(self):
         items=[self.report(7+60*i) for i in range(13)]
         data=snapshot(self.rows(*items),NOW)
