@@ -321,8 +321,8 @@ def prepared_snapshot(name, max_age):
     return data
 
 
-def prepared_observations():
-    data = prepared_snapshot("observations", 3600)
+def prepared_hourly_snapshot(name):
+    data = prepared_snapshot(name, 3600)
     if data is None:
         return None
     now = utcnow()
@@ -335,6 +335,10 @@ def prepared_observations():
     checked = datetime.fromisoformat(data["checkedAt"].replace("Z", "+00:00"))
     data["stale"] = checked < expected
     return data
+
+
+def prepared_observations():
+    return prepared_hourly_snapshot("observations")
 
 
 def get_forecast(now=None):
@@ -447,23 +451,12 @@ def metar_clouds_api():
     from metar_clouds import collect, current
     try:
         now = utcnow()
-        data = prepared_snapshot("metar-clouds", 180)
+        data = prepared_hourly_snapshot("metar-clouds")
         if data is None:
             data = cached("metar-clouds", 300, lambda: collect(download, now))
         elif data.get("version") not in (2, 3):
             return jsonify(error="Hourly METAR history is being prepared. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
         result = current(data, now)
-        # The live metro plot reads the exact same prepared three-station inputs
-        # as the main conditions page, never independently mixes another set.
-        try:
-            observed = prepared_observations()
-        except ValueError:
-            observed = None
-        if observed:
-            metro = observations(observed["reports"], now)["current"]
-            result["live"]["metro"].update(available=metro["available"], tempF=metro["tempF"],
-                dewpointF=metro["dewpointF"], wind=metro["wind"], time=metro["observedAt"],
-                oldestObservedAt=metro["oldestObservedAt"], qa=metro["qa"])
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Vary"] = "Accept-Encoding"

@@ -23,7 +23,8 @@ def cloud_summary(row):
     candidates = ceilings or layers
     layer = min(candidates, key=lambda item: (item["baseFtAGL"] is None,
                                              item["baseFtAGL"] or 0)) if candidates else None
-    from app import valid_number, valid_dewpoint, wind_mean
+    from app import valid_number, valid_dewpoint, wind_mean, metar_precision
+    row = metar_precision(row)
     temperature = row.get("temp")
     return {**row, "mapLayer": layer, "hasCeiling": bool(ceilings),
             "tempF": round(temperature * 9 / 5 + 32, 1) if valid_number(temperature, -90, 60) else None,
@@ -131,7 +132,7 @@ def snapshot(rows, now, checked_at=None):
         stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
         if stamp < now-timedelta(hours=13):
             continue
-        report = {"metarType": row["reportType"], "obsTime": stamp.timestamp(),
+        report = {"metarType": row["reportType"], "obsTime": stamp.timestamp(), "rawOb": row.get("rawOb", ""),
                   "receiptTime": row.get("receiptTime", "")}
         hour = routine_hour(report, now)
         if hour is None:
@@ -148,7 +149,7 @@ def snapshot(rows, now, checked_at=None):
         stations = sorted((item[1] for (label, _), item in chosen.items() if label == hour),
                           key=lambda row: row["station"])
         history.append({"hour": hour, "stations": stations, "metro": metro_report(stations, now, hour)})
-    return {"version": 3, "history": history, "stations": history[-1]["stations"],
+    return {"version": 3, "mode": "routine-hourly", "history": history, "stations": history[-1]["stations"],
             "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": checked_at or iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
 
@@ -159,8 +160,6 @@ def current(data, now):
     if data.get("version") not in (2, 3):
         rows = data.get("stations", [])
     result = snapshot(rows, now, data["checkedAt"])
-    result["live"] = live_snapshot(data.get("liveReports", []), now)
-    result["live"]["checkedAt"] = data["checkedAt"]
     result["historyPending"] = data.get("version") != 3
     return {**result, "stale": data.get("stale", False)}
 
@@ -176,13 +175,12 @@ def metro_position():
     return float(center[1]), float(center[0]/scale)
 
 
-def metro_report(rows, now, hour=None):
+def metro_report(rows, now, hour):
     from app import STATIONS, hourly_snapshot
-    from rapid_observations import current_snapshot
     reports = [{**row, "icaoId": row["station"],
                 "obsTime": datetime.fromisoformat(row.get("weatherTime", row["time"]).replace("Z", "+00:00")).timestamp(),
                 "metarType": row.get("reportType", "METAR")} for row in rows if row["station"] in STATIONS]
-    data = hourly_snapshot(reports, datetime.fromisoformat(hour.replace("Z", "+00:00")), now) if hour else current_snapshot(reports, now)
+    data = hourly_snapshot(reports, datetime.fromisoformat(hour.replace("Z", "+00:00")), now)
     available = data["qa"]["allStationsUsed"]
     lat, lon = metro_position()
     return {"station": "METRO", "lat": lat, "lon": lon, "isMetro": True, "available": available,
@@ -193,29 +191,7 @@ def metro_report(rows, now, hour=None):
             "oldestObservedAt": data.get("oldestObservedAt"), "qa": data["qa"]}
 
 
-def live_snapshot(rows, now):
-    latest_weather, latest_cloud = {}, {}
-    for row in rows:
-        station = row["station"]
-        if station in EXCLUDED_STATIONS:
-            continue
-        stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
-        if not now-timedelta(minutes=90) <= stamp <= now:
-            continue
-        rank = (row["time"], row.get("receiptTime", ""))
-        if station not in latest_weather or rank >= (latest_weather[station]["time"], latest_weather[station].get("receiptTime", "")):
-            latest_weather[station] = row
-        if row.get("cloudReportAvailable", True) and (station not in latest_cloud or rank >= (latest_cloud[station]["time"], latest_cloud[station].get("receiptTime", ""))):
-            latest_cloud[station] = row
-    stations = []
-    for station, weather in sorted(latest_weather.items()):
-        clouds = latest_cloud.get(station, {"layers": [], "time": weather["time"]})
-        stations.append(cloud_summary({**weather, "time": clouds["time"], "weatherTime": weather["time"],
-                                       "layers": clouds["layers"], "cloudDataAvailable": bool(clouds["layers"])}))
-    return {"isLive": True, "hour": iso(now), "stations": stations, "metro": metro_report(stations, now)}
-
-
-def collect(download, now, previous=None, rapid_rows=None):
+def collect(download, now, previous=None):
     previous = previous or {}
     cache = reports(download(SOURCE_URL), now)
     retained = [row for hour in previous.get("history", []) for row in hour["stations"]
@@ -225,7 +201,6 @@ def collect(download, now, previous=None, rapid_rows=None):
     if previous.get("version") == 3:
         gap = (now-datetime.fromisoformat(previous.get("historyCheckedAt", previous["checkedAt"]).replace("Z", "+00:00"))).total_seconds()
         hours = min(13, max(2, math.ceil(gap/3600)+1))
-    needs_history = previous.get("version") != 3 or gap >= 900 or now.minute in (3, 56, 59)
     # Bootstrap all twelve hours once. Later runs merge a short overlap with
     # durable history. Split capped responses; never silently lose stations.
     batch_size = 8 if hours > 3 else 40
@@ -249,15 +224,10 @@ def collect(download, now, previous=None, rapid_rows=None):
             mid = len(group)//2
             return fetch_group(group[:mid])+fetch_group(group[mid:])
         return parsed
-    if needs_history:
-        for start in range(0, len(ids), batch_size):
-            rows.extend(fetch_group(ids[start:start+batch_size]))
+    for start in range(0, len(ids), batch_size):
+        rows.extend(fetch_group(ids[start:start+batch_size]))
     data = snapshot(rows, now)
     if not any(hour["stations"] for hour in data["history"]):
         raise ValueError("No routine hourly regional reports; previous history retained")
-    rapid = [{**row, "station": row["icaoId"], "time": iso(datetime.fromtimestamp(row["obsTime"], timezone.utc)),
-              "reportType": "HFMETAR", "receiptTime": ""} for row in (rapid_rows or [])]
-    data["liveReports"] = cache["stations"] + rapid
-    data["live"] = live_snapshot(data["liveReports"], now)
-    data["historyCheckedAt"] = iso(now) if needs_history else previous.get("historyCheckedAt", previous["checkedAt"])
+    data["historyCheckedAt"] = iso(now)
     return data

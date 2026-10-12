@@ -160,12 +160,7 @@ def collect_observations(store, now):
 def collect_metar_clouds(store, now):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
-    try:
-        rapid = weather.get_rapid_reports(now, regional=True)
-    except Exception:
-        app.logger.exception("Regional rapid feed unavailable; retaining actual station timestamps")
-        rapid = []
-    data = collect(weather.download, now, previous, rapid)
+    data = collect(weather.download, now, previous)
     store.write_json("live/metar-clouds.json", data)
     return {"stations": len(data["stations"])}
 
