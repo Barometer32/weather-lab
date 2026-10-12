@@ -34,7 +34,7 @@ function renderObservations(data) {
   $("dewpoint").textContent = temp(c.dewpointF);
   $("wind").textContent = wind(c.wind);
   const stale = Boolean(data.stale), warnings=[];
-  if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Checks at :55, :58 and :02; hourly history remains below.`);
+  if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Shared collection at :00; hourly history remains below.`);
   if(stale)warnings.push("Background observation checks are delayed; check the displayed observation hour.");
   const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
   $("history").replaceChildren();
@@ -66,7 +66,7 @@ let observationTimer;
 function scheduleObservations() {
   clearTimeout(observationTimer);
   const now=new Date(),hour=new Date(now);hour.setUTCMinutes(0,0,0);
-  const next=[0,1].flatMap(offset=>[2,55,58].map(minute=>new Date(hour.getTime()+offset*3600000+minute*60000+30000))).find(t=>t>now);
+  const next=[0,1].map(offset=>new Date(hour.getTime()+offset*3600000+30000)).find(t=>t>now);
   observationTimer=setTimeout(()=>{
     if(!document.hidden&&!$("observations").hidden)loadObservations();
     scheduleObservations();

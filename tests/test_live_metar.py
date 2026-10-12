@@ -58,25 +58,40 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertEqual(metro['tempF'],main['tempF']);self.assertEqual(metro['dewpointF'],main['dewpointF']);self.assertEqual(metro['wind'],main['wind'])
         fetch.assert_not_called()
 
-    def test_each_scheduled_check_recovers_routine_reports_hidden_by_newer_speci(self):
-        previous=snapshot([row()],NOW);previous['historyCheckedAt']=app.iso(NOW)
-        previous['collectedHour']=previous['history'][-1]['hour']
-        cache=b'<response><data><METAR><station_id>KAAA</station_id><latitude>44.9</latitude><longitude>-93.4</longitude><metar_type>SPECI</metar_type><observation_time>2026-10-11T23:57:00Z</observation_time><sky_condition sky_cover="OVC" cloud_base_ft_agl="1000"/></METAR></data></response>'
-        hourly=cache.replace(b'SPECI',b'METAR').replace(b'23:57',b'23:53').replace(b'1000',b'6000')
-        with patch('metar_clouds.time.sleep'):
-            urls=[]
-            result=collect(lambda url:(urls.append(url),cache if 'cache' in url else hourly)[1],NOW,previous)
-        self.assertEqual(len(urls),2)
-        self.assertEqual(result['stations'][0]['mapLayer']['baseFtAGL'],6000)
-        self.assertNotIn('live',result)
-        self.assertEqual(result['historyCheckedAt'],app.iso(NOW))
+    def test_shared_collector_downloads_once_and_uses_one_canonical_object_for_all_views(self):
+        store=MemoryStore()
+        items=[]
+        for station,t,d in zip(app.STATIONS,['244','245','249'],['121','123','127']):
+            items.append(f'<METAR><station_id>{station}</station_id><latitude>44.9</latitude><longitude>-93.4</longitude><observation_time>2026-10-11T23:53:00Z</observation_time><metar_type>METAR</metar_type><temp_c>24</temp_c><dewpoint_c>12</dewpoint_c><wind_speed_kt>5</wind_speed_kt><wind_dir_degrees>350</wind_dir_degrees><raw_text>{station} 112353Z 24/12 RMK T0{t}0{d}</raw_text><sky_condition sky_cover="BKN" cloud_base_ft_agl="6000"/></METAR>')
+        payload=('<response><data>'+''.join(items)+'</data></response>').encode()
+        # A conflicting legacy file must not become a second observation source.
+        store.write_json('live/observations.json',{'reports':[],'checkedAt':app.iso(NOW)})
+        with patch('app.download',return_value=payload) as download,patch('app.get_reports') as individual:
+            collector.collect_metar_clouds(store,NOW)
+        self.assertEqual(download.call_count,1);individual.assert_not_called()
+        self.assertEqual(store.writes[-1],'live/metar-clouds.json')
+        self.assertEqual(store.writes.count('live/metar-clouds.json'),1)
+        with patch('app.download') as duplicate:
+            collector.collect_observations(store,NOW)
+            collector.collect_metar_clouds(store,NOW)
+        duplicate.assert_not_called()
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream:
+            client=app.app.test_client();main=client.get('/api/observations').json['current'];maps=client.get('/api/metar-clouds').json
+            page=client.get('/').get_data(as_text=True)
+        upstream.assert_not_called()
+        self.assertEqual(main['tempF'],76.3)
+        self.assertEqual(main['tempF'],maps['history'][-1]['metro']['tempF'])
+        self.assertEqual(main['dewpointF'],maps['history'][-1]['metro']['dewpointF'])
+        self.assertEqual(main['wind'],maps['history'][-1]['metro']['wind'])
+        self.assertEqual({s['station'] for s in maps['stations']},set(app.STATIONS))
+        self.assertIn('id="temperature">76°F',page)
 
     def test_collector_never_downloads_madis_and_has_one_hourly_check(self):
         store=MemoryStore()
-        with patch('metar_clouds.collect',return_value=snapshot([row()],NOW)),patch('app.get_rapid_reports') as rapid:
+        with patch('metar_clouds.collect',return_value=dict(snapshot([row()],NOW),observationReports=[])),patch('app.get_rapid_reports') as rapid:
             collector.collect_metar_clouds(store,NOW)
         rapid.assert_not_called()
-        self.assertIn("weather_schedule metar-clouds '5 * * * *'",Path('deploy.sh').read_text())
+        self.assertIn("weather_schedule metar-clouds '0 * * * *'",Path('deploy.sh').read_text())
 
     def test_large_metar_payload_compression_preserves_data_and_respects_negotiation(self):
         store=MemoryStore();rows=[row('K'+str(i).zfill(3)) for i in range(100)]

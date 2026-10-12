@@ -23,11 +23,11 @@ vm.runInNewContext(source.slice(0,source.indexOf('function sun()')),context);
  assert.equal(get('temperature').textContent,'—');
  assert.match(get('observation-status').textContent,/waiting for a routine report near :53 from KMSP/);
  for(const [stamp,next] of [
- ['2026-10-12T15:40:00Z','2026-10-12T15:55:30Z'],
- ['2026-10-12T15:55:31Z','2026-10-12T15:58:30Z'],
- ['2026-10-12T15:58:31Z','2026-10-12T16:02:30Z'],
- ['2026-10-12T23:58:31Z','2026-10-13T00:02:30Z']
+ ['2026-10-12T15:40:00Z','2026-10-12T16:00:30Z'],
+ ['2026-10-12T15:55:31Z','2026-10-12T16:00:30Z'],
+ ['2026-10-12T15:58:31Z','2026-10-12T16:00:30Z'],
+ ['2026-10-12T23:58:31Z','2026-10-13T00:00:30Z']
  ]){now=stamp;vm.runInNewContext('scheduleObservations()',context);assert.equal(timer.delay,Date.parse(next)-Date.parse(stamp));}
  assert.ok(!source.includes('setInterval(()=>{if(!document.hidden&&!$("observations").hidden)loadObservations();},60000)'));
- console.log('Hourly-observation UI checks passed: immediate startup hydration without a request, simple hour labels, missing-station QA, :55/:58/:02 scheduling and midnight rollover.');
+ console.log('Hourly-observation UI checks passed: immediate startup hydration without a request, simple hour labels, missing-station QA, :00 scheduling and midnight rollover.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

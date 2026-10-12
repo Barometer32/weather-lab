@@ -3,7 +3,6 @@ import gzip
 import json
 import unittest
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlparse
 
 import app as weather
 import collector
@@ -63,14 +62,13 @@ class CloudReportTests(unittest.TestCase):
         d=reports(xml(*(metar('K'+str(i).zfill(3)) for i in range(500))),NOW)
         self.assertEqual(len(d['stations']),500)
 
-    def test_nationwide_includes_both_coasts_alaska_hawaii_and_territories(self):
-        sites=[('KJFK',40.64,-73.78),('KSFO',37.62,-122.38),('PANC',61.17,-150.03),
-               ('PHNL',21.32,-157.92),('PASY',52.71,174.11),('TJPS',18.01,-66.57),
-               ('PGUM',13.48,144.8),('NSTU',-14.34,-170.72)]
-        items=[metar(station).replace('<latitude>44.9</latitude>',f'<latitude>{lat}</latitude>')
-               .replace('<longitude>-93.4</longitude>',f'<longitude>{lon}</longitude>') for station,lat,lon in sites]
-        data=reports(xml(*items,metar('CYYZ'),metar('MMMX'),metar('KCFE')),NOW)
-        self.assertEqual({r['station'] for r in data['stations']},{s[0] for s in sites})
+    def test_region_filters_both_new_and_retained_national_rows(self):
+        regional=metar('KMSP',stamp=(NOW-timedelta(minutes=7)).isoformat())
+        outside=metar('KSFO').replace('<latitude>44.9</latitude>','<latitude>37.6</latitude>')
+        self.assertEqual([r['station'] for r in reports(xml(regional,outside),NOW)['stations']],['KMSP'])
+        saved=snapshot(parse_reports(xml(regional),NOW),NOW)
+        saved['history'][-1]['stations'].append({**saved['stations'][0],'station':'KSFO','lat':37.6,'lon':-122.4})
+        self.assertTrue(all(r['station']!='KSFO' for h in current(saved,NOW)['history'] for r in h['stations']))
 
     def test_empty_or_invalid_collection_retains_previous_snapshot(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',{'saved':True});before=store.read('live/metar-clouds.json')
@@ -133,8 +131,7 @@ class HourlyCloudTests(unittest.TestCase):
         def fetch(url):
             urls.append(url)
             return xml(self.report(station='KCFE'),self.report())
-        with patch('metar_clouds.time.sleep'):
-            result=collect(fetch,NOW,old)
+        result=collect(fetch,NOW,old)
         self.assertTrue(all('KCFE' not in url for url in urls))
         self.assertEqual([row['station'] for row in result['stations']],['KAAA'])
 
@@ -197,117 +194,35 @@ class HourlyCloudTests(unittest.TestCase):
         data=snapshot(self.rows(self.report(7),self.report(7,cloud='',raw='METAR KAAA',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>')),NOW)
         self.assertEqual(data['stations'][0]['layers'],[])
 
-    def test_bootstrap_recovers_routine_report_replaced_in_latest_cache_by_speci(self):
-        cache=xml(self.report(5,kind='SPECI'))
-        with patch('metar_clouds.time.sleep'),patch('metar_clouds.time.monotonic',return_value=0):
-            result=collect(lambda url:cache if 'cache' in url else xml(self.report(7),self.report(67)),NOW)
-        self.assertEqual(result['stations'][0]['time'],'2026-10-10T01:53:00Z')
-        self.assertEqual(len(result['history'][-2]['stations']),1)
-
-    def test_capped_response_is_split_and_both_stations_survive(self):
-        requests=[]
-        def fetch(url):
-            requests.append(url)
-            if 'cache' in url:return xml(self.report(station='KAAA'),self.report(station='KBBB'))
-            if 'KAAA%2CKBBB' in url:return xml(*(self.report() for _ in range(400)))
-            return xml(self.report(station='KBBB' if 'KBBB' in url else 'KAAA'))
-        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW)
-        self.assertEqual([s['station'] for s in data['stations']],['KAAA','KBBB'])
-        self.assertEqual(len(requests),4)
-
-    def test_warm_collection_merges_durable_history_and_requests_short_overlap(self):
-        old=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
+    def test_one_bulk_pull_merges_saved_history_without_historical_requests(self):
+        previous=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
         urls=[]
         def fetch(url):
             urls.append(url)
             return xml(metar(stamp=(NOW+timedelta(minutes=53)).isoformat()))
-        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW+timedelta(hours=1),old)
+        data=collect(fetch,NOW+timedelta(hours=1),previous)
+        self.assertEqual(urls,['https://aviationweather.gov/data/cache/metars.cache.xml.gz'])
         self.assertEqual(len(data['history']),12)
         self.assertTrue(all(h['stations'] for h in data['history']))
-        self.assertIn('hours=2',urls[-1])
         self.assertEqual(data['history'][-1]['hour'],'2026-10-10T03:00:00Z')
+        self.assertEqual(data['collectionMode'],'shared-hourly-bulk')
 
-    def test_new_national_sites_get_full_history_but_known_sites_only_short_overlap(self):
-        old=snapshot(self.rows(self.report()),NOW)
-        old['historyStationIds']=['KAAA']
-        queries=[]
-        def fetch(url):
-            if 'cache' in url:return xml(self.report(),self.report(station='KSFO'))
-            query=parse_qs(urlparse(url).query);queries.append(query)
-            return xml(*(self.report(station=s) for s in query['ids'][0].split(',')))
-        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
-        self.assertEqual([(q['ids'][0],q['hours'][0]) for q in queries],[('KSFO','13'),('KAAA','2')])
-        self.assertEqual(data['historyStationIds'],['KAAA','KSFO'])
-        # An older regional snapshot must backfill the new national extent.
-        old.pop('coverage');queries.clear()
-        with patch('metar_clouds.time.sleep'):collect(fetch,NOW,old)
-        self.assertTrue(all(q['hours']==['13'] for q in queries))
+    def test_bulk_speci_does_not_replace_a_saved_routine_report(self):
+        previous=snapshot(self.rows(self.report()),NOW)
+        data=collect(lambda url:xml(self.report(5,kind='SPECI')),NOW,previous)
+        self.assertEqual(data['stations'][0]['time'],'2026-10-10T01:53:00Z')
 
-    def test_followup_check_uses_bulk_cache_without_repeating_completed_hourly_sweep(self):
-        old=snapshot(self.rows(self.report()),NOW)
-        old['collectedHour']=old['history'][-1]['hour']
-        old['historyStationIds']=['KAAA']
-        urls=[]
-        def fetch(url):
-            urls.append(url)
-            self.assertIn('/cache/',url)
-            return xml(self.report(cloud='<sky_condition sky_cover="BKN" cloud_base_ft_agl="5000"/>',extra='<receipt_time>2026-10-10T01:58:00Z</receipt_time>'))
-        data=collect(fetch,NOW,old)
-        self.assertEqual(len(urls),1)
-        self.assertEqual(data['stations'][0]['mapLayer']['baseFtAGL'],5000)
-        self.assertFalse(data['partialCollection'])
+    def test_empty_new_store_builds_hourly_history_without_extra_source_calls(self):
+        data=collect(lambda url:xml(self.report()),NOW)
+        self.assertEqual(len(data['history']),12)
+        self.assertEqual(sum(bool(h['stations']) for h in data['history']),1)
 
-    def test_followup_check_queries_a_late_missing_site_but_not_complete_sites(self):
-        old=snapshot(self.rows(self.report(),self.report(67,station='KBBB')),NOW)
-        old['collectedHour']=old['history'][-1]['hour'];old['historyStationIds']=['KAAA','KBBB']
-        queries=[]
-        def fetch(url):
-            if 'cache' in url:return xml(self.report(),self.report(30,station='KBBB'))
-            queries.append(parse_qs(urlparse(url).query))
-            return xml(self.report(station='KBBB'))
-        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
-        self.assertEqual([q['ids'][0] for q in queries],['KBBB'])
-        self.assertEqual([r['station'] for r in data['stations']],['KAAA','KBBB'])
-
-    def test_failed_history_query_retains_previous_durable_snapshot(self):
+    def test_failed_collection_preserves_canonical_snapshot(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(self.rows(self.report()),NOW))
-        old=store.read_json('live/metar-clouds.json');old['historyCheckedAt']=(NOW-timedelta(minutes=15)).isoformat();store.write_json('live/metar-clouds.json',old)
         before=store.read('live/metar-clouds.json')
-        with patch('app.download',side_effect=[xml(self.report()),TimeoutError()]),self.assertRaises(TimeoutError):
+        with patch('app.download',side_effect=TimeoutError()),self.assertRaises(TimeoutError):
             collector.collect_metar_clouds(store,NOW)
         self.assertEqual(store.read('live/metar-clouds.json'),before)
-
-    def test_partial_nationwide_failure_keeps_successful_sites_and_recovers_failed_history(self):
-        stations=['K'+str(i).zfill(3) for i in range(41)]
-        old=snapshot(self.rows(*(self.report(station=s) for s in stations)),NOW)
-        old['historyStationIds']=stations
-        def fetch(url):
-            if 'cache' in url:return xml(*(self.report(station=s) for s in stations))
-            ids=parse_qs(urlparse(url).query)['ids'][0].split(',')
-            if len(ids)>1:raise TimeoutError('test batch delay')
-            return xml(self.report(station=ids[0]))
-        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
-        self.assertTrue(data['partialCollection'])
-        self.assertTrue(current(data,NOW)['stale'])
-        self.assertEqual(data['historyStationIds'],[stations[-1]])
-        queries=[]
-        def recovered(url):
-            if 'cache' in url:return xml(*(self.report(station=s) for s in stations))
-            query=parse_qs(urlparse(url).query);queries.append(query)
-            return xml(*(self.report(station=s) for s in query['ids'][0].split(',')))
-        with patch('metar_clouds.time.sleep'):next_data=collect(recovered,NOW,data)
-        self.assertFalse(next_data['partialCollection'])
-        failed_queries=[q for q in queries if stations[0] in q['ids'][0]]
-        self.assertEqual(failed_queries[0]['hours'],['13'])
-
-    def test_legacy_deployed_snapshot_waits_for_collector_without_visitor_backfill(self):
-        store=MemoryStore();store.write_json('live/metar-clouds.json',reports(xml(self.report()),NOW))
-        weather._cache.clear()
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
-            response=weather.app.test_client().get('/api/metar-clouds')
-            self.assertEqual(response.status_code,503)
-            self.assertIn('being prepared',response.json['error'])
-            fetch.assert_not_called()
 
     def test_removed_alternate_routes_return_not_found(self):
         client=weather.app.test_client()

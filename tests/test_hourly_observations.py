@@ -51,50 +51,38 @@ class HourlyObservationTests(unittest.TestCase):
         self.assertEqual(data['history'][0]['tempF'],75.2)
         self.assertEqual(data['history'][0]['qa']['stationsUsed'],2)
 
-    def test_collector_forces_fresh_requests_and_retains_partial_batch_corrections(self):
+    def test_legacy_observation_collector_delegates_to_shared_source(self):
         store=MemoryStore()
-        initial=reports();initial[0]['receiptTime']='2026-10-12T15:54:00Z'
-        with patch('app.get_reports',return_value=initial),patch('app.get_rapid_reports') as rapid:
-            app._cache['metar']=('sentinel',initial)
-            collector.collect_observations(store,NOW.replace(minute=55))
-            self.assertNotIn('metar',app._cache)
-        rapid.assert_not_called()
-        new={**initial[0],'temp':25,'receiptTime':'2026-10-12T15:57:00Z'}
-        with patch('app.get_reports',return_value=[new,initial[0]]):
-            collector.collect_observations(store,NOW)
-        saved=store.read_json('live/observations.json')
-        self.assertEqual(len(saved['reports']),3)
-        self.assertNotIn('rapidReports',saved)
-        self.assertEqual(app.observations(saved['reports'],NOW)['current']['tempF'],75.8)
+        with patch('collector.collect_metar_clouds',return_value={'stations':3}) as shared,patch('app.get_reports') as individual:
+            self.assertEqual(collector.collect_observations(store,NOW),{'stations':3})
+        shared.assert_called_once_with(store,NOW);individual.assert_not_called()
 
-    def test_failed_and_empty_collection_preserves_data_and_checked_time(self):
-        store=MemoryStore();store.write_json('live/observations.json',dict(reports=reports(),checkedAt=app.iso(NOW)))
-        original=store.read('live/observations.json')
-        with patch('app.get_reports',side_effect=TimeoutError):
-            with self.assertRaises(TimeoutError):collector.collect_observations(store,NOW+timedelta(minutes=4))
-        self.assertEqual(store.read('live/observations.json'),original)
-        with patch('app.get_reports',return_value=[]):
-            with self.assertRaises(ValueError):collector.collect_observations(store,NOW+timedelta(minutes=4))
-        self.assertEqual(store.read('live/observations.json'),original)
+    def test_failed_shared_collection_preserves_data_and_checked_time(self):
+        store=MemoryStore();store.write_json('live/metar-clouds.json',dict(history=[],checkedAt=app.iso(NOW)))
+        original=store.read('live/metar-clouds.json')
+        for payload in (TimeoutError(),b'<response><data/></response>'):
+            with self.subTest(payload=type(payload).__name__):
+                with patch('app.download',**({'side_effect':payload} if isinstance(payload,Exception) else {'return_value':payload})):
+                    with self.assertRaises((TimeoutError,ValueError)):collector.collect_observations(store,NOW)
+                self.assertEqual(store.read('live/metar-clouds.json'),original)
 
-    def test_saved_snapshot_not_stale_during_normal_gap_but_flags_missed_checks(self):
-        for now,checked,stale in [
-            (NOW.replace(minute=40),NOW.replace(minute=2),False),
-            (NOW.replace(minute=56),NOW.replace(minute=2),False),
-            (NOW.replace(minute=57),NOW.replace(minute=2),True),
-            (NOW.replace(minute=59),NOW.replace(minute=55),False),
-            (HOUR,HOUR-timedelta(minutes=5),True),
-            (HOUR+timedelta(minutes=4),HOUR-timedelta(minutes=2),True),
-            (HOUR+timedelta(minutes=40),HOUR+timedelta(minutes=2),False),
-        ]:
+    def test_saved_snapshot_not_stale_during_hourly_gap_but_flags_missed_collection(self):
+        hour=NOW.replace(minute=0)
+        for now,checked,stale in [(hour+timedelta(minutes=40),hour,False),
+                                  (hour+timedelta(minutes=59),hour,False),
+                                  (hour+timedelta(hours=1,minutes=1),hour,False),
+                                  (hour+timedelta(hours=1,minutes=3),hour,True),
+                                  (hour+timedelta(hours=1,minutes=3),hour+timedelta(hours=1),False)]:
             with self.subTest(now=now,checked=checked):
                 app._cache.clear();store=MemoryStore()
                 store.write_json('live/observations.json',dict(reports=reports(),checkedAt=app.iso(checked)))
                 with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=now),patch('app.download') as download:
                     data=app.app.test_client().get('/api/observations').json
-                self.assertEqual(data['stale'],stale)
-                download.assert_not_called()
+                self.assertEqual(data['stale'],stale);download.assert_not_called()
 
-    def test_deployment_schedule_has_only_three_observation_checks(self):
+    def test_deployment_has_one_shared_hourly_job_and_retires_separate_observations(self):
         from pathlib import Path
-        self.assertIn("weather_schedule observations '2,55,58 * * * *'",Path('deploy.sh').read_text())
+        text=Path('deploy.sh').read_text()
+        self.assertIn("weather_schedule metar-clouds '0 * * * *'",text)
+        self.assertNotIn('weather_schedule observations',text)
+        self.assertIn('gcloud scheduler jobs delete weather-live-observations',text)

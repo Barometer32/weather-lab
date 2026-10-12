@@ -134,35 +134,22 @@ def collect_satellite(store, now):
     return results
 
 
-def collect_observations(store, now):
-    previous = store.read_json("live/observations.json") or {}
-    # :55 and :58 must fetch separately despite being less than five minutes apart.
-    weather._cache.pop("metar", None)
-    try:
-        reports = weather.get_reports()
-    except Exception:
-        app.logger.exception("Hourly METAR feed failed; saved reports retain their check time")
-        raise
-    if not isinstance(reports, list) or not reports:
-        raise ValueError("No hourly METAR reports; saved reports retained")
-    merged = {}
-    for report in previous.get("reports", [])+reports:
-        if report.get("icaoId") not in weather.STATIONS or not weather.valid_number(report.get("obsTime"), now.timestamp()-16*3600, now.timestamp()):
-            continue
-        key = (report["icaoId"], report["obsTime"])
-        if key not in merged or weather.receipt_timestamp(report) >= weather.receipt_timestamp(merged[key]):
-            merged[key] = report
-    store.write_json("live/observations.json", {"reports": list(merged.values()),
-                     "checkedAt": weather.iso(now), "mode": "routine-hourly"})
-    return {"reports": len(merged)}
-
-
 def collect_metar_clouds(store, now):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
+    if previous and previous.get("collectionMode") == "shared-hourly-bulk":
+        checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
+        if checked.replace(minute=0, second=0, microsecond=0) == now.replace(minute=0, second=0, microsecond=0):
+            return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
     data = collect(weather.download, now, previous)
+    # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)
-    return {"stations": len(data["stations"])}
+    return {"stations": len(data["stations"]), "metroReports": len(data["observationReports"])}
+
+
+def collect_observations(store, now):
+    # Legacy/manual route shares the same collector, never a second source.
+    return collect_metar_clouds(store, now)
 
 
 def collect_forecast(store, now):
@@ -185,7 +172,8 @@ def collect(kind):
             "observations": collect_observations, "forecast": collect_forecast, "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
-    if not locks[kind].acquire(blocking=False):
+    lock_kind = "metar-clouds" if kind == "observations" else kind
+    if not locks[lock_kind].acquire(blocking=False):
         return jsonify(status="already collecting"), 200
     try:
         store = get_store()
@@ -196,7 +184,7 @@ def collect(kind):
         app.logger.exception("Background %s collection failed", kind)
         return jsonify(error="Collection failed; previous prepared data retained"), 502
     finally:
-        locks[kind].release()
+        locks[lock_kind].release()
 
 
 logging.basicConfig(level=logging.INFO)

@@ -23,8 +23,7 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
-OBSERVATION_CHECK_MINUTES = (2, 55, 58)
-METAR_CHECK_MINUTES = (5,)
+OBSERVATION_CHECK_MINUTES = (0,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -226,7 +225,7 @@ def observations(reports=None, now=None, rapid_reports=None):
         current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
                        wind={"speedMph": None, "speedKnots": None, "direction": None})
     return {"fetchedAt": iso(now), "current": current, "history": history,
-            "method": "Routine METAR nearest :53 within :50–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging. Checks at :55, :58 and :02.",
+            "method": "Shared hourly METAR bulk pull at :00; routine report nearest :53 within :50–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
             "source": "NOAA Aviation Weather Center routine METARs"}
 
 
@@ -327,12 +326,11 @@ def prepared_hourly_snapshot(name):
     if data is None:
         return None
     now = utcnow()
-    # The nationwide sweep takes longer than the three-station observation job.
-    minutes = METAR_CHECK_MINUTES if name == "metar-clouds" else OBSERVATION_CHECK_MINUTES
-    cutoff = now - timedelta(minutes=5 if name == "metar-clouds" else 2)
+    # Allow two minutes for the shared hourly bulk download to finish.
+    cutoff = now - timedelta(minutes=2)
     hour = now.replace(minute=0, second=0, microsecond=0)
     expected = max(hour-timedelta(hours=offset)+timedelta(minutes=minute)
-                   for offset in (0, 1) for minute in minutes
+                   for offset in (0, 1) for minute in OBSERVATION_CHECK_MINUTES
                    if hour-timedelta(hours=offset)+timedelta(minutes=minute) <= cutoff)
     checked = datetime.fromisoformat(data["checkedAt"].replace("Z", "+00:00"))
     data["stale"] = checked < expected
@@ -340,7 +338,26 @@ def prepared_hourly_snapshot(name):
 
 
 def prepared_observations():
+    store = get_store()
+    if store is not None:
+        # Main observations and both METAR maps read one atomically published
+        # source object. Legacy observations remain usable during deployment.
+        shared = cached("prepared-metar-clouds", 10, lambda: store.read_json("live/metar-clouds.json"))
+        if shared and "observationReports" in shared:
+            shared = prepared_hourly_snapshot("metar-clouds")
+            return {"reports": shared["observationReports"],
+                    "checkedAt": shared["checkedAt"], "stale": shared["stale"]}
     return prepared_hourly_snapshot("observations")
+
+
+def local_hourly_metars(now):
+    from metar_clouds import collect
+    # Local development also shares its source between the two API routes.
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    entry = _cache.get("local-hourly-metars")
+    if entry and entry[1].get("checkedAt", "") < iso(hour):
+        _cache.pop("local-hourly-metars", None)
+    return cached("local-hourly-metars", 3600, lambda: collect(download, now))
 
 
 def get_forecast(now=None):
@@ -398,7 +415,7 @@ def observation_notice(data):
     current, warnings = data["current"], []
     if not current["available"]:
         reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
-        warnings.append(f"Hourly average unavailable: {reason}. Checks at :55, :58 and :02; hourly history remains below.")
+        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :00; hourly history remains below.")
     if data.get("stale"):
         warnings.append("Background observation checks are delayed; check the displayed observation hour.")
     return " ".join(warnings)
@@ -408,7 +425,10 @@ def observation_payload(saved_only=False):
     data = prepared_observations()
     if saved_only and data is None:
         return None
-    result = observations(data["reports"]) if data else observations()
+    if data is None:
+        shared = local_hourly_metars(utcnow())
+        data = {"reports": shared["observationReports"], "checkedAt": shared["checkedAt"], "stale": False}
+    result = observations(data["reports"])
     if data:
         result.update(checkedAt=data["checkedAt"], stale=data["stale"])
     return result
@@ -450,12 +470,12 @@ def satellite_api(product):
 
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
-    from metar_clouds import collect, current
+    from metar_clouds import current
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("metar-clouds")
         if data is None:
-            data = cached("metar-clouds", 300, lambda: collect(download, now))
+            data = local_hourly_metars(now)
         elif data.get("version") not in (2, 3):
             return jsonify(error="Hourly METAR history is being prepared. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
         result = current(data, now)
