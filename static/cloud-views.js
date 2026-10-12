@@ -48,7 +48,7 @@ window.WeatherCloudViews = (() => {
     const cover=known.length?Math.max(...known):null;
     const fills=["",'<path d="M0 0V-7A7 7 0 0 1 7 0Z"/>','<path d="M0 -7A7 7 0 0 1 0 7Z"/>','<path d="M0 0V-7A7 7 0 1 1 -7 0Z"/>','<circle r="7"/>'];
     const fill=cover!=null?fills[cover]:station.isMetro?"":'<text x="0" y="4" text-anchor="middle" font-size="11">?</text>';
-    return `<svg class="metar-plot" width="110" height="100" viewBox="0 0 110 100" aria-hidden="true"><g transform="translate(60 50)" color="#233b31"><g fill="none" stroke="currentColor" stroke-width="1.5">${staff}</g><circle r="7" fill="white" stroke="currentColor" stroke-width="1.5"/><g fill="currentColor">${fill}</g></g><text class="plot-temp" x="24" y="39" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="24" y="70" text-anchor="end">${rounded(station.dewpointF)}</text></svg>`;
+    return `<svg class="metar-plot" width="110" height="100" viewBox="0 0 110 100" aria-hidden="true"><g transform="translate(60 50)" color="#233b31"><g fill="none" stroke="currentColor" stroke-width="1.5">${staff}</g><circle r="7" fill="white" stroke="currentColor" stroke-width="1.5"/><g fill="currentColor">${fill}</g></g><text class="plot-temp" x="46" y="43" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="46" y="66" text-anchor="end">${rounded(station.dewpointF)}</text></svg>`;
   }
   function initMetars() {
     if(metarMap)return;
