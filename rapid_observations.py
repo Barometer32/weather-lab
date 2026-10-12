@@ -3,8 +3,8 @@ import csv
 from datetime import datetime, timezone
 from io import StringIO
 import re
-MAX_SPREAD_SECONDS = 600
-MAX_AGE_SECONDS = 1800
+MAX_SPREAD_SECONDS = 1800  # Warning threshold, not a reason to drop a contributor.
+MAX_AGE_SECONDS = 3600  # Match the rolling source/collector retention window.
 
 
 def parse_reports(payload, stations, now):
@@ -54,22 +54,26 @@ def current_snapshot(reports, now):
     latest = {}
     for report in reports:
         station, stamp = report.get("icaoId"), report.get("obsTime")
-        if station in STATIONS and valid_number(stamp, 0, now.timestamp()):
+        if station in STATIONS and valid_number(stamp, now.timestamp()-MAX_AGE_SECONDS, now.timestamp()):
             previous = latest.get(station)
             if previous is None or stamp >= previous["obsTime"]:
                 latest[station] = report
     anchor = max((r["obsTime"] for r in latest.values()), default=None)
     age = now.timestamp() - anchor if anchor is not None else None
-    chosen = [r for r in latest.values() if anchor - r["obsTime"] <= MAX_SPREAD_SECONDS]
-    if age is not None and age > MAX_AGE_SECONDS:
-        chosen = []
+    chosen = list(latest.values())
+    oldest = min((r["obsTime"] for r in chosen), default=None)
+    spread = anchor-oldest if anchor is not None else None
+    lagging = [station for station in STATIONS if station in latest
+               and anchor-latest[station]["obsTime"] > MAX_SPREAD_SECONDS]
     mean_stamp = sum(r["obsTime"] for r in chosen) / len(chosen) if chosen else None
     result = summarize(chosen, datetime.fromtimestamp(mean_stamp, timezone.utc) if mean_stamp is not None else now)
     available = result["qa"]["allStationsUsed"]
     result.update(available=available, observedAt=iso(datetime.fromtimestamp(mean_stamp, timezone.utc)) if available else None,
                   newestObservedAt=iso(datetime.fromtimestamp(anchor, timezone.utc)) if anchor is not None else None,
                   oldestObservedAt=iso(datetime.fromtimestamp(min(r["obsTime"] for r in chosen), timezone.utc)) if chosen else None,
-                  ageSeconds=age, maxSpreadSeconds=MAX_SPREAD_SECONDS, maxAgeSeconds=MAX_AGE_SECONDS)
+                  ageSeconds=age, maxSpreadSeconds=MAX_SPREAD_SECONDS, maxAgeSeconds=MAX_AGE_SECONDS,
+                  timestampSpreadSeconds=spread, timeSpreadWarning=bool(lagging), outOfSyncStations=lagging,
+                  missingStations=[station for station in STATIONS if station not in latest])
     if not result["available"]:
         result.update(tempF=None, tempC=None, dewpointF=None, dewpointC=None, pressureHpa=None,
                       wind={"speedMph": None, "direction": None, "speedCount": 0, "directionCount": 0})

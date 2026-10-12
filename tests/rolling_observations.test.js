@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const elements=new Map();
+const get=id=>{if(!elements.has(id))elements.set(id,{textContent:'',hidden:false,disabled:false,replaceChildren(){},querySelectorAll(){return[];}});return elements.get(id);};
+let current={available:true,tempF:75.8,dewpointF:53.6,wind:{speedMph:5,direction:350},observedAt:'2026-10-11T23:40:00Z',oldestObservedAt:'2026-10-11T23:30:00Z',newestObservedAt:'2026-10-11T23:45:00Z',ageSeconds:600,missingStations:[],timeSpreadWarning:false,outOfSyncStations:[]};
+const context={document:{getElementById:get},Intl,Date,Math,fetch:async()=>({ok:true,json:async()=>({current,history:[],stale:false})})};
+const source=fs.readFileSync('static/app.js','utf8');
+vm.runInNewContext(source.slice(0,source.indexOf('function sun()')),context);
+(async()=>{
+ await vm.runInNewContext('loadObservations()',context);
+ assert.match(get('updated').textContent,/6:40 PM/);
+ assert.equal(get('temperature').textContent,'76°F');
+ assert.equal(get('observation-status').hidden,true);
+ current={...current,observedAt:'2026-10-11T23:41:40Z',oldestObservedAt:'2026-10-11T23:35:00Z'};
+ await vm.runInNewContext('loadObservations()',context);
+ assert.match(get('updated').textContent,/6:42 PM/);
+ current={...current,timeSpreadWarning:true,outOfSyncStations:['KMSP']};
+ await vm.runInNewContext('loadObservations()',context);
+ assert.equal(get('observation-status').hidden,false);
+ assert.match(get('observation-status').textContent,/KMSP is more than 30 minutes/);
+ assert.equal(get('temperature').textContent,'76°F');
+ current={...current,available:false,tempF:null,dewpointF:null,wind:{speedMph:null,direction:null},observedAt:null,timeSpreadWarning:false,missingStations:['KMSP']};
+ await vm.runInNewContext('loadObservations()',context);
+ assert.equal(get('temperature').textContent,'—');
+ assert.match(get('observation-status').textContent,/paused: KMSP has no report/);
+ console.log('Rolling-observation UI checks passed: mean-time rounding, warning without blanking, and missing-station pause.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

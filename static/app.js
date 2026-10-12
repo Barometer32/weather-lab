@@ -33,14 +33,17 @@ async function loadObservations() {
   observationBusy = true; $("refresh-observations").disabled = true;
   try {
     const data = await api("/api/observations"), c = data.current;
-    $("updated").textContent = c.observedAt ? `${fullTime.format(new Date(c.observedAt))} average observation time${c.oldestObservedAt && c.oldestObservedAt !== c.observedAt ? ` · reports from ${central.format(new Date(c.oldestObservedAt))}` : ""}` : "Waiting for recent observations from all 3 stations";
+    const averageTime=c.observedAt?new Date(Math.round(Date.parse(c.observedAt)/60000)*60000):null;
+    $("updated").textContent = averageTime ? `${fullTime.format(averageTime)} average observation time${c.oldestObservedAt && c.oldestObservedAt !== c.newestObservedAt ? ` · reports ${central.format(new Date(c.oldestObservedAt))}–${central.format(new Date(c.newestObservedAt))}` : ""}` : "Waiting for recent observations from all 3 stations";
     $("temperature").textContent = temp(c.tempF);
     $("dewpoint").textContent = temp(c.dewpointF);
     $("wind").textContent = wind(c.wind);
-    const qa = c.qa, stale = Boolean(data.stale);
-    const status = $("observation-status"); status.hidden = qa.allStationsUsed && !stale;
-    status.hidden = c.available && !stale && c.ageSeconds <= 600;
-    status.textContent = !c.available ? "Current average unavailable: all 3 stations must pass QA, report within 10 minutes of each other, and have a newest report no more than 30 minutes old. Hourly history remains below." : stale ? "Background observation checks are delayed; check the displayed observation time." : "The observation feed is delayed; check the displayed observation time. Checks continue every minute.";
+    const stale = Boolean(data.stale), warnings=[];
+    if(!c.available)warnings.push(`Current average paused: ${c.missingStations?.length?`${c.missingStations.join(", ")} has no report in the last hour`:"all 3 stations must pass temperature, dew point and wind QA"}. Hourly history remains below.`);
+    if(c.timeSpreadWarning)warnings.push(`${c.outOfSyncStations.join(", ")} is more than 30 minutes behind the newest station report${c.available?"; the average still includes all 3 stations":""}.`);
+    if(stale)warnings.push("Background observation checks are delayed; check the displayed report times.");
+    else if(c.available&&c.ageSeconds>1800)warnings.push("The newest station report is over 30 minutes old; these are the latest available readings.");
+    const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
     $("history").replaceChildren();
     for (const h of data.history) {
       const row = document.createElement("tr");

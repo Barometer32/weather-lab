@@ -7,7 +7,7 @@ function element(){return {value:'',hidden:false,disabled:false,textContent:'',c
 const elements=new Map();
 const get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
 get('metar-view').value='clouds';
-let shown=[];
+let shown=[],zoomScale=1;
 const stations=[
  ['KAAA',60,45,35,{cover:'SCT',baseFtAGL:2500},{cover:'BKN',baseFtAGL:6000},{cover:'OVC',baseFtAGL:7000}],
  ['KSCT',61,46,10,{cover:'SCT',baseFtAGL:3000}],
@@ -22,7 +22,7 @@ const stations=[
 ].map(([station,tempF,dewpointF,speedKnots,...layers],i)=>({station,tempF,dewpointF,wind:{speedKnots,direction:station==='KVAR'?null:90,variable:station==='KVAR'},layers,mapLayer:layers[0],hasCeiling:layers.some(l=>['BKN','OVC'].includes(l.cover)),time:'2026-10-12T00:53:00Z',lat:i+1,lon:0}));
 const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8,dewpointF:53.6,wind:{speedKnots:12,direction:350},time:'2026-10-12T00:53:00Z'};
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T01:01:00Z'};
-const map={setView(){return this;},on(){return this;},getZoom(){return 8;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*150,y:lat*100};},invalidateSize(){}};
+const map={setView(){return this;},on(){return this;},getZoom(){return 8;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*95*zoomScale,y:lat*70*zoomScale};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 const context={window:{},document:{getElementById:get,createElement:element,hidden:false},Intl,Date,Math,Set,fetch:async()=>({ok:true,json:async()=>data}),setTimeout, setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
@@ -52,6 +52,12 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.match(find('METRO'),/>76<\/text>/);assert.ok(!find('METRO').includes('99'));
  assert.equal(find('KFCM'),undefined);assert.equal(find('KMSP'),undefined);assert.equal(find('KMIC'),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')));
+ const denseCount=shown.length;
+ assert.equal(denseCount,8); // Sites 95×70 px apart now fit instead of being skipped.
+ zoomScale=.5;get('metar-view').events.change();
+ assert.ok(shown.length<denseCount); // Zooming out still thins the map.
+ assert.ok(find('METRO'));
+ zoomScale=1;get('metar-view').events.change();assert.equal(shown.length,denseCount);
  get('metar-cloud-timeline').events.input({target:{value:'3'}});
  const hour=get('metar-cloud-time').textContent;
  data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-12T02:00:00Z'})};

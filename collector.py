@@ -154,7 +154,9 @@ def collect_observations(store, now):
     else:
         checked = weather.iso(now)
     from rapid_observations import recent_metars
-    rapid = rapid + recent_metars(reports, weather.STATIONS, now)
+    # New batches can contain only one updating station. Preserve the other
+    # stations' last actual reports until they expire from the one-hour window.
+    rapid = previous.get("rapidReports", []) + rapid + recent_metars(reports, weather.STATIONS, now)
     rapid = list({(r["icaoId"], r["obsTime"]): r for r in rapid
                   if weather.valid_number(r.get("obsTime"), now.timestamp()-3600, now.timestamp())}.values())
     store.write_json("live/observations.json", {"reports": reports, "rapidReports": rapid,

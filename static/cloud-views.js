@@ -68,7 +68,7 @@ window.WeatherCloudViews = (() => {
     for(const station of candidates){
       const point=metarMap.latLngToContainerPoint([station.lat,station.lon]);
       if(point.x<0||point.y<0||point.x>size.x||point.y>size.y)continue;
-      if(points.some(p=>Math.abs(p.x-point.x)<110&&Math.abs(p.y-point.y)<90))continue;
+      if(points.some(p=>Math.abs(p.x-point.x)<90&&Math.abs(p.y-point.y)<65))continue;
       points.push(point);accepted.push(station);
     }
     return accepted;

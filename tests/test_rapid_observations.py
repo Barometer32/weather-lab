@@ -44,21 +44,46 @@ class RapidObservationTests(unittest.TestCase):
         self.assertEqual((row['temp'],row['dewp'],row['wdir']),(-2,-5,'VRB'))
         with self.assertRaises(ValueError):parse_reports(b'<html>error</html>',weather.STATIONS,NOW)
 
-    def test_ten_minute_spread_allowed_but_over_ten_and_partial_sets_rejected(self):
-        rows=[report('KFCM'),report('KMSP'),report('KMIC',40)]
-        self.assertTrue(current_snapshot(rows,NOW)['available'])
-        self.assertEqual(current_snapshot(rows,NOW)['observedAt'],'2026-10-11T23:46:40Z')
-        for invalid in [rows[:2], rows[:2]+[report('KMIC',40,obsTime=report('KMIC',40)['obsTime']-1)]]:
-            result=current_snapshot(invalid,NOW)
-            self.assertFalse(result['available'])
-            self.assertIsNone(result['observedAt'])
-            self.assertIsNone(result['tempF'])
-            self.assertIsNone(result['dewpointF'])
-            self.assertIsNone(result['wind']['speedMph'])
+    def test_rolling_updates_use_latest_each_station_and_mean_timestamp(self):
+        rows=[report('KFCM',45),report('KMIC',45),report('KMSP',30,temp=25)]
+        first=current_snapshot(rows,NOW)
+        self.assertTrue(first['available'])
+        self.assertEqual(first['observedAt'],'2026-10-11T23:40:00Z')
+        self.assertFalse(first['timeSpreadWarning'])
+        rows.append(report('KMSP',35,temp=26))
+        second=current_snapshot(rows,NOW)
+        self.assertEqual(second['observedAt'],'2026-10-11T23:41:40Z')
+        self.assertAlmostEqual(second['tempC'],74/3)
+        self.assertEqual(second['tempF'],76.4)
+        self.assertEqual(second['count'],3)
 
-    def test_latest_set_is_used_without_searching_older_complete_set(self):
-        rows=[report(s,44) for s in weather.STATIONS]+[report('KFCM',55),report('KMSP',55)]
+    def test_thirty_minute_gap_warns_without_removing_station(self):
+        rows=[report('KFCM',50),report('KMIC',50),report('KMSP',20)]
+        result=current_snapshot(rows,NOW)
+        self.assertTrue(result['available'])
+        self.assertFalse(result['timeSpreadWarning'])
+        rows[-1]['obsTime']-=1
+        result=current_snapshot(rows,NOW)
+        self.assertTrue(result['available'])
+        self.assertTrue(result['timeSpreadWarning'])
+        self.assertEqual(result['outOfSyncStations'],['KMSP'])
+        self.assertEqual(result['timestampSpreadSeconds'],1801)
+        self.assertEqual(result['qa']['stationsUsed'],3)
+
+    def test_missing_or_invalid_station_pauses_then_resumes(self):
+        rows=[report('KFCM'),report('KMIC')]
+        result=current_snapshot(rows,NOW)
+        self.assertFalse(result['available'])
+        self.assertEqual(result['missingStations'],['KMSP'])
+        self.assertIsNone(result['observedAt'])
+        self.assertIsNone(result['tempF'])
+        self.assertIsNone(result['wind']['speedMph'])
+        rows.append(report('KMSP',30))
+        self.assertTrue(current_snapshot(rows,NOW)['available'])
+        rows.append(report('KMSP',35,dewp=30))
         self.assertFalse(current_snapshot(rows,NOW)['available'])
+        rows.append(report('KMSP',40))
+        self.assertTrue(current_snapshot(rows,NOW)['available'])
 
     def test_mean_time_across_hour_boundary_uses_equal_station_weights(self):
         rows=[report(s,obsTime=stamp.timestamp()) for s,stamp in zip(weather.STATIONS,
@@ -69,7 +94,7 @@ class RapidObservationTests(unittest.TestCase):
         self.assertEqual(result['observedAt'],'2026-10-11T22:55:00Z')
 
     def test_age_limit_future_and_invalid_fields_cannot_look_current(self):
-        rows=[report(s,25) for s in weather.STATIONS]
+        rows=[report(s,obsTime=(NOW-timedelta(hours=1)).timestamp()) for s in weather.STATIONS]
         self.assertTrue(current_snapshot(rows,NOW)['available'])
         self.assertFalse(current_snapshot(rows,NOW+timedelta(seconds=1))['available'])
         future=[report(s,56) for s in weather.STATIONS]
@@ -126,7 +151,24 @@ class RapidObservationTests(unittest.TestCase):
             collector.collect_observations(store,NOW+timedelta(minutes=26))
         saved=store.read_json('live/observations.json')
         self.assertEqual(saved['rapidCheckedAt'],weather.iso(NOW))
-        self.assertFalse(current_snapshot(saved['rapidReports'],NOW+timedelta(minutes=26))['available'])
+        self.assertFalse(current_snapshot(saved['rapidReports'],NOW+timedelta(minutes=56))['available'])
+
+    def test_collector_retains_other_sites_during_partial_batches_and_expires_them(self):
+        store=MemoryStore()
+        initial=[report('KFCM',45),report('KMIC',45),report('KMSP',30)]
+        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=initial):
+            collector.collect_observations(store,NOW)
+        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=[report('KMSP',35,temp=26)]):
+            collector.collect_observations(store,NOW+timedelta(minutes=1))
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW+timedelta(minutes=1)):
+            current=weather.app.test_client().get('/api/observations').json['current']
+        self.assertTrue(current['available'])
+        self.assertEqual(current['observedAt'],'2026-10-11T23:41:40Z')
+        self.assertEqual(current['tempF'],76.4)
+        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=[]):
+            collector.collect_observations(store,NOW+timedelta(hours=1))
+        self.assertEqual(store.read_json('live/observations.json')['rapidReports'],[])
+
 
 
 if __name__ == '__main__':
