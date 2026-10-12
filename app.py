@@ -12,14 +12,15 @@ import threading
 import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, render_template
 import numpy as np
 from PIL import Image
 from realtime import get_store
 from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 OBSERVATION_CHECK_MINUTES = (2, 55, 58)
@@ -346,7 +347,65 @@ def get_forecast(now=None):
 
 @app.get("/")
 def index():
-    return send_from_directory("static", "index.html")
+    initial = None
+    try:
+        # Read only the already prepared snapshot; opening a page never starts
+        # an observation collection or waits for an upstream METAR download.
+        initial = observation_payload(saved_only=True)
+    except Exception:
+        app.logger.warning("Initial observations unavailable; page will retry the saved-data API", exc_info=True)
+    return render_template("index.html", initial_observations=initial,
+                           observation_time=observation_time, observation_temperature=observation_temperature,
+                           observation_wind=observation_wind, observation_qa=observation_qa,
+                           observation_notice=observation_notice), 200, {"Cache-Control": "no-store"}
+
+
+def observation_time(stamp, full=False):
+    moment = datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(ZoneInfo("America/Chicago"))
+    return moment.strftime("%b %-d, %-I:%M %p %Z" if full else "%-I:%M %p %Z")
+
+
+def observation_temperature(value):
+    return f"{math.floor(value+.5)}°F" if value is not None else "—"
+
+
+def observation_wind(wind):
+    speed, direction = wind.get("speedMph"), wind.get("direction")
+    if speed is None:
+        return "—"
+    if speed < .5:
+        return "Calm"
+    heading = "Variable" if direction is None else ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[math.floor(direction/45+.5)%8]
+    return f"{heading} {math.floor(speed+.5)} mph"
+
+
+def observation_qa(qa, stale=False):
+    if stale:
+        return "Refresh failed; displayed readings may be stale"
+    if qa["allStationsUsed"]:
+        return "Basic QA passed; all 3 stations used"
+    checks = qa["checks"]
+    return f"Basic QA incomplete; {qa['stationsUsed']}/3 stations passed. Temperature {checks['temperature']}/3, dew point {checks['dewpoint']}/3, wind {checks['wind']}/3"
+
+
+def observation_notice(data):
+    current, warnings = data["current"], []
+    if not current["available"]:
+        reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
+        warnings.append(f"Hourly average unavailable: {reason}. Checks at :55, :58 and :02; hourly history remains below.")
+    if data.get("stale"):
+        warnings.append("Background observation checks are delayed; check the displayed observation hour.")
+    return " ".join(warnings)
+
+
+def observation_payload(saved_only=False):
+    data = prepared_observations()
+    if saved_only and data is None:
+        return None
+    result = observations(data["reports"]) if data else observations()
+    if data:
+        result.update(checkedAt=data["checkedAt"], stale=data["stale"])
+    return result
 
 
 @app.get("/api/forecast")
@@ -425,10 +484,7 @@ def health():
 @app.get("/api/observations")
 def observation_api():
     try:
-        data = prepared_observations()
-        result = observations(data["reports"]) if data else observations()
-        if data:
-            result.update(checkedAt=data["checkedAt"], stale=data["stale"])
+        result = observation_payload()
         return jsonify(result), 200, {"Cache-Control": "no-store"}
     except Exception:
         app.logger.exception("Observation feed failed")

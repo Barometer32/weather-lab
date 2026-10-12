@@ -27,30 +27,32 @@ function qualityDot(qa, stale = false) {
   dot.title = label; dot.setAttribute("role", "img"); dot.setAttribute("aria-label", label); dot.tabIndex = 0;
   return dot;
 }
+function renderObservations(data) {
+  const c = data.current;
+  $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly observation`;
+  $("temperature").textContent = temp(c.tempF);
+  $("dewpoint").textContent = temp(c.dewpointF);
+  $("wind").textContent = wind(c.wind);
+  const stale = Boolean(data.stale), warnings=[];
+  if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Checks at :55, :58 and :02; hourly history remains below.`);
+  if(stale)warnings.push("Background observation checks are delayed; check the displayed observation hour.");
+  const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
+  $("history").replaceChildren();
+  for (const h of data.history) {
+    const row = document.createElement("tr");
+    const hourCell = document.createElement("td"), hourLine = document.createElement("span"), time = document.createElement("span");
+    hourLine.className = "hour-line"; time.textContent = central.format(new Date(h.hour));
+    hourLine.append(qualityDot(h.qa, stale), time); hourCell.append(hourLine); row.append(hourCell);
+    cell(row,temp(h.tempF)); cell(row,temp(h.dewpointF)); cell(row,wind(h.wind));
+    $("history").append(row);
+  }
+}
 let observationBusy = false;
 async function loadObservations() {
   if (observationBusy) return;
   observationBusy = true; $("refresh-observations").disabled = true;
   try {
-    const data = await api("/api/observations"), c = data.current;
-    const reportTimes=c.oldestObservedAt?c.oldestObservedAt===c.newestObservedAt?central.format(new Date(c.oldestObservedAt)):`${central.format(new Date(c.oldestObservedAt))}–${central.format(new Date(c.newestObservedAt))}`:null;
-    $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly observation${reportTimes?` · METAR ${reportTimes}`:""}`;
-    $("temperature").textContent = temp(c.tempF);
-    $("dewpoint").textContent = temp(c.dewpointF);
-    $("wind").textContent = wind(c.wind);
-    const stale = Boolean(data.stale), warnings=[];
-    if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Checks at :55, :58 and :02; hourly history remains below.`);
-    if(stale)warnings.push("Background observation checks are delayed; check the displayed report times.");
-    const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
-    $("history").replaceChildren();
-    for (const h of data.history) {
-      const row = document.createElement("tr");
-      const hourCell = document.createElement("td"), hourLine = document.createElement("span"), time = document.createElement("span");
-      hourLine.className = "hour-line"; time.textContent = central.format(new Date(h.hour));
-      hourLine.append(qualityDot(h.qa, stale), time); hourCell.append(hourLine); row.append(hourCell);
-      cell(row,temp(h.tempF)); cell(row,temp(h.dewpointF)); cell(row,wind(h.wind));
-      $("history").append(row);
-    }
+    renderObservations(await api("/api/observations"));
   } catch (error) {
     for (const dot of $("history").querySelectorAll(".qa-dot")) {
       dot.className = "qa-dot incomplete"; dot.title = "Refresh failed; displayed history may be stale";
@@ -69,6 +71,12 @@ function scheduleObservations() {
     if(!document.hidden&&!$("observations").hidden)loadObservations();
     scheduleObservations();
   },next-now);
+}
+function initializeObservations() {
+  let initial;
+  try { initial=JSON.parse($("initial-observations")?.textContent||"null"); } catch (_) { initial=null; }
+  if(initial?.current)renderObservations(initial);else loadObservations();
+  scheduleObservations();
 }
 function sun() {
   if (!window.SunCalc) return;
@@ -373,7 +381,7 @@ document.addEventListener("keydown",event=>{
     if(map)map.invalidateSize();
   }
 });
-loadObservations();scheduleObservations();sun();setInterval(sun,30000);
+initializeObservations();sun();setInterval(sun,30000);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
