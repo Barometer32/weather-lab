@@ -69,7 +69,7 @@ weather_schedule() {
 }
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
-weather_schedule observations '* * * * *'
+weather_schedule observations '2,55,58 * * * *'
 weather_schedule forecast '*/5 * * * *'
 weather_schedule metar-clouds '* * * * *'
 

@@ -69,9 +69,11 @@ class LiveMetarTests(unittest.TestCase):
         store.write_json('live/metar-clouds.json',saved)
         rapid=[{'icaoId':s,'obsTime':NOW.replace(minute=55).timestamp(),'temp':c,'dewp':12,'wspd':5,'wdir':350}
                for s,c in zip(app.STATIONS,[24,24,25])]
-        store.write_json('live/observations.json',{'reports':[],'rapidReports':rapid,'checkedAt':app.iso(NOW)})
+        routine=[{'icaoId':s,'metarType':'METAR','obsTime':NOW.replace(minute=53).timestamp(),'temp':10,'dewp':5,'wspd':5,'wdir':350} for s in app.STATIONS]
+        store.write_json('live/observations.json',{'reports':routine,'rapidReports':rapid,'checkedAt':app.iso(NOW)})
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
             client=app.app.test_client();main=client.get('/api/observations').json['current'];live=client.get('/api/metar-clouds').json['live']['metro']
+        self.assertEqual(main['tempF'],50)
         self.assertEqual(live['tempF'],main['tempF'])
         self.assertEqual(live['dewpointF'],main['dewpointF'])
         self.assertEqual(live['wind'],main['wind'])

@@ -33,16 +33,14 @@ async function loadObservations() {
   observationBusy = true; $("refresh-observations").disabled = true;
   try {
     const data = await api("/api/observations"), c = data.current;
-    const averageTime=c.observedAt?new Date(Math.round(Date.parse(c.observedAt)/60000)*60000):null;
-    $("updated").textContent = averageTime ? `${fullTime.format(averageTime)} average observation time${c.oldestObservedAt && c.oldestObservedAt !== c.newestObservedAt ? ` · reports ${central.format(new Date(c.oldestObservedAt))}–${central.format(new Date(c.newestObservedAt))}` : ""}` : "Waiting for recent observations from all 3 stations";
+    const reportTimes=c.oldestObservedAt?c.oldestObservedAt===c.newestObservedAt?central.format(new Date(c.oldestObservedAt)):`${central.format(new Date(c.oldestObservedAt))}–${central.format(new Date(c.newestObservedAt))}`:null;
+    $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly observation${reportTimes?` · METAR ${reportTimes}`:""}`;
     $("temperature").textContent = temp(c.tempF);
     $("dewpoint").textContent = temp(c.dewpointF);
     $("wind").textContent = wind(c.wind);
     const stale = Boolean(data.stale), warnings=[];
-    if(!c.available)warnings.push(`Current average paused: ${c.missingStations?.length?`${c.missingStations.join(", ")} has no report in the last hour`:"all 3 stations must pass temperature, dew point and wind QA"}. Hourly history remains below.`);
-    if(c.timeSpreadWarning)warnings.push(`${c.outOfSyncStations.join(", ")} is more than 30 minutes behind the newest station report${c.available?"; the average still includes all 3 stations":""}.`);
+    if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Checks at :55, :58 and :02; hourly history remains below.`);
     if(stale)warnings.push("Background observation checks are delayed; check the displayed report times.");
-    else if(c.available&&c.ageSeconds>1800)warnings.push("The newest station report is over 30 minutes old; these are the latest available readings.");
     const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
     $("history").replaceChildren();
     for (const h of data.history) {
@@ -61,6 +59,16 @@ async function loadObservations() {
     $("observation-status").hidden = false;
     $("observation-status").textContent = `${error.message} Any displayed readings are from the previous successful refresh.`;
   } finally { observationBusy = false; $("refresh-observations").disabled = false; }
+}
+let observationTimer;
+function scheduleObservations() {
+  clearTimeout(observationTimer);
+  const now=new Date(),hour=new Date(now);hour.setUTCMinutes(0,0,0);
+  const next=[0,1].flatMap(offset=>[2,55,58].map(minute=>new Date(hour.getTime()+offset*3600000+minute*60000+30000))).find(t=>t>now);
+  observationTimer=setTimeout(()=>{
+    if(!document.hidden&&!$("observations").hidden)loadObservations();
+    scheduleObservations();
+  },next-now);
 }
 function sun() {
   if (!window.SunCalc) return;
@@ -365,8 +373,7 @@ document.addEventListener("keydown",event=>{
     if(map)map.invalidateSize();
   }
 });
-loadObservations();sun();setInterval(sun,30000);
-setInterval(()=>{if(!document.hidden&&!$("observations").hidden)loadObservations();},60000);
+loadObservations();scheduleObservations();sun();setInterval(sun,30000);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);

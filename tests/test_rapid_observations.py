@@ -5,9 +5,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 import app as weather
-import collector
 from rapid_observations import parse_reports, current_snapshot, recent_metars
-from test_realtime import MemoryStore
 
 NOW = datetime(2026, 10, 11, 23, 55, tzinfo=timezone.utc)
 
@@ -118,13 +116,13 @@ class RapidObservationTests(unittest.TestCase):
         self.assertEqual(result['observedAt'],'2026-10-11T23:53:00Z')
         self.assertEqual(result['tempF'],75.2)
 
-    def test_hourly_history_remains_routine_and_independent_of_current(self):
-        hourly=[report(s,53,metarType='METAR',temp=10) for s in weather.STATIONS]
+    def test_hourly_current_and_history_remain_independent_of_rapid_reports(self):
+        hourly=[report(s,53,metarType='METAR',temp=10,dewp=5) for s in weather.STATIONS]
         result=weather.observations(hourly,NOW,parse_reports(payload(),weather.STATIONS,NOW))
         self.assertEqual(len(result['history']),12)
         self.assertEqual(result['history'][0]['hour'],'2026-10-12T00:00:00Z')
         self.assertEqual(result['history'][0]['tempF'],50)
-        self.assertEqual(result['current']['tempF'],75.8)
+        self.assertEqual(result['current']['tempF'],50)
 
     def test_hourly_53_uses_celsius_without_intermediate_rounding_or_fahrenheit_fields(self):
         rows=[report(s,53,metarType='METAR',temp=c,tmpf=999,tempF=999)
@@ -133,41 +131,6 @@ class RapidObservationTests(unittest.TestCase):
         result=weather.hourly_snapshot(rows,hour,NOW)
         self.assertAlmostEqual(result['tempC'],30.22/3)
         self.assertEqual(result['tempF'],50.1)
-
-    def test_collector_and_public_api_preserve_timestamps_without_visitor_upstream_calls(self):
-        store=MemoryStore()
-        hourly=[report(s,53,metarType='METAR') for s in weather.STATIONS]
-        rapid=parse_reports(payload(),weather.STATIONS,NOW)
-        with patch('app.get_reports',return_value=hourly),patch('app.get_rapid_reports',return_value=rapid):
-            collector.collect_observations(store,NOW)
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as download:
-            response=weather.app.test_client().get('/api/observations')
-        self.assertEqual(response.status_code,200)
-        self.assertEqual(response.json['current']['tempF'],75.8)
-        self.assertEqual(response.json['current']['observedAt'],'2026-10-11T23:48:20Z')
-        self.assertEqual(response.headers['Cache-Control'],'no-store')
-        download.assert_not_called()
-        with patch('app.get_reports',return_value=hourly),patch('app.get_rapid_reports',side_effect=TimeoutError()):
-            collector.collect_observations(store,NOW+timedelta(minutes=26))
-        saved=store.read_json('live/observations.json')
-        self.assertEqual(saved['rapidCheckedAt'],weather.iso(NOW))
-        self.assertFalse(current_snapshot(saved['rapidReports'],NOW+timedelta(minutes=56))['available'])
-
-    def test_collector_retains_other_sites_during_partial_batches_and_expires_them(self):
-        store=MemoryStore()
-        initial=[report('KFCM',45),report('KMIC',45),report('KMSP',30)]
-        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=initial):
-            collector.collect_observations(store,NOW)
-        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=[report('KMSP',35,temp=26)]):
-            collector.collect_observations(store,NOW+timedelta(minutes=1))
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW+timedelta(minutes=1)):
-            current=weather.app.test_client().get('/api/observations').json['current']
-        self.assertTrue(current['available'])
-        self.assertEqual(current['observedAt'],'2026-10-11T23:41:40Z')
-        self.assertEqual(current['tempF'],76.4)
-        with patch('app.get_reports',return_value=[]),patch('app.get_rapid_reports',return_value=[]):
-            collector.collect_observations(store,NOW+timedelta(hours=1))
-        self.assertEqual(store.read_json('live/observations.json')['rapidReports'],[])
 
 
 

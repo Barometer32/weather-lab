@@ -136,32 +136,25 @@ def collect_satellite(store, now):
 
 def collect_observations(store, now):
     previous = store.read_json("live/observations.json") or {}
-    if now.minute in (3, 56, 59):
-        weather._cache.pop("metar", None)
+    # :55 and :58 must fetch separately despite being less than five minutes apart.
+    weather._cache.pop("metar", None)
     try:
         reports = weather.get_reports()
     except Exception:
-        app.logger.exception("Hourly history feed failed; retaining saved reports")
-        reports = previous.get("reports", [])
+        app.logger.exception("Hourly METAR feed failed; saved reports retain their check time")
+        raise
     if not isinstance(reports, list) or not reports:
-        reports = previous.get("reports", [])
-    try:
-        rapid = weather.get_rapid_reports(now)
-    except Exception:
-        app.logger.exception("Rapid ASOS feed failed; previous reports retain their actual timestamps")
-        rapid = previous.get("rapidReports", [])
-        checked = previous.get("rapidCheckedAt", previous.get("checkedAt", weather.iso(now)))
-    else:
-        checked = weather.iso(now)
-    from rapid_observations import recent_metars
-    # New batches can contain only one updating station. Preserve the other
-    # stations' last actual reports until they expire from the one-hour window.
-    rapid = previous.get("rapidReports", []) + rapid + recent_metars(reports, weather.STATIONS, now)
-    rapid = list({(r["icaoId"], r["obsTime"]): r for r in rapid
-                  if weather.valid_number(r.get("obsTime"), now.timestamp()-3600, now.timestamp())}.values())
-    store.write_json("live/observations.json", {"reports": reports, "rapidReports": rapid,
-                     "checkedAt": checked, "rapidCheckedAt": checked})
-    return {"reports": len(reports), "rapidReports": len(rapid)}
+        raise ValueError("No hourly METAR reports; saved reports retained")
+    merged = {}
+    for report in previous.get("reports", [])+reports:
+        if report.get("icaoId") not in weather.STATIONS or not weather.valid_number(report.get("obsTime"), now.timestamp()-16*3600, now.timestamp()):
+            continue
+        key = (report["icaoId"], report["obsTime"])
+        if key not in merged or weather.receipt_timestamp(report) >= weather.receipt_timestamp(merged[key]):
+            merged[key] = report
+    store.write_json("live/observations.json", {"reports": list(merged.values()),
+                     "checkedAt": weather.iso(now), "mode": "routine-hourly"})
+    return {"reports": len(merged)}
 
 
 def collect_metar_clouds(store, now):

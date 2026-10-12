@@ -22,6 +22,7 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 app = Flask(__name__, static_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
+OBSERVATION_CHECK_MINUTES = (2, 55, 58)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -164,9 +165,21 @@ def hourly_snapshot(reports, target, as_of):
         # Prefer :53, then newest report/correction receipt at the same timestamp.
         if eligible:
             expected = (target - timedelta(minutes=7)).timestamp()
-            chosen.append(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
-                -r["obsTime"], -receipt_timestamp(r))))
+            chosen.append(metar_precision(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
+                -r["obsTime"], -receipt_timestamp(r)))))
     return summarize(chosen, target)
+
+
+def metar_precision(report):
+    """Prefer the actual METAR T remark over its whole-degree body group."""
+    result = dict(report)
+    remarks = str(report.get("rawOb", "")).partition(" RMK")[2]
+    match = re.search(r"\bT([01])(\d{3})(?:([01])(\d{3}))?\b", remarks)
+    if match:
+        result["temp"] = int(match[2]) / 10 * (-1 if match[1] == "1" else 1)
+        if match[3] is not None:
+            result["dewp"] = int(match[4]) / 10 * (-1 if match[3] == "1" else 1)
+    return result
 
 
 def summarize(chosen, target):
@@ -193,10 +206,7 @@ def summarize(chosen, target):
 
 
 def observations(reports=None, now=None, rapid_reports=None):
-    from rapid_observations import current_snapshot
     now = now or utcnow()
-    if reports is None and rapid_reports is None:
-        rapid_reports = get_rapid_reports(now)
     reports = get_reports() if reports is None else reports
     # Display a routine report as soon as received, using its rounded hour label.
     # An outage must not leave an old complete hour looking current indefinitely.
@@ -204,9 +214,18 @@ def observations(reports=None, now=None, rapid_reports=None):
     hours = [routine_hour(r, now) for r in reports if r.get("icaoId") in STATIONS]
     target = max([current_hour] + [hour for hour in hours if hour is not None])
     history = [hourly_snapshot(reports, target - timedelta(hours=i), now) for i in range(12)]
-    return {"fetchedAt": iso(now), "current": current_snapshot(rapid_reports or [], now), "history": history,
-            "method": "Current: latest valid report from each station; gaps over thirty minutes flagged; equal average report time; Celsius averaged before Fahrenheit conversion. History: routine :53 reports labeled with the following hour.",
-            "source": "Recent ASOS directly from NOAA MADIS; hourly history via NOAA Aviation Weather Center"}
+    current = dict(history[0])
+    stamps = [s["observedAt"] for s in current["stations"] if s["observedAt"]]
+    current.update(available=current["qa"]["allStationsUsed"], hourlyRoutine=True,
+                   observedAt=max(stamps, default=None), newestObservedAt=max(stamps, default=None),
+                   oldestObservedAt=min(stamps, default=None),
+                   missingStations=[s["code"] for s in current["stations"] if not s["available"]])
+    if not current["available"]:
+        current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
+                       wind={"speedMph": None, "speedKnots": None, "direction": None})
+    return {"fetchedAt": iso(now), "current": current, "history": history,
+            "method": "Routine METAR nearest :53 within :50–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging. Checks at :55, :58 and :02.",
+            "source": "NOAA Aviation Weather Center routine METARs"}
 
 
 def scans_in_window(scans, now):
@@ -301,6 +320,22 @@ def prepared_snapshot(name, max_age):
     return data
 
 
+def prepared_observations():
+    data = prepared_snapshot("observations", 3600)
+    if data is None:
+        return None
+    now = utcnow()
+    # Allow two minutes for a scheduled collector invocation to finish.
+    cutoff = now - timedelta(minutes=2)
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    expected = max(hour-timedelta(hours=offset)+timedelta(minutes=minute)
+                   for offset in (0, 1) for minute in OBSERVATION_CHECK_MINUTES
+                   if hour-timedelta(hours=offset)+timedelta(minutes=minute) <= cutoff)
+    checked = datetime.fromisoformat(data["checkedAt"].replace("Z", "+00:00"))
+    data["stale"] = checked < expected
+    return data
+
+
 def get_forecast(now=None):
     from nws_forecast import FORECAST_URL, normalize_forecast
     # Use MapClick's structured feed so wording and period selection match the
@@ -362,11 +397,11 @@ def metar_clouds_api():
         # The live metro plot reads the exact same prepared three-station inputs
         # as the main conditions page, never independently mixes another set.
         try:
-            observed = prepared_snapshot("observations", 180)
+            observed = prepared_observations()
         except ValueError:
             observed = None
         if observed:
-            metro = observations(observed["reports"], now, observed.get("rapidReports", []))["current"]
+            metro = observations(observed["reports"], now)["current"]
             result["live"]["metro"].update(available=metro["available"], tempF=metro["tempF"],
                 dewpointF=metro["dewpointF"], wind=metro["wind"], time=metro["observedAt"],
                 oldestObservedAt=metro["oldestObservedAt"], qa=metro["qa"])
@@ -390,8 +425,8 @@ def health():
 @app.get("/api/observations")
 def observation_api():
     try:
-        data = prepared_snapshot("observations", 180)
-        result = observations(data["reports"], rapid_reports=data.get("rapidReports", [])) if data else observations()
+        data = prepared_observations()
+        result = observations(data["reports"]) if data else observations()
         if data:
             result.update(checkedAt=data["checkedAt"], stale=data["stale"])
         return jsonify(result), 200, {"Cache-Control": "no-store"}
