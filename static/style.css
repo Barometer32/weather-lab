@@ -168,7 +168,7 @@ body.satellite-expanded { overflow: hidden; }
 .cloud-station-label { font:600 11px/1.3 system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; padding:2px 3px; }
 .cloud-station-label:empty { display:none; }
 .compact-clouds .cloud-station-label { display:none; }
-.cloud-ceiling-number { display:block; min-width:24px; text-align:center; font:700 14px/24px system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; }
+.cloud-ceiling-number { display:block; min-width:24px; text-align:center; font:700 14px/24px system-ui,sans-serif; color:#233b31; background:transparent; }
 .cloud-popup strong { font-size:16px; }
 .cloud-popup p { margin:6px 0; }
 .cloud-station-table { max-height:440px; margin-top:12px; }
@@ -197,11 +197,9 @@ body.satellite-expanded { overflow: hidden; }
 .metar-view-controls label { display:flex; align-items:center; gap:8px; }
 #metar-view { min-height:44px; padding:8px 10px; background:#fff; border:1px solid var(--border); border-radius:6px; font:inherit; }
 .weather-station { background:transparent; border:0; }
-.metar-plot { display:grid; grid-template-columns:28px 1fr; grid-template-rows:22px 22px; width:94px; height:44px; border-radius:4px; background:#fffffff2; font:700 13px/22px system-ui,sans-serif; text-align:center; }
-.plot-temp { color:#a62926; grid-column:1; grid-row:1; }
-.plot-dew { color:#176741; grid-column:1; grid-row:2; }
-.plot-wind { color:#233b31; grid-column:2; grid-row:1 / 3; align-self:center; font-size:11px; white-space:nowrap; }
-.metro-plot { outline:2px solid #16834f; }
+.metar-plot { display:block; overflow:visible; background:transparent; font:700 13px system-ui,sans-serif; }
+.plot-temp { fill:#a62926; }
+.plot-dew { fill:#176741; }
 
 #metar-clouds .section-heading { flex-wrap:wrap; }
 @media(max-width:600px) {

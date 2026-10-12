@@ -34,6 +34,8 @@ class RapidObservationTests(unittest.TestCase):
         self.assertEqual(result['tempF'], 75.8)
         self.assertEqual(result['dewpointF'], 53.6)
         self.assertEqual(result['oldestObservedAt'], '2026-10-11T23:45:00Z')
+        self.assertEqual(result['observedAt'], '2026-10-11T23:48:20Z')
+        self.assertEqual(result['newestObservedAt'], '2026-10-11T23:50:00Z')
         self.assertEqual(result['wind']['direction'] % 360, 0)
 
     def test_negative_temperature_variable_winds_and_invalid_payload(self):
@@ -42,19 +44,29 @@ class RapidObservationTests(unittest.TestCase):
         self.assertEqual((row['temp'],row['dewp'],row['wdir']),(-2,-5,'VRB'))
         with self.assertRaises(ValueError):parse_reports(b'<html>error</html>',weather.STATIONS,NOW)
 
-    def test_five_minute_spread_allowed_but_over_five_and_partial_sets_rejected(self):
-        rows=[report('KFCM'),report('KMSP'),report('KMIC',45)]
+    def test_ten_minute_spread_allowed_but_over_ten_and_partial_sets_rejected(self):
+        rows=[report('KFCM'),report('KMSP'),report('KMIC',40)]
         self.assertTrue(current_snapshot(rows,NOW)['available'])
-        for invalid in [rows[:2], rows[:2]+[report('KMIC',44)]]:
+        self.assertEqual(current_snapshot(rows,NOW)['observedAt'],'2026-10-11T23:46:40Z')
+        for invalid in [rows[:2], rows[:2]+[report('KMIC',40,obsTime=report('KMIC',40)['obsTime']-1)]]:
             result=current_snapshot(invalid,NOW)
             self.assertFalse(result['available'])
+            self.assertIsNone(result['observedAt'])
             self.assertIsNone(result['tempF'])
             self.assertIsNone(result['dewpointF'])
             self.assertIsNone(result['wind']['speedMph'])
 
     def test_latest_set_is_used_without_searching_older_complete_set(self):
-        rows=[report(s,45) for s in weather.STATIONS]+[report('KFCM',55),report('KMSP',55)]
+        rows=[report(s,44) for s in weather.STATIONS]+[report('KFCM',55),report('KMSP',55)]
         self.assertFalse(current_snapshot(rows,NOW)['available'])
+
+    def test_mean_time_across_hour_boundary_uses_equal_station_weights(self):
+        rows=[report(s,obsTime=stamp.timestamp()) for s,stamp in zip(weather.STATIONS,
+              [NOW.replace(minute=0),NOW.replace(minute=0)-timedelta(minutes=5),
+               NOW.replace(minute=0)-timedelta(minutes=10)])]
+        result=current_snapshot(rows,NOW.replace(minute=1))
+        self.assertTrue(result['available'])
+        self.assertEqual(result['observedAt'],'2026-10-11T22:55:00Z')
 
     def test_age_limit_future_and_invalid_fields_cannot_look_current(self):
         rows=[report(s,25) for s in weather.STATIONS]
@@ -107,6 +119,7 @@ class RapidObservationTests(unittest.TestCase):
             response=weather.app.test_client().get('/api/observations')
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.json['current']['tempF'],75.8)
+        self.assertEqual(response.json['current']['observedAt'],'2026-10-11T23:48:20Z')
         self.assertEqual(response.headers['Cache-Control'],'no-store')
         download.assert_not_called()
         with patch('app.get_reports',return_value=hourly),patch('app.get_rapid_reports',side_effect=TimeoutError()):

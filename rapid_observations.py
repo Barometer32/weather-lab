@@ -3,7 +3,7 @@ import csv
 from datetime import datetime, timezone
 from io import StringIO
 import re
-MAX_SPREAD_SECONDS = 300
+MAX_SPREAD_SECONDS = 600
 MAX_AGE_SECONDS = 1800
 
 
@@ -63,8 +63,11 @@ def current_snapshot(reports, now):
     chosen = [r for r in latest.values() if anchor - r["obsTime"] <= MAX_SPREAD_SECONDS]
     if age is not None and age > MAX_AGE_SECONDS:
         chosen = []
-    result = summarize(chosen, datetime.fromtimestamp(anchor, timezone.utc) if anchor else now)
-    result.update(available=result["qa"]["allStationsUsed"], observedAt=iso(datetime.fromtimestamp(anchor, timezone.utc)) if anchor else None,
+    mean_stamp = sum(r["obsTime"] for r in chosen) / len(chosen) if chosen else None
+    result = summarize(chosen, datetime.fromtimestamp(mean_stamp, timezone.utc) if mean_stamp is not None else now)
+    available = result["qa"]["allStationsUsed"]
+    result.update(available=available, observedAt=iso(datetime.fromtimestamp(mean_stamp, timezone.utc)) if available else None,
+                  newestObservedAt=iso(datetime.fromtimestamp(anchor, timezone.utc)) if anchor is not None else None,
                   oldestObservedAt=iso(datetime.fromtimestamp(min(r["obsTime"] for r in chosen), timezone.utc)) if chosen else None,
                   ageSeconds=age, maxSpreadSeconds=MAX_SPREAD_SECONDS, maxAgeSeconds=MAX_AGE_SECONDS)
     if not result["available"]:

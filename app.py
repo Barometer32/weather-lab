@@ -205,7 +205,7 @@ def observations(reports=None, now=None, rapid_reports=None):
     target = max([current_hour] + [hour for hour in hours if hour is not None])
     history = [hourly_snapshot(reports, target - timedelta(hours=i), now) for i in range(12)]
     return {"fetchedAt": iso(now), "current": current_snapshot(rapid_reports or [], now), "history": history,
-            "method": "Current: all three recent ASOS reports within five minutes; Celsius averaged before Fahrenheit conversion. History: routine :53 reports labeled with the following hour.",
+            "method": "Current: all three recent ASOS reports within ten minutes; equal average report time; Celsius averaged before Fahrenheit conversion. History: routine :53 reports labeled with the following hour.",
             "source": "Recent ASOS directly from NOAA MADIS; hourly history via NOAA Aviation Weather Center"}
 
 
