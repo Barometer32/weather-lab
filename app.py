@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from io import BytesIO
 import json
+import gzip
 import logging
 import math
 import os
@@ -66,7 +67,14 @@ def cached(key, seconds, loader):
 def get_reports():
     url = "https://aviationweather.gov/api/data/metar?" + urlencode(
         {"ids": ",".join(STATIONS), "format": "json", "hours": 16})
-    return cached("metar", 120, lambda: json.loads(download(url)))
+    return cached("metar", 300, lambda: json.loads(download(url)))
+
+
+def get_rapid_reports(now=None, regional=False):
+    from madis_observations import get_reports
+    now = now or utcnow()
+    rows = cached("madis-regional", 45, lambda: get_reports(None, now))
+    return rows if regional else [row for row in rows if row["icaoId"] in STATIONS]
 
 
 def valid_number(value, minimum, maximum):
@@ -122,6 +130,8 @@ def wind_mean(reports):
         if math.hypot(u, v) > 0.01:
             direction = round(math.degrees(math.atan2(u, v)) % 360)
     return {"speedMph": round(average(speeds) * 1.150779, 1) if speeds else None,
+            "speedKnots": round(sum(speeds) / len(speeds), 1) if speeds else None,
+            "variable": any(r.get("wdir") == "VRB" for r in reports),
             "direction": direction, "speedCount": len(speeds), "directionCount": len(vectors)}
 
 
@@ -156,8 +166,14 @@ def hourly_snapshot(reports, target, as_of):
             expected = (target - timedelta(minutes=7)).timestamp()
             chosen.append(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
                 -r["obsTime"], -receipt_timestamp(r))))
-    temps = [r["temp"] * 9 / 5 + 32 for r in chosen if valid_number(r.get("temp"), -90, 60)]
-    dewpoints = [r["dewp"] * 9 / 5 + 32 for r in chosen if valid_dewpoint(r)]
+    return summarize(chosen, target)
+
+
+def summarize(chosen, target):
+    temps = [r["temp"] for r in chosen if valid_number(r.get("temp"), -90, 60)]
+    dewpoints = [r["dewp"] for r in chosen if valid_dewpoint(r)]
+    temp_c = sum(temps) / len(temps) if temps else None
+    dew_c = sum(dewpoints) / len(dewpoints) if dewpoints else None
     pressure = [r["altim"] for r in chosen if valid_number(r.get("altim"), 800, 1100)]
     stations = []
     for code, name in STATIONS.items():
@@ -168,14 +184,19 @@ def hourly_snapshot(reports, target, as_of):
             "dewpointF": round(r["dewp"] * 9 / 5 + 32, 1) if r and valid_dewpoint(r) else None,
             "cloudCover": r.get("cover") if r else None, "weather": r.get("wxString") if r else None,
             "rawMetar": r.get("rawOb") if r else None})
-    return {"hour": iso(target), "tempF": average(temps), "dewpointF": average(dewpoints),
+    return {"hour": iso(target), "tempC": temp_c, "dewpointC": dew_c,
+            "tempF": round(temp_c * 9 / 5 + 32, 1) if temp_c is not None else None,
+            "dewpointF": round(dew_c * 9 / 5 + 32, 1) if dew_c is not None else None,
             "pressureHpa": average(pressure), "wind": wind_mean(chosen), "count": len(chosen),
             "tempCount": len(temps), "dewpointCount": len(dewpoints), "stations": stations,
             "qa": quality_summary(chosen)}
 
 
-def observations(reports=None, now=None):
+def observations(reports=None, now=None, rapid_reports=None):
+    from rapid_observations import current_snapshot
     now = now or utcnow()
+    if reports is None and rapid_reports is None:
+        rapid_reports = get_rapid_reports(now)
     reports = get_reports() if reports is None else reports
     # Display a routine report as soon as received, using its rounded hour label.
     # An outage must not leave an old complete hour looking current indefinitely.
@@ -183,9 +204,9 @@ def observations(reports=None, now=None):
     hours = [routine_hour(r, now) for r in reports if r.get("icaoId") in STATIONS]
     target = max([current_hour] + [hour for hour in hours if hour is not None])
     history = [hourly_snapshot(reports, target - timedelta(hours=i), now) for i in range(12)]
-    return {"fetchedAt": iso(now), "current": history[0], "history": history,
-            "method": "Routine METAR near :53 (:50–:59), labeled with the following hour. SPECI excluded. Equal station weights.",
-            "source": "NOAA Aviation Weather Center"}
+    return {"fetchedAt": iso(now), "current": current_snapshot(rapid_reports or [], now), "history": history,
+            "method": "Current: all three recent ASOS reports within five minutes; Celsius averaged before Fahrenheit conversion. History: routine :53 reports labeled with the following hour.",
+            "source": "Recent ASOS directly from NOAA MADIS; hourly history via NOAA Aviation Weather Center"}
 
 
 def scans_in_window(scans, now):
@@ -332,12 +353,30 @@ def metar_clouds_api():
     from metar_clouds import collect, current
     try:
         now = utcnow()
-        data = prepared_snapshot("metar-clouds", 4200)
+        data = prepared_snapshot("metar-clouds", 180)
         if data is None:
             data = cached("metar-clouds", 300, lambda: collect(download, now))
-        elif data.get("version") != 2:
+        elif data.get("version") not in (2, 3):
             return jsonify(error="Hourly METAR history is being prepared. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
-        return jsonify(current(data, now)), 200, {"Cache-Control": "no-store"}
+        result = current(data, now)
+        # The live metro plot reads the exact same prepared three-station inputs
+        # as the main conditions page, never independently mixes another set.
+        try:
+            observed = prepared_snapshot("observations", 180)
+        except ValueError:
+            observed = None
+        if observed:
+            metro = observations(observed["reports"], now, observed.get("rapidReports", []))["current"]
+            result["live"]["metro"].update(available=metro["available"], tempF=metro["tempF"],
+                dewpointF=metro["dewpointF"], wind=metro["wind"], time=metro["observedAt"],
+                oldestObservedAt=metro["oldestObservedAt"], qa=metro["qa"])
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
     except Exception:
         app.logger.exception("METAR cloud reports unavailable")
         return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
@@ -351,11 +390,11 @@ def health():
 @app.get("/api/observations")
 def observation_api():
     try:
-        data = prepared_snapshot("observations", 4200)
-        result = observations(data["reports"]) if data else observations()
+        data = prepared_snapshot("observations", 180)
+        result = observations(data["reports"], rapid_reports=data.get("rapidReports", [])) if data else observations()
         if data:
             result.update(checkedAt=data["checkedAt"], stale=data["stale"])
-        return jsonify(result)
+        return jsonify(result), 200, {"Cache-Control": "no-store"}
     except Exception:
         app.logger.exception("Observation feed failed")
         return jsonify(error="Observation feed unavailable. Please try again shortly."), 502

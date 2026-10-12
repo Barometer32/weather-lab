@@ -2,11 +2,11 @@
 
 A phone-friendly Twin Cities weather page with five views:
 
-- **Observations:** equal averages of routine KFCM, KMSP and KMIC hourly METARs.
+- **Observations:** recent five-minute KFCM, KMSP and KMIC ASOS averages, plus twelve routine hourly snapshots.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
-- **METAR clouds:** every available regional reporting station, cloud coverage and cloud-base heights, with a searchable layer list.
+- **METAR:** a dropdown for cloud ceilings or spaced weather plots (°F temperature/dew point, wind in knots), with live data and twelve hourly snapshots. KCFE remains excluded.
 
 ## Run locally
 
@@ -21,7 +21,9 @@ Open http://localhost:8080. No API keys or model files are needed.
 
 ## Observations
 
-Routine METAR reports near :53 (:50–:59) receive the following-hour label: 8:53 p.m. becomes 9 p.m. Special SPECI reports are excluded. In the deployed site, the collector checks at :56, :59 and :03 to catch routine reports and small delays. The browser reads shortly after those times, on opening/returning to the page, or on manual Refresh; it does not poll every few seconds. The report is shown after collection; the label can briefly be ahead of the clock. Missing reports stay missing. The last twelve hourly snapshots are displayed in America/Chicago time.
+Current conditions collect recent ASOS data every minute directly from public NOAA MADIS hourly five-minute ASOS files, selecting only the three stations. MADIS stores temperatures in Kelvin; these are decoded to Celsius before averaging. Fahrenheit is never an input. Newer routine/SPECI reports already fetched from AWC can supplement the rapid feed; their main Celsius groups are used. Conditional HTTP requests avoid downloading an unchanged MADIS file again; the previous hourly file is checked during the first 20 minutes of a new hour. The three Celsius values are averaged without intermediate rounding and the result is converted to Fahrenheit. All three stations must pass QA and their latest report times must span no more than five minutes. No current values are shown if any station is missing/invalid, the timestamps differ by more than five minutes, or the newest report is over 30 minutes old. Actual observation times are displayed; source publication delay remains possible. The visible observations tab reads the prepared snapshot every minute and on opening/returning/manual refresh. Visitors do not trigger upstream collection.
+
+The twelve-hour history separately preserves the routine METAR rule near :53 (:50–:59), preferring :53 and labeling the following hour: 8:53 p.m. becomes 9 p.m. SPECI and rapid reports are excluded from history. Hourly source temperatures are Celsius, averaged before Fahrenheit conversion. Missing reports stay missing; incomplete historical rows remain flagged. Hourly AWC responses are cached for five minutes with forced rechecks at :56, :59 and :03. Times use America/Chicago.
 
 Temperature/dew point use equal valid-station weights. Wind speed is averaged separately; direction uses speed-weighted circular averaging and is displayed with eight compass directions. Green QA dots require valid temperature, dew point, and wind from all three stations. Amber dots indicate missing/invalid readings or a failed refresh. Basic QA catches missing/impossible numbers but does not detect all sensor biases. Sun angle is calculated locally in the browser for the existing Hopkins reference.
 
@@ -49,11 +51,15 @@ The Leaflet viewer uses the source's **native image coordinates**, not a latitud
 
 RGB colors give qualitative cloud clues, not exact cloud heights. All three products are collected every five minutes even without viewers. On opening, the newest image is shown while the remaining loop loads. Already decoded frames are reused on refresh. Radar and satellite history use manual sliders only, with no automatic playback or playback buttons; dragging selects a frame and updates its timestamp. Background refresh preserves a manually selected time while it remains available. Failed images, gaps and stale acquisition times are indicated. Product switches cancel obsolete loads so the old product cannot replace the new one.
 
-## METAR clouds
+## METAR clouds and weather plots
 
-The cloud-only map covers all available reporting sites in 40–50°N, 100–85°W, using AWC's complete cache for station discovery. Each of twelve hourly snapshots selects one routine METAR per station, closest to :53 within :50–:59, excludes SPECI, and labels the following hour using the same selection rule as main observations. Stations without an eligible report stay missing for that hour. Initial collection backfills thirteen hours from small station groups; responses at AWC's 400-report cap are split, with requests spaced to avoid excessive load. Later collections merge a short overlap into durable twelve-hour history. A failed query leaves the previous successful snapshot intact.
+The METAR dropdown switches between **METAR cloud** and **METAR plots** over the same region (40–50°N, 100–85°W). Both views check prepared data every minute. AWC's complete current cache supplies regional routine/SPECI observations; direct NOAA MADIS supplies newer five-minute weather/cloud reports where available. The observation collector and regional collector share the same cached MADIS decoding and conditional downloads. A cloud field omitted from a rapid report does not erase the latest actual cloud report; cloud and weather observation times remain distinct. A new full METAR with unknown cloud information remains unknown. Individual live station reports older than 90 minutes disappear. Source latency remains possible.
 
-A manual slider selects the hour. Circle fill represents cloud coverage; map numbers show whole thousands of feet AGL, rounded to the nearest thousand with a minimum of 1 (25,000→25, 9,000→9, 2,200→2, below 1,000→1). Clear reports have no height number. Tap a station for actual observation time, exact heights, and every reported layer. Unknown height stays unknown; VV denotes vertical visibility into an obscured sky. CLR does not prove high clouds exist or measure their thickness. The original COD satellite products remain unchanged.
+The timeline has **12 hourly positions followed by Live**. Hourly snapshots preserve one routine METAR per station closest to :53 within :50–:59, exclude SPECI/rapid reports, and label the following hour. Initial deployment backfills thirteen hours, including temperature/dew point/wind fields. Later runs merge bounded overlap queries no more often than every fifteen minutes, plus :56/:59/:03 rechecks; ordinary minute updates only check current feeds. AWC capped responses are split and spaced. History and live source timestamps are never relabeled as newly observed. Manual hour selection is preserved across background updates.
+
+Cloud mode shows only the lowest broken/overcast ceiling number in thousands of feet AGL, rounded with a minimum of 1 (25,000→25, 9,000→9, 2,200→2, below 1,000→1). Clear/few/scattered reports show an open white circle. Unknown/obscured skies remain distinct, with exact heights, all layers and vertical visibility in the popup. KCFE is permanently excluded. CLR does not prove clouds exist above the sensor or measure thickness.
+
+Weather plots show temperature and dew point in Fahrenheit and wind from direction/speed in knots. Station locations do not move. A screen-space spacing rule hides overlapping plots as the view zooms out and reveals more as it zooms in; Mankato (KMKT), Redwood Falls (KRWF) and regional anchors have priority. All stations remain available in the searchable list. KFCM/KMSP/KMIC are replaced by one fixed **Metro average** plot near their approximate equal-distance center. Live metro values read exactly the same prepared inputs as the main conditions page; hourly metro values use the corresponding routine three-station average. Celsius values are averaged before Fahrenheit conversion, speed is scalar-averaged, and direction is speed-weighted circular. The metro requires all three valid sites and a five-minute timestamp window for live conditions, regardless of zoom.
 
 Manual timelines are half-width above 600px and full-width on phones.
 
@@ -75,7 +81,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; observations at :56, :59 and :03; NWS forecast every five minutes; regional METAR clouds at :56, :59 and :03. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 original satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
+The script retires the old model job and KEVX radar job, removes KEVX live manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; observations every minute; NWS forecast every five minutes; both regional METAR views every minute. It also triggers the first backfill. Both services can scale to zero. Prepared image objects are cleaned up after one day; current manifests and map overlays are retained. The viewer retains only the two-hour radar window and latest 24 original satellite frames. Cloud changes occur only when this script is run in authenticated Cloud Shell.
 
 ## Checks
 

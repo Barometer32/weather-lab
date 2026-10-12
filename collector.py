@@ -135,18 +135,42 @@ def collect_satellite(store, now):
 
 
 def collect_observations(store, now):
-    weather._cache.pop("metar", None)
-    reports = weather.get_reports()
+    previous = store.read_json("live/observations.json") or {}
+    if now.minute in (3, 56, 59):
+        weather._cache.pop("metar", None)
+    try:
+        reports = weather.get_reports()
+    except Exception:
+        app.logger.exception("Hourly history feed failed; retaining saved reports")
+        reports = previous.get("reports", [])
     if not isinstance(reports, list) or not reports:
-        raise ValueError("Empty observation feed; previous reports retained")
-    store.write_json("live/observations.json", {"reports": reports, "checkedAt": weather.iso(now)})
-    return {"reports": len(reports)}
+        reports = previous.get("reports", [])
+    try:
+        rapid = weather.get_rapid_reports(now)
+    except Exception:
+        app.logger.exception("Rapid ASOS feed failed; previous reports retain their actual timestamps")
+        rapid = previous.get("rapidReports", [])
+        checked = previous.get("rapidCheckedAt", previous.get("checkedAt", weather.iso(now)))
+    else:
+        checked = weather.iso(now)
+    from rapid_observations import recent_metars
+    rapid = rapid + recent_metars(reports, weather.STATIONS, now)
+    rapid = list({(r["icaoId"], r["obsTime"]): r for r in rapid
+                  if weather.valid_number(r.get("obsTime"), now.timestamp()-3600, now.timestamp())}.values())
+    store.write_json("live/observations.json", {"reports": reports, "rapidReports": rapid,
+                     "checkedAt": checked, "rapidCheckedAt": checked})
+    return {"reports": len(reports), "rapidReports": len(rapid)}
 
 
 def collect_metar_clouds(store, now):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
-    data = collect(weather.download, now, previous)
+    try:
+        rapid = weather.get_rapid_reports(now, regional=True)
+    except Exception:
+        app.logger.exception("Regional rapid feed unavailable; retaining actual station timestamps")
+        rapid = []
+    data = collect(weather.download, now, previous, rapid)
     store.write_json("live/metar-clouds.json", data)
     return {"stations": len(data["stations"])}
 

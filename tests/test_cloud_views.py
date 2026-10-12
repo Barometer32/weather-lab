@@ -22,7 +22,9 @@ def xml(*items):
 
 
 class CloudReportTests(unittest.TestCase):
-    def setUp(self):weather._cache.clear()
+    def setUp(self):
+        weather._cache.clear()
+        rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
 
     def test_preserves_all_layers_and_heights_above_twelve_thousand(self):
         cloud='<sky_condition sky_cover="FEW" cloud_base_ft_agl="3500"/><sky_condition sky_cover="BKN" cloud_base_ft_agl="12000"/><sky_condition sky_cover="BKN" cloud_base_ft_agl="25000"/>'
@@ -76,6 +78,9 @@ class CloudReportTests(unittest.TestCase):
 
 
 class HourlyCloudTests(unittest.TestCase):
+    def setUp(self):
+        weather._cache.clear()
+        rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
     def rows(self, *items):return parse_reports(xml(*items), NOW)
 
     def report(self, minutes=7, **kwargs):
@@ -214,6 +219,7 @@ class HourlyCloudTests(unittest.TestCase):
 
     def test_failed_history_query_retains_previous_durable_snapshot(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(self.rows(self.report()),NOW))
+        old=store.read_json('live/metar-clouds.json');old['historyCheckedAt']=(NOW-timedelta(minutes=15)).isoformat();store.write_json('live/metar-clouds.json',old)
         before=store.read('live/metar-clouds.json')
         with patch('app.download',side_effect=[xml(self.report()),TimeoutError()]),self.assertRaises(TimeoutError):
             collector.collect_metar_clouds(store,NOW)

@@ -97,15 +97,15 @@ class WeatherTests(unittest.TestCase):
         self.assertIsNone(wind_mean([report(wspd=0)])["direction"])
 
     def test_routine_report_is_shown_on_receipt_with_following_hour_label(self):
-        before = observations([report()], HOUR - timedelta(minutes=8))["current"]["hour"]
-        after = observations([report()], HOUR - timedelta(minutes=6))["current"]
+        before = observations([report()], HOUR - timedelta(minutes=8))["history"][0]["hour"]
+        after = observations([report()], HOUR - timedelta(minutes=6))["history"][0]
         self.assertEqual(before, "2026-10-09T00:00:00Z")
         self.assertEqual(after["hour"], "2026-10-09T01:00:00Z")
         self.assertEqual(after["stations"][0]["observedAt"], "2026-10-09T00:53:00Z")
         self.assertEqual(after["tempF"],50)
 
     def test_missing_current_routine_does_not_reuse_an_old_hour(self):
-        x = observations([report()], HOUR + timedelta(hours=1))["current"]
+        x = observations([report()], HOUR + timedelta(hours=1))["history"][0]
         self.assertEqual(x["hour"], "2026-10-09T02:00:00Z")
         self.assertEqual(x["count"],0)
         self.assertFalse(x["qa"]["allStationsUsed"])

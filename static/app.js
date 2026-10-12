@@ -33,13 +33,14 @@ async function loadObservations() {
   observationBusy = true; $("refresh-observations").disabled = true;
   try {
     const data = await api("/api/observations"), c = data.current;
-    $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly snapshot`;
+    $("updated").textContent = c.observedAt ? `${fullTime.format(new Date(c.observedAt))} observation${c.oldestObservedAt && c.oldestObservedAt !== c.observedAt ? ` · reports from ${central.format(new Date(c.oldestObservedAt))}` : ""}` : "Waiting for recent observations from all 3 stations";
     $("temperature").textContent = temp(c.tempF);
     $("dewpoint").textContent = temp(c.dewpointF);
     $("wind").textContent = wind(c.wind);
     const qa = c.qa, stale = Boolean(data.stale);
     const status = $("observation-status"); status.hidden = qa.allStationsUsed && !stale;
-    status.textContent = stale ? "Background observation updates are delayed; displayed readings may be stale." : `Partial hourly average: ${qa.stationsAvailable}/3 reports available. Valid checks: temperature ${qa.checks.temperature}/3, dew point ${qa.checks.dewpoint}/3, wind ${qa.checks.wind}/3. Missing or invalid fields are excluded.`;
+    status.hidden = c.available && !stale && c.ageSeconds <= 600;
+    status.textContent = !c.available ? "Current average unavailable: all 3 stations must pass QA, report within 5 minutes of each other, and have a newest report no more than 30 minutes old. Hourly history remains below." : stale ? "Background observation checks are delayed; check the displayed observation time." : "The observation feed is delayed; check the displayed observation time. Checks continue every minute.";
     $("history").replaceChildren();
     for (const h of data.history) {
       const row = document.createElement("tr");
@@ -362,18 +363,7 @@ document.addEventListener("keydown",event=>{
   }
 });
 loadObservations();sun();setInterval(sun,30000);
-let observationTimer;
-function scheduleObservations() {
-  clearTimeout(observationTimer);
-  const now = new Date(), candidates = [];
-  for (let hour=0; hour<=1; hour++) for (const minute of [3,56,59]) {
-    const next = new Date(now); next.setUTCHours(now.getUTCHours()+hour,minute,20,0);
-    if (next > now) candidates.push(next);
-  }
-  const delay = Math.min(...candidates.map(next=>next-now));
-  observationTimer = setTimeout(()=>{ if(!document.hidden)loadObservations(); scheduleObservations(); },delay);
-}
-scheduleObservations();
+setInterval(()=>{if(!document.hidden&&!$("observations").hidden)loadObservations();},60000);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
