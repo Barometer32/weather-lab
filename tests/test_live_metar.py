@@ -60,6 +60,7 @@ class HourlyMetarViewTests(unittest.TestCase):
 
     def test_each_scheduled_check_recovers_routine_reports_hidden_by_newer_speci(self):
         previous=snapshot([row()],NOW);previous['historyCheckedAt']=app.iso(NOW)
+        previous['collectedHour']=previous['history'][-1]['hour']
         cache=b'<response><data><METAR><station_id>KAAA</station_id><latitude>44.9</latitude><longitude>-93.4</longitude><metar_type>SPECI</metar_type><observation_time>2026-10-11T23:57:00Z</observation_time><sky_condition sky_cover="OVC" cloud_base_ft_agl="1000"/></METAR></data></response>'
         hourly=cache.replace(b'SPECI',b'METAR').replace(b'23:57',b'23:53').replace(b'1000',b'6000')
         with patch('metar_clouds.time.sleep'):
@@ -70,12 +71,12 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertNotIn('live',result)
         self.assertEqual(result['historyCheckedAt'],app.iso(NOW))
 
-    def test_collector_never_downloads_madis_and_has_three_scheduled_checks(self):
+    def test_collector_never_downloads_madis_and_has_one_hourly_check(self):
         store=MemoryStore()
         with patch('metar_clouds.collect',return_value=snapshot([row()],NOW)),patch('app.get_rapid_reports') as rapid:
             collector.collect_metar_clouds(store,NOW)
         rapid.assert_not_called()
-        self.assertIn("weather_schedule metar-clouds '2,55,58 * * * *'",Path('deploy.sh').read_text())
+        self.assertIn("weather_schedule metar-clouds '5 * * * *'",Path('deploy.sh').read_text())
 
     def test_large_metar_payload_compression_preserves_data_and_respects_negotiation(self):
         store=MemoryStore();rows=[row('K'+str(i).zfill(3)) for i in range(100)]
@@ -90,12 +91,12 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertNotIn('live',plain.json)
 
     def test_schedule_aware_metar_staleness_allows_between_check_gap(self):
-        store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot([row()],NOW,app.iso(NOW.replace(minute=2))))
+        store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot([row()],NOW,app.iso(NOW.replace(minute=5))))
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW.replace(minute=40)):
             response=app.app.test_client().get('/api/metar-clouds')
         self.assertFalse(response.json['stale'])
         app._cache.clear()
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW.replace(minute=57)):
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW.replace(minute=57)+timedelta(hours=1)):
             response=app.app.test_client().get('/api/metar-clouds')
         self.assertTrue(response.json['stale'])
 

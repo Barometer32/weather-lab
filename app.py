@@ -24,6 +24,7 @@ app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 OBSERVATION_CHECK_MINUTES = (2, 55, 58)
+METAR_CHECK_MINUTES = (5,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -326,11 +327,12 @@ def prepared_hourly_snapshot(name):
     if data is None:
         return None
     now = utcnow()
-    # Allow two minutes for a scheduled collector invocation to finish.
-    cutoff = now - timedelta(minutes=2)
+    # The nationwide sweep takes longer than the three-station observation job.
+    minutes = METAR_CHECK_MINUTES if name == "metar-clouds" else OBSERVATION_CHECK_MINUTES
+    cutoff = now - timedelta(minutes=5 if name == "metar-clouds" else 2)
     hour = now.replace(minute=0, second=0, microsecond=0)
     expected = max(hour-timedelta(hours=offset)+timedelta(minutes=minute)
-                   for offset in (0, 1) for minute in OBSERVATION_CHECK_MINUTES
+                   for offset in (0, 1) for minute in minutes
                    if hour-timedelta(hours=offset)+timedelta(minutes=minute) <= cutoff)
     checked = datetime.fromisoformat(data["checkedAt"].replace("Z", "+00:00"))
     data["stale"] = checked < expected

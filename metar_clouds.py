@@ -1,19 +1,30 @@
-"""Cloud-only routine hourly METAR history across the Upper Midwest."""
+"""Routine hourly U.S. METAR ceilings and weather plots."""
 from datetime import datetime, timedelta, timezone
 import gzip
 from io import BytesIO
 import math
+import logging
 import re
 import time
 from urllib.parse import urlencode
 import xml.etree.ElementTree as ET
 
 SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
-# Regional coverage around Minnesota; no airport list or station-count cap.
-BOUNDS = [[40, -100], [50, -85]]
+# Include the lower 48, Alaska, Hawaii and U.S. territories. ICAO prefixes
+# select U.S. airports rather than a rectangle that also includes foreign sites.
+BOUNDS = [[-15, -180], [72, 180]]
+US_PREFIXES = ("K", "PA", "PF", "PO", "PP", "PH", "TJ", "PG")
+US_ISLAND_STATIONS = frozenset({"PWAK", "NSTU"})
+COLLECTION_BUDGET_SECONDS = 720
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
 # User-excluded unreliable cloud station. Enforce on fresh and retained history.
 EXCLUDED_STATIONS = frozenset({"KCFE"})
+
+
+def included_station(station):
+    return (bool(re.fullmatch(r"[A-Z0-9]{3,5}", station))
+            and station not in EXCLUDED_STATIONS
+            and (station.startswith(US_PREFIXES) or station in US_ISLAND_STATIONS))
 
 
 def cloud_summary(row):
@@ -52,10 +63,10 @@ def parse_reports(xml, now, hours=13):
     entries = []
     for row in root.findall(".//METAR"):
         station = row.findtext("station_id", "")
-        if station in EXCLUDED_STATIONS:
+        if not included_station(station):
             continue
-        lat, lon = value(row.findtext("latitude"), 40, 50), value(row.findtext("longitude"), -100, -85)
-        if not re.fullmatch(r"[A-Z0-9]{3,5}", station) or lat is None or lon is None:
+        lat, lon = value(row.findtext("latitude"), -90, 90), value(row.findtext("longitude"), -180, 180)
+        if lat is None or lon is None:
             continue
         try:
             stamp = datetime.fromisoformat(row.findtext("observation_time", "").replace("Z", "+00:00"))
@@ -111,7 +122,7 @@ def reports(xml, now):
         if previous is None or item["time"] >= previous["time"]:
             latest[item["station"]] = item
     if not latest:
-        raise ValueError("No recent regional METAR cloud reports are available")
+        raise ValueError("No recent U.S. METAR reports are available")
     return {"stations": sorted(latest.values(), key=lambda row: row["station"]),
             "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": SOURCE_URL}
@@ -127,7 +138,7 @@ def snapshot(rows, now, checked_at=None):
     chosen = {}
     latest = now.replace(minute=0, second=0, microsecond=0)
     for row in rows:
-        if row["station"] in EXCLUDED_STATIONS:
+        if not included_station(row["station"]):
             continue
         stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
         if stamp < now-timedelta(hours=13):
@@ -149,7 +160,7 @@ def snapshot(rows, now, checked_at=None):
         stations = sorted((item[1] for (label, _), item in chosen.items() if label == hour),
                           key=lambda row: row["station"])
         history.append({"hour": hour, "stations": stations, "metro": metro_report(stations, now, hour)})
-    return {"version": 3, "mode": "routine-hourly", "history": history, "stations": history[-1]["stations"],
+    return {"version": 3, "coverage": "usa", "mode": "routine-hourly", "history": history, "stations": history[-1]["stations"],
             "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": checked_at or iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
 
@@ -160,8 +171,8 @@ def current(data, now):
     if data.get("version") not in (2, 3):
         rows = data.get("stations", [])
     result = snapshot(rows, now, data["checkedAt"])
-    result["historyPending"] = data.get("version") != 3
-    return {**result, "stale": data.get("stale", False)}
+    result["historyPending"] = data.get("version") != 3 or data.get("coverage") != "usa" or bool(data.get("backfillPending"))
+    return {**result, "stale": data.get("stale", False) or bool(data.get("partialCollection"))}
 
 
 def metro_position():
@@ -192,27 +203,49 @@ def metro_report(rows, now, hour):
 
 
 def collect(download, now, previous=None):
+    started = time.monotonic()
     previous = previous or {}
     cache = reports(download(SOURCE_URL), now)
     retained = [row for hour in previous.get("history", []) for row in hour["stations"]
-                if row["station"] not in EXCLUDED_STATIONS]
+                if included_station(row["station"])]
     ids = sorted({row["station"] for row in cache["stations"]+retained})
     hours = 13
     if previous.get("version") == 3:
         gap = (now-datetime.fromisoformat(previous.get("historyCheckedAt", previous["checkedAt"]).replace("Z", "+00:00"))).total_seconds()
         hours = min(13, max(2, math.ceil(gap/3600)+1))
-    # Bootstrap all twelve hours once. Later runs merge a short overlap with
-    # durable history. Split capped responses; never silently lose stations.
-    batch_size = 8 if hours > 3 else 40
+    # Backfill newly added nationwide sites without refetching old sites' full
+    # history every hour. Upgrading from the regional feed backfills all sites.
+    known = set(previous.get("historyStationIds", [row["station"] for row in retained])) if previous.get("coverage") == "usa" else set()
+    new_ids = [station for station in ids if station not in known]
+    warm_ids = [station for station in ids if station in known]
     rows = retained + cache["stations"]
+    # Fetch the complete overlap once for each new labeled hour. At :58/:02,
+    # the bulk cache supplies ordinary corrections; only missing reports or
+    # stations whose routine report is hidden by a SPECI need historical calls.
+    # This avoids downloading the entire country's history three times/hour.
+    from app import routine_hour
+    labels = {}
+    latest = now.replace(minute=0, second=0, microsecond=0)
+    for row in rows:
+        stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
+        label = routine_hour({"metarType": row["reportType"], "obsTime": stamp.timestamp(),
+                              "rawOb": row.get("rawOb", "")}, now)
+        if label is not None:
+            labels.setdefault(row["station"], set()).add(label)
+            latest = max(latest, label)
+    full_overlap = previous.get("collectedHour") != iso(latest) or hours > 2
+    if not full_overlap:
+        special = {row["station"] for row in cache["stations"]
+                   if row["reportType"] == "SPECI" or row.get("rawOb", "").startswith("SPECI")}
+        warm_ids = [station for station in warm_ids if latest not in labels.get(station, set()) or station in special]
     last_request = None
-    def fetch_group(group):
+    def fetch_group(group, query_hours):
         nonlocal last_request
         if last_request is not None:
             time.sleep(max(0, 1-(time.monotonic()-last_request)))
         last_request = time.monotonic()
         url = "https://aviationweather.gov/api/data/metar?" + urlencode(
-            {"ids": ",".join(group), "format": "xml", "hours": hours})
+            {"ids": ",".join(group), "format": "xml", "hours": query_hours})
         raw = download(url)
         if not raw:  # AWC 204: a valid request with no reports.
             return []
@@ -222,12 +255,40 @@ def collect(download, now, previous=None):
             if len(group) == 1:
                 raise ValueError("AWC report limit reached for a station; previous history retained")
             mid = len(group)//2
-            return fetch_group(group[:mid])+fetch_group(group[mid:])
+            return fetch_group(group[:mid], query_hours)+fetch_group(group[mid:], query_hours)
         return parsed
-    for start in range(0, len(ids), batch_size):
-        rows.extend(fetch_group(ids[start:start+batch_size]))
+    # AWC's latest bulk cache discovers every site in one request. Historical
+    # API requests are paced below the 100/minute limit and split at its cap.
+    batches = []
+    for group_ids, query_hours in ((new_ids, 13), (warm_ids, hours)):
+        batch_size = 12 if query_hours > 3 else 40
+        for start in range(0, len(group_ids), batch_size):
+            batches.append((group_ids[start:start+batch_size], query_hours))
+    completed, failed = known.intersection(ids)-set(warm_ids), set()
+    queried = set()
+    last_error = None
+    for index, (group, query_hours) in enumerate(batches):
+        # Save successful progress before the HTTP deadline. Unfinished/new
+        # groups receive their full backfill again at the next scheduled check.
+        if time.monotonic()-started > COLLECTION_BUDGET_SECONDS:
+            failed.update(station for pending, _ in batches[index:] for station in pending)
+            break
+        try:
+            rows.extend(fetch_group(group, query_hours))
+            completed.update(group)
+            queried.update(group)
+        except Exception as error:
+            last_error = error
+            failed.update(group)
+            logging.getLogger(__name__).warning("METAR history batch delayed (%d sites): %s", len(group), error)
+    if batches and not queried:
+        raise last_error or ValueError("No METAR history queries completed; previous snapshot retained")
     data = snapshot(rows, now)
     if not any(hour["stations"] for hour in data["history"]):
-        raise ValueError("No routine hourly regional reports; previous history retained")
+        raise ValueError("No routine hourly U.S. reports; previous history retained")
     data["historyCheckedAt"] = iso(now)
+    data["historyStationIds"] = sorted(completed)
+    data["collectedHour"] = iso(latest)
+    data["partialCollection"] = bool(failed)
+    data["backfillPending"] = bool(failed & set(new_ids))
     return data

@@ -3,6 +3,7 @@ import gzip
 import json
 import unittest
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import app as weather
 import collector
@@ -50,17 +51,26 @@ class CloudReportTests(unittest.TestCase):
         self.assertEqual(d['stations'][0]['reportType'],'SPECI')
         self.assertEqual(d['stations'][0]['layers'],[])
 
-    def test_uses_observation_time_not_rounded_report_hour_and_excludes_future_old_or_outside_region(self):
+    def test_uses_observation_time_and_excludes_future_old_or_non_us_stations(self):
         d=reports(xml(metar('KOK1',stamp=(NOW-timedelta(minutes=113)).isoformat()),
                       metar('KFUT',stamp=(NOW+timedelta(seconds=1)).isoformat()),
                       metar('KOLD',stamp=(NOW-timedelta(hours=2,seconds=1)).isoformat()),
-                      metar('KOUT').replace('<latitude>44.9</latitude>','<latitude>35</latitude>')),NOW)
+                      metar('CYYZ').replace('<latitude>44.9</latitude>','<latitude>35</latitude>')),NOW)
         self.assertEqual([s['station'] for s in d['stations']],['KOK1'])
         self.assertTrue(d['stations'][0]['delayed'])
 
     def test_full_dataset_is_not_limited_to_four_hundred_reports(self):
         d=reports(xml(*(metar('K'+str(i).zfill(3)) for i in range(500))),NOW)
         self.assertEqual(len(d['stations']),500)
+
+    def test_nationwide_includes_both_coasts_alaska_hawaii_and_territories(self):
+        sites=[('KJFK',40.64,-73.78),('KSFO',37.62,-122.38),('PANC',61.17,-150.03),
+               ('PHNL',21.32,-157.92),('PASY',52.71,174.11),('TJPS',18.01,-66.57),
+               ('PGUM',13.48,144.8),('NSTU',-14.34,-170.72)]
+        items=[metar(station).replace('<latitude>44.9</latitude>',f'<latitude>{lat}</latitude>')
+               .replace('<longitude>-93.4</longitude>',f'<longitude>{lon}</longitude>') for station,lat,lon in sites]
+        data=reports(xml(*items,metar('CYYZ'),metar('MMMX'),metar('KCFE')),NOW)
+        self.assertEqual({r['station'] for r in data['stations']},{s[0] for s in sites})
 
     def test_empty_or_invalid_collection_retains_previous_snapshot(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',{'saved':True});before=store.read('live/metar-clouds.json')
@@ -217,6 +227,48 @@ class HourlyCloudTests(unittest.TestCase):
         self.assertIn('hours=2',urls[-1])
         self.assertEqual(data['history'][-1]['hour'],'2026-10-10T03:00:00Z')
 
+    def test_new_national_sites_get_full_history_but_known_sites_only_short_overlap(self):
+        old=snapshot(self.rows(self.report()),NOW)
+        old['historyStationIds']=['KAAA']
+        queries=[]
+        def fetch(url):
+            if 'cache' in url:return xml(self.report(),self.report(station='KSFO'))
+            query=parse_qs(urlparse(url).query);queries.append(query)
+            return xml(*(self.report(station=s) for s in query['ids'][0].split(',')))
+        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
+        self.assertEqual([(q['ids'][0],q['hours'][0]) for q in queries],[('KSFO','13'),('KAAA','2')])
+        self.assertEqual(data['historyStationIds'],['KAAA','KSFO'])
+        # An older regional snapshot must backfill the new national extent.
+        old.pop('coverage');queries.clear()
+        with patch('metar_clouds.time.sleep'):collect(fetch,NOW,old)
+        self.assertTrue(all(q['hours']==['13'] for q in queries))
+
+    def test_followup_check_uses_bulk_cache_without_repeating_completed_hourly_sweep(self):
+        old=snapshot(self.rows(self.report()),NOW)
+        old['collectedHour']=old['history'][-1]['hour']
+        old['historyStationIds']=['KAAA']
+        urls=[]
+        def fetch(url):
+            urls.append(url)
+            self.assertIn('/cache/',url)
+            return xml(self.report(cloud='<sky_condition sky_cover="BKN" cloud_base_ft_agl="5000"/>',extra='<receipt_time>2026-10-10T01:58:00Z</receipt_time>'))
+        data=collect(fetch,NOW,old)
+        self.assertEqual(len(urls),1)
+        self.assertEqual(data['stations'][0]['mapLayer']['baseFtAGL'],5000)
+        self.assertFalse(data['partialCollection'])
+
+    def test_followup_check_queries_a_late_missing_site_but_not_complete_sites(self):
+        old=snapshot(self.rows(self.report(),self.report(67,station='KBBB')),NOW)
+        old['collectedHour']=old['history'][-1]['hour'];old['historyStationIds']=['KAAA','KBBB']
+        queries=[]
+        def fetch(url):
+            if 'cache' in url:return xml(self.report(),self.report(30,station='KBBB'))
+            queries.append(parse_qs(urlparse(url).query))
+            return xml(self.report(station='KBBB'))
+        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
+        self.assertEqual([q['ids'][0] for q in queries],['KBBB'])
+        self.assertEqual([r['station'] for r in data['stations']],['KAAA','KBBB'])
+
     def test_failed_history_query_retains_previous_durable_snapshot(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(self.rows(self.report()),NOW))
         old=store.read_json('live/metar-clouds.json');old['historyCheckedAt']=(NOW-timedelta(minutes=15)).isoformat();store.write_json('live/metar-clouds.json',old)
@@ -224,6 +276,29 @@ class HourlyCloudTests(unittest.TestCase):
         with patch('app.download',side_effect=[xml(self.report()),TimeoutError()]),self.assertRaises(TimeoutError):
             collector.collect_metar_clouds(store,NOW)
         self.assertEqual(store.read('live/metar-clouds.json'),before)
+
+    def test_partial_nationwide_failure_keeps_successful_sites_and_recovers_failed_history(self):
+        stations=['K'+str(i).zfill(3) for i in range(41)]
+        old=snapshot(self.rows(*(self.report(station=s) for s in stations)),NOW)
+        old['historyStationIds']=stations
+        def fetch(url):
+            if 'cache' in url:return xml(*(self.report(station=s) for s in stations))
+            ids=parse_qs(urlparse(url).query)['ids'][0].split(',')
+            if len(ids)>1:raise TimeoutError('test batch delay')
+            return xml(self.report(station=ids[0]))
+        with patch('metar_clouds.time.sleep'):data=collect(fetch,NOW,old)
+        self.assertTrue(data['partialCollection'])
+        self.assertTrue(current(data,NOW)['stale'])
+        self.assertEqual(data['historyStationIds'],[stations[-1]])
+        queries=[]
+        def recovered(url):
+            if 'cache' in url:return xml(*(self.report(station=s) for s in stations))
+            query=parse_qs(urlparse(url).query);queries.append(query)
+            return xml(*(self.report(station=s) for s in query['ids'][0].split(',')))
+        with patch('metar_clouds.time.sleep'):next_data=collect(recovered,NOW,data)
+        self.assertFalse(next_data['partialCollection'])
+        failed_queries=[q for q in queries if stations[0] in q['ids'][0]]
+        self.assertEqual(failed_queries[0]['hours'],['13'])
 
     def test_legacy_deployed_snapshot_waits_for_collector_without_visitor_backfill(self):
         store=MemoryStore();store.write_json('live/metar-clouds.json',reports(xml(self.report()),NOW))

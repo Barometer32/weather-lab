@@ -45,7 +45,9 @@ gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --me
 gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_WEB_SA}" --role=roles/storage.objectViewer
 
 gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
-gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,300,collector:app
+# The initial nationwide METAR backfill can take several minutes. The timeout
+# is only a limit; ordinary collection is billed for its actual runtime.
+gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=900 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,900,collector:app
 gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
 for WEATHER_RETIRED_OBJECT in live/radar-KEVX.json live/radar-state-KEVX.json; do
   if gcloud storage objects describe "gs://${WEATHER_DATA_BUCKET}/${WEATHER_RETIRED_OBJECT}" >/dev/null 2>&1; then
@@ -55,11 +57,11 @@ done
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --region="$WEATHER_REGION" --format='value(status.url)')"
 
 weather_schedule() {
-  local weather_kind="$1" weather_cron="$2" weather_endpoint="${3:-$1}" weather_action=create
+  local weather_kind="$1" weather_cron="$2" weather_endpoint="${3:-$1}" weather_deadline="${4:-300}" weather_action=create
   if gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" >/dev/null 2>&1; then
     weather_action=update
   fi
-  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline=300s --max-retry-attempts=2 --min-backoff=60s --max-backoff=120s
+  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline="${weather_deadline}s" --max-retry-attempts=2 --min-backoff=60s --max-backoff=120s
   # Updating an existing job preserves its paused state. Restore background
   # collection when redeploying a previously stopped WEATHER LAB project.
   if [[ "$(gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" --format='value(state)')" == "PAUSED" ]]; then
@@ -71,7 +73,7 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule observations '2,55,58 * * * *'
 weather_schedule forecast '*/5 * * * *'
-weather_schedule metar-clouds '2,55,58 * * * *'
+weather_schedule metar-clouds '5 * * * *' metar-clouds 900
 
 gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
 

@@ -13,6 +13,9 @@ window.WeatherCloudViews = (() => {
   const mode=()=>el("metar-view").value||"clouds";
   const timeline=()=>cloudData.history;
   const ceilingLayer=s=>(s.layers||[]).filter(l=>["BKN","OVC"].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0];
+  // Classify exact feet AGL, before any height-label rounding.
+  const ceilingBand=feet=>feet<=3000?"very-low":feet<6500?"low":feet<=12000?"middle":feet<19000?"middle-high":"high";
+  const ceilingNames={"very-low":"Very low","low":"Low","middle":"Middle","middle-high":"Middle-high","high":"High"};
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
   function heights(layer, compact=false) {
@@ -47,12 +50,21 @@ window.WeatherCloudViews = (() => {
   }
   function initMetars() {
     if(metarMap)return;
-    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13}).setView([44.925,-93.462],8);
+    metarMap=L.map("metar-cloud-map",{minZoom:2,maxZoom:13});
+    resetMetarView();
     for(const [kind,opacity] of [["uscounties",.35],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(metarMap);
     markers=L.layerGroup().addTo(metarMap);
     const density=()=>el("metar-cloud-map").classList.toggle("compact-clouds",metarMap.getZoom()<8);
     metarMap.on("zoomend",density);
     metarMap.on("moveend",renderMetars);density();
+  }
+  function resetMetarView() {
+    // Open/reset to the user's wider Upper Midwest view, not all U.S. sites.
+    metarMap?.setView([44.925,-93.462],metarMap.getSize().x<600?6:7);
+  }
+  function inView(station) {
+    const p=metarMap.latLngToContainerPoint([station.lat,station.lon]),size=metarMap.getSize();
+    return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
   }
   function plotStations(stations, metro) {
     const candidates=stations.filter(s=>!metroSites.has(s.station));
@@ -74,7 +86,8 @@ window.WeatherCloudViews = (() => {
     const hours=timeline();
     metarIndex=Math.max(0,Math.min(metarIndex,hours.length-1));
     const selected=hours[metarIndex],stations=selected.stations,plots=mode()==="plots";
-    const drawn=plots?plotStations(stations,selected.metro):stations.filter(ceilingLayer);
+    const ceilings=plots?[]:stations.filter(ceilingLayer);
+    const drawn=plots?plotStations(stations,selected.metro):ceilings.filter(inView);
     const slider=el("metar-cloud-timeline");
     slider.max=String(hours.length-1);slider.value=String(metarIndex);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*metarIndex/(hours.length-1):0}%`);
@@ -89,9 +102,9 @@ window.WeatherCloudViews = (() => {
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
     for(const s of drawn) {
       const layer=ceilingLayer(s);
-      const summary=layer?heights(layer,true):"";
+      const band=layer?ceilingBand(layer.baseFtAGL):null;
       const description=plots?`${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)}`:layer?(s.hasCeiling?`${layer.cover==="VV"?"Indefinite ceiling":"Ceiling"}: ${heights(layer)}`:`${covers[layer.cover]||layer.cover} · No ceiling reported`):"Cloud information not reported";
-      const glyph=plots?stationModel(s):`<span class="cloud-ceiling-number">${summary}</span>`;
+      const glyph=plots?stationModel(s):`<span class="cloud-ceiling-dot ceiling-${band}" aria-label="${ceilingNames[band]} ceiling"></span>`;
       const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?[110,100]:[24,24],iconAnchor:plots?[60,50]:[12,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.isMetro?"Metro average · KFCM + KMSP + KMIC":s.station));
       const stamp=plots?(s.weatherTime||s.time):s.time;
@@ -101,14 +114,16 @@ window.WeatherCloudViews = (() => {
         if(s.isMetro&&s.oldestObservedAt&&s.oldestObservedAt!==s.time)popup.append(node("p",`Oldest contributor: ${time.format(new Date(s.oldestObservedAt))}`));
         if(s.isMetro&&!s.available)popup.append(node("p","All three metro stations must supply valid routine hourly observations."));
       }else{
-        if(layer)popup.append(node("p",description));
+        if(layer)popup.append(node("p",`${ceilingNames[band]} · ${description}`));
         if(!s.layers.length)popup.append(node("p","Cloud information not reported."));
         for(const cloud of s.layers)popup.append(node("p",`${heights(cloud)}${cloud.baseFtAGL!=null&&cloud.cover!=="VV"?" AGL":""}`));
       }
       L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${description}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
-    const listing=plots?[...(selected.metro?[selected.metro]:[]),...stations.filter(s=>!metroSites.has(s.station))]:drawn;
-    for(const s of listing){
+    const listing=plots?[...(selected.metro?[selected.metro]:[]),...stations.filter(s=>!metroSites.has(s.station))]:ceilings;
+    // Thousands of off-screen sites remain searchable without constructing a
+    // nationwide table every time the map moves. Populate it only when opened.
+    if(el("metar-station-list").open)for(const s of listing){
       if(query&&!s.station.includes(query)&&!(s.isMetro&&"KFCM KMSP KMIC METRO".includes(query)))continue;
       const row=node("tr"),cell=node("td"),button=node("button",s.isMetro?"Metro average":s.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
@@ -116,7 +131,14 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",stamp?time.format(new Date(stamp)):"Unavailable"),node("td",plots?`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)}`:s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} sites in the list · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · New weather history is being prepared":""}`;
+    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} U.S. sites in the list · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} ceilings visible · ${ceilings.length} U.S. broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Nationwide history is being prepared":""}`;
+  }
+  let metarRetry, scheduledWaitUntil=0;
+  function retryPreparedMetars() {
+    clearTimeout(metarRetry);
+    if(scheduledWaitUntil>Date.now())metarRetry=setTimeout(()=>{
+      if(!document.hidden&&!el("metar-clouds").hidden)loadMetars();
+    },60000);
   }
   async function loadMetars() {
     if(metarBusy)return;metarBusy=true;el("refresh-metar-clouds").disabled=true;
@@ -128,8 +150,17 @@ window.WeatherCloudViews = (() => {
       const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
       metarIndex=restored>=0?restored:followLatest?timeline().length-1:0;
       renderMetars();
+      // After the :05 collection starts, wait for its prepared result rather
+      // than treating the old snapshot as this hour's completed update. These
+      // bounded reads never trigger additional upstream collection.
+      const now=new Date(),due=new Date(now);due.setUTCMinutes(5,0,0);
+      if(due>now)due.setUTCHours(due.getUTCHours()-1);
+      clearTimeout(metarRetry);
+      if(scheduledWaitUntil>Date.now()&&new Date(data.checkedAt)<due){
+        retryPreparedMetars();
+      }else scheduledWaitUntil=0;
     }
-    catch(e){el("metar-cloud-status").textContent=`${e.message}${cloudData?" Previous reports retained; check their timestamps.":""}`;}
+    catch(e){el("metar-cloud-status").textContent=`${e.message}${cloudData?" Previous reports retained; check their timestamps.":""}`;retryPreparedMetars();}
     finally{metarBusy=false;el("refresh-metar-clouds").disabled=false;}
   }
 
@@ -137,18 +168,19 @@ window.WeatherCloudViews = (() => {
   function scheduleMetars() {
     clearTimeout(metarTimer);
     const now=new Date(),hour=new Date(now);hour.setUTCMinutes(0,0,0);
-    const next=[0,1].flatMap(offset=>[2,55,58].map(minute=>new Date(hour.getTime()+offset*3600000+minute*60000+30000))).find(t=>t>now);
+    const next=[0,1].map(offset=>new Date(hour.getTime()+offset*3600000+5*60000+30000)).find(t=>t>now);
     metarTimer=setTimeout(()=>{
-      if(!document.hidden&&!el("metar-clouds").hidden)loadMetars();
+      if(!document.hidden&&!el("metar-clouds").hidden){scheduledWaitUntil=Date.now()+15*60000;loadMetars();}
       scheduleMetars();
     },next-now);
   }
   function select(id) {
-    if(id==="metar-clouds"){loadMetars();scheduleMetars();setTimeout(()=>metarMap?.invalidateSize(),0);}
+    if(id==="metar-clouds"){scheduledWaitUntil=Date.now()+15*60000;loadMetars();scheduleMetars();setTimeout(()=>metarMap?.invalidateSize(),0);}
   }
   el("refresh-metar-clouds").addEventListener("click",loadMetars);
   el("metar-cloud-search").addEventListener("input",renderMetars);
-  el("metar-cloud-reset").addEventListener("click",()=>metarMap?.setView([44.925,-93.462],8));
+  el("metar-station-list").addEventListener("toggle",()=>{if(el("metar-station-list").open)renderMetars();});
+  el("metar-cloud-reset").addEventListener("click",resetMetarView);
   el("metar-cloud-timeline").addEventListener("input",event=>{metarIndex=Number(event.target.value);renderMetars();});
   el("metar-view").addEventListener("change",renderMetars);
   scheduleMetars();

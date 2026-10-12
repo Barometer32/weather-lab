@@ -168,7 +168,15 @@ body.satellite-expanded { overflow: hidden; }
 .cloud-station-label { font:600 11px/1.3 system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; padding:2px 3px; }
 .cloud-station-label:empty { display:none; }
 .compact-clouds .cloud-station-label { display:none; }
-.cloud-ceiling-number { display:block; min-width:24px; text-align:center; font:700 14px/24px system-ui,sans-serif; color:#233b31; background:transparent; }
+.cloud-ceiling-dot { display:block; width:12px; height:12px; margin:6px; border-radius:50%; outline:2px solid #fff; }
+.ceiling-very-low { background:#bf2533; }
+.ceiling-low { background:#b6530d; }
+.ceiling-middle { background:#137443; }
+.ceiling-middle-high { background:#235ac4; }
+.ceiling-high { background:#803db1; }
+.ceiling-legend { display:flex; flex-wrap:wrap; gap:10px 20px; margin-top:16px; }
+.ceiling-legend span { display:inline-flex; align-items:center; gap:7px; }
+.ceiling-legend i { width:12px; height:12px; border-radius:50%; flex:none; }
 .cloud-popup strong { font-size:16px; }
 .cloud-popup p { margin:6px 0; }
 .cloud-station-table { max-height:440px; margin-top:12px; }
