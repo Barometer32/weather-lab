@@ -144,7 +144,7 @@ def collect_metar_clouds(store, now):
     data = collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)
-    return {"stations": len(data["stations"]), "metroReports": len(data["observationReports"])}
+    return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"])}
 
 
 def collect_observations(store, now):

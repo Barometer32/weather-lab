@@ -370,17 +370,9 @@ def get_forecast(now=None):
 
 @app.get("/")
 def index():
-    initial = None
-    try:
-        # Read only the already prepared snapshot; opening a page never starts
-        # an observation collection or waits for an upstream METAR download.
-        initial = observation_payload(saved_only=True)
-    except Exception:
-        app.logger.warning("Initial observations unavailable; page will retry the saved-data API", exc_info=True)
-    return render_template("index.html", initial_observations=initial,
-                           observation_time=observation_time, observation_temperature=observation_temperature,
-                           observation_wind=observation_wind, observation_qa=observation_qa,
-                           observation_notice=observation_notice), 200, {"Cache-Control": "no-store"}
+    # The opening view is the individual METAR map; no metro average is
+    # calculated while rendering the page and no source fetch occurs here.
+    return render_template("index.html"), 200, {"Cache-Control": "no-store"}
 
 
 def observation_time(stamp, full=False):

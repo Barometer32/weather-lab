@@ -3,46 +3,44 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>WEATHER LAB · Twin Cities</title>
-  <meta name="description" content="Twin Cities observations, MPX radar, regional METAR clouds, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Individual Upper Midwest METAR weather and cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
   <script defer src="/static/vendor/leaflet.js"></script>
-  <script defer src="/static/vendor/suncalc.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/cloud-views.js"></script>
   <script defer src="/static/app.js"></script>
 </head>
 <body>
-<script type="application/json" id="initial-observations">{{ initial_observations|tojson }}</script>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
-    <button role="tab" id="tab-observations" aria-selected="true" aria-controls="observations">Observations</button>
+    <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">METAR</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
-    <button role="tab" id="tab-metar-clouds" aria-selected="false" aria-controls="metar-clouds" tabindex="-1">METAR</button>
   </nav>
 </header>
 <main>
-<section id="observations" role="tabpanel" aria-labelledby="tab-observations">
-  <div class="section-heading"><div><p class="eyebrow">KFCM + KMSP + KMIC</p><h1>Current conditions</h1><p id="updated">{{ observation_time(initial_observations.current.hour, True) ~ ' hourly observation' if initial_observations else 'Loading hourly observations…' }}</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
-  {% set notice = observation_notice(initial_observations) if initial_observations else '' %}
-  <p class="notice" id="observation-status" role="status"{% if not notice %} hidden{% endif %}>{{ notice }}</p>
-  <div class="metrics">
-    <article class="metric featured"><h2>Temperature</h2><div class="metric-value" id="temperature">{{ observation_temperature(initial_observations.current.tempF) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Dew point</h2><div class="metric-value" id="dewpoint">{{ observation_temperature(initial_observations.current.dewpointF) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Wind</h2><div class="metric-value wind" id="wind">{{ observation_wind(initial_observations.current.wind) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Sun angle</h2><div class="metric-value" id="sun-angle">—</div></article>
+<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">
+  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">METAR plots</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="plots">METAR plots</option><option value="clouds">METAR cloud</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
+  <div class="cloud-map-surface">
+    <div id="metar-cloud-map" aria-label="Individual station weather with state and county boundaries"></div>
+    <div class="radar-controls viewer-controls">
+      <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
+      <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
+      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
+    </div>
   </div>
-  <div class="history-heading"><h2>Last 12 hours</h2><span>Central time · °F · mph</span></div>
-  <div class="table-wrap"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind</th></tr></thead><tbody id="history">
-  {% if initial_observations %}{% for h in initial_observations.history %}
-    <tr><td><span class="hour-line"><span class="qa-dot {{ 'passed' if h.qa.allStationsUsed and not initial_observations.stale else 'incomplete' }}" role="img" tabindex="0" title="{{ observation_qa(h.qa, initial_observations.stale) }}" aria-label="{{ observation_qa(h.qa, initial_observations.stale) }}"></span><span>{{ observation_time(h.hour) }}</span></span></td><td>{{ observation_temperature(h.tempF) }}</td><td>{{ observation_temperature(h.dewpointF) }}</td><td>{{ observation_wind(h.wind) }}</td></tr>
-  {% endfor %}{% else %}<tr><td colspan="4">Loading observations…</td></tr>{% endif %}
-  </tbody></table></div>
-  <details class="method"><summary>How the average and basic QA work</summary><p>Current conditions use the official routine METAR for KFCM, KMSP and KMIC closest to :53 within :50–:59. A report at 8:53 p.m. is labeled 9 p.m. SPECI and five-minute reports are excluded. The current average requires valid temperature, dew point and wind from all three stations. Temperature and dew point prefer the METAR T remark in tenths of a degree Celsius, falling back to decoded values when absent; Fahrenheit conversion follows equal averaging with no intermediate rounding. One shared bulk METAR download runs at :00 each hour and supplies the observations and both regional METAR maps. The page arrives with the prepared values and history already included, then reads saved data on Refresh, return to the tab, and after each hourly collection.</p><p>The last 12 hourly rows still use routine METARs closest to :53 within :50–:59, labeled with the following hour: 8:53 p.m. becomes 9 p.m. SPECI and rapid reports are excluded from these historical rows. Missing routine reports stay missing. Hourly history uses the same METAR precision and averaging as the current conditions.</p><p>A green history dot means basic QA passed and all three stations supplied valid routine temperature, dew point and wind readings. An amber dot means incomplete data or a failed refresh. Hover or focus on a dot for details. Checks reject missing or out-of-range numbers, invalid wind directions, and dew points above temperature (allowing 0.5°C for rounding). Calm and explicitly variable winds are valid. Incomplete historical hours use valid contributors for each field. This does not detect every sensor error or bias.</p><p>Wind speed is averaged separately; direction uses speed-weighted circular averaging of known directions. Variable winds have no fixed direction. The sun angle is calculated live. Times use America/Chicago, including daylight saving changes.</p></details>
+  <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly METARs…</p>
+  <p id="metar-cloud-legend" class="small-note" hidden>Only the lowest broken or overcast ceiling is plotted, as an unboxed number in rounded thousands of feet above ground. 25 = 25,000 ft · 9 = 9,000 ft · 2 = 2,200 ft rounded. Heights below 1,000 ft show 1. Other stations have no map symbol. Tap a number for exact heights and all layers. KCFE and KSGS are excluded.</p>
+  <p id="metar-plot-legend" class="small-note">Temperature upper left and dew point lower left in °F. The short black arrow points toward where the wind is going; the number beside it is wind speed in mph. Calm or variable winds have text instead of a directional arrow. KFCM, KMIC, KMSP and KSTP are separate stations. KCFE and KSGS are excluded. Plots stay at their real locations; zoom in to reveal more without overlapping. Tap for station ID, report time and exact values. The searchable list includes sites hidden to avoid overlap.</p>
+  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC, KSTP…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
+  <details class="method"><summary>Compare METAR clouds with satellite</summary><p>CLR means an automated station detected no clouds at or below 12,000 ft. It does not prove clouds exist above that level or that they are thin. SKC means the observer reported a clear sky. NSC, NCD and CAVOK have different reporting criteria and are kept distinct. Only reported broken or overcast layers with known heights are plotted in cloud mode.</p><p>Cloud bases are above the airport ground level, not sea level, and do not measure cloud thickness or tops. Satellite usually shows the uppermost visible cloud layer, so opaque high clouds can hide lower layers. VV is vertical visibility into an obscured sky, not a measured cloud base. Hourly slider positions use one routine METAR per station per hour, closest to :53 within :50–:59, with SPECI excluded. Both cloud and weather views use only the twelve routine hourly snapshots. Upper Midwest reports are collected once an hour at :00 for both METAR views. Late reports or routine reports hidden by a newer SPECI in the latest bulk feed can be missing for that hour; no additional source requests run within the hour. SPECI and five-minute reports are excluded. Source delivery delays remain possible. Each view shows its actual report time when tapped. An 8:53 p.m. report is labeled 9 p.m. Missing hourly reports are left missing, with no older report carried forward. Some stations do not issue reports within this window and will not appear. Both sliders end at the newest hourly snapshot and go back twelve hourly positions. Tap a station for all layers and the actual report time.</p></details>
+  <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a> · <a href="https://aviationweather.gov/help/data/" target="_blank" rel="noopener">Cloud reporting guide</a></p>
 </section>
+
+
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface">
@@ -82,23 +80,7 @@
   <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
   <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-24-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
 </section>
-<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Cloud ceilings</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="clouds">METAR cloud</option><option value="plots">METAR plots</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
-  <div class="cloud-map-surface">
-    <div id="metar-cloud-map" aria-label="Airport cloud observations with state and county boundaries"></div>
-    <div class="radar-controls viewer-controls">
-      <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly clouds…</span>
-      <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
-      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
-    </div>
-  </div>
-  <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly cloud reports…</p>
-  <p id="metar-cloud-legend" class="small-note">Only the lowest broken or overcast ceiling is plotted, as an unboxed number in rounded thousands of feet above ground. 25 = 25,000 ft · 9 = 9,000 ft · 2 = 2,200 ft rounded. Heights below 1,000 ft show 1. Other stations have no map symbol. Tap a number for exact heights and all layers. KCFE is excluded.</p>
-  <p id="metar-plot-legend" class="small-note" hidden>Routine hourly station models: temperature upper left and dew point lower left in °F, with an open location circle and wind barb pointing toward where the wind comes from. A short barb is 5 kt, a long barb 10 kt, and a pennant 50 kt; displayed wind speed rounds to the nearest 5 kt. A surrounding ring means calm. Plots stay at their real locations and thin out as you zoom out. The metro plot replaces KFCM, KMSP and KMIC with the same hourly average as the observations history; all station circles mark locations without displaying cloud coverage. Tap for exact wind speed and report time. The searchable list includes sites hidden to avoid overlap.</p>
-  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
-  <details class="method"><summary>Compare METAR clouds with satellite</summary><p>CLR means an automated station detected no clouds at or below 12,000 ft. It does not prove clouds exist above that level or that they are thin. SKC means the observer reported a clear sky. NSC, NCD and CAVOK have different reporting criteria and are kept distinct. Only reported broken or overcast layers with known heights are plotted in cloud mode.</p><p>Cloud bases are above the airport ground level, not sea level, and do not measure cloud thickness or tops. Satellite usually shows the uppermost visible cloud layer, so opaque high clouds can hide lower layers. VV is vertical visibility into an obscured sky, not a measured cloud base. Hourly slider positions use one routine METAR per station per hour, closest to :53 within :50–:59, with SPECI excluded. Both cloud and weather views use only the twelve routine hourly snapshots. Upper Midwest reports are collected once an hour at :00, using the same downloaded reports as the main observations. Late reports or routine reports hidden by a newer SPECI in the latest bulk feed can be missing for that hour; no additional source requests run within the hour. SPECI and five-minute reports are excluded. Source delivery delays remain possible. Each view shows its actual report time when tapped. An 8:53 p.m. report is labeled 9 p.m., just like the main observations. Missing hourly reports are left missing, with no older report carried forward. Some stations do not issue reports within this window and will not appear. Both sliders end at the newest hourly snapshot and go back twelve hourly positions. Tap a station for all layers and the actual report time.</p></details>
-  <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a> · <a href="https://aviationweather.gov/help/data/" target="_blank" rel="noopener">Cloud reporting guide</a></p>
-</section>
+
 
 </main>
 <footer>WEATHER LAB · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>

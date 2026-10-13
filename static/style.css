@@ -197,9 +197,12 @@ body.satellite-expanded { overflow: hidden; }
 .metar-view-controls label { display:flex; align-items:center; gap:8px; }
 #metar-view { min-height:44px; padding:8px 10px; background:#fff; border:1px solid var(--border); border-radius:6px; font:inherit; }
 .weather-station { background:transparent; border:0; }
-.metar-plot { display:block; overflow:visible; background:transparent; font:700 13px system-ui,sans-serif; }
+.metar-plot { display:block; overflow:visible; background:transparent; font:800 13px system-ui,sans-serif; }
+.metar-plot text { paint-order:stroke fill; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
 .plot-temp { fill:#a62926; }
 .plot-dew { fill:#176741; }
+.plot-speed { fill:#111; font-size:12px; }
+.plot-wind-state { fill:#111; font-size:8px; }
 
 #metar-clouds .section-heading { flex-wrap:wrap; }
 @media(max-width:600px) {

@@ -18,12 +18,16 @@ const stations=[
  ['KFCM',65,50,10,{cover:'CLR',baseFtAGL:null}],
  ['KMSP',65,50,10,{cover:'CLR',baseFtAGL:null}],
  ['KMIC',65,50,10,{cover:'CLR',baseFtAGL:null}],
+ ['KSTP',65,50,15,{cover:'CLR',baseFtAGL:null}],
+ ['KSGS',65,50,15,{cover:'BKN',baseFtAGL:9000}],
+ ['KCFE',65,50,15,{cover:'BKN',baseFtAGL:9000}],
+ ['KFCE',65,50,15,{cover:'BKN',baseFtAGL:9000}],
  ['KVAR',66,51,7,{cover:'FEW',baseFtAGL:3000}],
  ['KFLAG',67,52,65,{cover:'CLR',baseFtAGL:null}],
 ].map(([station,tempF,dewpointF,speedKnots,...layers],i)=>({station,tempF,dewpointF,wind:{speedKnots,direction:station==='KVAR'?null:90,variable:station==='KVAR'},layers,mapLayer:layers[0],hasCeiling:layers.some(l=>['BKN','OVC'].includes(l.cover)),time:'2026-10-12T00:53:00Z',lat:i+1,lon:0}));
 const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8,dewpointF:53.6,wind:{speedKnots:12,direction:350},time:'2026-10-12T00:53:00Z'};
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T02:00:00Z'};
-const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getZoom(){return 7;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*95*zoomScale,y:lat*70*zoomScale};},invalidateSize(){}};
+const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getZoom(){return 7;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*80*zoomScale,y:lat*50*zoomScale};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 const context={window:{},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Set,fetch:async()=>({ok:true,json:async()=>data}),clearTimeout(){},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);timer={callback,delay};timers.push(timer);return timers.length;},setInterval(){throw Error("No interval polling is allowed");},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
@@ -36,34 +40,32 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(shown.length,2);
  assert.match(find('KAAA'),/>6<\/span>/); // SCT is ignored; lowest BKN beats higher OVC.
  assert.match(find('KLOW'),/>1<\/span>/);
- assert.equal(lastView.zoom,7);assert.equal(mapOptions.minZoom,5);
+ assert.equal(lastView.zoom,10);assert.equal(mapOptions.minZoom,5);
  assert.equal(timer.delay,90000); // One scheduled prepared-data check at :00:30.
- get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,7);
+ get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,10);
  assert.equal(find('KSCT'),undefined);assert.equal(find('KUNK'),undefined);assert.equal(find('KCLR'),undefined);
  assert.ok(shown.every(s=>!s.icon.html.includes('<circle')));
  get('metar-view').value='plots';get('metar-view').events.change();
  assert.equal(get('metar-cloud-timeline').max,'11');
  assert.equal(get('metar-cloud-timeline').value,'11');
  assert.ok(!get('metar-cloud-time').textContent.includes('Live'));
- assert.match(find('KAAA'),/rotate\(90\)/);
- assert.equal((find('KAAA').match(/class="wind-full-barb"/g)||[]).length,3);
- assert.equal((find('KAAA').match(/class="wind-half-barb"/g)||[]).length,1);
- assert.equal((find('KFLAG').match(/class="wind-pennant"/g)||[]).length,1);
- assert.equal((find('KFLAG').match(/class="wind-full-barb"/g)||[]).length,1);
- assert.equal((find('KFLAG').match(/class="wind-half-barb"/g)||[]).length,1);
- assert.match(find('KCLR'),/calm-ring/);assert.ok(!find('KCLR').includes('wind-staff'));
- assert.match(find('KVAR'),/VRB/);assert.ok(!find('KVAR').includes('wind-staff'));
- assert.match(find('METRO'),/>76<\/text>/);assert.ok(!find('METRO').includes('99'));
- assert.equal(find('KFCM'),undefined);assert.equal(find('KMSP'),undefined);assert.equal(find('KMIC'),undefined);
- assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')));
- assert.ok(shown.every(s=>s.icon.html.includes('<circle r="7" fill="white"')&&!s.icon.html.includes('<g fill="currentColor">')));
+ assert.match(find('KAAA'),/rotate\(270\)/); // East wind flows west.
+ assert.match(find('KAAA'),/>40<\/text>/); // 35 knots rounds to 40 mph.
+ assert.match(find('KFLAG'),/>75<\/text>/);
+ assert.match(find('KCLR'),/>Calm<\/text>/);assert.ok(!find('KCLR').includes('wind-arrow'));
+ assert.match(find('KVAR'),/>VRB<\/text>/);assert.ok(!find('KVAR').includes('wind-arrow'));
+ assert.equal(find('METRO'),undefined);
+ for(const id of ['KFCM','KMIC','KMSP','KSTP'])assert.ok(find(id),id+' has its own plot');
+ for(const id of ['KSGS','KCFE','KFCE'])assert.equal(find(id),undefined);
+ assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')&&!s.icon.html.includes('<circle')));
+ assert.ok(shown.every(s=>!s.icon.html.includes('wind-full-barb')&&!s.icon.html.includes('wind-pennant')));
  assert.ok(!get('metar-cloud-time').textContent.includes('Live'));
  assert.ok(timer.delay>0);
  const denseCount=shown.length;
- assert.equal(denseCount,8); // Sites 95×70 px apart now fit instead of being skipped.
+ assert.equal(denseCount,11); // Independent metro sites; 80×50 px separation fits.
  zoomScale=.5;get('metar-view').events.change();
- assert.ok(shown.length<denseCount); // Zooming out still thins the map.
- assert.ok(find('METRO'));
+ assert.ok(shown.length<denseCount);
+ assert.ok(find('KFCM'));
  zoomScale=1;get('metar-view').events.change();assert.equal(shown.length,denseCount);
  get('metar-cloud-timeline').events.input({target:{value:'3'}});
  const hour=get('metar-cloud-time').textContent;
@@ -79,6 +81,21 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  get('refresh-metar-clouds').events.click();await flush();
  assert.equal(get('metar-cloud-timeline').value,'11');
  assert.ok(get('metar-cloud-time').textContent.includes('10:00 PM'));
+ // Direction reversal for all cardinal wind sources, including north.
+ const directions=[0,90,180,270];
+ const windSites=directions.map((direction,i)=>({...stations[0],station:'KW'+i,lat:i+1,wind:{speedKnots:10,direction}}));
+ data={...data,history:data.history.map(h=>({...h,stations:windSites}))};
+ get('metar-view').value='plots';get('refresh-metar-clouds').events.click();await flush();
+ directions.forEach((direction,i)=>assert.ok(find('KW'+i).includes('rotate('+((direction+180)%360)+')')));
+ // Horizontal stations can be closer than the old 90 px rule; a third plot
+ // that would touch an existing arrow/label is hidden until zoom permits it.
+ const project=map.latLngToContainerPoint;
+ map.latLngToContainerPoint=([lat])=>({x:lat*80,y:200});
+ const closeSites=[1,2,2.1].map((lat,i)=>({...stations[0],station:'KD'+i,lat}));
+ data={...data,history:data.history.map(h=>({...h,stations:closeSites}))};
+ get('refresh-metar-clouds').events.click();await flush();
+ assert.ok(find('KD0'));assert.ok(find('KD1'));assert.equal(find('KD2'),undefined);
+ map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.
  const cases=[[0,'1'],[300,'1'],[999,'1'],[1000,'1'],[1500,'2'],[2200,'2'],[9000,'9'],[25000,'25']];
  const boundarySites=cases.map(([height],i)=>({...stations[0],station:'KB'+i,lat:i+1,layers:[{cover:'BKN',baseFtAGL:height}]}));
@@ -94,5 +111,5 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  data={...data,checkedAt:'2026-10-12T03:00:00Z'};
  const count=timers.length;timer.callback();await flush();
  assert.equal(timers.length,count);
- console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind barbs, hourly metro, open station circles, scheduled refresh and selection.');
+ console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, individual stations and denser non-overlapping plots, scheduled refresh and selection.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

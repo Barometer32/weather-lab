@@ -11,7 +11,7 @@ SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
 BOUNDS = [[40, -100], [50, -85]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
 # User-excluded unreliable cloud station. Enforce on fresh and retained history.
-EXCLUDED_STATIONS = frozenset({"KCFE"})
+EXCLUDED_STATIONS = frozenset({"KCFE", "KFCE", "KSGS"})
 
 
 def included_station(station):
@@ -157,7 +157,7 @@ def snapshot(rows, now, checked_at=None):
         hour = iso(latest-timedelta(hours=i))
         stations = sorted((item[1] for (label, _), item in chosen.items() if label == hour),
                           key=lambda row: row["station"])
-        history.append({"hour": hour, "stations": stations, "metro": metro_report(stations, now, hour)})
+        history.append({"hour": hour, "stations": stations})
     return {"version": 3, "coverage": "upper-midwest", "mode": "routine-hourly", "history": history, "stations": history[-1]["stations"],
             "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": checked_at or iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
@@ -171,33 +171,6 @@ def current(data, now):
     result = snapshot(rows, now, data["checkedAt"])
     result["historyPending"] = data.get("version") != 3
     return {**result, "stale": data.get("stale", False)}
-
-
-def metro_position():
-    # Circumcenter in a local latitude/longitude projection: approximately equal
-    # ground distance from all three airports, independent of map zoom.
-    import numpy as np
-    points = np.array([[44.83, -93.45], [44.88, -93.22], [45.07, -93.35]])
-    scale = math.cos(math.radians(points[:, 0].mean()))
-    xy = np.column_stack((points[:, 1]*scale, points[:, 0]))
-    center = np.linalg.solve(2*(xy[1:]-xy[0]), (xy[1:]**2).sum(axis=1)-(xy[0]**2).sum())
-    return float(center[1]), float(center[0]/scale)
-
-
-def metro_report(rows, now, hour):
-    from app import STATIONS, hourly_snapshot
-    reports = [{**row, "icaoId": row["station"],
-                "obsTime": datetime.fromisoformat(row.get("weatherTime", row["time"]).replace("Z", "+00:00")).timestamp(),
-                "metarType": row.get("reportType", "METAR")} for row in rows if row["station"] in STATIONS]
-    data = hourly_snapshot(reports, datetime.fromisoformat(hour.replace("Z", "+00:00")), now)
-    available = data["qa"]["allStationsUsed"]
-    lat, lon = metro_position()
-    return {"station": "METRO", "lat": lat, "lon": lon, "isMetro": True, "available": available,
-            "tempF": data["tempF"] if available else None,
-            "dewpointF": data["dewpointF"] if available else None,
-            "wind": data["wind"] if available else {"speedKnots": None, "direction": None},
-            "time": data.get("observedAt") or (max((row["time"] for row in rows if row["station"] in STATIONS), default=None)),
-            "oldestObservedAt": data.get("oldestObservedAt"), "qa": data["qa"]}
 
 
 def observation_reports(data):

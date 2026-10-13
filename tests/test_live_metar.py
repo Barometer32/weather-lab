@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta, timezone
 import unittest
 from unittest.mock import patch
-import math
 import gzip
 import json
 from pathlib import Path
 import app
 import collector
-from metar_clouds import parse_reports, snapshot, current, collect, metro_position
+from metar_clouds import parse_reports, snapshot, current, collect
 from test_realtime import MemoryStore
 
 NOW=datetime(2026,10,11,23,58,tzinfo=timezone.utc)
@@ -34,29 +33,24 @@ class HourlyMetarViewTests(unittest.TestCase):
         saved['liveReports']=other;saved['live']={'isLive':True,'stations':other}
         data=current(saved,NOW)
         self.assertEqual(len(data['history']),12)
-        self.assertEqual(data['history'][-1]['metro']['tempF'],75.2)
+        self.assertNotIn('metro',data['history'][-1])
+        self.assertEqual({s['station'] for s in data['stations']},set(app.STATIONS))
         self.assertNotIn('live',data);self.assertNotIn('liveReports',data)
         self.assertTrue(all(s['reportType']=='METAR' for h in data['history'] for s in h['stations']))
 
     def test_retained_history_rejects_mislabeled_speci_and_excluded_station(self):
-        saved=snapshot([row('KOK1'),row('KCFE'),row('KFAKE',rawOb='SPECI KFAKE 112353Z')],NOW)
-        self.assertEqual([s['station'] for s in saved['stations']],['KOK1'])
+        saved=snapshot([row('KOK1'),row('KCFE'),row('KFCE'),row('KSGS'),row('KSTP'),row('KFAKE',rawOb='SPECI KFAKE 112353Z')],NOW)
+        self.assertEqual([s['station'] for s in saved['stations']],['KOK1','KSTP'])
 
-    def test_metro_position_is_approximately_equidistant_and_fixed(self):
-        lat,lon=metro_position();scale=math.cos(math.radians((44.83+44.88+45.07)/3))
-        distances=[math.hypot(lat-y,(lon-x)*scale) for y,x in [(44.83,-93.45),(44.88,-93.22),(45.07,-93.35)]]
-        self.assertLess(max(distances)-min(distances),1e-8)
-
-    def test_hourly_metro_plot_matches_main_conditions_snapshot_exactly(self):
-        rows=[row(s,temp=10,dewp=5,rawOb=f'{s} 112353Z 10/05 RMK T01040053') for s in app.STATIONS]
-        store=MemoryStore();store.write_json('live/metar-clouds.json',snapshot(rows,NOW))
-        routine=[{**r,'icaoId':r['station'],'metarType':'METAR','obsTime':NOW.replace(minute=53).timestamp()} for r in rows]
-        store.write_json('live/observations.json',{'reports':routine,'checkedAt':app.iso(NOW)})
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
-            client=app.app.test_client();main=client.get('/api/observations').json['current'];metro=client.get('/api/metar-clouds').json['history'][-1]['metro']
-        self.assertEqual(main['tempF'],50.7)
-        self.assertEqual(metro['tempF'],main['tempF']);self.assertEqual(metro['dewpointF'],main['dewpointF']);self.assertEqual(metro['wind'],main['wind'])
-        fetch.assert_not_called()
+    def test_each_airport_keeps_its_own_temperature_and_no_average_is_published(self):
+        rows=[row(s,temp=t,rawOb=f'{s} 112353Z') for s,t in [('KFCM',30),('KMIC',17),('KMSP',25),('KSTP',24)]]
+        data=snapshot(rows,NOW)
+        stations={s['station']:s for s in data['stations']}
+        self.assertEqual(stations['KFCM']['tempF'],86)
+        self.assertEqual(stations['KMIC']['tempF'],62.6)
+        self.assertEqual(stations['KMSP']['tempF'],77)
+        self.assertEqual(stations['KSTP']['tempF'],75.2)
+        self.assertTrue(all('metro' not in h for h in data['history']))
 
     def test_shared_collector_downloads_once_and_uses_one_canonical_object_for_all_views(self):
         store=MemoryStore()
@@ -76,15 +70,12 @@ class HourlyMetarViewTests(unittest.TestCase):
             collector.collect_metar_clouds(store,NOW)
         duplicate.assert_not_called()
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream:
-            client=app.app.test_client();main=client.get('/api/observations').json['current'];maps=client.get('/api/metar-clouds').json
+            client=app.app.test_client();maps=client.get('/api/metar-clouds').json
             page=client.get('/').get_data(as_text=True)
         upstream.assert_not_called()
-        self.assertEqual(main['tempF'],76.3)
-        self.assertEqual(main['tempF'],maps['history'][-1]['metro']['tempF'])
-        self.assertEqual(main['dewpointF'],maps['history'][-1]['metro']['dewpointF'])
-        self.assertEqual(main['wind'],maps['history'][-1]['metro']['wind'])
         self.assertEqual({s['station'] for s in maps['stations']},set(app.STATIONS))
-        self.assertIn('id="temperature">76°F',page)
+        self.assertTrue(all('metro' not in h for h in maps['history']))
+        self.assertNotIn('tab-observations',page)
 
     def test_collector_never_downloads_madis_and_has_one_hourly_check(self):
         store=MemoryStore()
