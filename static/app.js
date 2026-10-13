@@ -24,28 +24,8 @@ let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
 
-function readRadarLocation() {
-  const storageKey = "weather-lab-radar-location";
-  const parse = value => {
-    if (typeof value !== "string") return null;
-    const parts = value.split(",");
-    if (parts.length !== 2 || parts.some(part => !part.trim())) return null;
-    const point = parts.map(Number);
-    return point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180 ? point : null;
-  };
-  // URL fragments stay in the browser; the location is not sent to the server.
-  const prefix = "#radar-location=";
-  if (window.location.hash.startsWith(prefix)) {
-    const point = parse(window.location.hash.slice(prefix.length));
-    if (point) {
-      try { window.localStorage.setItem(storageKey, point.join(",")); } catch (_) {}
-      try { window.history.replaceState(null, "", window.location.pathname + window.location.search); } catch (_) {}
-      return point;
-    }
-  }
-  try { return parse(window.localStorage.getItem(storageKey)); } catch (_) { return null; }
-}
-const radarLocation = readRadarLocation();
+// Fixed reference point on the radar map.
+const radarLocation = [44.782146, -93.485439];
 
 function showFrame(n) {
   if (!overlays.length) return;
