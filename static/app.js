@@ -34,7 +34,7 @@ function showFrame(n) {
 }
 function initMap() {
   if (map) return;
-  map = L.map("map", {minZoom:5,maxZoom:13}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
+  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
@@ -173,7 +173,7 @@ function fitSatelliteView() {
 }
 function initSatelliteMap() {
   if (satelliteMap) return;
-  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0});
+  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0,zoomDelta:.1});
   satelliteMap.createPane("satellite-images"); satelliteMap.getPane("satellite-images").style.zIndex = 350;
   satelliteMap.createPane("satellite-boundaries"); satelliteMap.getPane("satellite-boundaries").style.zIndex = 410;
   satelliteMap.getPane("satellite-boundaries").style.pointerEvents = "none";
@@ -270,7 +270,6 @@ async function loadSatellite(force = false) {
 
 const tabs = ["metar-clouds","radar","satellite","forecast"];
 function selectTab(id) {
-  document.body.classList.toggle("metar-active",id==="metar-clouds");
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   WeatherCloudViews.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }

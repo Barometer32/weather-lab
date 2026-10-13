@@ -42,15 +42,10 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(shown.length,2);
  assert.match(find('KAAA'),/>6<\/span>/); // SCT is ignored; lowest BKN beats higher OVC.
  assert.match(find('KLOW'),/>1<\/span>/);
- assert.equal(lastView.zoom,8.75);assert.equal(mapOptions.minZoom,5);
- assert.equal(mapOptions.zoomSnap,.25);assert.equal(mapOptions.zoomDelta,.25);
- assert.equal(get('metar-cloud-map').style.height,'676px');
- windowStub.innerHeight=700;windowEvents.resize();
- assert.equal(get('metar-cloud-map').style.height,'486px');
- assert.ok(mapTop+486+controlsHeight<windowStub.innerHeight);
- windowStub.innerHeight=900;windowEvents.resize();
+ assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.minZoom,5);
+ assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);
  assert.equal(timer.delay,90000); // One scheduled prepared-data check at :00:30.
- get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,8.75);
+ get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,8.5);
  assert.equal(find('KSCT'),undefined);assert.equal(find('KUNK'),undefined);assert.equal(find('KCLR'),undefined);
  assert.ok(shown.every(s=>!s.icon.html.includes('<circle')));
  get('metar-view').value='plots';get('metar-view').events.change();
@@ -107,14 +102,14 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  // Real airport coordinates at the new fractional desktop zoom: the three
  // focus stations fit, and nearby KSTP cannot displace KMSP.
  const geographic=[['KFCM',44.8321,-93.4705],['KMIC',45.0623,-93.3511],['KMSP',44.8852,-93.2313],['KSTP',44.9323,-93.0559]];
- const world=256*Math.pow(2,8.75);
+ const world=256*Math.pow(2,8.5);
  const mercator=([lat,lon])=>({x:world*(lon+180)/360,y:world*(.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI))});
  const center=mercator([44.925,-93.35]);
  map.latLngToContainerPoint=coords=>{const p=mercator(coords);return{x:500+p.x-center.x,y:300+p.y-center.y};};
  const focusSites=geographic.map(([station,lat,lon])=>({...stations[0],station,lat,lon}));
  data={...data,history:data.history.map(h=>({...h,stations:focusSites}))};
  get('refresh-metar-clouds').events.click();await flush();
- for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.75');
+ for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.5');
  assert.equal(find('KSTP'),undefined);
  map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.

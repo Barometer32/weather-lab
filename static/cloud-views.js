@@ -7,7 +7,7 @@ window.WeatherCloudViews = (() => {
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const excluded = new Set(["KCFE","KFCE","KSGS"]);
   const preferred = ["KFCM","KMIC","KMSP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
-  const plotScale=.9;
+  const plotScale=.82;
   const directions=["N","NE","E","SE","S","SW","W","NW"];
   const rounded=value=>value==null?"—":String(Math.round(value));
   const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
@@ -38,28 +38,9 @@ window.WeatherCloudViews = (() => {
     }
     return `<svg class="metar-plot" width="${84*plotScale}" height="${44*plotScale}" viewBox="0 0 84 44" aria-hidden="true">${arrow}<text class="plot-temp" x="17" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="17" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="44" y="29">${rounded(speed)}</text></svg>`;
   }
-  function resizeMetarViewer() {
-    if(el("metar-clouds").hidden)return;
-    const surface=el("metar-cloud-map"),controls=el("metar-viewer-controls");
-    const desired=window.innerWidth<600?550:676;
-    const available=Math.floor(window.innerHeight-surface.getBoundingClientRect().top-controls.getBoundingClientRect().height-12);
-    const height=Math.max(180,Math.min(desired,available));
-    if(surface.style.height!==`${height}px`){
-      surface.style.height=`${height}px`;
-      metarMap?.invalidateSize({pan:false});
-    }
-  }
-  let layoutPending=false;
-  function scheduleMetarLayout() {
-    if(layoutPending)return;layoutPending=true;
-    window.requestAnimationFrame(()=>{layoutPending=false;resizeMetarViewer();});
-  }
-  window.addEventListener("resize",scheduleMetarLayout);
-  window.addEventListener("scroll",scheduleMetarLayout,{passive:true});
   function initMetars() {
     if(metarMap)return;
-    resizeMetarViewer();
-    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.25,zoomDelta:.25});
+    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1});
     resetMetarView();
     for(const [kind,opacity] of [["uscounties",.2],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(metarMap);
     markers=L.layerGroup().addTo(metarMap);
@@ -70,7 +51,7 @@ window.WeatherCloudViews = (() => {
   function resetMetarView() {
     // The in-between desktop zoom keeps all three focus airports separated
     // while showing more surroundings than the previous close metro view.
-    metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.75);
+    metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.5);
   }
   function inView(station) {
     const p=metarMap.latLngToContainerPoint([station.lat,station.lon]),size=metarMap.getSize();
@@ -187,7 +168,7 @@ window.WeatherCloudViews = (() => {
     },next-now);
   }
   function select(id) {
-    if(id==="metar-clouds"){scheduledWaitUntil=Date.now()+2*60000;loadMetars();scheduleMetars();scheduleMetarLayout();setTimeout(()=>metarMap?.invalidateSize(),0);}
+    if(id==="metar-clouds"){scheduledWaitUntil=Date.now()+2*60000;loadMetars();scheduleMetars();setTimeout(()=>metarMap?.invalidateSize(),0);}
   }
   el("refresh-metar-clouds").addEventListener("click",loadMetars);
   el("metar-cloud-search").addEventListener("input",renderMetars);
