@@ -6,7 +6,8 @@ window.WeatherCloudViews = (() => {
   const covers = {CLR:"Clear below sensor limit",SKC:"Sky clear",FEW:"Few (1–2 eighths)",SCT:"Scattered (3–4 eighths)",BKN:"Broken (5–7 eighths)",OVC:"Overcast (8 eighths)",VV:"Obscured sky",NSC:"No significant cloud",NCD:"No cloud detected",CAVOK:"CAVOK cloud criteria"};
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const excluded = new Set(["KCFE","KFCE","KSGS"]);
-  const preferred = ["KFCM","KMIC","KMSP","KSTP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN"];
+  const preferred = ["KFCM","KMIC","KMSP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
+  const plotScale=.9;
   const directions=["N","NE","E","SE","S","SW","W","NW"];
   const rounded=value=>value==null?"—":String(Math.round(value));
   const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
@@ -35,11 +36,30 @@ window.WeatherCloudViews = (() => {
       const label=speed==null?"?":speed<.5?"Calm":wind.variable?"VRB":"?";
       arrow=`<text class="plot-wind-state" x="30" y="27" text-anchor="middle">${label}</text>`;
     }
-    return `<svg class="metar-plot" width="84" height="44" viewBox="0 0 84 44" aria-hidden="true">${arrow}<text class="plot-temp" x="17" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="17" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="44" y="29">${rounded(speed)}</text></svg>`;
+    return `<svg class="metar-plot" width="${84*plotScale}" height="${44*plotScale}" viewBox="0 0 84 44" aria-hidden="true">${arrow}<text class="plot-temp" x="17" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="17" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="44" y="29">${rounded(speed)}</text></svg>`;
   }
+  function resizeMetarViewer() {
+    if(el("metar-clouds").hidden)return;
+    const surface=el("metar-cloud-map"),controls=el("metar-viewer-controls");
+    const desired=window.innerWidth<600?550:676;
+    const available=Math.floor(window.innerHeight-surface.getBoundingClientRect().top-controls.getBoundingClientRect().height-12);
+    const height=Math.max(180,Math.min(desired,available));
+    if(surface.style.height!==`${height}px`){
+      surface.style.height=`${height}px`;
+      metarMap?.invalidateSize({pan:false});
+    }
+  }
+  let layoutPending=false;
+  function scheduleMetarLayout() {
+    if(layoutPending)return;layoutPending=true;
+    window.requestAnimationFrame(()=>{layoutPending=false;resizeMetarViewer();});
+  }
+  window.addEventListener("resize",scheduleMetarLayout);
+  window.addEventListener("scroll",scheduleMetarLayout,{passive:true});
   function initMetars() {
     if(metarMap)return;
-    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13});
+    resizeMetarViewer();
+    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.25,zoomDelta:.25});
     resetMetarView();
     for(const [kind,opacity] of [["uscounties",.2],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(metarMap);
     markers=L.layerGroup().addTo(metarMap);
@@ -48,8 +68,9 @@ window.WeatherCloudViews = (() => {
     metarMap.on("moveend",renderMetars);density();
   }
   function resetMetarView() {
-    // Start with individual metro readings visible; zoom out for the region.
-    metarMap?.setView([44.945,-93.2585],metarMap.getSize().x<600?9:10);
+    // The in-between desktop zoom keeps all three focus airports separated
+    // while showing more surroundings than the previous close metro view.
+    metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.75);
   }
   function inView(station) {
     const p=metarMap.latLngToContainerPoint([station.lat,station.lon]),size=metarMap.getSize();
@@ -66,8 +87,8 @@ window.WeatherCloudViews = (() => {
       // Bound the actual labels and short arrow, including white halos and a
       // small gap. Two-digit plots can be closer than long/negative readings.
       const digits=Math.max(rounded(station.tempF).length,rounded(station.dewpointF).length);
-      const box={left:point.x+17-digits*9-30-5,right:point.x+44+rounded(windMph(station.wind)).length*9-30+5,
-        top:point.y-24,bottom:point.y+22};
+      const box={left:point.x+(17-digits*9-30-5)*plotScale,right:point.x+(44+rounded(windMph(station.wind)).length*9-30+5)*plotScale,
+        top:point.y-24*plotScale,bottom:point.y+22*plotScale};
       if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
       boxes.push(box);accepted.push(station);
     }
@@ -98,7 +119,7 @@ window.WeatherCloudViews = (() => {
       const summary=layer?heights(layer,true):"";
       const description=plots?`${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)}`:layer?(s.hasCeiling?`${layer.cover==="VV"?"Indefinite ceiling":"Ceiling"}: ${heights(layer)}`:`${covers[layer.cover]||layer.cover} · No ceiling reported`):"Cloud information not reported";
       const glyph=plots?stationModel(s):`<span class="cloud-ceiling-number">${summary}</span>`;
-      const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?[84,44]:[24,24],iconAnchor:plots?[30,24]:[12,12]});
+      const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?[84*plotScale,44*plotScale]:[24,24],iconAnchor:plots?[30*plotScale,24*plotScale]:[12,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.station));
       const stamp=plots?(s.weatherTime||s.time):s.time;
       popup.append(node("p",stamp?time.format(new Date(stamp)):"Report time unavailable"));
@@ -166,7 +187,7 @@ window.WeatherCloudViews = (() => {
     },next-now);
   }
   function select(id) {
-    if(id==="metar-clouds"){scheduledWaitUntil=Date.now()+2*60000;loadMetars();scheduleMetars();setTimeout(()=>metarMap?.invalidateSize(),0);}
+    if(id==="metar-clouds"){scheduledWaitUntil=Date.now()+2*60000;loadMetars();scheduleMetars();scheduleMetarLayout();setTimeout(()=>metarMap?.invalidateSize(),0);}
   }
   el("refresh-metar-clouds").addEventListener("click",loadMetars);
   el("metar-cloud-search").addEventListener("input",renderMetars);

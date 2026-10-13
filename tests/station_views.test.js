@@ -5,9 +5,9 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 function element(){return {value:'',hidden:false,disabled:false,textContent:'',children:[],events:{},style:{setProperty(){}},classList:{toggle(){}},setAttribute(k,v){this[k]=v;},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;},scrollIntoView(){}};}
 const elements=new Map();
-const get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
+const get=id=>{if(!elements.has(id)){const n=element();n.getBoundingClientRect=()=>({top:mapTop,height:id==='metar-viewer-controls'?controlsHeight:0});elements.set(id,n);}return elements.get(id);};
 get('metar-view').value='clouds';
-let shown=[],zoomScale=1,timer,mapOptions,lastView,clock=Date.UTC(2026,9,12,2,59),timers=[];
+let shown=[],zoomScale=1,timer,mapOptions,lastView,clock=Date.UTC(2026,9,12,2,59),timers=[],mapTop=150,controlsHeight=52;
 class ClockDate extends Date {constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
 const stations=[
  ['KAAA',60,45,35,{cover:'SCT',baseFtAGL:2500},{cover:'BKN',baseFtAGL:6000},{cover:'OVC',baseFtAGL:7000}],
@@ -29,7 +29,9 @@ const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T02:00:00Z'};
 const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getZoom(){return 7;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*80*zoomScale,y:lat*50*zoomScale};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
-const context={window:{},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Set,fetch:async()=>({ok:true,json:async()=>data}),clearTimeout(){},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);timer={callback,delay};timers.push(timer);return timers.length;},setInterval(){throw Error("No interval polling is allowed");},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
+const windowEvents={};
+const windowStub={innerWidth:1200,innerHeight:900,addEventListener(k,f){windowEvents[k]=f;},requestAnimationFrame(f){f();}};
+const context={window:windowStub,document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Set,fetch:async()=>({ok:true,json:async()=>data}),clearTimeout(){},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);timer={callback,delay};timers.push(timer);return timers.length;},setInterval(){throw Error("No interval polling is allowed");},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
@@ -40,9 +42,15 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(shown.length,2);
  assert.match(find('KAAA'),/>6<\/span>/); // SCT is ignored; lowest BKN beats higher OVC.
  assert.match(find('KLOW'),/>1<\/span>/);
- assert.equal(lastView.zoom,10);assert.equal(mapOptions.minZoom,5);
+ assert.equal(lastView.zoom,8.75);assert.equal(mapOptions.minZoom,5);
+ assert.equal(mapOptions.zoomSnap,.25);assert.equal(mapOptions.zoomDelta,.25);
+ assert.equal(get('metar-cloud-map').style.height,'676px');
+ windowStub.innerHeight=700;windowEvents.resize();
+ assert.equal(get('metar-cloud-map').style.height,'486px');
+ assert.ok(mapTop+486+controlsHeight<windowStub.innerHeight);
+ windowStub.innerHeight=900;windowEvents.resize();
  assert.equal(timer.delay,90000); // One scheduled prepared-data check at :00:30.
- get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,10);
+ get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,8.75);
  assert.equal(find('KSCT'),undefined);assert.equal(find('KUNK'),undefined);assert.equal(find('KCLR'),undefined);
  assert.ok(shown.every(s=>!s.icon.html.includes('<circle')));
  get('metar-view').value='plots';get('metar-view').events.change();
@@ -95,6 +103,19 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  data={...data,history:data.history.map(h=>({...h,stations:closeSites}))};
  get('refresh-metar-clouds').events.click();await flush();
  assert.ok(find('KD0'));assert.ok(find('KD1'));assert.equal(find('KD2'),undefined);
+ map.latLngToContainerPoint=project;
+ // Real airport coordinates at the new fractional desktop zoom: the three
+ // focus stations fit, and nearby KSTP cannot displace KMSP.
+ const geographic=[['KFCM',44.8321,-93.4705],['KMIC',45.0623,-93.3511],['KMSP',44.8852,-93.2313],['KSTP',44.9323,-93.0559]];
+ const world=256*Math.pow(2,8.75);
+ const mercator=([lat,lon])=>({x:world*(lon+180)/360,y:world*(.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI))});
+ const center=mercator([44.925,-93.35]);
+ map.latLngToContainerPoint=coords=>{const p=mercator(coords);return{x:500+p.x-center.x,y:300+p.y-center.y};};
+ const focusSites=geographic.map(([station,lat,lon])=>({...stations[0],station,lat,lon}));
+ data={...data,history:data.history.map(h=>({...h,stations:focusSites}))};
+ get('refresh-metar-clouds').events.click();await flush();
+ for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.75');
+ assert.equal(find('KSTP'),undefined);
  map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.
  const cases=[[0,'1'],[300,'1'],[999,'1'],[1000,'1'],[1500,'2'],[2200,'2'],[9000,'9'],[25000,'25']];

@@ -270,6 +270,7 @@ async function loadSatellite(force = false) {
 
 const tabs = ["metar-clouds","radar","satellite","forecast"];
 function selectTab(id) {
+  document.body.classList.toggle("metar-active",id==="metar-clouds");
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   WeatherCloudViews.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }

@@ -12,7 +12,7 @@
   <script defer src="/static/cloud-views.js"></script>
   <script defer src="/static/app.js"></script>
 </head>
-<body>
+<body class="metar-active">
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">METAR</button>
@@ -26,7 +26,7 @@
   <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">METAR plots</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="plots">METAR plots</option><option value="clouds">METAR cloud</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div class="cloud-map-surface">
     <div id="metar-cloud-map" aria-label="Individual station weather with state and county boundaries"></div>
-    <div class="radar-controls viewer-controls">
+    <div id="metar-viewer-controls" class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
       <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
