@@ -488,6 +488,18 @@ def health():
     return jsonify(status="ok")
 
 
+@app.get("/api/surface")
+def surface_api():
+    try:
+        data = prepared_snapshot("surface", 4500)
+        if not data or data.get("version") != 1:
+            return jsonify(error="Surface data is being prepared by the hourly collector."), 503
+        return jsonify(data), 200, {"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("Prepared surface data unavailable")
+        return jsonify(error="Surface data is not ready. Please try Refresh shortly."), 503
+
+
 @app.get("/api/observations")
 def observation_api():
     try:
@@ -557,12 +569,13 @@ def prepared_image(key):
 
 @app.get("/api/prepared/<path:key>")
 def prepared_asset(key):
-    # Public visitors may read only immutable image objects, never manifests or
-    # arbitrary bucket files. Only the private collector can trigger processing.
+    # Only allow immutable prepared weather assets, never arbitrary bucket
+    # files. Only the private collector can trigger source collection.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
-               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
+               or re.fullmatch(r"surface/v1/\d{10}-[a-f0-9]{12}\.json", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:
@@ -573,7 +586,12 @@ def prepared_asset(key):
         headers = {"Cache-Control": "public, max-age=86400, immutable"}
         if key.endswith(".bin"):
             headers["Content-Encoding"] = "gzip"
-        return Response(image, mimetype="application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
+        if key.endswith(".json"):
+            headers["Vary"] = "Accept-Encoding"
+            if request.accept_encodings["gzip"] > 0:
+                image = gzip.compress(image,compresslevel=3)
+                headers["Content-Encoding"] = "gzip"
+        return Response(image, mimetype="application/json" if key.endswith(".json") else "application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
                         headers=headers)
     except Exception:
         app.logger.exception("Prepared image read failed")
