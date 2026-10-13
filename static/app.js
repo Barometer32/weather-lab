@@ -49,8 +49,8 @@ function initMap() {
     map.getPane("location").style.zIndex = 620;
     map.getPane("location").style.pointerEvents = "none";
     L.circleMarker(radarLocation, {
-      pane:"location", radius:5, color:"#ffffff", weight:2,
-      opacity:1, fillColor:"#2563eb", fillOpacity:1, interactive:false
+      pane:"location", radius:3, color:"#ffffff", weight:1,
+      opacity:1, fillColor:"#000000", fillOpacity:1, interactive:false
     }).addTo(map);
   }
 
