@@ -14,7 +14,7 @@ class MetarHomePageTests(unittest.TestCase):
         self.assertNotIn('initial-observations',html)
         self.assertNotIn('sun-angle',html)
         tabs=re.findall(r'<button role="tab" id="tab-([^"]+)"',html)
-        self.assertEqual(tabs,['metar-clouds','surface','radar','satellite','forecast'])
+        self.assertEqual(tabs,['metar-clouds','radar','satellite','forecast'])
         self.assertIn('id="tab-metar-clouds" aria-selected="true"',html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">',html)
         self.assertIn('<option value="plots">METAR plots</option>',html)

@@ -3,22 +3,19 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>WEATHER LAB · Twin Cities</title>
-  <meta name="description" content="Upper Midwest airport, road-weather and mesonet observations, surface analyses, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Individual Upper Midwest METAR weather and cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/cloud-views.js"></script>
-  <script defer src="/static/surface-core.js"></script>
-  <script defer src="/static/surface-views.js"></script>
   <script defer src="/static/app.js"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">METAR</button>
-    <button role="tab" id="tab-surface" aria-selected="false" aria-controls="surface" tabindex="-1">Surface</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
@@ -44,33 +41,6 @@
 </section>
 
 
-<section id="surface" role="tabpanel" aria-labelledby="tab-surface" hidden>
-  <div class="section-heading"><div><p class="eyebrow">AIRPORTS · ROAD WEATHER · PUBLIC MESONETS</p><h1 id="surface-heading">Station plots</h1><p>Upper Midwest · 12 hourly snapshots</p></div><button class="secondary" id="refresh-surface">Refresh</button></div>
-  <div class="surface-options">
-    <label>Map <select id="surface-field"><option value="plots">Station plots</option><option value="tempF">Temperature</option><option value="dewpointF">Dew point</option><option value="windMph">Wind speed + flow arrows</option><option value="rh">Relative humidity</option><option value="gustMph">Wind gust</option><option value="spreadF">Temperature–dew-point spread</option></select></label>
-    <label>Sources <select id="surface-source"><option value="all">All available public networks</option><option value="roads">Airports + road stations</option><option value="airports">Airports only</option><option value="mndot">MnDOT only</option></select></label>
-    <details id="surface-comparison" class="surface-comparison"><summary>Compare quality, display and colors</summary><div class="surface-comparison-options">
-    <label>Quality <select id="surface-quality"><option value="passed">Passed MADIS or local checks</option><option value="madis">MADIS passed + routine airports</option><option value="verified">MADIS verified + routine airports</option></select></label>
-    <label>Display <select id="surface-style"><option value="both">Shading + contours</option><option value="filled">Shading only</option><option value="contours">Contours only</option></select></label>
-    <label>Analysis <select id="surface-detail"><option value="detail">Local detail</option><option value="smooth">Broader blend</option></select></label>
-    <label>Colors <select id="surface-colors"><option value="weather">Weather colors</option><option value="colorblind">Colorblind-friendly</option></select></label>
-    <label class="surface-toggle"><input id="surface-stations" type="checkbox" checked> Station readings</label>
-    </div></details>
-  </div>
-  <div class="cloud-map-surface">
-    <div id="surface-map" aria-label="Hourly surface observations and interpolated analyses with state and county boundaries"></div>
-    <div class="radar-controls viewer-controls">
-      <span id="surface-time" class="viewer-frame-time" aria-live="polite">Loading hourly surface data…</span>
-      <div class="timeline-control"><label class="sr-only" for="surface-timeline">Surface history: drag to select an hour</label><input id="surface-timeline" class="scan-timeline" type="range" min="0" max="11" step="1" value="11" disabled></div>
-      <div class="viewer-actions"><button id="surface-reset" class="secondary">Reset view</button><button id="surface-region" class="secondary">Region</button></div>
-    </div>
-  </div>
-  <p id="surface-status" class="small-note" role="status">Surface data is collected hourly at :10.</p>
-  <div id="surface-legend" class="surface-legend"></div>
-  <p id="surface-note" class="small-note">Tap a station for its source, observation time and quality checks.</p>
-  <details class="method"><summary>Sources and quality</summary><p>Airports use the saved routine hourly METARs. Public MADIS adds road, agricultural, fire-weather and other mesonet observations where available. IEM road data and Wisconsin’s Wisconet API fill missing sites; those fallbacks have local checks only. Wisconet’s MADIS IDs prevent counting the same site twice. The source selector and quality selector let you compare the blend. Failed MADIS variables are excluded, and an unflagged copy cannot replace a rejected reading.</p><p>MADIS verified means its validity, consistency and spatial checks passed. It is not a guarantee of sensor accuracy. Routine airports are included with local checks in every quality option. Temperature and dew point share the same fixed Fahrenheit color scale. Humidity and wind have their own fixed scales across hours, sources and analysis options. Dew points calculated from temperature and humidity are marked as derived. Wind reflects each station’s exposure and sensor height; it is not standardized to a common height. A finer displayed grid does not add measurements between stations.</p><div id="surface-networks" class="surface-networks"></div></details>
-  <details id="surface-list" class="method"><summary>Find a station</summary><label for="surface-search" class="sr-only">Search surface stations or networks</label><input id="surface-search" type="search" placeholder="Station, name or network"><div class="table-wrap cloud-station-table"><table><thead><tr><th>Station</th><th>Network</th><th>Observed</th><th>Temp / dew °F</th><th>Wind</th></tr></thead><tbody id="surface-rows"></tbody></table></div></details>
-</section>
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface">

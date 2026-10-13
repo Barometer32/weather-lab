@@ -1,9 +1,8 @@
 # WEATHER LAB
 
-A phone-friendly Twin Cities weather page with five views:
+A phone-friendly Twin Cities weather page with four views:
 
 - **METAR (first/default):** individual airport temperatures/dew points in °F, black wind-flow arrows with speed in mph, and a cloud-ceiling dropdown. Both views have twelve hourly snapshots. KFCM/KMIC/KMSP/KSTP stay independent; KCFE/KFCE and KSGS are excluded.
-- **Surface:** a separate hourly airport/RWIS/public-mesonet comparison page with station plots, temperature, dew point, wind speed and flow vectors, humidity, gusts and temperature–dew-point spread. Choose sources, quality, analysis detail, display and colors; twelve saved hourly positions.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
@@ -73,27 +72,7 @@ The collector reads the official MapClick JSON forecast (`FcstType=json`) for 44
 
 NWS source issue time comes from the same MapClick response as its narrative and periods (`creationDate`, not the observation timestamp `creationDateLocal`). Completed periods disappear at both request and browser-render time; the first remaining period comes from the webpage feed. The private collector checks the forecast every five minutes; each successful collection replaces the saved MapClick snapshot, including when the issuance time is unchanged but the initial period has rolled over. The web service reads the saved snapshot. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed rows with a warning.
 
-The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Feed/image and surface-observation collection are scheduled; no numerical forecast model or AI computation runs. The existing METAR selection remains independent of the new Surface analysis.
-
-## Surface observations and analyses
-
-The independent **Surface** tab keeps the METAR, radar, original satellite and NWS forecast behavior intact. Its default/reset view matches the METAR metro view. A Region button fits the larger 40–49.5°N, 104.5–84°W collection domain, covering Minnesota, Wisconsin and neighboring Upper Midwest states. Stations remain on their true coordinates and plot labels declutter with zoom. KFCM, KMIC and KMSP remain individual, highest-priority airport plots; user-excluded KCFE/KFCE/KSGS cannot reappear.
-
-The private collector runs at **:10 once hourly**, independent of the existing METAR :00 job. It streams/decompresses the preceding UTC-hour **public MADIS mesonet NetCDF** file, maps the temporary file to avoid a second large memory copy, and selects observations in the 30 minutes ending at the nominal hour. All available public providers within the domain are considered, including MesoWest, MnDOT/other road networks, APRSWXNET/CWOP, RAWS, HADS, IEM and Non-Fed AWOS where present. This is not a claim that every regional network is public or represented in MADIS. Provider coverage, reporting, fields and latency vary. No paid/private feeds or credentials are introduced. Wisconsin’s public Wisconet API also supplies a bulk five-minute snapshot at the nominal hour. Its published MADIS IDs identify duplicates; the flagged MADIS record takes precedence, even when a field was rejected. Direct-only Wisconet values retain source flags and local-check status, not MADIS-verified status; strict quality modes exclude them. The original airport-only page does not make these source calls.
-
-One regional-filtered response from [IEM RWIS](https://mesonet.agron.iastate.edu/api/1/rwis.json) at the nominal hour supplies road-site metadata and missing-site fallbacks. The sample used in verification had **168 Minnesota road stations**; this is a sample count, not an availability guarantee. Air temperature is used, never pavement temperature. The saved routine METAR snapshot supplies airports without an additional AWC source request; MADIS Non-Fed AWOS fallback airport reports must fall within :50–:59, preferring :53. These fallbacks cannot determine that a report is a routine METAR because the mesonet dataset does not carry its raw METAR type. Missing airport history is not relabeled or filled with an older hour.
-
-Each variable preserves its MADIS descriptor and QC applied/results flags. Only C/S/V descriptors with applied checks, zero QC-failure and internal-consistency bitmaps, valid units, finite values and plausible bounds are eligible. Preliminary, questioned and rejected values are omitted; a failed MADIS value cannot be silently refilled from an unflagged IEM copy. Subjective/interpolated MADIS descriptors are conservatively excluded. IEM/Wisconet fallback and routine airport values carry **LOCAL/METAR**, not MADIS-verified status, and receive local range/dew-point consistency checks. Dew point can be derived from accepted temperature/RH only when not rejected; missing RH can be derived from accepted temperature/dew point. Derived fields inherit the weaker input QC descriptor and are identified in popups. Passing QC is not a guarantee of accuracy or consistent exposure/measurement height.
-
-Comparison controls include all public networks, airports plus roads, airports only and MnDOT only; quality options include local-screened fallbacks, MADIS-passed plus routine airports, or MADIS-verified plus routine airports. Station popups show source, timestamp, values, quality and derived-field status. A searchable list and network counts expose the underlying coverage. Identical road feeds and airport aliases are deduplicated; the existing official routine airport values take priority.
-
-Analysis is performed in a browser worker, keeping the slider responsive and avoiding per-visitor cloud computation. Local detail uses up to 12 nearby stations within 45 km and inverse-distance-cubed weights; the broader blend uses up to 20 within 80 km and inverse-distance-squared weights. Initial weights are airport 2, road 1.2, other mesonet 1, APRSWXNET 0.55, with local-only fallback weights halved. These are transparent experimental choices, not a calibrated forecasting system. Sites at the same analysis location are counted once. Cells require three nearby sites and lie inside the field's station convex hull; unsupported areas stay transparent. No temperature smoothing filter, lapse-rate adjustment, model background, cloud/precipitation inference or AI is used. Genuine regional gradients are not forcibly corrected to match an airport. Sparse coverage, terrain, station exposure and the interpolation's assumptions still limit accuracy.
-
-Wind is interpolated as eastward/northward **u/v** components. Resultant speed is the magnitude of the combined vector, and arrows point where air moves; directions are never averaged as degrees. Calm and missing/variable directions are handled separately. Shading, contours and contour-only views use the same sampled Mercator grid. A small, viewport-sized analysis grid is display sampling, not a claim of equivalent measurement resolution. Contours use 5°F, 5 mph or 10% intervals as appropriate. Temperature and dew point share one fixed −40–110°F palette, wind/gusts one 0–60 mph palette, with separate fixed humidity/spread palettes. A colorblind-friendly option uses fixed Viridis-like stops; colors do not autoscale with hour, source or zoom.
-
-Each successful collection writes an immutable hourly JSON asset before atomically publishing its 12-position manifest. Failed total collection retains the last manifest; partial source failures are visible and permit one scheduled retry. Initial history fills over twelve hours; missing slots remain empty. The web app serves saved data only, with gzip for JSON assets and no upstream requests. Opening/Refresh/return reads the manifest; a visible Surface tab checks at :10:30 and uses bounded one-minute saved-data retries for up to three minutes. Only the selected hourly asset downloads; worker results are canceled when switching views. Immutable Surface assets expire after one day.
-
-The collector receives **2 GiB memory** to accommodate several-hundred-MB RAM-backed NetCDF temporary files plus concurrent radar/satellite work. The public web service remains 1 GiB and both scale to zero. The new fifth Scheduler job, its active execution time and data transfers add to usage; exact monthly billing depends on measured runtime and account-wide free tiers. No continuously running VM or AI/GPU is introduced.
+The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Only lightweight feed/image collection is scheduled; no numerical weather model or AI computation runs. Observation selection, averaging and QA are preserved.
 
 ## Deploy/update
 
@@ -105,7 +84,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures five authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast every five minutes; Upper Midwest METAR once hourly at :00; Surface once hourly at :10. The METAR job has no automatic retries; Surface allows one retry. Deployment triggers one initial collection. Both services can scale to zero. Prepared radar/satellite/Surface assets are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.
+The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast every five minutes; the Upper Midwest METAR job once hourly at :00. The shared job has no automatic retries. Deployment triggers one initial collection; subsequent scheduled pulls run at the top of the hour. Both services can scale to zero. Prepared images are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.
 
 ## Checks
 
@@ -114,11 +93,5 @@ python -m unittest discover -s tests -v
 node --check static/app.js
 node --check static/native-radar.js
 node --check static/cloud-views.js
-node --check static/surface-views.js
-node --check static/surface-worker.js
-node tests/surface_analysis.test.js
-node tests/surface_views.test.js
-node tests/station_views.test.js
-node tests/weather_tabs.test.js
 bash -n deploy.sh
 ```

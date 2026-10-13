@@ -1,44 +1,70 @@
-# WEATHER LAB deployment
+# Google Cloud deployment
 
-Run in authenticated Google Cloud Shell with billing linked to `weather-lab-511113`. A fresh checkout preserves older local changes:
+## Restore WEATHER LAB
+
+After restoring the Google project and linking an active billing account, deploy
+from a fresh clone of `https://github.com/Barometer32/weather-lab.git`. This
+preserves any older Cloud Shell checkout and uses the current saved version:
 
 ```bash
-WEATHER_LAB_DIR="$(mktemp -d "$HOME/weather-lab-update.XXXXXX")"
+WEATHER_LAB_DIR="$(mktemp -d "$HOME/weather-lab-restore.XXXXXX")"
 git clone https://github.com/Barometer32/weather-lab.git "$WEATHER_LAB_DIR"
 cd "$WEATHER_LAB_DIR"
 bash deploy.sh weather-lab-511113
 ```
 
-Saving code to GitHub does not deploy Google Cloud. The script builds the image, updates both services, resumes its paused jobs and triggers initial collection. Allow a few minutes for first imagery backfill and Surface collection. The public URL is printed at the end. An empty Surface store builds twelve hourly history positions over time; missing slots stay empty.
+The deployment recreates missing managed resources and resumes any paused
+`weather-live-*` jobs it manages. Fresh history is collected if cached images
+were deleted. Some restored Google resources may take time to become available;
+if Google reports a restoration or billing propagation error, retry after the
+project and billing status have finished updating. The page name is WEATHER LAB;
+the existing service IDs and data sources remain the same.
 
-## Managed resources
+Weather Lab uses a public Cloud Run web service, a private Cloud Run collector, and a private regional Standard Storage bucket. Cloud Scheduler invokes the collector with OIDC authentication. There are no HRRR/RRFS or AI jobs.
 
-All services/jobs use `us-central1`:
+## Update
 
-| Resource | Settings |
-| --- | --- |
-| `weather-lab` | Public Cloud Run, 1 CPU / 1 GiB, request-based billing, minimum 0 / maximum 1 instance |
-| `weather-collector` | Private Cloud Run, 1 CPU / **2 GiB**, minimum 0 / maximum 1 instance; large MADIS temporary files use RAM |
-| `<project>-weather-data` | Private regional bucket; collector writes, web identity reads |
-| `weather-live-radar` | Every minute, KMPX |
-| `weather-live-satellite` | Every five minutes, all three original COD products |
-| `weather-live-forecast` | Every five minutes, NWS MapClick JSON |
-| `weather-live-metar-clouds` | Once hourly at **:00**, no scheduled retries |
-| `weather-live-surface` | Once hourly at **:10**, at most one scheduled retry |
+Run in your authenticated Google Cloud Shell:
 
-Cloud Scheduler uses OIDC with a dedicated service identity to invoke the private collector. No Linux VM, GPU, AI model, HRRR or RRFS job is needed. The script removes the specifically named retired model, KEVX and separate observations jobs; it preserves unrelated resources and Artifact Registry revisions. Prepared radar/satellite/Surface assets expire after one day. Current manifests and boundary overlays remain. The bucket has no versioning or soft-delete retention for replaceable assets.
+```bash
+cd ~/weather-lab
+git pull --ff-only
+bash deploy.sh weather-lab-511113
+```
 
-## Data behavior
+The first backfill prepares the complete two-hour radar loop and the latest 24 images for each satellite product. Latest imagery is published first, with checkpoints as history fills in. Allow a few minutes on the first deployment, then refresh the webpage. Each invocation limits its backfill work so later runs can resume from the saved progress. Future runs download/process only newly published frames. A failed collection retains the previous successful manifest; stale data and missing scans/images are indicated in the viewer.
 
-- **METAR:** stays the first/default tab. KFCM/KMIC/KMSP are independent, with routine reports nearest :53 in :50–:59, labeled with the following hour. Both modes use twelve hourly snapshots and one AWC bulk pull at :00. KCFE/KFCE/KSGS remain excluded. No metro average is shown.
-- **Surface:** separate station plots and observed analyses from public MADIS mesonet networks, regional RWIS including MnDOT, direct Wisconet fallbacks matched to published MADIS IDs, and saved hourly METAR airports. Domain: 40–49.5°N, 104.5–84°W. Mesonet/road observations must be within 30 minutes preceding the nominal hour. Each field's QC is checked independently. IEM road and direct-only Wisconet fallbacks are labeled local-only. Failed MADIS values cannot be replaced by unflagged copies. Source and quality selectors support comparisons; not every network is public or available. README documents interpolation weights, masks, wind-vector calculations and fixed palettes. Only the selected hourly asset downloads; analysis runs in a browser worker.
-- **Radar:** unchanged native KMPX 0.5° completed surveillance/supplemental scans, all available scans in the preceding two hours, no frame cap or smoothing, approved colors from 10 dBZ, white boundary map and manual slider. Feed latency/operator settings control scan frequency.
-- **Satellite:** unchanged original COD Central Minnesota True Color, Day Cloud Phase and Nighttime Microphysics, native image projection/map/colors, latest 24 source images and manual slider.
-- **Forecast:** compact white NWS rows for 44.9244, −93.4140. Narrative, periods and issue time come from one MapClick JSON response. Expired periods are filtered at request/render time; polling does not force an NWS issuance.
+The script creates or updates these resources in `us-central1`:
 
-The deployed web service reads saved data only. METAR checks at :00:30; Surface at :10:30 with bounded saved-data retries while collection finishes. Opening/Refresh reads saved manifests, without launching upstream processing. Cold starts, browser downloads and feed latency still apply. First viewing is not guaranteed instantaneous. Partial source failures and delayed updates are shown. Initial Surface history fills over twelve hours.
+- `weather-lab`: public web service, 1 CPU / 1 GiB, zero minimum and one maximum instance.
+- `weather-collector`: private service, 1 CPU / 1 GiB, zero minimum and one maximum instance. Its endpoints cannot be invoked anonymously.
+- `<project>-weather-data`: private bucket. Web identity has object-read permission; collector has object-management permission, scoped to this bucket.
+- `weather-live-radar`: every minute for KMPX, using `/collect/radar-KMPX`.
+- `weather-live-satellite`: every five minutes, collecting all three products.
+- `weather-live-observations`: at :55, :58 and :02 every hour (`2,55,58 * * * *`), checking official AWC routine METARs for all three stations.
+- `weather-live-forecast`: every five minutes, checking the NWS MapClick JSON forecast that matches the linked webpage.
+- `weather-live-metar-clouds`: at :55, :58 and :02 each hour, preparing twelve routine hourly snapshots shared by cloud and weather views.
 
-## Verify after deployment
+It creates `weather-collector` and `weather-scheduler` service identities alongside the existing web/build identities. The Scheduler identity may invoke only the collector. The dedicated data bucket uses one-day image cleanup, no object versioning and no soft-delete retention, to avoid accumulating replaceable history. Map overlays and current manifests are retained. The script still removes only the specifically named obsolete model job/scheduler and its old forecast object/empty bucket. It also deletes the retired `weather-live-radar-KEVX` Scheduler job and its two live manifest/checkpoint objects. Old KEVX binary frames become inaccessible and expire under the existing one-day radar lifecycle. It preserves Artifact Registry revisions for rollback.
+
+Cloud changes occur only after running this script, not when code is saved to GitHub. The deployment identity needs permission to manage the named services, Scheduler jobs, service identities and bucket IAM settings, enable APIs and submit builds. New projects must have billing enabled.
+
+## Refresh behavior
+
+Radar and satellite prepare data even when nobody has the site open. Viewing the radar checks the prepared manifest every 30 seconds; satellite checks every minute. These requests do not trigger upstream processing. The newest completed low-level scan appears before the entire loop downloads, and already decoded frames are reused. Browser download time and upstream publishing latency still apply.
+
+Current conditions and twelve hourly history rows use the official routine METAR nearest :53 within :50–:59, labeling the following hour and excluding SPECI/rapid reports. Temperature/dew point prefer the raw METAR T remark in tenths Celsius, with decoded source values as fallback, averaged before Fahrenheit conversion. Current conditions require all three valid reports for the labeled hour. Incomplete historical rows retain valid contributors and are flagged.
+
+The observations Scheduler cron is `2,55,58 * * * *` in UTC (the same minute marks in Central time). Each collector invocation invalidates the AWC cache so consecutive checks actually fetch independently. No main-observation MADIS download occurs. Corrections and partial batches merge with retained sixteen-hour AWC reports; failures leave the saved snapshot/check time untouched. The initial HTML is rendered with prepared observation values/history and safely embeds the same JSON for startup hydration, avoiding a second startup API round trip. Root-page rendering never downloads upstream METAR data. Browser API reads occur on visible-tab return/manual refresh and 30 seconds after the three collector check times. It no longer polls observations every minute. API freshness uses the latest scheduled check with a two-minute grace period, rather than flagging the normal between-check gap. The regional METAR job uses the same three minute marks.
+
+
+The METAR dropdown offers unboxed cloud ceiling numbers (known BKN/OVC bases only) and transparent weather station models (open circle, wind barbs, temperature and dew point). Both share 12 routine hourly snapshots closest to :53 within :50–:59, excluding SPECI/rapid data and labeling the following hour. No Live position or cloud-filled weather circles remain. KCFE stays excluded. The metro plot uses the same routine selection and T-remark precision as the main hourly observations.
+
+The regional job's cron is `2,55,58 * * * *`. AWC current cache discovers stations, while bounded history queries recover routine reports replaced by SPECI in the cache. Every scheduled check merges short overlap queries with durable history; initial collection backfills thirteen hours. No MADIS feed is downloaded. The browser/API use prepared hourly data with schedule-aware staleness, gzip compression, and manual position preservation. Wind barbs, closer zoom-aware spacing and original boundary map styling remain. The original COD satellite products remain intact.
+
+NWS retains its own issuance schedule; checking every five minutes does not create new NWS forecasts. Forecast periods, narrative and issue time all come from the same MapClick response. Saved periods are filtered again at request time so an expired afternoon cannot linger in the API. During deployment, the forecast job is triggered to prepare the new source; until it succeeds, an old API-format snapshot is not presented as the matching webpage feed. Original satellite RGB imagery, grid, boundaries and attribution are preserved. Radar boundary tiles and white background are unchanged. Native Level II replaces the coarse image feed and keeps complete KMPX lowest-tilt surveillance scans, including supplemental scans. Every available completed scan in the preceding two hours is included, without a frame-count limit. Missing source scans are indicated rather than extending the loop beyond two hours. Radar operator settings and feed latency determine the actual interval; minute polling does not force faster antenna scans.
+
+## Verify
 
 ```bash
 gcloud scheduler jobs list --project=weather-lab-511113 --location=us-central1
@@ -46,12 +72,10 @@ gcloud run services list --project=weather-lab-511113 --region=us-central1
 gcloud storage ls gs://weather-lab-511113-weather-data/live/
 ```
 
-There should be **five active Weather Lab jobs**. Expected manifests: `radar-KMPX.json`, its private `radar-state-KMPX.json` checkpoint, `metar-clouds.json`, `surface.json`, `forecast.json`, and three `satellite-<product>.json` files. Legacy `observations.json` may remain but is not used by the page. Immutable Surface assets are under `surface/v1/`.
-
-If Surface data is not ready, inspect `weather-collector` logs for feed timeouts, download-size checks or permissions. After fixing a failure, use **Run now** on `weather-live-surface`. A partial result is not presented as full source availability. Deployment requires permission to manage the named services, jobs, identities, bucket IAM and builds.
+The bucket should contain `radar-KMPX.json`, its private `radar-state-KMPX.json` checkpoint, `observations.json`, `metar-clouds.json`, `forecast.json` and three `satellite-<product>.json` manifests. If initial collection fails, inspect the `weather-collector` service logs, fix the reported feed/permission error and trigger the affected Scheduler job with its **Run now** control. The public web service does not fall back to expensive per-visitor radar or original-satellite processing in deployed mode.
 
 ## Costs and stopping updates
 
-Charges depend on active collector runtime, memory, storage operations, traffic, builds and account-wide free tiers. Surface adds one hourly job and a large public MADIS download; browser analysis does not require paid cloud CPU. Benchmark deployed runtime before assigning an exact monthly estimate. Both services scale to zero, but storage/Artifact Registry charges can remain.
+Charges depend on collector runtime, storage operations, web traffic, image downloads and any remaining free-tier allowances. There are five Scheduler jobs; see [Cloud Scheduler pricing](https://cloud.google.com/scheduler/pricing). The METAR collector runs at :55/:58/:02 each hour and stores one rolling history/live JSON object, with a larger history backfill on the first deployment of the data format. It limits historic overlap requests to avoid repeating the full backfill on later checks. Native Level II collection costs should be assessed from deployed runtime, storage operations and traffic. Both services use request-based billing and scale-to-zero settings; storage and Artifact Registry costs can remain while idle.
 
-Pause or delete the **five managed `weather-live-*` Scheduler jobs** to stop unattended collection. Pausing retains the site and cached data; updates stop and delayed data are indicated. Deleting the Google project is the comprehensive cleanup option when no longer wanted.
+To stop unattended collection, pause or delete the five `weather-live-*` Scheduler jobs in the Cloud Scheduler GUI. Do not confuse them with the retired `weather-hourly` numerical-model job. Pausing stops updates but preserves the site and saved data; the site will flag delayed updates. Removing the project is the comprehensive cleanup option when the experiment is no longer wanted.

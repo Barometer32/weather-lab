@@ -208,34 +208,3 @@ body.satellite-expanded { overflow: hidden; }
 @media(max-width:600px) {
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
-
-/* Independent surface observation/analysis viewer; original maps are intact. */
-#surface-map { height:580px; background:white; z-index:0; }
-.surface-options { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-end; margin-bottom:16px; }
-.surface-comparison { flex-basis:100%; }
-.surface-comparison summary { cursor:pointer; color:var(--muted); font-size:13px; padding:6px 0; }
-.surface-comparison-options { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-end; padding-top:6px; }
-.surface-options label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; }
-.surface-options select { color:#182521; font-size:13px; max-width:260px; }
-.surface-options .surface-toggle { flex-direction:row; align-items:center; min-height:44px; font-size:13px; }
-.surface-toggle input { width:18px; height:18px; accent-color:var(--green); }
-.surface-reading { display:block; font:800 12px/22px system-ui,sans-serif; color:#182521; text-align:center; text-shadow:0 0 2px #fff,1px 1px #fff,-1px -1px #fff,1px -1px #fff,-1px 1px #fff; }
-.surface-contour-label { font:700 10px/18px system-ui,sans-serif; text-align:center; color:#304139; text-shadow:0 0 2px white,1px 1px white,-1px -1px white; }
-.surface-legend { max-width:760px; margin:12px auto 0; }
-.surface-legend p { margin:4px 0 8px; }
-.surface-gradient { height:14px; border-radius:3px; border:1px solid #0002; }
-.surface-networks { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:12px; }
-.surface-network { font-size:12px; color:var(--muted); }
-#surface-search { width:min(100%,360px); display:block; min-height:44px; padding:8px 10px; margin:10px 0; border:1px solid var(--border); border-radius:6px; }
-#surface-status { min-height:22px; }
-@media(max-width:600px) {
-  #surface-map { height:470px; }
-  .surface-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .surface-options label { min-width:0; }
-  .surface-comparison { grid-column:1 / -1; }
-  .surface-comparison-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .surface-comparison-options label:first-child { grid-column:1 / -1; }
-  .surface-options select { width:100%; min-width:0; max-width:none; }
-  #surface .section-heading { gap:12px; margin-bottom:16px; }
-  #surface h1 { font-size:26px; }
-}
