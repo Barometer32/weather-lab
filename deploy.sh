@@ -3,12 +3,27 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
-WEATHER_IMAGE="${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/weather-lab/app:latest"
+# A recovered Artifact Registry repository may reject pushes after project deletion.
+# Use a fresh repository; callers can select another unused name after a restore.
+WEATHER_ARTIFACT_REPOSITORY="${WEATHER_ARTIFACT_REPOSITORY:-weather-lab-images}"
+WEATHER_IMAGE="${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/${WEATHER_ARTIFACT_REPOSITORY}/app:latest"
 WEATHER_WEB_SA="weather-web@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_BUILD_SA="weather-builder@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_COLLECTOR_SA="weather-collector@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_SCHEDULER_SA="weather-scheduler@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_DATA_BUCKET="${WEATHER_PROJECT}-weather-data"
+
+# Stop before builds or resource changes if project restoration/billing is incomplete.
+WEATHER_PROJECT_STATE="$(gcloud projects describe "$WEATHER_PROJECT" --format='value(lifecycleState)')"
+if [[ "$WEATHER_PROJECT_STATE" != "ACTIVE" ]]; then
+  printf 'Project %s is %s. Restore it before deploying.\n' "$WEATHER_PROJECT" "$WEATHER_PROJECT_STATE" >&2
+  exit 1
+fi
+WEATHER_BILLING_ENABLED="$(gcloud billing projects describe "$WEATHER_PROJECT" --format='value(billingEnabled)')"
+if [[ "${WEATHER_BILLING_ENABLED,,}" != "true" ]]; then
+  printf 'Billing is not enabled for %s. Link an active billing account before deploying.\n' "$WEATHER_PROJECT" >&2
+  exit 1
+fi
 
 gcloud config set project "$WEATHER_PROJECT"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com
@@ -22,16 +37,20 @@ fi
 if gcloud scheduler jobs describe weather-live-radar-KEVX --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-radar-KEVX --location="$WEATHER_REGION" --quiet
 fi
-# One shared METAR job now supplies the main observations and both maps.
+# One shared hourly METAR job supplies airport plots and cloud ceilings.
 if gcloud scheduler jobs describe weather-live-observations --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-observations --location="$WEATHER_REGION" --quiet
+fi
+# Retire the removed Surface/MADIS collector if an earlier deployment created it.
+if gcloud scheduler jobs describe weather-live-surface --location="$WEATHER_REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs delete weather-live-surface --location="$WEATHER_REGION" --quiet
 fi
 if gcloud run jobs describe weather-forecast --region="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud run jobs delete weather-forecast --region="$WEATHER_REGION" --quiet
 fi
 
-if ! gcloud artifacts repositories describe weather-lab --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud artifacts repositories create weather-lab --repository-format=docker --location="$WEATHER_REGION"
+if ! gcloud artifacts repositories describe "$WEATHER_ARTIFACT_REPOSITORY" --location="$WEATHER_REGION" >/dev/null 2>&1; then
+  gcloud artifacts repositories create "$WEATHER_ARTIFACT_REPOSITORY" --repository-format=docker --location="$WEATHER_REGION"
 fi
 for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-scheduler; do
   if ! gcloud iam service-accounts describe "${WEATHER_SA_NAME}@${WEATHER_PROJECT}.iam.gserviceaccount.com" >/dev/null 2>&1; then
