@@ -24,8 +24,12 @@ let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
 
-// Fixed reference point on the radar map.
-const radarLocation = [44.782146, -93.485439];
+// Fixed reference points on the radar map.
+const radarLocations = [
+  [44.782146, -93.485439],
+  [44.860698, -93.3306165],
+  [44.932140, -93.410091]
+];
 
 function showFrame(n) {
   if (!overlays.length) return;
@@ -44,11 +48,11 @@ function initMap() {
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
 
-  if (radarLocation) {
-    map.createPane("location");
-    map.getPane("location").style.zIndex = 620;
-    map.getPane("location").style.pointerEvents = "none";
-    L.circleMarker(radarLocation, {
+  map.createPane("location");
+  map.getPane("location").style.zIndex = 620;
+  map.getPane("location").style.pointerEvents = "none";
+  for (const location of radarLocations) {
+    L.circleMarker(location, {
       pane:"location", radius:3, color:"#ffffff", weight:1,
       opacity:1, fillColor:"#000000", fillOpacity:1, interactive:false
     }).addTo(map);
