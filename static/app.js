@@ -23,6 +23,30 @@ const radarSite = "KMPX";
 let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
+
+function readRadarLocation() {
+  const storageKey = "weather-lab-radar-location";
+  const parse = value => {
+    if (typeof value !== "string") return null;
+    const parts = value.split(",");
+    if (parts.length !== 2 || parts.some(part => !part.trim())) return null;
+    const point = parts.map(Number);
+    return point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180 ? point : null;
+  };
+  // URL fragments stay in the browser; the location is not sent to the server.
+  const prefix = "#radar-location=";
+  if (window.location.hash.startsWith(prefix)) {
+    const point = parse(window.location.hash.slice(prefix.length));
+    if (point) {
+      try { window.localStorage.setItem(storageKey, point.join(",")); } catch (_) {}
+      try { window.history.replaceState(null, "", window.location.pathname + window.location.search); } catch (_) {}
+      return point;
+    }
+  }
+  try { return parse(window.localStorage.getItem(storageKey)); } catch (_) { return null; }
+}
+const radarLocation = readRadarLocation();
+
 function showFrame(n) {
   if (!overlays.length) return;
   index = (n + overlays.length) % overlays.length;
@@ -39,6 +63,17 @@ function initMap() {
   nativeLayer=NativeRadar.layer().addTo(map);
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
+
+  if (radarLocation) {
+    map.createPane("location");
+    map.getPane("location").style.zIndex = 620;
+    map.getPane("location").style.pointerEvents = "none";
+    L.circleMarker(radarLocation, {
+      pane:"location", radius:5, color:"#ffffff", weight:2,
+      opacity:1, fillColor:"#2563eb", fillOpacity:1, interactive:false
+    }).addTo(map);
+  }
+
   for (const [layer, opacity] of [["uscounties", 0.35], ["usstates", 0.8]]) {
     const boundaries = L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${layer}/{z}/{x}/{y}.png`, {
       pane:"boundaries", opacity,
