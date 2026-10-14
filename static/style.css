@@ -140,12 +140,11 @@ body.radar-expanded { overflow: hidden; }
 #satellite-surface { position: relative; background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 #satellite-map-area { position: relative; overflow: hidden; }
 #satellite-map { width: 100%; height: auto; aspect-ratio: 16 / 9; min-height: 0; z-index: 0; background: white; }
-.legend.stepped-legend { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-.stepped-legend .swatch { flex-shrink: 0; }
-.stepped-legend .legend-note { grid-column: 1 / -1; margin: 0; }
+.legend.continuous-legend { display: block; }
+.reflectivity-gradient { height: 18px; border-radius: 4px; }
 #map .leaflet-image-layer { image-rendering: crisp-edges; image-rendering: pixelated; }
-/* Only the echo canvas is softened; boundaries and location dots stay sharp. */
-.native-radar-canvas { position:absolute; image-rendering:auto; filter:blur(1px); }
+.native-radar-canvas { position:absolute; image-rendering:pixelated; }
+.reflectivity-ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
 #satellite-surface:fullscreen, #satellite-surface.expanded { display: flex; flex-direction: column; width: 100%; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
 #satellite-surface:fullscreen #satellite-map-area, #satellite-surface.expanded #satellite-map-area { flex: 1 1 0; min-height: 0; }
 #satellite-surface:fullscreen #satellite-map, #satellite-surface.expanded #satellite-map { height: 100%; min-height: 0; }
@@ -153,7 +152,6 @@ body.radar-expanded { overflow: hidden; }
 #satellite-surface.expanded { position: fixed; inset: 0; z-index: 2000; }
 body.satellite-expanded { overflow: hidden; }
 @media (max-width: 600px) {
-  .legend.stepped-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .forecast-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 14px; padding: 14px 16px; }
   .forecast-row h2 { font-size: 17px; }
   .forecast-temperature { flex-direction: row; align-items: baseline; gap: 7px; }

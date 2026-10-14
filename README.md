@@ -3,7 +3,7 @@
 A phone-friendly Twin Cities weather page with four views:
 
 - **METAR (first/default):** individual airport temperatures/dew points in °F, black wind-flow arrows with speed in mph, and a cloud-ceiling dropdown. Both views have twelve hourly snapshots. KFCM/KMIC/KMSP/KSTP stay independent; KCFE/KFCE and KSGS are excluded.
-- **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, five stepped green/yellow/orange/red intensity bands from 10 dBZ, and a manual timeline.
+- **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, the original continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
 
@@ -34,19 +34,9 @@ KMPX has an authenticated minute Scheduler job and a 45-second steady-state work
 
 Native super-resolution reflectivity has 250-meter range gates and 0.5° azimuth spacing. These are polar measurements, not 250-meter square geographic pixels; cross-beam resolution worsens with distance. Compressed binary frame packets keep native azimuths and range geometry. The canvas viewer samples the nearest native gate at the current zoom using WGS84 geodesic distances/bearings and standard 4/3-earth beam geometry, without smoothing or averaging. Codes below 10 dBZ/missing/range-folded are transparent. No geographic PNG raster limits the displayed detail.
 
-Reflectivity uses five solid color bands, with no color interpolation. Each cutoff includes its lower bound and excludes the next cutoff:
+Reflectivity uses the original continuous COD-style palette: greens through 31.5 dBZ; yellow from about 32 dBZ, then orange and red; magenta/purple from 65 dBZ; and cyan at 80 dBZ and above. The exact original stops are restored, and native 0.5 dBZ codes interpolate between them. Below 10 dBZ/missing/range-folded stays transparent. The continuous color-bar legend matches the renderer. Reflectivity is not an exact surface rain-rate estimate: snow, hail, and non-rain targets can produce echoes too. The API supplies the current gradient for all retained raw scans, so restoring colors does not discard the two-hour history.
 
-| dBZ | Color | Approximate rain intensity |
-| --- | --- | --- |
-| 10 to below 22 | Green (`#22b14c`) | Light |
-| 22 to below 30 | Dark green (`#006400`) | Light–moderate |
-| 30 to below 39 | Yellow (`#ffd800`) | Moderate |
-| 39 to below 45 | Orange (`#ff8c00`) | Moderate–heavy |
-| 45 and above | Red (`#e00000`) | Heavy |
-
-These are simplified display categories, not an exact surface rain-rate estimate or an official NWS intensity scale. Snow, hail, and non-rain targets can produce different reflectivity; strong red echoes may include hail. All values above 45 dBZ remain red. The labeled five-swatch legend matches the palette. The API supplies the current palette for all retained raw scans, so a palette change does not discard the two-hour history.
-
-The echo canvas has a one-screen-pixel Gaussian display blur to soften blocky edges. Underlying native values, sampling, collection and history are unchanged. Colors blend visually near edges, and tiny isolated echoes can look fainter. The blur applies only to echoes, so county/state boundaries and the three reference dots remain sharp. Its radius stays small at every zoom instead of blurring large areas of precipitation.
+Native gates are displayed sharply, without spatial averaging or a display blur. Color interpolation follows each original half-dBZ code; it does not blend neighboring radar cells. Map boundaries and the three reference dots remain sharp.
 
 The map retains its white background, state/county boundaries, no city labels, zoom/pan, and a manual slider on phones and desktop. Zoom can reach level 13. Radar timestamps use Central time. History backfill, gaps and stale scans are flagged. The scan timestamp is its start; the native packet also retains its completion time.
 
@@ -95,7 +85,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md). In the existing Google Cloud Shell checkout:
 ```bash
 cd ~/weather-lab
 git pull --ff-only
-bash deploy.sh weather-lab-511113
+bash deploy.sh weather-lab-20261013-204529
 ```
 
 The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast every five minutes; the Upper Midwest METAR job once hourly at :00. The shared job has no automatic retries. Deployment triggers one initial collection; subsequent scheduled pulls run at the top of the hour. Both services can scale to zero. Prepared images are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.

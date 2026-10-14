@@ -25,20 +25,22 @@ UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 OBSERVATION_CHECK_MINUTES = (0,)
 IEM = "https://mesonet.agron.iastate.edu"
-# Five discrete reflectivity bands. Rain-intensity labels are approximate;
-# reflectivity can also come from snow, hail, or non-precipitation targets.
-PALETTE = [(10, "#22b14c"), (22, "#006400"), (30, "#ffd800"),
-           (39, "#ff8c00"), (45, "#e00000")]
-RADAR_INTENSITIES = ["Light", "Light–moderate", "Moderate", "Moderate–heavy", "Heavy"]
-RENDER_VERSION = "five-band-v9"
+# Reflectivity color stops sampled from the user's COD reference, starting at
+# 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
+PALETTE = [(10, "#02621e"), (15, "#117f26"), (20, "#24a32f"),
+           (25, "#36c538"), (30, "#4ae942"), (31.5, "#50f346"),
+           (31.51, "#fffb27"), (35, "#ffe524"), (40, "#ffb51c"),
+           (45, "#ff8815"), (50, "#ff580e"), (55, "#ff2606"),
+           (60, "#f00000"), (64.99, "#a40000"), (65, "#e600c8"),
+           (70, "#f349e4"), (75, "#e88df8"), (79.99, "#bdbeff"),
+           (80, "#00d5d0")]
+RENDER_VERSION = "cod-gradient-v10-native"
 _cache, _locks = {}, {}
 _lock_guard = threading.Lock()
 
 
 def radar_palette():
-    return [{"dbz": value, "color": color, "label": RADAR_INTENSITIES[i],
-             "maxDbz": PALETTE[i+1][0] if i+1 < len(PALETTE) else None}
-            for i, (value, color) in enumerate(PALETTE)]
+    return [{"dbz": value, "color": color} for value, color in PALETTE]
 
 
 def utcnow():
@@ -276,8 +278,8 @@ def recolor_and_project(png, worldfile):
     stops = np.array([p[0] for p in PALETTE])
     colors = np.array([[int(color[i:i+2], 16) for i in (1, 3, 5)] for _, color in PALETTE])
     visible = (codes >= 2) & (dbz >= 10)
-    bands = np.searchsorted(stops, dbz[visible], side="right") - 1
-    rgba[:, :, :3][visible] = colors[bands]
+    for channel in range(3):
+        rgba[:, :, channel][visible] = np.rint(np.interp(dbz[visible], stops, colors[:, channel])).astype(np.uint8)
     rgba[:, :, 3][visible] = 220
     dx, rot1, rot2, dy, x0, y0 = map(float, worldfile.decode().split())
     if rot1 != 0 or rot2 != 0 or dx <= 0 or dy >= 0:
@@ -517,7 +519,7 @@ def radar_api():
         # Native packets retain raw reflectivity codes, so the current palette
         # applies immediately to every saved scan without recollecting history.
         return jsonify({**data, "frames": scans, "palette": radar_palette(),
-                        "paletteMode": "steps", "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
+                        "paletteMode": "continuous", "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
     except Exception:
         app.logger.exception("Radar scan list failed")
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502

@@ -11,7 +11,7 @@ in authenticated Google Cloud Shell from a fresh checkout:
   WEATHER_LAB_DIR="$(mktemp -d "$HOME/weather-lab-restore.XXXXXX")"
   git clone https://github.com/Barometer32/weather-lab.git "$WEATHER_LAB_DIR"
   cd "$WEATHER_LAB_DIR"
-  bash deploy.sh weather-lab-511113
+  bash deploy.sh weather-lab-20261013-204529
 )
 ```
 
@@ -48,12 +48,11 @@ to thousands of feet with a minimum displayed value of 1.
 
 Radar keeps native KMPX lowest 0.5-degree completed scans, including available
 supplemental scans, across the previous two hours with no frame-count cap or
-smoothing. Below 10 dBZ stays transparent. Five solid display bands start at
-10 (green/light), 22 (dark green/light–moderate), 30 (yellow/moderate),
-39 (orange/moderate–heavy), and 45 (red/heavy) dBZ. Rain labels are approximate;
-snow, hail, and non-rain targets differ. Native data and retained history are
-unchanged by the display palette. A one-screen-pixel Gaussian blur softens only
-the echo canvas; tiny echoes can look fainter and colors blend near edges.
+smoothing of stored values. Below 10 dBZ stays transparent. The original
+continuous COD-style green/yellow/orange/red/magenta/purple/cyan gradient is
+restored; half-dBZ source codes interpolate between the original color stops.
+The public API applies the current palette to retained native scans immediately.
+Native cells are displayed without spatial averaging or display blur.
 Boundaries and reference dots remain sharp.
 
 Satellite keeps the original COD Central Minnesota True Color, Day Cloud
@@ -86,9 +85,9 @@ overlays remain. The data bucket has no versioning or soft-delete retention.
 ## Verify and refresh
 
 ```bash
-gcloud scheduler jobs list --project=weather-lab-511113 --location=us-central1
-gcloud run services list --project=weather-lab-511113 --region=us-central1
-gcloud storage ls gs://weather-lab-511113-weather-data/live/
+gcloud scheduler jobs list --project=weather-lab-20261013-204529 --location=us-central1
+gcloud run services list --project=weather-lab-20261013-204529 --region=us-central1
+gcloud storage ls gs://weather-lab-20261013-204529-weather-data/live/
 ```
 
 There should be four active Weather Lab Scheduler jobs. Expected manifests

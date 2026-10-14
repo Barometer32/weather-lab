@@ -71,19 +71,16 @@ function initMap() {
 
 }
 function renderRadarLegend(palette) {
-  $("legend").replaceChildren(); $("legend").className = "legend stepped-legend";
-  for (const band of palette) {
-    const item = document.createElement("div"); item.className = "legend-item";
-    const swatch = document.createElement("span"); swatch.className = "swatch";
-    swatch.style.background = band.color; swatch.setAttribute("aria-hidden", "true");
-    const description = document.createElement("span"); description.textContent = band.label;
-    const range = document.createElement("small");
-    range.textContent = band.maxDbz == null ? `${band.dbz}+ dBZ` : `${band.dbz}–<${band.maxDbz} dBZ`;
-    description.append(range); item.append(swatch, description); $("legend").append(item);
+  const minimum = 10, maximum = 80;
+  $("legend").replaceChildren(); $("legend").className = "legend continuous-legend";
+  const bar = document.createElement("div"); bar.className = "reflectivity-gradient";
+  bar.style.background = `linear-gradient(to right, ${palette.map(p => `${p.color} ${(p.dbz-minimum)/(maximum-minimum)*100}%`).join(", ")})`;
+  const ticks = document.createElement("div"); ticks.className = "reflectivity-ticks";
+  for (let dbz=10; dbz<=80; dbz+=10) {
+    const tick = document.createElement("span"); tick.textContent = dbz === 80 ? "80+" : String(dbz); ticks.append(tick);
   }
-  const note = document.createElement("p"); note.className = "small-note legend-note";
-  note.textContent = "Approximate rain intensity · Below 10 dBZ is hidden. Snow, hail, and non-rain echoes can differ; strong red echoes may include hail.";
-  $("legend").append(note);
+  const label = document.createElement("p"); label.className = "small-note"; label.textContent = "Reflectivity · dBZ";
+  $("legend").append(bar,ticks,label);
 }
 async function loadRadar() {
   if (radarBusy) return;
