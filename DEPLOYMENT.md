@@ -32,19 +32,22 @@ not prove that Artifact Registry has recovered.
 
 ## Page and data
 
-The four tabs are METAR (default), Radar, Satellite, and Forecast. There is no
-Observations or Surface tab and no active MADIS, RWIS, MnDOT, Wisconet, AI,
-HRRR, or RRFS collector.
+The four tabs are Observations (default), Radar, Satellite, and Forecast.
+All station plots use IEM's open bulk current-observation feeds from twelve
+states, filtered to the Upper Midwest. Airport, RWIS, agricultural and other
+sites with fresh temperature/dew point/wind appear, with more plots revealed
+as zoom increases. The slider has twelve completed hourly positions plus
+latest reports. A new data store builds hourly history over time. Readings
+older than 90 minutes are removed from the latest view. Range/age checks are
+not full MADIS QC. Popups identify each network and actual report time.
 
-METAR has an airport weather plot and cloud ceiling dropdown. KFCM, KMIC and
-KMSP remain separate airports; the metro average is removed. KCFE/KFCE and
-KSGS are excluded. One NOAA Aviation Weather Center bulk download at :00
-selects routine reports closest to :53 within :50–:59, excludes SPECI/rapid
-reports, and labels the following hour. Both modes share twelve hourly
-snapshots. Temperature and dew point use available T-remark precision before
-Fahrenheit display. Short wind arrows point toward where wind is going, with
-speed in mph. Cloud mode labels only the lowest reported BKN/OVC base, rounded
-to thousands of feet with a minimum displayed value of 1.
+Cloud ceilings remain routine hourly NOAA AWC airport reports nearest :53
+within :50–:59, excluding SPECI/rapid reports and labeled with the following
+hour. KFCM/KMIC/KMSP remain independent. KCFE/KFCE and KSGS are excluded.
+Cloud mode labels only the lowest reported BKN/OVC base, rounded to thousands
+of feet with a minimum displayed value of 1. It retains its separate twelve
+hourly positions. The legacy average observation API remains compatibility-only.
+There is no model, AI, direct restricted MADIS, MnDOT or Wisconet collector.
 
 Radar keeps native KMPX lowest 0.5-degree completed scans, including available
 supplemental scans, across the previous two hours with no frame-count cap or
@@ -53,7 +56,7 @@ continuous COD-style green/yellow/orange/red/magenta/purple/cyan gradient is
 restored; half-dBZ source codes interpolate between the original color stops.
 The public API applies the current palette to retained native scans immediately.
 Native cells are displayed without spatial averaging or display blur.
-Boundaries and reference dots remain sharp.
+Boundaries remain sharp; the three personal reference dots are removed.
 
 Satellite keeps the original COD Central Minnesota True Color, Day Cloud
 Phase and Nighttime Microphysics products and manual timeline. Forecast keeps
@@ -73,7 +76,8 @@ minimum 0 / maximum 1 instance and request-based billing.
 | weather-live-radar | Every minute, /collect/radar-KMPX |
 | weather-live-satellite | Every five minutes |
 | weather-live-forecast | Every five minutes |
-| weather-live-metar-clouds | Once hourly at :00, no scheduled retries |
+| weather-live-metar-clouds | Once hourly at :00, two bounded retries |
+| weather-live-stations | Every five minutes, /collect/stations |
 
 Scheduler uses OIDC with the weather-scheduler identity, which may invoke the
 private collector. The script creates missing managed resources, resumes its
@@ -90,8 +94,8 @@ gcloud run services list --project=weather-lab-20261013-204529 --region=us-centr
 gcloud storage ls gs://weather-lab-20261013-204529-weather-data/live/
 ```
 
-There should be four active Weather Lab Scheduler jobs. Expected manifests
-include radar-KMPX.json, radar-state-KMPX.json, metar-clouds.json, forecast.json
+There should be five active Weather Lab Scheduler jobs. Expected manifests
+include radar-KMPX.json, radar-state-KMPX.json, station-plots.json, metar-clouds.json, forecast.json
 and three satellite product manifests. A legacy observations.json may remain
 but is not used by the page.
 

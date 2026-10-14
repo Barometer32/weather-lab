@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>WEATHER LAB · Twin Cities</title>
-  <meta name="description" content="Individual Upper Midwest METAR weather and cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Individual Upper Midwest Mesonet station weather and airport cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
@@ -15,7 +15,7 @@
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
-    <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">METAR</button>
+    <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">Observations</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
@@ -23,20 +23,21 @@
 </header>
 <main>
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">METAR plots</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="plots">METAR plots</option><option value="clouds">METAR cloud</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow">STATION OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Station plots</h1><p id="metar-timeline-description">Latest station reports + 12 hourly snapshots · zoom in for more</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="plots">All station plots</option><option value="clouds">METAR cloud</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div class="cloud-map-surface">
     <div id="metar-cloud-map" aria-label="Individual station weather with state and county boundaries"></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
-      <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
-      <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
+      <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading station reports…</span>
+      <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">Station history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Station timeline: twelve hourly snapshots and latest reports" disabled></div>
       <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
     </div>
   </div>
-  <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly METARs…</p>
+  <p id="metar-cloud-status" class="small-note" role="status">Loading station reports…</p>
   <p id="metar-cloud-legend" class="small-note" hidden>Only the lowest broken or overcast ceiling is plotted, as an unboxed number in rounded thousands of feet above ground. 25 = 25,000 ft · 9 = 9,000 ft · 2 = 2,200 ft rounded. Heights below 1,000 ft show 1. Other stations have no map symbol. Tap a number for exact heights and all layers. KCFE and KSGS are excluded.</p>
   <p id="metar-plot-legend" class="small-note">Temperature upper left and dew point lower left in °F. The short black arrow points toward where the wind is going; the number beside it is wind speed in mph. Calm or variable winds have text instead of a directional arrow. KFCM, KMIC, KMSP and KSTP are separate stations. KCFE and KSGS are excluded. Plots stay at their real locations; zoom in to reveal more without overlapping. Tap for station ID, report time and exact values. The searchable list includes sites hidden to avoid overlap.</p>
-  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC, KSTP…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
-  <details class="method"><summary>Compare METAR clouds with satellite</summary><p>CLR means an automated station detected no clouds at or below 12,000 ft. It does not prove clouds exist above that level or that they are thin. SKC means the observer reported a clear sky. NSC, NCD and CAVOK have different reporting criteria and are kept distinct. Only reported broken or overcast layers with known heights are plotted in cloud mode.</p><p>Cloud bases are above the airport ground level, not sea level, and do not measure cloud thickness or tops. Satellite usually shows the uppermost visible cloud layer, so opaque high clouds can hide lower layers. VV is vertical visibility into an obscured sky, not a measured cloud base. Hourly slider positions use one routine METAR per station per hour, closest to :53 within :50–:59, with SPECI excluded. Both cloud and weather views use only the twelve routine hourly snapshots. Upper Midwest reports are collected once an hour at :00 for both METAR views. Late reports or routine reports hidden by a newer SPECI in the latest bulk feed can be missing for that hour; no additional source requests run within the hour. SPECI and five-minute reports are excluded. Source delivery delays remain possible. Each view shows its actual report time when tapped. An 8:53 p.m. report is labeled 9 p.m. Missing hourly reports are left missing, with no older report carried forward. Some stations do not issue reports within this window and will not appear. Both sliders end at the newest hourly snapshot and go back twelve hourly positions. Tap a station for all layers and the actual report time.</p></details>
+  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="Station ID, name, or network…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
+  <details class="method"><summary>About the station data and cloud ceilings</summary><p>Station plots use openly available Iowa Environmental Mesonet observations from airports, road-weather stations, agricultural sensors, and other reporting networks across the Upper Midwest. The latest view uses reports no more than 90 minutes old; each station keeps its own report time. Click a plot for its name, network and time. Collection checks every five minutes. Historical positions show the latest collected report within the preceding hour, with no older report carried forward. History builds as collection runs; empty hours stay empty.</p><p>Missing values, invalid coordinates, future reports and physically implausible readings are filtered. This feed does not provide complete NOAA MADIS quality flags; local station exposure and equipment can affect readings. Road-weather stations measure air temperature here, not pavement temperature. Source data is provided as-is by the Iowa Environmental Mesonet.</p><p>Cloud mode uses airport METARs from the NOAA Aviation Weather Center, collected hourly at :00. It selects the routine report nearest :53 within :50–:59 and labels the following hour. An 8:53 p.m. report is labeled 9 p.m. Missing hourly reports stay missing. Only the lowest known broken or overcast cloud base is plotted; click for exact heights and all layers. CLR means an automated station detected no clouds at or below 12,000 ft, and does not describe higher clouds. Cloud bases are above the airport ground level; satellite shows the uppermost visible layer and can hide lower layers.</p></details>
+  <p class="source">Station plots: <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. Airport cloud ceilings: NOAA Aviation Weather Center.</p>
   <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a> · <a href="https://aviationweather.gov/help/data/" target="_blank" rel="noopener">Cloud reporting guide</a></p>
 </section>
 
@@ -83,5 +84,5 @@
 
 
 </main>
-<footer>WEATHER LAB · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
+<footer>WEATHER LAB · Station observations via Iowa Environmental Mesonet · Airport clouds from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
 </body></html>

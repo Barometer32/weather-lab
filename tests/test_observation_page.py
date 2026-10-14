@@ -17,7 +17,7 @@ class MetarHomePageTests(unittest.TestCase):
         self.assertEqual(tabs,['metar-clouds','radar','satellite','forecast'])
         self.assertIn('id="tab-metar-clouds" aria-selected="true"',html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">',html)
-        self.assertIn('<option value="plots">METAR plots</option>',html)
+        self.assertIn('<option value="plots">All station plots</option>',html)
         self.assertIn('wind speed in mph',html)
         self.assertEqual(response.headers['Cache-Control'],'no-store')
 

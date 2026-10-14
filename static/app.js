@@ -24,13 +24,6 @@ let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
 
-// Fixed reference points on the radar map.
-const radarLocations = [
-  [44.782146, -93.485439],
-  [44.860698, -93.3306165],
-  [44.932140, -93.410091]
-];
-
 function showFrame(n) {
   if (!overlays.length) return;
   index = (n + overlays.length) % overlays.length;
@@ -47,16 +40,6 @@ function initMap() {
   nativeLayer=NativeRadar.layer().addTo(map);
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
-
-  map.createPane("location");
-  map.getPane("location").style.zIndex = 620;
-  map.getPane("location").style.pointerEvents = "none";
-  for (const location of radarLocations) {
-    L.circleMarker(location, {
-      pane:"location", radius:3, color:"#ffffff", weight:1,
-      opacity:1, fillColor:"#000000", fillOpacity:1, interactive:false
-    }).addTo(map);
-  }
 
   for (const [layer, opacity] of [["uscounties", 0.35], ["usstates", 0.8]]) {
     const boundaries = L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${layer}/{z}/{x}/{y}.png`, {

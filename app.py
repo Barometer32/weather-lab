@@ -487,6 +487,26 @@ def metar_clouds_api():
         return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
 
 
+@app.get("/api/station-plots")
+def station_plots_api():
+    from station_plots import collect, current
+    try:
+        now = utcnow()
+        data = prepared_snapshot("station-plots", 12 * 60)
+        if data is None:
+            data = cached("local-station-plots", 300, lambda: collect(download, now))
+        response = jsonify(current(data, now))
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
+    except Exception:
+        app.logger.exception("Station plots unavailable")
+        return jsonify(error="Station reports are being prepared or collection is delayed. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
+
+
 @app.get("/healthz")
 def health():
     return jsonify(status="ok")

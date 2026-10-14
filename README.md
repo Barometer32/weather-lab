@@ -2,7 +2,7 @@
 
 A phone-friendly Twin Cities weather page with four views:
 
-- **METAR (first/default):** individual airport temperatures/dew points in °F, black wind-flow arrows with speed in mph, and a cloud-ceiling dropdown. Both views have twelve hourly snapshots. KFCM/KMIC/KMSP/KSTP stay independent; KCFE/KFCE and KSGS are excluded.
+- **Observations (first/default):** fresh individual station plots from IEM airport, road-weather, agricultural and other networks across the Upper Midwest. Temperature/dew point in °F and wind-flow arrows/speed in mph. Latest reports plus twelve hourly snapshots; zoom in to reveal more plots. The dropdown retains routine hourly airport cloud ceilings. KCFE/KFCE and KSGS remain excluded.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, the original continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
@@ -18,11 +18,15 @@ python app.py
 
 Open http://localhost:8080. No API keys or model files are needed.
 
-## Individual airport weather
+## Station observations
 
-The Observations tab, metro-average map marker, sun-angle metric and observation browser polling are removed. METAR is the first and initially visible tab, with **METAR plots** selected by default. KFCM, KMIC, KMSP and KSTP keep their own readings, so local temperature/dew-point differences remain visible. No three-station average is generated for the METAR history or map. The opening HTML no longer reads or computes the legacy observation snapshot.
+The default **All station plots** view reads IEM's openly available `/api/1/currents.json?state=XX` bulk feeds for MN, WI, IA, ND, SD, NE, IL, MI, IN, OH, KS and MO. Collection is every five minutes, with three concurrent upstream requests at most, independent of visitor count. Only sites inside 40–50°N / 100–85°W with recent temperature, dew point or wind are plotted. Rain/river-only sites have no weather plot. This is the available regional IEM network collection, not every restricted MADIS or private station.
 
-The background METAR collector still performs one AWC bulk download at **:00**, retaining the last twelve routine hourly positions. Each station uses the routine report nearest :53 within :50–:59, labeled with the following hour. The METAR T remark supplies temperature/dew-point precision when available. Existing history remains usable after deployment. The retired observation API is retained for compatibility, but is not accessed by the page.
+`tmpf`/`dwpf` are source Fahrenheit values; `sknt` is converted from knots to mph. Air temperature is used, never road-surface temperature. Missing/nonfinite/impossible values, invalid coordinates, future reports and reports older than 90 minutes are filtered. Dew points above temperature by more than 1°F are omitted. These are range/age checks, **not full MADIS quality control**. Each popup/list entry identifies the station network and actual report time. The list can search station ID, name or network. Network-qualified keys keep duplicate IDs distinct. Each airport retains its own values. Unknown wind directions remain unknown; only explicit VRB reports are labeled variable.
+
+The collector atomically saves `live/station-plots.json`. Failed state requests are listed, and only still-recent values from those failed states can remain. Total failure leaves the prior object untouched. The public API never initiates collection when using the prepared bucket and removes expired latest reports on every read. History stores the last collected report in each completed hourly interval plus a pending next interval, retaining twelve completed hourly frames and a separate latest view. No historical source query runs: a fresh installation builds history over time. Missing hours remain empty. The browser checks prepared observations every five minutes while this view is visible, on opening and on manual Refresh; zoom/pan makes no source requests.
+
+The **METAR cloud** dropdown independently retains NOAA AWC routine hourly airport data and its twelve-position slider. It selects reports nearest :53 within :50–:59 and labels the following hour, using available T-remark precision. Its hourly Scheduler job has two bounded retries for transient startup/collection failures. Both views retain their selected historical time when refreshed. The old metro-average observation API is compatibility-only and is not accessed by the page.
 
 ## Radar
 
@@ -36,7 +40,7 @@ Native super-resolution reflectivity has 250-meter range gates and 0.5° azimuth
 
 Reflectivity uses the original continuous COD-style palette: greens through 31.5 dBZ; yellow from about 32 dBZ, then orange and red; magenta/purple from 65 dBZ; and cyan at 80 dBZ and above. The exact original stops are restored, and native 0.5 dBZ codes interpolate between them. Below 10 dBZ/missing/range-folded stays transparent. The continuous color-bar legend matches the renderer. Reflectivity is not an exact surface rain-rate estimate: snow, hail, and non-rain targets can produce echoes too. The API supplies the current gradient for all retained raw scans, so restoring colors does not discard the two-hour history.
 
-Native gates are displayed sharply, without spatial averaging or a display blur. Color interpolation follows each original half-dBZ code; it does not blend neighboring radar cells. Map boundaries and the three reference dots remain sharp.
+Native gates are displayed sharply, without spatial averaging or a display blur. Color interpolation follows each original half-dBZ code; it does not blend neighboring radar cells. Map boundaries remain sharp. All three personal reference markers and their coordinates have been removed from the current radar code.
 
 The map retains its white background, state/county boundaries, no city labels, zoom/pan, and a manual slider on phones and desktop. Zoom can reach level 13. Radar timestamps use Central time. History backfill, gaps and stale scans are flagged. The scan timestamp is its start; the native packet also retains its completion time.
 
@@ -52,31 +56,13 @@ The Leaflet viewer uses the source's **native image coordinates**, not a latitud
 
 RGB colors give qualitative cloud clues, not exact cloud heights. All three products are collected every five minutes even without viewers. On opening, the newest image is shown while the remaining loop loads. Already decoded frames are reused on refresh. Radar and satellite history use manual sliders only, with no automatic playback or playback buttons; dragging selects a frame and updates its timestamp. Background refresh preserves a manually selected time while it remains available. Failed images, gaps and stale acquisition times are indicated. Product switches cancel obsolete loads so the old product cannot replace the new one.
 
-## METAR clouds and weather plots
-
-The METAR dropdown switches between **METAR cloud** and **METAR plots** over the original Upper Midwest region (40–50°N, 100–85°W). Both modes share **12 routine hourly positions only**, with no Live position. Each station contributes the downloaded routine METAR closest to :53 within :50–:59, labeled with the following hour; SPECI and five-minute reports are excluded. Temperature/dew point prefer T-remark precision when available, for each station individually. Unknown or absent data stay unknown rather than borrowing an older layer.
-
-The source is one bulk download of `https://aviationweather.gov/data/cache/metars.cache.xml.gz` at **:00**, not station-by-station API requests. There are no additional within-hour source checks, historical API backfills or scheduled retries. Duplicate successful collector calls in the same hour reuse the prepared snapshot. Retained twelve-hour history is filtered to the regional extent, including when migrating from the national version. A brand-new empty data store builds the historical hourly positions over time; existing saved history is preserved. The latest bulk cache supplies only each station's latest report: a delayed routine report or one hidden by a newer SPECI may be unavailable in that hourly pull. Missing hourly reports stay missing until later collections; older reports are never assigned to a new hour. Failed or empty bulk downloads leave the previous snapshot and its check time unchanged.
-
-The browser reads prepared data on opening, manual Refresh and tab return. Both views check the prepared API at :00:30. If that hour's result is still being prepared, bounded saved-data retries wait for up to two minutes, without making source requests. Both maps read the same canonical snapshot. Freshness allows two minutes for collection. Cloud mode shows only the lowest broken/overcast ceiling as an **unboxed number** in rounded thousands of feet AGL, minimum 1: 25,000→25, 9,000→9, 2,200→2, below 1,000→1. Clear/few/scattered and unknown/obscured reports without a known broken/overcast base have no symbol. Each metro airport remains independent in cloud mode, with exact heights and all layers in station popups. KCFE/KFCE and KSGS are permanently excluded from fresh and retained reports, including in both cloud and weather views. CLR does not prove clouds exist above the sensor or measure thickness.
-
-Both views open/reset around the metro at zoom 8.5 on desktops and zoom 9 on narrow screens, with zoom-out access to the same Upper Midwest extent. Only in-view cloud markers and spaced weather plots are constructed. The searchable regional table populates when opened. State boundaries stay at opacity 0.8; METAR county lines are lighter at 0.2 (formerly 0.35). Radar and satellite maps are unchanged.
-
-Weather plots use compact transparent SVGs. Temperature is upper left, dew point lower left, and wind speed is to the right in **mph**, rounded to a whole number. Text is bold with a white outline for contrast over boundaries. The narrow black 18-pixel arrow points **toward where wind is going**, using `(METAR source direction + 180) % 360`; e.g., a north wind points south. The arrow stays centered on the real station coordinates and has a thin white halo. Calm/variable/unknown winds get text instead of an invented direction. There are no location circles or wind barbs. Exact wind source direction, speed and report time remain in station popups.
-
-Decluttering checks conservative bounding rectangles for actual label lengths, the short arrow, text halos and a small gap. Plot glyphs and their collision bounds use an 82% scale; typical two-digit plots fit about 60×38 pixels instead of the old 90×65 spacing; long/negative readings receive more space. More sites appear as zoom permits, without shifting station coordinates or allowing wind arrows/labels to touch. KFCM, KMIC and KMSP have first selection priority; regional anchors follow and KSTP has lower priority. Stations hidden for overlap remain in the searchable list. Legacy saved metro markers are ignored and removed when rebuilding the hourly API response.
-
-The previous fixed METAR map height is restored: **580 px on desktops and 470 px on phones**, with the original heading spacing. The scroll/viewport-driven height resizing is removed. Radar and satellite retain their existing heights and layout. METAR and radar zoom controls move in **0.1-level increments**; satellite buttons also move by 0.1 while its continuous fitting is preserved. The slightly smaller plots let the three focus airports fit at the 8.5 desktop default and allow finer adjustments around the preferred zoom. KSTP cannot take precedence over those three airports.
-
-Manual timelines are half-width above 600px and full-width on phones.
-
 ## NWS forecast
 
 The collector reads the official MapClick JSON forecast (`FcstType=json`) for 44.9244, -93.4140, using the same source as the linked NWS webpage. The NWS API generates different narrative wording and can select different initial periods even with the same grid update time, so it is not used for this view. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Each compact row shows the period name, high/low temperature and the complete NWS narrative. Weather icons, the repeated short summary, and separate wind/precipitation-chance footers are omitted to keep the display concise. Wind and precipitation wording supplied in the full narrative is preserved.
 
 NWS source issue time comes from the same MapClick response as its narrative and periods (`creationDate`, not the observation timestamp `creationDateLocal`). Completed periods disappear at both request and browser-render time; the first remaining period comes from the webpage feed. The private collector checks the forecast every five minutes; each successful collection replaces the saved MapClick snapshot, including when the issuance time is unchanged but the initial period has rolled over. The web service reads the saved snapshot. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed rows with a warning.
 
-The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Only lightweight feed/image collection is scheduled; no numerical weather model or AI computation runs. Observation selection, averaging and QA are preserved.
+The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Only lightweight feed/image collection is scheduled; no numerical weather model or AI computation runs. The compatibility-only airport average API is retained.
 
 ## Deploy/update
 
@@ -88,7 +74,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-20261013-204529
 ```
 
-The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast every five minutes; the Upper Midwest METAR job once hourly at :00. The shared job has no automatic retries. Deployment triggers one initial collection; subsequent scheduled pulls run at the top of the hour. Both services can scale to zero. Prepared images are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.
+The script retires the old model job, KEVX radar job, separate observations job and former Surface job. It builds the app, creates the private collector/data bucket, and configures **five** authenticated Scheduler jobs: KMPX radar every minute; satellite every five minutes; NWS forecast every five minutes; fresh station plots every five minutes; and Upper Midwest airport METAR clouds once hourly at :00 with two bounded retries. Deployment resumes paused jobs and triggers initial collection. Both services can scale to zero. Prepared images expire after one day; live manifests and station history are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Changes take effect after deployment in authenticated Cloud Shell.
 
 ## Checks
 
