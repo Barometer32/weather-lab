@@ -8,7 +8,7 @@ import station_plots
 HOUR = datetime(2026, 10, 14, 20, 0, tzinfo=timezone.utc)
 
 
-def feature(station="WDVL", stamp="2026-10-14T20:00:00Z", qc="Z", **values):
+def feature(station="WDVL", stamp="2026-10-14T19:55:00Z", qc="Z", **values):
     defaults = {"tempF": 50.3, "dewpointF": 42.9, "speedMph": 4.6, "direction": 171.4}
     defaults.update(values)
     properties = {"station_id": station, "station_name": "Woodville"}
@@ -34,8 +34,8 @@ class WisconetTests(unittest.TestCase):
         self.assertEqual(row["measurementPeriod"], "5-minute average")
 
     def test_time_window_inclusive_boundaries_stale_future_and_test_stations(self):
-        rows = wisconet.parse(payload(feature("START", "2026-10-14T19:50:00Z"), feature("END"),
-                       feature("OLD", "2026-10-14T19:49:59Z"), feature("FUT", "2026-10-14T20:00:01Z"),
+        rows = wisconet.parse(payload(feature("START", "2026-10-14T19:35:00Z"), feature("END"),
+                       feature("OLD", "2026-10-14T19:34:59Z"), feature("FUT", "2026-10-14T20:00:01Z"),
                        feature("WNTEST1"), feature("MITEST1")), HOUR)
         self.assertEqual({r["station"] for r in rows}, {"START", "END"})
 
@@ -56,9 +56,9 @@ class WisconetTests(unittest.TestCase):
 
     def test_fields_from_different_times_are_not_combined(self):
         item = feature()
-        item["properties"]["5min_dew_point_f_avg"]["observations"][0]["timestamp"] = "2026-10-14T19:55:00Z"
+        item["properties"]["5min_dew_point_f_avg"]["observations"][0]["timestamp"] = "2026-10-14T19:50:00Z"
         rows = wisconet.parse(payload(item), HOUR)
-        self.assertEqual(rows[0]["time"], "2026-10-14T20:00:00Z")
+        self.assertEqual(rows[0]["time"], "2026-10-14T19:55:00Z")
         self.assertIsNone(rows[0]["dewpointF"])
 
     def test_merge_uses_one_bulk_wisconet_request_and_does_not_duplicate_physical_values(self):
@@ -71,8 +71,8 @@ class WisconetTests(unittest.TestCase):
         result = station_plots.collect(download, HOUR)
         self.assertEqual({r["station"] for r in result["stations"]}, {"KMSP", "WDVL"})
         self.assertEqual(sum(url.startswith(wisconet.SOURCE) for url in calls), 1)
-        self.assertEqual(len(calls), len(station_plots.STATES)+1)
-        self.assertIn("date=2026-10-14T20%3A00%3A00Z", next(url for url in calls if url.startswith(wisconet.SOURCE)))
+        self.assertEqual(len(calls), len(station_plots.STATES)+len(station_plots.RWIS_NETWORKS)+1)
+        self.assertIn("date=2026-10-14T19%3A59%3A59Z", next(url for url in calls if url.startswith(wisconet.SOURCE)))
 
     def test_wisconet_failure_keeps_other_networks_and_reports_source_delay(self):
         from test_station_plots import downloader, row

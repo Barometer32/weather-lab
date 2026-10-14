@@ -83,6 +83,8 @@ window.WeatherCloudViews = (() => {
     const hours=timeline();
     let metarIndex=Math.max(0,Math.min(indices[mode()],hours.length-1));indices[mode()]=metarIndex;
     const selected=hours[metarIndex],stations=selected.stations.filter(s=>!excluded.has(s.station)),plots=mode()==="plots";
+    const surfaceFrame=plots?selected:datasets.plots?.history.find(h=>h.hour===selected.hour);
+    window.WeatherSurfaceViews?.setFrame(surfaceFrame||{hour:selected.hour,stations:[]},datasets.plots||cloudData);
     const ceilings=plots?[]:stations.filter(ceilingLayer);
     const drawn=plots?plotStations(stations):ceilings.filter(inView);
     const slider=el("metar-cloud-timeline");
@@ -91,7 +93,7 @@ window.WeatherCloudViews = (() => {
     el("metar-cloud-time").textContent=`${time.format(new Date(selected.hour))} · hourly ${metarIndex+1}/${cloudData.history.length}`;
     slider.setAttribute("aria-valuetext",el("metar-cloud-time").textContent);
     el("metar-heading").textContent=plots?"Station plots":"Cloud ceilings";
-    el("metar-timeline-description").textContent=plots?"Last 12 hourly snapshots · reports from :50–:00 · zoom in for more":"Last 12 routine hourly airport snapshots";
+    el("metar-timeline-description").textContent=plots?"Last 12 hourly snapshots · reports from :35–:59 · zoom in for more":"Last 12 routine hourly airport snapshots";
     slider.setAttribute("aria-label",plots?"Station timeline: twelve hourly snapshots":"METAR cloud timeline: twelve routine hourly snapshots");
     el("metar-cloud-map").setAttribute("aria-label",plots?"Individual station temperature and dew point in Fahrenheit, wind flow arrows and speed in mph":"Cloud ceiling observations");
     el("metar-cloud-legend").hidden=plots;el("metar-plot-legend").hidden=!plots;
@@ -109,6 +111,7 @@ window.WeatherCloudViews = (() => {
       const stamp=plots?(s.weatherTime||s.time):s.time;
       popup.append(node("p",stamp?time.format(new Date(stamp)):"Report time unavailable"));
       if(plots){
+        if(s.analysisQc)popup.append(node("p",`Contour checks: ${Object.entries(s.analysisQc).map(([field,qc])=>`${field==="tempF"?"Temperature":field==="dewpointF"?"Dew point":"Wind"}: ${qc.status}`).join(" · ")}`));
         if(s.reportType==="METAR")popup.append(node("p","Routine airport METAR"));
         if(s.measurementPeriod)popup.append(node("p",`${s.measurementPeriod} sampled for this hourly snapshot`));
         popup.append(node("p",`Temperature ${s.tempF==null?"—":s.tempF.toFixed(1)}°F · Dew point ${s.dewpointF==null?"—":s.dewpointF.toFixed(1)}°F`),node("p",`Wind from ${windText(s.wind)}`));
@@ -132,7 +135,7 @@ window.WeatherCloudViews = (() => {
     }
     const failures=cloudData.failedSources||cloudData.failedStates||[];
     const missing=failures.length?` · Some feeds delayed: ${failures.join(", ")}`:"";
-    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} reporting sites · Hourly snapshot · :50–:00 reports${cloudData.stale?" · Background updates delayed":""}${missing}${listing.length?"":" · No reports available for this time"}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting airports · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}${stations.length?"":" · No airport reports available for this hour"}`;
+    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} reporting sites · Hourly snapshot · :35–:59 reports${cloudData.stale?" · Background updates delayed":""}${missing}${listing.length?"":" · No reports available for this time"}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting airports · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}${stations.length?"":" · No airport reports available for this hour"}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

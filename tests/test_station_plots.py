@@ -35,6 +35,8 @@ def downloader(*rows):
     def download(url):
         if 'aviationweather.gov' in url:
             return awc_xml()
+        if '/request/rwis.py?' in url:
+            return b'Sorry, no results found for query!'
         if 'api.wisconet.wisc.edu' in url:
             return empty_wisconet()
         return payload(*rows) if url.endswith('=MN') else payload()
@@ -80,11 +82,13 @@ class StationPlotTests(unittest.TestCase):
 
     def test_hourly_window_boundaries_and_no_post_hour_relabeling(self):
         result = stations.collect(downloader(
-            row('START', 'MN_RWIS', utc_valid='2026-10-14T19:50:00Z'),
-            row('END', 'MN_RWIS', utc_valid='2026-10-14T20:00:00Z'),
-            row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:49:59Z'),
+            row('START', 'MN_RWIS', utc_valid='2026-10-14T19:35:00Z'),
+            row('MNDOT', 'MN_RWIS', utc_valid='2026-10-14T19:40:00Z'),
+            row('AT00', 'MN_RWIS', utc_valid='2026-10-14T20:00:00Z'),
+            row('END', 'MN_RWIS', utc_valid='2026-10-14T19:59:59Z'),
+            row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:34:59Z'),
             row('NEW', 'MN_RWIS', utc_valid='2026-10-14T20:00:01Z')), NOW+timedelta(minutes=10))
-        self.assertEqual({r['station'] for r in result['stations']}, {'START', 'END'})
+        self.assertEqual({r['station'] for r in result['stations']}, {'START', 'MNDOT', 'END'})
         self.assertEqual(result['hour'], '2026-10-14T20:00:00Z')
         self.assertEqual(len(result['history']), 12)
         self.assertNotIn('pendingHour', result)
@@ -138,7 +142,7 @@ class StationPlotTests(unittest.TestCase):
         store = MemoryStore()
         with patch('app.download', side_effect=downloader(row('MSP', raw='SPECI KMSP 141955Z'))) as download:
             collector.collect_stations(store, NOW)
-        self.assertEqual(download.call_count, len(stations.STATES)+2)
+        self.assertEqual(download.call_count, len(stations.STATES)+len(stations.RWIS_NETWORKS)+2)
         self.assertEqual(sum('aviationweather.gov' in c.args[0] for c in download.call_args_list), 1)
         self.assertEqual(store.writes[-1], 'live/station-plots.json')
         with patch('app.get_store', return_value=store), patch('app.utcnow', return_value=NOW), patch('app.download') as upstream:

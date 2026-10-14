@@ -6,18 +6,21 @@ missing, impossible, future and stale values; they are not full MADIS QC.
 """
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+import csv
+import io
 import json
 import logging
 import math
 import re
+from urllib.parse import urlencode
 
 from metar_clouds import BOUNDS, EXCLUDED_STATIONS
 
 SOURCE = "https://mesonet.agron.iastate.edu/api/1/currents.json"
 STATES = ("MN", "WI", "IA", "ND", "SD", "NE", "IL", "MI", "IN", "OH", "KS", "MO")
 MAX_AGE = timedelta(minutes=90)
-VERSION = 2
-WINDOW = timedelta(minutes=10)
+VERSION = 3
+WINDOW = timedelta(minutes=25)
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +43,7 @@ def number(value, low, high):
 
 
 def in_hour_window(stamp, hour):
-    return hour-WINDOW <= stamp <= hour
+    return hour-WINDOW <= stamp < hour
 
 
 def parse(payload, now):
@@ -93,7 +96,7 @@ def parse(payload, now):
 
 def valid_saved(row, reference, age=MAX_AGE):
     stamp = timestamp(row.get("time"))
-    return (stamp is not None and reference-age <= stamp <= reference
+    return (stamp is not None and reference-age <= stamp < reference
             and row.get("station") not in EXCLUDED_STATIONS
             and number(row.get("lat"), 40, 50) is not None
             and number(row.get("lon"), -100, -85) is not None)
@@ -101,30 +104,73 @@ def valid_saved(row, reference, age=MAX_AGE):
 
 def history(frames, hour):
     selected = {}
+    analyses = {}
     for frame in frames:
         reference = timestamp(frame.get("hour"))
         if reference is None or reference > hour:
             continue
+        if frame.get("analysisUrl"):
+            analyses[iso(reference)] = frame["analysisUrl"]
         for row in frame.get("stations", []):
             if not valid_saved(row, reference, WINDOW):
                 continue
             key = (iso(reference), row["stationKey"])
             if key not in selected or row["time"] >= selected[key]["time"]:
                 selected[key] = row
-    return [{"hour": iso(hour-timedelta(hours=i)), "stations": sorted(
+    return [{"hour": iso(hour-timedelta(hours=i)), **({"analysisUrl": analyses[iso(hour-timedelta(hours=i))]} if iso(hour-timedelta(hours=i)) in analyses else {}), "stations": sorted(
              (row for (label, _), row in selected.items() if label == iso(hour-timedelta(hours=i))),
              key=lambda row: row["stationKey"])} for i in reversed(range(12))]
 
 
+RWIS_NETWORKS = ("MN_RWIS", "WI_RWIS", "IA_RWIS", "SD_RWIS", "NE_RWIS", "IL_RWIS", "IN_RWIS")
+
+
+def rwis_url(network, hour):
+    return "https://mesonet.agron.iastate.edu/cgi-bin/request/rwis.py?" + urlencode({
+        "network": network, "stations": "_ALL", "tz": "UTC", "what": "download", "src": "atmos",
+        "sts": iso(hour-WINDOW), "ets": iso(hour), "vars": "tmpf,dwpf,sknt,drct", "gis": "true"})
+
+
+def parse_rwis(payload, network, now):
+    # Bulk archive recovers the requested window even after a currents feed
+    # has replaced its :40 observation with the next :00 observation.
+    text = payload.decode("utf-8-sig") if isinstance(payload, bytes) else payload
+    if text.strip().startswith("Sorry, no results found"):
+        return []
+    reader = csv.DictReader(io.StringIO(text))
+    required = {"station", "obtime", "longitude", "latitude", "tmpf", "dwpf", "sknt", "drct"}
+    if not reader.fieldnames or not required.issubset(reader.fieldnames):
+        raise ValueError("Invalid RWIS archive response")
+    rows = []
+    for raw in reader:
+        def numeric(key):
+            try:
+                return float(raw[key])
+            except (TypeError, ValueError):
+                return None
+        stamp = raw.get("obtime", "").replace(" ", "T")
+        if not stamp.endswith("Z") and "+" not in stamp:
+            stamp += "Z"
+        observed = timestamp(stamp)
+        if observed is None or not in_hour_window(observed, now):
+            continue
+        rows.append({"station": raw["station"], "network": network, "state": network[:2],
+                     "utc_valid": stamp, "lat": numeric("latitude"), "lon": numeric("longitude"),
+                     "tmpf": numeric("tmpf"), "dwpf": numeric("dwpf"), "sknt": numeric("sknt"), "drct": numeric("drct")})
+    return parse(json.dumps({"data": rows}), now)
+
+
 def collect(download, now, previous=None, airport_rows=None, airport_failed=False):
     import wisconet
-    # Read feeds once for this UTC hour; accept only :50 through :00, even if
+    # Read feeds once for this UTC hour; accept only :35 through :59, even if
     # deployment or a retry happens later. Never re-label newer readings.
     hour = now.replace(minute=0, second=0, microsecond=0)
     previous = previous or {}
     fresh, failed, successes = [], [], []
     with ThreadPoolExecutor(max_workers=3) as pool:
         work = {state: pool.submit(lambda st=state: parse(download(SOURCE + "?state=" + st), now)) for state in STATES}
+        for network in RWIS_NETWORKS:
+            work[network] = pool.submit(lambda net=network: parse_rwis(download(rwis_url(net, hour)), net, hour))
         work["WISCONET"] = pool.submit(lambda: wisconet.parse(download(wisconet.url(hour)), hour))
         for source, result in work.items():
             try:
@@ -133,6 +179,10 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
             except Exception:
                 failed.append(source)
                 logger.exception("Station collection failed for %s", source)
+    named = {row["stationKey"]: row for row in fresh if row["name"] != row["station"]}
+    for row in fresh:
+        if row["name"] == row["station"] and row["stationKey"] in named:
+            row["name"] = named[row["stationKey"]]["name"]
     metadata = {row["station"]: row for row in fresh if row["network"].endswith("_ASOS")}
     selected = {}
     def add(row):
@@ -145,9 +195,9 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
         if row["network"].endswith("_ASOS") and row.get("reportType") != "METAR":
             return
         key = row["stationKey"]
-        rank = (row["time"], row.get("source") == "NOAA Aviation Weather Center")
+        rank = (row.get("source") == "NOAA Aviation Weather Center", row["time"])
         old = selected.get(key)
-        if old is None or rank >= (old["time"], old.get("source") == "NOAA Aviation Weather Center"):
+        if old is None or rank >= (old.get("source") == "NOAA Aviation Weather Center", old["time"]):
             selected[key] = row
     for row in fresh:
         add(row)
@@ -163,7 +213,7 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
              "source": "NOAA Aviation Weather Center", "reportType": "METAR", "quality": "range-and-age-checked"})
     if airport_failed:
         failed.append("AWC METAR")
-    # Retain only still-valid reports from the same ten-minute window when a
+    # Retain only still-valid reports from the same 25-minute window when a
     # source fails. Previous hours are kept on their own historical positions.
     for row in previous.get("stations", []):
         source_failed = (row.get("network") == "WISCONET" and "WISCONET" in failed) or (
@@ -171,14 +221,17 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
         if source_failed:
             add(row)
     if not selected:
-        raise ValueError("No station reports in the ten-minute hourly window; previous data retained")
+        raise ValueError("No station reports in the 25-minute hourly window; previous data retained")
     frames = previous.get("history", []) + [{"hour": iso(hour), "stations": list(selected.values())}]
     frames = history(frames, hour)
     return {"version": VERSION, "collectionMode": "hourly-window", "hour": iso(hour), "checkedAt": iso(now), "bounds": BOUNDS,
-            "stations": frames[-1]["stations"], "history": frames, "windowMinutes": 10,
+            "stations": frames[-1]["stations"], "history": frames, "windowMinutes": 25,
             "source": "Iowa Environmental Mesonet, NOAA AWC and UW–Madison Wisconet",
             "sourceUrl": SOURCE, "successfulStates": [s for s in successes if s in STATES],
-            "failedStates": [s for s in failed if s in STATES], "failedSources": failed}
+            "failedStates": [s for s in failed if s in STATES], "failedSources": failed,
+            "coverage": [{"network": net, "available": len({r["stationKey"] for r in fresh if r["network"] == net}),
+                          "selected": sum(r["network"] == net for r in selected.values())}
+                         for net in sorted({r["network"] for r in fresh} | {r["network"] for r in selected.values()})]}
 
 
 def current(data, now):
@@ -187,4 +240,4 @@ def current(data, now):
     hour = timestamp(data.get("hour")) or now.replace(minute=0, second=0, microsecond=0)
     frames = history(data.get("history", []), hour)
     return {key: value for key, value in data.items() if key not in ("pendingHour", "stations", "history", "maxAgeMinutes")} | {
-        "history": frames, "stations": frames[-1]["stations"], "windowMinutes": 10}
+        "history": frames, "stations": frames[-1]["stations"], "windowMinutes": 25}

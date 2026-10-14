@@ -208,3 +208,16 @@ body.satellite-expanded { overflow: hidden; }
 @media(max-width:600px) {
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
+
+.surface-section { margin-top:36px; padding-top:28px; border-top:1px solid var(--border); }
+.surface-section h2 { margin:4px 0 10px; font-size:28px; letter-spacing:-.5px; }
+#surface-map { height:600px; background:#f7faf8; border:1px solid var(--border); border-radius:8px; }
+#surface-field { min-height:44px; padding:8px; border:1px solid var(--border); border-radius:6px; background:white; max-width:100%; }
+.surface-legend { max-width:650px; margin:16px 0 8px; font-size:13px; }
+.surface-gradient { height:15px; border-radius:4px; margin-top:8px; }
+.surface-ticks { position:relative; height:18px; font-size:11px; margin-top:4px; }
+.surface-ticks span { position:absolute; transform:translateX(-50%); }
+.surface-wind { background:transparent; border:0; }
+#surface-coverage td { font-size:13px; }
+@media(max-width:600px) { #surface-map { height:470px; } .surface-section .metar-view-controls { align-items:flex-start; } }
+.surface-contour-label { background:#ffffffc9; border:0; box-shadow:none; font:600 10px Arial,sans-serif; color:#263e3b; padding:0 2px; }

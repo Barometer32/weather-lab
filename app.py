@@ -588,12 +588,13 @@ def prepared_image(key):
 
 @app.get("/api/prepared/<path:key>")
 def prepared_asset(key):
-    # Public visitors may read only immutable image objects, never manifests or
-    # arbitrary bucket files. Only the private collector can trigger processing.
+    # Visitors can read immutable imagery and hourly analysis manifests.
+    # Arbitrary bucket files remain private. Only the private collector can trigger processing.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
-               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
+               or re.fullmatch(r"analysis/surface-v1/\d{12}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:
@@ -604,7 +605,7 @@ def prepared_asset(key):
         headers = {"Cache-Control": "public, max-age=86400, immutable"}
         if key.endswith(".bin"):
             headers["Content-Encoding"] = "gzip"
-        return Response(image, mimetype="application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
+        return Response(image, mimetype="application/json" if key.endswith(".json") else "application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
                         headers=headers)
     except Exception:
         app.logger.exception("Prepared image read failed")

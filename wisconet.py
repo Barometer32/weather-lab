@@ -1,5 +1,6 @@
 """UW–Madison Wisconet hourly samples from its public CC BY 4.0 API."""
 import json
+from datetime import timedelta
 from urllib.parse import urlencode
 
 SOURCE = "https://api.wisconet.wisc.edu/api/v2/stations/map"
@@ -14,7 +15,7 @@ EXCLUDED = {"WNTEST1", "MITEST1"}
 
 def url(hour):
     from station_plots import iso
-    return SOURCE + "?" + urlencode({"fieldlist": ",".join(FIELDS), "date": iso(hour)})
+    return SOURCE + "?" + urlencode({"fieldlist": ",".join(FIELDS), "date": iso(hour-timedelta(seconds=1))})
 
 
 def parse(payload, hour):
