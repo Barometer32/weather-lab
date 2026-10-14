@@ -1,10 +1,14 @@
 from datetime import timedelta
+import io
 import json
 import unittest
 from unittest.mock import patch
 
 import numpy as np
 
+from PIL import Image
+
+import collector
 import app
 import station_plots
 import surface_analysis as surface
@@ -68,6 +72,46 @@ class SurfaceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['time'], '2026-10-14T19:40:00Z')
         self.assertEqual(rows[0]['tempF'], 50)
+
+    def test_reference_color_boundaries_and_transparent_missing_cells(self):
+        z=np.array([[49.999, 50., 54.999, 55., np.nan]], dtype=float)
+        # Constant columns produce flat color interiors after scalar refinement.
+        z=np.repeat(z, 4, axis=1)
+        image=Image.open(io.BytesIO(surface.image(z, surface.PALETTES["tempF"], banded=True)))
+        for x, color in [(8, (153,255,0)), (24, (204,255,0)), (40, (204,255,0)), (56, (255,255,0))]:
+            self.assertEqual(image.getpixel((x, 1)), (*color,255))
+        self.assertEqual(image.getpixel((72,1))[3], 0)
+        image=Image.open(io.BytesIO(surface.image(np.full((2,2),19.9),surface.PALETTES["dewpointF"],banded=True)))
+        self.assertEqual(image.getpixel((2,2)),(255,255,255,255))
+        image=Image.open(io.BytesIO(surface.image(np.full((2,2),20.),surface.PALETTES["dewpointF"],banded=True)))
+        self.assertEqual(image.getpixel((2,2)),(0,204,255,255))
+
+    def test_contour_intervals_are_five_degrees(self):
+        lons=np.linspace(-95,-90,10); lats=np.linspace(42,47,10)
+        z=np.tile(np.linspace(41,64,10),(10,1))
+        features=surface.lines(lons,lats,z,5)
+        self.assertEqual({f['properties']['value'] for f in features},{45,50,55,60})
+
+    def test_style_migration_rebuilds_saved_hours_without_source_downloads(self):
+        store=MemoryStore(); current=station_plots.iso(NOW); past=station_plots.iso(NOW-timedelta(hours=1))
+        rows=sample(); old=sample()
+        for row in old:row['time']=station_plots.iso(NOW-timedelta(hours=1,minutes=20))
+        data={"collectionMode":"hourly-window","windowMinutes":25,"analysisVersion":"surface-v1", "hour":current,
+              "checkedAt":current,"stations":rows,"history":[{"hour":past,"stations":old,"analysisUrl":"/api/prepared/analysis/surface-v1/old/manifest.json"},{"hour":current,"stations":rows}]}
+        store.write_json('live/station-plots.json',data)
+        with patch('app.download') as upstream:
+            collector.collect_stations(store,NOW+timedelta(minutes=30))
+        upstream.assert_not_called()
+        saved=store.read_json('live/station-plots.json')
+        self.assertEqual(saved['checkedAt'],current)
+        self.assertTrue(all('/'+surface.VERSION+'/' in f['analysisUrl'] for f in saved['history']))
+        for frame in saved['history']:
+            manifest=store.read_json(frame['analysisUrl'].removeprefix('/api/prepared/'))
+            self.assertEqual(manifest['fields']['tempF']['interval'],5)
+            self.assertEqual(manifest['fields']['dewpointF']['paletteMode'],'discrete')
+        count=len(store.writes)
+        with patch('app.download') as upstream:collector.collect_stations(store,NOW+timedelta(minutes=45))
+        upstream.assert_not_called();self.assertEqual(len(store.writes),count)
 
     def test_prepared_assets_and_history_reference_and_public_allowlist(self):
         store=MemoryStore(); rows=sample()

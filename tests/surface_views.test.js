@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const elements=new Map();
-function element(){return {value:'',checked:true,textContent:'',children:[],events:{},style:{},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;}};}
+function element(){return {value:'',checked:true,textContent:'',children:[],events:{},style:{},setAttribute(key,value){this[key]=value;},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;}};}
 function get(id){if(!elements.has(id))elements.set(id,element());return elements.get(id);}
 get('surface-field').value='tempF';
 const pending=new Map(),shown=[];let fetches=0,clears=0;
@@ -15,7 +15,7 @@ vm.runInNewContext(fs.readFileSync('static/surface-analysis.js','utf8'),context)
 const viewer=context.window.WeatherSurfaceViews;
 const station={station:'MN001',stationKey:'MN_RWIS:MN001',name:'Road station',network:'MN_RWIS',lat:45,lon:-93,time:'2026-10-14T20:40:00Z',tempF:110,dewpointF:40,wind:{speedMph:10,direction:359},analysisQc:{tempF:{status:'suspect',reason:'Nearby disagreement'},dewpointF:{status:'screened',reason:'Consistent'},wind:{status:'screened',reason:'Consistent'}}};
 function product(){return {imageUrl:'/image.png',palette:[[0,'#fff'],[10,'#080'],[50,'#f00']],contours:{type:'FeatureCollection',features:[]},qc:{suspect:1},used:20,supportedCells:10};}
-function manifest(hour){return {hour,bounds:[[40,-100],[50,-85]],fields:{tempF:product(),dewpointF:product(),wind:{...product(),arrows:[{lat:45,lon:-93,speed:10,direction:359}]}}};}
+function manifest(hour){return {hour,bounds:[[40,-100],[50,-85]],fields:{tempF:{...product(),paletteMode:'discrete',interval:5,palette:[[40,'#0f0'],[45,'#cf0'],[50,'#ff0'],[55,'#fc0']]},dewpointF:product(),wind:{...product(),arrows:[{lat:45,lon:-93,speed:10,direction:359}]}}};}
 const dataset={coverage:[{network:'MN_RWIS',available:169}]};
 const old={hour:'2026-10-14T20:00:00Z',analysisUrl:'/old.json',stations:[station]};
 const current={hour:'2026-10-14T21:00:00Z',analysisUrl:'/new.json',stations:[station]};
@@ -24,6 +24,9 @@ const current={hour:'2026-10-14T21:00:00Z',analysisUrl:'/new.json',stations:[sta
  pending.get('/new.json')(manifest(current.hour));await second;
  assert.match(get('surface-status').textContent,/4:00 PM/);
  assert.equal(shown.find(s=>s.kind==='point').options.fillColor,'#69706f');
+ assert.match(get('surface-legend').children[0].textContent,/5°F bands/);
+ assert.match(get('surface-legend').children[1].style.background,/#0f0 0%,#0f0 33\.333/);
+ assert.equal(get('surface-legend').children[1]['aria-label'],'Temperature color scale, 5-degree Fahrenheit bands');
  pending.get('/old.json')(manifest(old.hour));await first;
  assert.match(get('surface-status').textContent,/4:00 PM/); // A slow old response cannot replace the new hour.
  const before=clears;await viewer.setFrame(current,dataset);assert.equal(clears,before);assert.equal(fetches,2);

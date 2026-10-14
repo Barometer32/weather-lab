@@ -12,11 +12,23 @@ import numpy as np
 from PIL import Image
 from scipy.spatial import cKDTree, Delaunay, QhullError
 
-VERSION = "surface-v1"
+VERSION = "surface-v2"
 FIELDS = ("tempF", "dewpointF", "wind")
+# Colors sampled from the user's UCAR/RAP reference legends. Each entry is
+# the lower bound of a five-degree band; the final entry closes the scale.
+TEMPERATURE_COLORS = [
+    "#ffffff", "#ffffff", "#ff00cc", "#ff00ff", "#cc00ff", "#9900ff", "#6600ff",
+    "#0000ff", "#0066ff", "#0099ff", "#00ccff", "#00ffff", "#00ffcc", "#00ff99",
+    "#00ff00", "#99ff00", "#ccff00", "#ffff00", "#ffcc00", "#ff9900", "#ff6600",
+    "#ff0000", "#ff0066", "#ff0099", "#ff9999", "#ff99ff", "#ffccff", "#ffffff",
+]
+DEWPOINT_COLORS = ["#ffffff"]*12 + [
+    "#00ccff", "#00ffff", "#00ffcc", "#00ff00", "#ccff00", "#ffff00",
+    "#ffcc00", "#ff9900", "#ff6600", "#ff0000", "#ff0066",
+]
 PALETTES = {
-    "tempF": [[-20,"#693b94"],[0,"#5358b2"],[20,"#4595cc"],[32,"#69c5d0"],[40,"#83cf91"],[50,"#d3e59a"],[60,"#f6e87b"],[70,"#f6ba5b"],[80,"#e66d43"],[90,"#c43742"],[110,"#8c2763"]],
-    "dewpointF": [[-20,"#9c7958"],[10,"#d5b78b"],[30,"#eee0b9"],[40,"#d3e5a0"],[50,"#83c98b"],[60,"#42a88b"],[65,"#309baf"],[70,"#4076b9"],[80,"#7854a2"]],
+    "tempF": [[-30+5*i, color] for i, color in enumerate(TEMPERATURE_COLORS)] + [[110, TEMPERATURE_COLORS[-1]]],
+    "dewpointF": [[-40+5*i, color] for i, color in enumerate(DEWPOINT_COLORS)] + [[75, DEWPOINT_COLORS[-1]]],
     "wind": [[0,"#f0f3ed"],[5,"#c7e4d1"],[10,"#80c8b9"],[15,"#4aa6b6"],[20,"#487ab0"],[30,"#8159a7"],[40,"#ba5085"],[60,"#dc4b4b"]],
 }
 
@@ -141,16 +153,29 @@ def grid(rows, field, nx=241, ny=161):
     return lons, lats, z, u, v, len(candidates)
 
 
-def image(z, palette):
+def image(z, palette, banded=False):
     from PIL import ImageColor
-    colors = np.array([ImageColor.getrgb(color) for _, color in palette])
+    colors = np.array([ImageColor.getrgb(color) for _, color in palette], dtype=np.uint8)
     stops = np.array([level for level, _ in palette])
-    rgba = np.zeros((*z.shape, 4), dtype=np.uint8)
-    for channel in range(3):
-        rgba[:, :, channel] = np.interp(np.nan_to_num(z), stops, colors[:, channel]).astype(np.uint8)
-    rgba[:, :, 3] = np.where(np.isfinite(z), 200, 0)
+    valid = np.isfinite(z)
+    if banded:
+        # Refine the scalar field first, then classify its values. Resizing a
+        # colored raster would blend bands into colors absent from the legend.
+        size = (z.shape[1]*4, z.shape[0]*4)
+        numerator = np.array(Image.fromarray(np.where(valid, z, 0).astype(np.float32)).resize(size, Image.Resampling.BILINEAR))
+        denominator = np.array(Image.fromarray(valid.astype(np.float32)).resize(size, Image.Resampling.BILINEAR))
+        refined = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator > 0)
+        valid = np.array(Image.fromarray(valid.astype(np.uint8)).resize(size, Image.Resampling.NEAREST)).astype(bool)
+        indexes = np.clip(np.searchsorted(stops, refined, side="right")-1, 0, len(colors)-2)
+        rgba = np.zeros((*refined.shape, 4), dtype=np.uint8)
+        rgba[:, :, :3] = colors[indexes]
+        rgba[:, :, 3] = np.where(valid, 255, 0)
+    else:
+        rgba = np.zeros((*z.shape, 4), dtype=np.uint8)
+        for channel in range(3):
+            rgba[:, :, channel] = np.interp(np.nan_to_num(z), stops, colors[:, channel]).astype(np.uint8)
+        rgba[:, :, 3] = np.where(valid, 200, 0)
     output = io.BytesIO()
-    # Bilinear display smooths grid pixels; the underlying support mask remains.
     Image.fromarray(rgba[::-1]).save(output, format="PNG")
     return output.getvalue()
 
@@ -182,7 +207,7 @@ def prepare(data, store):
     for field in FIELDS:
         lons, lats, z, u, v, used = grid(rows, field)
         key = prefix+"/"+field+".png"
-        store.write(key, image(z, PALETTES[field]), "image/png")
+        store.write(key, image(z, PALETTES[field], banded=field != "wind"), "image/png")
         counts = Counter(r["analysisQc"][field]["status"] for r in rows)
         arrows = []
         if field == "wind":
@@ -192,8 +217,8 @@ def prepare(data, store):
                         arrows.append({"lat": round(float(lats[iy]), 4), "lon": round(float(lons[ix]), 4),
                                        "speed": round(float(z[iy, ix]), 1),
                                        "direction": round(float(np.degrees(np.arctan2(-u[iy, ix], -v[iy, ix])) % 360), 1)})
-        result["fields"][field] = {"imageUrl": "/api/prepared/"+key, "palette": PALETTES[field],
-              "contours": {"type": "FeatureCollection", "features": lines(lons, lats, z, 5 if field == "wind" else 2)},
+        result["fields"][field] = {"imageUrl": "/api/prepared/"+key, "palette": PALETTES[field], "paletteMode": "continuous" if field == "wind" else "discrete", "interval": 5,
+              "contours": {"type": "FeatureCollection", "features": lines(lons, lats, z, 5)},
               "arrows": arrows, "qc": dict(counts), "used": used, "supportedCells": int(np.isfinite(z).sum())}
     key = prefix+"/manifest.json"
     store.write_json(key, result)
@@ -202,3 +227,20 @@ def prepare(data, store):
             frame["analysisUrl"] = "/api/prepared/"+key
     data["analysisVersion"] = VERSION
     return result
+
+
+def prepare_history(data, store):
+    """Refresh saved hours on a style migration without refetching observations."""
+    for frame in data["history"]:
+        if not frame.get("stations") or ("/"+VERSION+"/") in frame.get("analysisUrl", ""):
+            continue
+        historical = {"hour": frame["hour"], "stations": frame["stations"], "history": [frame]}
+        prepare(historical, store)
+    # The current hour may be empty only in an invalid/incomplete source object.
+    # Ordinary hourly collection supplies at least one station.
+    latest = next((frame for frame in data["history"] if frame["hour"] == data["hour"]), None)
+    if latest and latest.get("analysisUrl") and ("/"+VERSION+"/") in latest["analysisUrl"]:
+        data["stations"] = latest["stations"]
+        data["analysisVersion"] = VERSION
+    else:
+        prepare(data, store)

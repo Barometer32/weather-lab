@@ -166,8 +166,15 @@ def collect_stations(store, now):
     import surface_analysis
     previous = store.read_json("live/station-plots.json")
     hour = now.replace(minute=0, second=0, microsecond=0)
-    if previous and previous.get("collectionMode") == "hourly-window" and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 25 and previous.get("analysisVersion") == surface_analysis.VERSION:
-        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+    same_hour = (previous and previous.get("collectionMode") == "hourly-window"
+                 and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 25)
+    if same_hour:
+        if previous.get("analysisVersion") == surface_analysis.VERSION:
+            return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+        # A palette-only migration uses the genuine saved readings and times.
+        surface_analysis.prepare_history(previous, store)
+        store.write_json("live/station-plots.json", previous)
+        return {"stations": len(previous["stations"]), "status": "analysis style updated"}
     airport_failed = False
     try:
         # One scheduled route also prepares the cloud view and reuses its
@@ -179,7 +186,7 @@ def collect_stations(store, now):
     airport_data = store.read_json("live/metar-clouds.json") or {}
     airport_rows = [row for frame in airport_data.get("history", []) for row in frame.get("stations", [])]
     data = collect(weather.download, now, previous, airport_rows=airport_rows, airport_failed=airport_failed)
-    surface_analysis.prepare(data, store)
+    surface_analysis.prepare_history(data, store)
     store.write_json("live/station-plots.json", data)
     return {"stations": len(data["stations"]), "failedStates": data["failedStates"]}
 

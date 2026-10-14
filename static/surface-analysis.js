@@ -32,7 +32,7 @@ window.WeatherSurfaceViews = (() => {
     L.imageOverlay(product.imageUrl,analysis.bounds,{pane:"analysisRaster",opacity:1,interactive:false}).on("error",()=>{el("surface-status").textContent="The analysis image could not load. Select another hour or refresh.";}).addTo(layers);
     const labeled=new Set();
     L.geoJSON(product.contours,{style:{color:"#233940",weight:.8,opacity:.65},onEachFeature:(feature,line)=>{
-      const level=feature.properties.value,permanent=level%(field==="wind"?5:10)===0&&!labeled.has(level)&&feature.geometry.coordinates.length>12;
+      const level=feature.properties.value,permanent=level%5===0&&!labeled.has(level)&&feature.geometry.coordinates.length>12;
       if(permanent)labeled.add(level);
       line.bindTooltip(permanent?`${level}`:`${labels[field]} ${level} ${unit}`,{sticky:!permanent,permanent,direction:"center",className:permanent?"surface-contour-label":""});
     }}).addTo(layers);
@@ -48,14 +48,19 @@ window.WeatherSurfaceViews = (() => {
       if(value==null)continue;
       const excluded=qc.status==="suspect"||qc.status==="missing";
       const p=node("div");p.append(node("strong",`${station.station} · ${station.name||station.network}`),node("p",`${labels[field]} ${value.toFixed(1)} ${unit}`),node("p",`${station.network} · ${stamp.format(new Date(station.time))}`),node("p",`${excluded?"Excluded":"Included if spatially supported"}: ${qc.status}. ${qc.reason}`));
+      if(qc.difference!=null&&qc.tolerance!=null)p.append(node("p",`Neighbor comparison: ${qc.difference.toFixed(1)} ${unit} difference · ${qc.tolerance.toFixed(1)} ${unit} threshold · ${qc.neighbors} neighbor groups`));
       L.circleMarker([station.lat,station.lon],{radius:excluded?3.5:2.5,color:excluded?"#69706f":"#fff",weight:1,fillColor:excluded?"#69706f":"#203b35",fillOpacity:.9}).bindPopup(p).addTo(layers);
     }
     const bar=node("div");bar.className="surface-gradient";
     const palette=product.palette,low=palette[0][0],span=palette.at(-1)[0]-low;
-    bar.style.background=`linear-gradient(to right,${palette.map(([v,c])=>`${c} ${100*(v-low)/span}%`).join(",")})`;
+    const banded=product.paletteMode==="discrete";
+    const colorStops=banded?palette.slice(0,-1).flatMap(([v,c],i)=>[`${c} ${100*(v-low)/span}%`,`${c} ${100*(palette[i+1][0]-low)/span}%`]):palette.map(([v,c])=>`${c} ${100*(v-low)/span}%`);
+    bar.style.background=`linear-gradient(to right,${colorStops.join(",")})`;
+    bar.setAttribute("aria-label",`${labels[field]} color scale${banded?", 5-degree Fahrenheit bands":""}`);
     const ticks=node("div");ticks.className="surface-ticks";
-    for(const [v] of palette){const tick=node("span",String(v));tick.style.left=`${100*(v-low)/span}%`;ticks.append(tick);}
-    el("surface-legend").append(node("strong",`${labels[field]} · ${unit}`),bar,ticks);
+    for(const [v] of palette){if(banded&&v%10!==0&&v!==palette.at(-1)[0])continue;const tick=node("span",String(v));tick.style.left=`${100*(v-low)/span}%`;ticks.append(tick);}
+    el("surface-legend").append(node("strong",`${labels[field]} · ${unit}${banded?" · 5°F bands":""}`),bar,ticks);
+    if(banded){const note=node("p",field==="dewpointF"?"White: dew points below 20°F. Other bands change every 5°F.":"White: temperatures below −20°F or at least 105°F, following the reference scale.");note.className="small-note";el("surface-legend").append(note);}
     const qc=product.qc||{};
     el("surface-status").textContent=`${stamp.format(new Date(analysis.hour))} · ${product.used} spatially spaced inputs · ${qc.suspect||0} suspect fields excluded · ${qc.unverified||0} fields with limited neighbor checks${product.supportedCells?" · Blank areas have insufficient observations":" · Not enough observations for contours"}`;
     setTimeout(()=>map.invalidateSize(),0);
