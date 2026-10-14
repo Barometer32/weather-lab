@@ -149,27 +149,27 @@ class WeatherTests(unittest.TestCase):
         png,bounds = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n")
         out = np.asarray(Image.open(io.BytesIO(png)))
         self.assertTrue((out[0,:3,3] == 0).all())
-        self.assertEqual(tuple(out[0,3]),(2,98,30,220))
-        self.assertEqual(tuple(out[0,7]),(255,88,14,220))
-        self.assertEqual(tuple(out[0,8]),(0,213,208,220))
+        self.assertEqual(tuple(out[0,3]),(34,177,76,220))
+        self.assertEqual(tuple(out[0,7]),(224,0,0,220))
+        self.assertEqual(tuple(out[0,8]),(224,0,0,220))
         self.assertAlmostEqual(bounds[1][0],45.005)
         self.assertAlmostEqual(bounds[0][1],-93.005)
 
-    def test_continuous_radar_palette_tracks_reference_and_keeps_half_dbz_detail(self):
+    def test_five_radar_bands_switch_at_exact_cutoffs_without_intermediate_colors(self):
         codes = np.arange(256,dtype="uint8")
         data = np.tile(codes,(8,1))
         image = Image.fromarray(data).convert("P"); b=io.BytesIO(); image.save(b,format="PNG")
         png,_ = recolor_and_project(b.getvalue(),b"0.01\n0\n0\n-0.01\n-93\n45\n")
         out = np.asarray(Image.open(io.BytesIO(png)))[0]
         self.assertTrue((out[:86] == 0).all())
-        # Selected values read from the reference color bar, independent of the
-        # implementation's stop list. 31.5/32 dBZ cross green into yellow.
-        expected = {86:(2,98,30,220), 106:(36,163,47,220), 126:(74,233,66,220),
-                    129:(80,243,70,220), 130:(255,248,39,220), 146:(255,181,28,220),
-                    166:(255,88,14,220), 186:(240,0,0,220), 196:(230,0,200,220),
-                    206:(243,73,228,220), 226:(0,213,208,220), 255:(0,213,208,220)}
+        # Check both sides of every cutoff, including the highest data code.
+        expected = {86:(34,177,76,220), 115:(34,177,76,220),
+                    116:(0,100,0,220), 125:(0,100,0,220),
+                    126:(255,216,0,220), 145:(255,216,0,220),
+                    146:(255,140,0,220), 155:(255,140,0,220),
+                    156:(224,0,0,220), 255:(224,0,0,220)}
         for code, color in expected.items(): self.assertEqual(tuple(out[code]),color)
-        self.assertGreater(len(np.unique(out[86:227,:3],axis=0)),100)
+        self.assertEqual(len(np.unique(out[86:,:3],axis=0)),5)
 
     def test_radar_retains_source_dimensions_sharp_edges_and_exact_colors(self):
         data = np.zeros((64,64), dtype="uint8")
@@ -180,10 +180,10 @@ class WeatherTests(unittest.TestCase):
         out = np.asarray(Image.open(io.BytesIO(png)))
         self.assertEqual(out.shape,(64,64,4))
         colors={tuple(pixel) for pixel in out.reshape(-1,4)}
-        self.assertEqual(colors,{(0,0,0,0),(2,98,30,220),(74,233,66,220)})
+        self.assertEqual(colors,{(0,0,0,0),(34,177,76,220),(255,216,0,220)})
         self.assertTrue((out[:8,:,3] == 0).all())
-        self.assertEqual(tuple(out[32,32]),(74,233,66,220))
-        self.assertEqual(tuple(out[20,20]),(2,98,30,220))
+        self.assertEqual(tuple(out[32,32]),(255,216,0,220))
+        self.assertEqual(tuple(out[20,20]),(34,177,76,220))
         self.assertAlmostEqual(bounds[1][0],45.005)
 
     def test_non_indexed_radar_rejected(self):

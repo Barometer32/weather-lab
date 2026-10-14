@@ -59,7 +59,7 @@ def collect_radar(store, now):
 
 def collect_radar_site(store, now, site):
     from native_radar import collect_site
-    palette = [{"dbz": value, "color": color} for value, color in weather.PALETTE]
+    palette = weather.radar_palette()
     return collect_site(store, now, site, palette, budget=45)
 
 

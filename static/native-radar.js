@@ -54,12 +54,13 @@ window.NativeRadar = (() => {
     const rgb = color=>[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
     for(let code=86;code<256;code++) {
       const dbz=(code-2)*0.5-32;
-      let upper=palette.findIndex(stop=>stop.dbz>dbz);
-      if(upper<0)upper=palette.length-1;
-      const lower=Math.max(0,upper-1), a=palette[lower], b=palette[upper];
-      const amount=Math.min(1,Math.max(0,(dbz-a.dbz)/(b.dbz-a.dbz || 1)));
-      const ca=rgb(a.color),cb=rgb(b.color);
-      for(let c=0;c<3;c++)output[code*4+c]=Math.round(ca[c]+(cb[c]-ca[c])*amount);
+      let band=palette[0];
+      for(const stop of palette) {
+        if(stop.dbz>dbz)break;
+        band=stop;
+      }
+      const color=rgb(band.color);
+      for(let c=0;c<3;c++)output[code*4+c]=color[c];
       output[code*4+3]=220;
     }
     return output;

@@ -3,7 +3,7 @@
 A phone-friendly Twin Cities weather page with four views:
 
 - **METAR (first/default):** individual airport temperatures/dew points in °F, black wind-flow arrows with speed in mph, and a cloud-ceiling dropdown. Both views have twelve hourly snapshots. KFCM/KMIC/KMSP/KSTP stay independent; KCFE/KFCE and KSGS are excluded.
-- **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, a continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
+- **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, five stepped green/yellow/orange/red intensity bands from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
 
@@ -32,7 +32,19 @@ NOAA/NWS native Level II reflectivity is collected for **KMPX (Twin Cities)** fr
 
 KMPX has an authenticated minute Scheduler job and a 45-second steady-state work budget (up to 120 seconds for first backfill). The collector checks every minute. It locates the current streaming volume with a 24-byte archive header request, processes new chunks in sequence, saves a partial low-tilt sweep across cold starts, and publishes each completed scan without waiting for the volume to finish. The completed-volume archive fills the preceding two hours and recovers missed streaming data. Both the prepared manifest and public API use scan timestamps to keep every available completed scan within the rolling two-hour window. There is no frame-count cap: 30, 100 or more scans are included when available. Missing source data can leave gaps; the viewer indicates incomplete history. Bounded backfill resumes on later invocations. The public app serves prepared data only and never launches per-visitor collection.
 
-Native super-resolution reflectivity has 250-meter range gates and 0.5° azimuth spacing. These are polar measurements, not 250-meter square geographic pixels; cross-beam resolution worsens with distance. Compressed binary frame packets keep native azimuths and range geometry. The canvas viewer samples the nearest native gate at the current zoom using WGS84 geodesic distances/bearings and standard 4/3-earth beam geometry, without smoothing or averaging. The 10 dBZ cutoff and approved continuous COD-style palette are preserved; codes below 10 dBZ/missing/range-folded are transparent. No geographic PNG raster limits the displayed detail.
+Native super-resolution reflectivity has 250-meter range gates and 0.5° azimuth spacing. These are polar measurements, not 250-meter square geographic pixels; cross-beam resolution worsens with distance. Compressed binary frame packets keep native azimuths and range geometry. The canvas viewer samples the nearest native gate at the current zoom using WGS84 geodesic distances/bearings and standard 4/3-earth beam geometry, without smoothing or averaging. Codes below 10 dBZ/missing/range-folded are transparent. No geographic PNG raster limits the displayed detail.
+
+Reflectivity uses five solid color bands, with no color interpolation. Each cutoff includes its lower bound and excludes the next cutoff:
+
+| dBZ | Color | Approximate rain intensity |
+| --- | --- | --- |
+| 10 to below 25 | Green (`#22b14c`) | Light |
+| 25 to below 30 | Dark green (`#006400`) | Light–moderate |
+| 30 to below 40 | Yellow (`#ffd800`) | Moderate |
+| 40 to below 45 | Orange (`#ff8c00`) | Moderate–heavy |
+| 45 and above | Red (`#e00000`) | Heavy |
+
+These are simplified display categories, not an exact surface rain-rate estimate or an official NWS intensity scale. Snow, hail, and non-rain targets can produce different reflectivity; strong red echoes may include hail. All values above 45 dBZ remain red. The labeled five-swatch legend matches the renderer. The API supplies the current palette for all retained raw scans, so a palette change does not discard the two-hour history.
 
 The map retains its white background, state/county boundaries, no city labels, zoom/pan, and a manual slider on phones and desktop. Zoom can reach level 13. Radar timestamps use Central time. History backfill, gaps and stale scans are flagged. The scan timestamp is its start; the native packet also retains its completion time.
 
