@@ -1,4 +1,4 @@
-"""Open IEM station observations, collected in bulk rather than per visitor.
+"""Hourly IEM and Wisconet station observations, collected in bulk.
 
 IEM currents explicitly supply tmpf/dwpf in Fahrenheit and sknt in knots.
 This feed does not expose the complete MADIS QC flags. Checks here reject
@@ -16,7 +16,8 @@ from metar_clouds import BOUNDS, EXCLUDED_STATIONS
 SOURCE = "https://mesonet.agron.iastate.edu/api/1/currents.json"
 STATES = ("MN", "WI", "IA", "ND", "SD", "NE", "IL", "MI", "IN", "OH", "KS", "MO")
 MAX_AGE = timedelta(minutes=90)
-VERSION = 1
+VERSION = 2
+WINDOW = timedelta(minutes=10)
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +37,10 @@ def number(value, low, high):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if math.isfinite(value) and low <= value <= high else None
+
+
+def in_hour_window(stamp, hour):
+    return hour-WINDOW <= stamp <= hour
 
 
 def parse(payload, now):
@@ -77,7 +82,10 @@ def parse(payload, now):
                 "tempF": temp, "dewpointF": dew,
                 "wind": {"speedKnots": speed, "speedMph": speed * 1.150779448 if speed is not None else None,
                          "direction": direction, "variable": bool(re.search(r"\bVRB\d", str(raw.get("raw") or "")))},
-                "source": "Iowa Environmental Mesonet", "quality": "range-and-age-checked"}
+                "source": "Iowa Environmental Mesonet", "quality": "range-and-age-checked",
+                "reportType": ("SPECI" if str(raw.get("raw") or "").startswith("SPECI") else
+                               "HFMETAR" if "MADISHF" in str(raw.get("raw") or "") else
+                               "METAR" if network.endswith("_ASOS") and raw.get("raw") else None)}
         if key not in latest or item["time"] >= latest[key]["time"]:
             latest[key] = item
     return list(latest.values())
@@ -91,60 +99,92 @@ def valid_saved(row, reference, age=MAX_AGE):
             and number(row.get("lon"), -100, -85) is not None)
 
 
-def history(rows, now):
-    end = now.replace(minute=0, second=0, microsecond=0)
+def history(frames, hour):
     selected = {}
-    for row in rows:
-        if not valid_saved(row, now, timedelta(hours=13)):
+    for frame in frames:
+        reference = timestamp(frame.get("hour"))
+        if reference is None or reference > hour:
             continue
-        observed = timestamp(row["time"])
-        hour = observed.replace(minute=0, second=0, microsecond=0)
-        if observed != hour:
-            hour += timedelta(hours=1)
-        key = (iso(hour), row["stationKey"])
-        if key not in selected or row["time"] >= selected[key]["time"]:
-            selected[key] = row
-    def frame(hour):
-        return {"hour": iso(hour), "stations": sorted(
-            (row for (label, _), row in selected.items() if label == iso(hour)),
-            key=lambda row: row["stationKey"])}
-    return [frame(end-timedelta(hours=i)) for i in reversed(range(12))], frame(end+timedelta(hours=1))
+        for row in frame.get("stations", []):
+            if not valid_saved(row, reference, WINDOW):
+                continue
+            key = (iso(reference), row["stationKey"])
+            if key not in selected or row["time"] >= selected[key]["time"]:
+                selected[key] = row
+    return [{"hour": iso(hour-timedelta(hours=i)), "stations": sorted(
+             (row for (label, _), row in selected.items() if label == iso(hour-timedelta(hours=i))),
+             key=lambda row: row["stationKey"])} for i in reversed(range(12))]
 
 
-def collect(download, now, previous=None):
-    previous = previous if previous and previous.get("version") == VERSION else {}
+def collect(download, now, previous=None, airport_rows=None, airport_failed=False):
+    import wisconet
+    # Read feeds once for this UTC hour; accept only :50 through :00, even if
+    # deployment or a retry happens later. Never re-label newer readings.
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    previous = previous or {}
     fresh, failed, successes = [], [], []
-    def fetch_state(state):
-        return parse(download(SOURCE + "?state=" + state), now)
     with ThreadPoolExecutor(max_workers=3) as pool:
-        work = {state: pool.submit(fetch_state, state) for state in STATES}
-        for state, result in work.items():
+        work = {state: pool.submit(lambda st=state: parse(download(SOURCE + "?state=" + st), now)) for state in STATES}
+        work["WISCONET"] = pool.submit(lambda: wisconet.parse(download(wisconet.url(hour)), hour))
+        for source, result in work.items():
             try:
                 fresh.extend(result.result())
-                successes.append(state)
+                successes.append(source)
             except Exception:
-                failed.append(state)
-                logger.exception("Station collection failed for %s", state)
-    if not fresh:
-        raise ValueError("No fresh station weather reports; previous data retained")
-    # A failed state request may retain recent values, with their original
-    # timestamps and a visible partial-feed notice. Successful feeds replace
-    # their prior station lists, including stations no longer reporting.
-    carried = [row for row in previous.get("stations", [])
-               if row.get("state") in failed and valid_saved(row, now)]
-    current = {row["stationKey"]: row for row in carried + fresh}
-    rows = [row for frame in previous.get("history", []) for row in frame["stations"]]
-    rows += previous.get("pendingHour", {}).get("stations", []) + list(current.values())
-    frames, pending = history(rows, now)
-    return {"version": VERSION, "checkedAt": iso(now), "bounds": BOUNDS,
-            "stations": sorted(current.values(), key=lambda row: row["stationKey"]),
-            "history": frames, "pendingHour": pending,
-            "source": "Iowa Environmental Mesonet", "sourceUrl": SOURCE,
-            "maxAgeMinutes": 90, "successfulStates": successes, "failedStates": failed}
+                failed.append(source)
+                logger.exception("Station collection failed for %s", source)
+    metadata = {row["station"]: row for row in fresh if row["network"].endswith("_ASOS")}
+    selected = {}
+    def add(row):
+        if not valid_saved(row, hour, WINDOW):
+            return
+        wind = row.get("wind") or {}
+        if all(value is None for value in (row.get("tempF"), row.get("dewpointF"),
+                                           wind.get("speedMph"), wind.get("speedKnots"))):
+            return
+        if row["network"].endswith("_ASOS") and row.get("reportType") != "METAR":
+            return
+        key = row["stationKey"]
+        rank = (row["time"], row.get("source") == "NOAA Aviation Weather Center")
+        old = selected.get(key)
+        if old is None or rank >= (old["time"], old.get("source") == "NOAA Aviation Weather Center"):
+            selected[key] = row
+    for row in fresh:
+        add(row)
+    for row in airport_rows or []:
+        if not valid_saved(row, hour, WINDOW) or row.get("reportType") != "METAR":
+            continue
+        original = metadata.get(row["station"], {})
+        network = original.get("network", "AWC_METAR")
+        add({"station": row["station"], "stationKey": network + ":" + row["station"],
+             "network": network, "name": original.get("name", row["station"]), "state": original.get("state", ""),
+             "lat": row["lat"], "lon": row["lon"], "time": row["time"],
+             "tempF": row.get("tempF"), "dewpointF": row.get("dewpointF"), "wind": row["wind"],
+             "source": "NOAA Aviation Weather Center", "reportType": "METAR", "quality": "range-and-age-checked"})
+    if airport_failed:
+        failed.append("AWC METAR")
+    # Retain only still-valid reports from the same ten-minute window when a
+    # source fails. Previous hours are kept on their own historical positions.
+    for row in previous.get("stations", []):
+        source_failed = (row.get("network") == "WISCONET" and "WISCONET" in failed) or (
+            row.get("network") != "WISCONET" and row.get("state") in failed)
+        if source_failed:
+            add(row)
+    if not selected:
+        raise ValueError("No station reports in the ten-minute hourly window; previous data retained")
+    frames = previous.get("history", []) + [{"hour": iso(hour), "stations": list(selected.values())}]
+    frames = history(frames, hour)
+    return {"version": VERSION, "collectionMode": "hourly-window", "hour": iso(hour), "checkedAt": iso(now), "bounds": BOUNDS,
+            "stations": frames[-1]["stations"], "history": frames, "windowMinutes": 10,
+            "source": "Iowa Environmental Mesonet, NOAA AWC and UW–Madison Wisconet",
+            "sourceUrl": SOURCE, "successfulStates": [s for s in successes if s in STATES],
+            "failedStates": [s for s in failed if s in STATES], "failedSources": failed}
 
 
 def current(data, now):
-    frames, _ = history([row for frame in data.get("history", []) for row in frame["stations"]]
-                        + data.get("pendingHour", {}).get("stations", []), now)
-    return {key: value for key, value in data.items() if key not in ("pendingHour", "stations", "history")} | {
-        "history": frames, "stations": [row for row in data.get("stations", []) if valid_saved(row, now)]}
+    # A delayed collector leaves the last genuine snapshot on its original
+    # hour; the API never invents a new hour from older station readings.
+    hour = timestamp(data.get("hour")) or now.replace(minute=0, second=0, microsecond=0)
+    frames = history(data.get("history", []), hour)
+    return {key: value for key, value in data.items() if key not in ("pendingHour", "stations", "history", "maxAgeMinutes")} | {
+        "history": frames, "stations": frames[-1]["stations"], "windowMinutes": 10}

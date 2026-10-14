@@ -182,7 +182,7 @@ def observation_reports(data):
             if row["station"] in STATIONS]
 
 
-def collect(download, now, previous=None):
+def collect(download, now, previous=None, target_hour=None):
     previous = previous or {}
     # One complete AWC bulk download per collection. No per-station requests,
     # retries, historical queries or separate main-observation source download.
@@ -191,9 +191,15 @@ def collect(download, now, previous=None):
                 if in_region(row)]
     # Keep valid existing twelve-hour history when switching from the former
     # regional/national collectors. A new empty store builds history over time.
-    data = snapshot(retained+fresh["stations"], now)
+    rows = retained+fresh["stations"]
+    if target_hour is not None:
+        rows = [row for row in rows
+                if datetime.fromisoformat(row["time"].replace("Z", "+00:00")) <= target_hour]
+    data = snapshot(rows, target_hour or now, iso(now))
     if not any(hour["stations"] for hour in data["history"]):
         raise ValueError("No routine hourly reports; previous snapshot retained")
     data["observationReports"] = observation_reports(data)
     data["collectionMode"] = "shared-hourly-bulk"
+    if target_hour is not None:
+        data["hourlyTarget"] = iso(target_hour)
     return data

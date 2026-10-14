@@ -492,9 +492,13 @@ def station_plots_api():
     from station_plots import collect, current
     try:
         now = utcnow()
-        data = prepared_snapshot("station-plots", 12 * 60)
+        data = prepared_hourly_snapshot("station-plots")
         if data is None:
-            data = cached("local-station-plots", 300, lambda: collect(download, now))
+            hour = now.replace(minute=0, second=0, microsecond=0)
+            entry = _cache.get("local-station-plots")
+            if entry and entry[1].get("hour") != iso(hour):
+                _cache.pop("local-station-plots", None)
+            data = cached("local-station-plots", 3600, lambda: collect(download, now))
         response = jsonify(current(data, now))
         response.headers["Cache-Control"] = "no-store"
         response.headers["Vary"] = "Accept-Encoding"

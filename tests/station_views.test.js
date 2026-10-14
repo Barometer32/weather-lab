@@ -129,44 +129,41 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  data={...data,checkedAt:'2026-10-12T03:00:00Z'};
  const count=timers.length;timer.callback();await flush();
  assert.equal(timers.length,count);
- // New station feed: distinct latest readings, actual source identity, and
- // history remain independent of the airport-only cloud dataset.
- const currentSite={...stations[0],station:'MN129',name:'Farm Island',network:'MN_RWIS',source:'Iowa Environmental Mesonet',tempF:48.7,time:'2026-10-12T02:55:00Z'};
- data={history:data.history,checkedAt:'2026-10-12T03:00:00Z',maxAgeMinutes:90,stations:[currentSite],failedStates:['WI']};
+ // Wisconet shares hourly weather plots, while airport clouds retain a
+ // separate dataset and selected time. There is no extra live slider slot.
+ const airportDataset=data;
+ const currentSite={...stations[0],station:'WDVL',name:'Woodville',network:'WISCONET',source:'UW–Madison Wisconet',tempF:50.3,time:'2026-10-12T02:55:00Z',measurementPeriod:'5-minute average'};
+ data={history:data.history.map((h,i)=>({...h,stations:i===11?[currentSite]:[]})),checkedAt:'2026-10-12T03:00:00Z',windowMinutes:10,failedSources:['WISCONET']};
+ context.fetch=async url=>({ok:true,json:async()=>url==='/api/metar-clouds'?airportDataset:data});
  get('metar-view').value='plots';get('metar-view').events.change();await flush();
- get('refresh-metar-clouds').events.click();await flush();
- assert.equal(get('metar-cloud-timeline').max,'12');
- get('metar-cloud-timeline').events.input({target:{value:'12'}});
- assert.equal(get('metar-cloud-timeline').value,'12');
- assert.match(get('metar-cloud-time').textContent,/Latest reports/);
- assert.ok(find('MN129'));assert.match(find('MN129'),/>49<\/text>/);
- assert.match(get('metar-cloud-status').textContent,/Some feeds delayed: WI/);
- get('metar-station-list').open=true;get('metar-cloud-search').value='FARM';get('metar-cloud-search').events.input();
+ get('metar-cloud-timeline').events.input({target:{value:'11'}});
+ assert.equal(get('metar-cloud-timeline').max,'11');
+ assert.ok(!get('metar-cloud-time').textContent.includes('Latest reports'));
+ assert.ok(find('WDVL'));assert.match(find('WDVL'),/>50<\/text>/);
+ assert.match(get('metar-cloud-status').textContent,/Some feeds delayed: WISCONET/);
+ assert.match(get('metar-timeline-description').textContent,/:50–:00/);
+ get('metar-station-list').open=true;get('metar-cloud-search').value='WOOD';get('metar-cloud-search').events.input();
  assert.equal(get('metar-cloud-rows').children.length,1);
  get('metar-cloud-search').value='';
- get('metar-cloud-timeline').events.input({target:{value:'11'}});
+ get('metar-cloud-timeline').events.input({target:{value:'10'}});
  const stationHour=get('metar-cloud-time').textContent;
  data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-12T04:00:00Z'}),checkedAt:'2026-10-12T04:00:00Z'};
  get('refresh-metar-clouds').events.click();await flush();
- assert.equal(get('metar-cloud-timeline').value,'10');
+ assert.equal(get('metar-cloud-timeline').value,'9');
  assert.equal(get('metar-cloud-time').textContent.split(' · ')[0],stationHour.split(' · ')[0]);
  get('metar-view').value='clouds';get('metar-view').events.change();await flush();
- assert.equal(get('metar-cloud-timeline').max,'11');
- assert.equal(find('MN129'),undefined);
+ assert.equal(find('WDVL'),undefined);
  assert.equal(get('metar-heading').textContent,'Cloud ceilings');
- // A fresh page starts on latest station reports and schedules a five-minute
- // prepared-data check, rather than starting on an empty hourly position.
- clock=Date.UTC(2026,9,12,3,16);
- data={...data,checkedAt:'2026-10-12T03:15:00Z'};
+ // A fresh page starts on the newest hourly frame and checks only at :00:30.
+ clock=Date.UTC(2026,9,12,4,16);
  get('metar-view').value='plots';
  vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
- assert.equal(get('metar-cloud-timeline').value,'12');
- assert.match(get('metar-cloud-time').textContent,/Latest reports/);
- assert.ok(find('MN129'));
- assert.equal(timer.delay,270000); // Next five-minute check at :20:30.
+ assert.equal(get('metar-cloud-timeline').value,'11');
+ assert.ok(find('WDVL'));
+ assert.equal(timer.delay,2670000); // Next hourly check at 05:00:30.
  context.fetch=async()=>{throw Error('Temporary feed error');};
  get('refresh-metar-clouds').events.click();await flush();
- assert.ok(find('MN129'));assert.match(get('metar-cloud-status').textContent,/Previous reports retained/);
- console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, individual stations and denser non-overlapping plots, hourly/latest schedules, feed failures and independent selection.');
+ assert.ok(find('WDVL'));assert.match(get('metar-cloud-status').textContent,/Previous reports retained/);
+ console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, individual stations and denser non-overlapping plots, hourly-only schedules, feed failures and independent selection.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -49,3 +49,14 @@ https://aviationweather.gov/help/data/
 Native radar decoder: MetPy 1.7.1 (NSF Unidata), BSD 3-Clause.
 https://github.com/Unidata/MetPy
 https://registry.opendata.aws/noaa-nexrad/
+
+
+Hourly station plots also use open IEM current-observation bulk feeds and
+UW–Madison Wisconet temperature, dew point and wind observations. Wisconet
+data is licensed under Creative Commons Attribution 4.0 (CC BY 4.0).
+Source: https://wisconet.wisc.edu/
+API: https://api.wisconet.wisc.edu/docs
+License: https://creativecommons.org/licenses/by/4.0/
+Wisconet values are selected by report time, range-checked and filtered for
+hourly display; the underlying source measurements are not spatially averaged.
+Station identity, timestamps, source credits and available quality flags are retained.

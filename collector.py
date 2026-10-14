@@ -134,14 +134,15 @@ def collect_satellite(store, now):
     return results
 
 
-def collect_metar_clouds(store, now):
+def collect_metar_clouds(store, now, target_hour=None):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
     if previous and previous.get("collectionMode") == "shared-hourly-bulk":
         checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
-        if checked.replace(minute=0, second=0, microsecond=0) == now.replace(minute=0, second=0, microsecond=0):
+        matching_target = target_hour is None or previous.get("hourlyTarget") == weather.iso(target_hour)
+        if matching_target and checked.replace(minute=0, second=0, microsecond=0) == now.replace(minute=0, second=0, microsecond=0):
             return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
-    data = collect(weather.download, now, previous)
+    data = collect(weather.download, now, previous, target_hour=target_hour) if target_hour else collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)
     return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"])}
@@ -163,11 +164,20 @@ def collect_forecast(store, now):
 def collect_stations(store, now):
     from station_plots import collect
     previous = store.read_json("live/station-plots.json")
-    if previous:
-        checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
-        if 0 <= (now-checked).total_seconds() < 240:
-            return {"stations": len(previous["stations"]), "status": "already prepared"}
-    data = collect(weather.download, now, previous)
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    if previous and previous.get("collectionMode") == "hourly-window" and previous.get("hour") == weather.iso(hour):
+        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+    airport_failed = False
+    try:
+        # One scheduled route also prepares the cloud view and reuses its
+        # official routine METARs. No second hourly airport download is needed.
+        collect_metar_clouds(store, now, target_hour=hour)
+    except Exception:
+        app.logger.exception("Hourly airport collection delayed")
+        airport_failed = True
+    airport_data = store.read_json("live/metar-clouds.json") or {}
+    airport_rows = [row for frame in airport_data.get("history", []) for row in frame.get("stations", [])]
+    data = collect(weather.download, now, previous, airport_rows=airport_rows, airport_failed=airport_failed)
     store.write_json("live/station-plots.json", data)
     return {"stations": len(data["stations"]), "failedStates": data["failedStates"]}
 

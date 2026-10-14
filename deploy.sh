@@ -45,6 +45,10 @@ fi
 if gcloud scheduler jobs describe weather-live-surface --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-surface --location="$WEATHER_REGION" --quiet
 fi
+# The hourly station route now shares airport collection with cloud ceilings.
+if gcloud scheduler jobs describe weather-live-metar-clouds --location="$WEATHER_REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs delete weather-live-metar-clouds --location="$WEATHER_REGION" --quiet
+fi
 if gcloud run jobs describe weather-forecast --region="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud run jobs delete weather-forecast --region="$WEATHER_REGION" --quiet
 fi
@@ -93,8 +97,7 @@ weather_schedule() {
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '*/5 * * * *'
-weather_schedule metar-clouds '0 * * * *' metar-clouds 300 2
-weather_schedule stations '*/5 * * * *'
+weather_schedule stations '0 * * * *' stations 300 0
 
 gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
 
