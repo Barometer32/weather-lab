@@ -27,10 +27,10 @@ OBSERVATION_CHECK_MINUTES = (0,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Five discrete reflectivity bands. Rain-intensity labels are approximate;
 # reflectivity can also come from snow, hail, or non-precipitation targets.
-PALETTE = [(10, "#22b14c"), (25, "#006400"), (30, "#ffd800"),
-           (40, "#ff8c00"), (45, "#e00000")]
+PALETTE = [(10, "#22b14c"), (22, "#006400"), (30, "#ffd800"),
+           (39, "#ff8c00"), (45, "#e00000")]
 RADAR_INTENSITIES = ["Light", "Light–moderate", "Moderate", "Moderate–heavy", "Heavy"]
-RENDER_VERSION = "five-band-v8"
+RENDER_VERSION = "five-band-v9"
 _cache, _locks = {}, {}
 _lock_guard = threading.Lock()
 

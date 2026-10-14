@@ -163,10 +163,10 @@ class WeatherTests(unittest.TestCase):
         out = np.asarray(Image.open(io.BytesIO(png)))[0]
         self.assertTrue((out[:86] == 0).all())
         # Check both sides of every cutoff, including the highest data code.
-        expected = {86:(34,177,76,220), 115:(34,177,76,220),
-                    116:(0,100,0,220), 125:(0,100,0,220),
-                    126:(255,216,0,220), 145:(255,216,0,220),
-                    146:(255,140,0,220), 155:(255,140,0,220),
+        expected = {86:(34,177,76,220), 109:(34,177,76,220),
+                    110:(0,100,0,220), 125:(0,100,0,220),
+                    126:(255,216,0,220), 143:(255,216,0,220),
+                    144:(255,140,0,220), 155:(255,140,0,220),
                     156:(224,0,0,220), 255:(224,0,0,220)}
         for code, color in expected.items(): self.assertEqual(tuple(out[code]),color)
         self.assertEqual(len(np.unique(out[86:,:3],axis=0)),5)

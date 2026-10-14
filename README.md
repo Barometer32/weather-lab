@@ -38,13 +38,15 @@ Reflectivity uses five solid color bands, with no color interpolation. Each cuto
 
 | dBZ | Color | Approximate rain intensity |
 | --- | --- | --- |
-| 10 to below 25 | Green (`#22b14c`) | Light |
-| 25 to below 30 | Dark green (`#006400`) | Light–moderate |
-| 30 to below 40 | Yellow (`#ffd800`) | Moderate |
-| 40 to below 45 | Orange (`#ff8c00`) | Moderate–heavy |
+| 10 to below 22 | Green (`#22b14c`) | Light |
+| 22 to below 30 | Dark green (`#006400`) | Light–moderate |
+| 30 to below 39 | Yellow (`#ffd800`) | Moderate |
+| 39 to below 45 | Orange (`#ff8c00`) | Moderate–heavy |
 | 45 and above | Red (`#e00000`) | Heavy |
 
-These are simplified display categories, not an exact surface rain-rate estimate or an official NWS intensity scale. Snow, hail, and non-rain targets can produce different reflectivity; strong red echoes may include hail. All values above 45 dBZ remain red. The labeled five-swatch legend matches the renderer. The API supplies the current palette for all retained raw scans, so a palette change does not discard the two-hour history.
+These are simplified display categories, not an exact surface rain-rate estimate or an official NWS intensity scale. Snow, hail, and non-rain targets can produce different reflectivity; strong red echoes may include hail. All values above 45 dBZ remain red. The labeled five-swatch legend matches the palette. The API supplies the current palette for all retained raw scans, so a palette change does not discard the two-hour history.
+
+The echo canvas has a one-screen-pixel Gaussian display blur to soften blocky edges. Underlying native values, sampling, collection and history are unchanged. Colors blend visually near edges, and tiny isolated echoes can look fainter. The blur applies only to echoes, so county/state boundaries and the three reference dots remain sharp. Its radius stays small at every zoom instead of blurring large areas of precipitation.
 
 The map retains its white background, state/county boundaries, no city labels, zoom/pan, and a manual slider on phones and desktop. Zoom can reach level 13. Radar timestamps use Central time. History backfill, gaps and stale scans are flagged. The scan timestamp is its start; the native packet also retains its completion time.
 

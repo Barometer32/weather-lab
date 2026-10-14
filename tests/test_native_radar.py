@@ -169,7 +169,7 @@ class NativeRadarTests(unittest.TestCase):
             # Even a saved manifest with an obsolete/empty palette gets the
             # current display bands without refetching or reprocessing scans.
             self.assertEqual(response.json['paletteMode'],'steps')
-            self.assertEqual([band['dbz'] for band in response.json['palette']],[10,25,30,40,45])
+            self.assertEqual([band['dbz'] for band in response.json['palette']],[10,22,30,39,45])
             self.assertEqual(response.json['palette'][2]['label'],'Moderate')
             self.assertIsNone(response.json['palette'][-1]['maxDbz'])
             self.assertEqual(client.get('/api/radar?site=KEVX').status_code,400)

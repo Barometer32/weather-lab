@@ -49,10 +49,12 @@ to thousands of feet with a minimum displayed value of 1.
 Radar keeps native KMPX lowest 0.5-degree completed scans, including available
 supplemental scans, across the previous two hours with no frame-count cap or
 smoothing. Below 10 dBZ stays transparent. Five solid display bands start at
-10 (green/light), 25 (dark green/light–moderate), 30 (yellow/moderate),
-40 (orange/moderate–heavy), and 45 (red/heavy) dBZ. Rain labels are approximate;
+10 (green/light), 22 (dark green/light–moderate), 30 (yellow/moderate),
+39 (orange/moderate–heavy), and 45 (red/heavy) dBZ. Rain labels are approximate;
 snow, hail, and non-rain targets differ. Native data and retained history are
-unchanged by the display palette.
+unchanged by the display palette. A one-screen-pixel Gaussian blur softens only
+the echo canvas; tiny echoes can look fainter and colors blend near edges.
+Boundaries and reference dots remain sharp.
 
 Satellite keeps the original COD Central Minnesota True Color, Day Cloud
 Phase and Nighttime Microphysics products and manual timeline. Forecast keeps

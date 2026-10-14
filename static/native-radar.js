@@ -1,6 +1,6 @@
 "use strict";
-// Render native polar gates directly at the current map scale. No neighboring
-// values are blended, and no coarse geographic image sits between data and view.
+// Sample native polar gates directly at the current map scale. CSS applies a
+// small display blur afterward; saved reflectivity values remain unchanged.
 window.NativeRadar = (() => {
   function inverse(latitude1, longitude1, latitude2, longitude2) {
     // Vincenty inverse on WGS84: preserve geographic alignment at 250 m gates.
