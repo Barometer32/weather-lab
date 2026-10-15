@@ -221,3 +221,10 @@ body.satellite-expanded { overflow: hidden; }
 #surface-coverage td { font-size:13px; }
 @media(max-width:600px) { #surface-map { height:470px; } .surface-section .metar-view-controls { align-items:flex-start; } }
 .surface-contour-label { background:#ffffffc9; border:0; box-shadow:none; font:600 10px Arial,sans-serif; color:#263e3b; padding:0 2px; }
+
+.feed-health { margin:12px 0; padding:12px 15px; border:1px solid #bdccc4; border-left:4px solid #218552; border-radius:6px; background:#f4faf6; font-size:13px; line-height:1.5; }
+.feed-health[hidden] { display:none; }
+.feed-health p { margin:4px 0 0; }
+.feed-health-unknown { border-color:#c7cfce; border-left-color:#73817c; background:#f7f9f8; }
+.feed-health-warning { border-color:#dcc087; border-left-color:#b57a13; background:#fff8e9; }
+#surface-map { border:0; border-radius:0; }

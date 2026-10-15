@@ -19,7 +19,7 @@ from metar_clouds import BOUNDS, EXCLUDED_STATIONS
 SOURCE = "https://mesonet.agron.iastate.edu/api/1/currents.json"
 STATES = ("MN", "WI", "IA", "ND", "SD", "NE", "IL", "MI", "IN", "OH", "KS", "MO")
 MAX_AGE = timedelta(minutes=90)
-VERSION = 4
+VERSION = 5
 WINDOW = timedelta(minutes=30)
 logger = logging.getLogger(__name__)
 
@@ -105,19 +105,23 @@ def valid_saved(row, reference, age=MAX_AGE):
 def history(frames, hour):
     selected = {}
     analyses = {}
+    checks = {}
     for frame in frames:
         reference = timestamp(frame.get("hour"))
         if reference is None or reference > hour:
             continue
         if frame.get("analysisUrl"):
             analyses[iso(reference)] = frame["analysisUrl"]
+        if "sourceHealth" in frame:
+            checks[iso(reference)] = frame["sourceHealth"]
         for row in frame.get("stations", []):
             if not valid_saved(row, reference, WINDOW):
                 continue
             key = (iso(reference), row["stationKey"])
             if key not in selected or row["time"] >= selected[key]["time"]:
                 selected[key] = row
-    return [{"hour": iso(hour-timedelta(hours=i)), **({"analysisUrl": analyses[iso(hour-timedelta(hours=i))]} if iso(hour-timedelta(hours=i)) in analyses else {}), "stations": sorted(
+    return [{"hour": iso(hour-timedelta(hours=i)), **({"analysisUrl": analyses[iso(hour-timedelta(hours=i))]} if iso(hour-timedelta(hours=i)) in analyses else {}),
+             **({"sourceHealth": checks[iso(hour-timedelta(hours=i))]} if iso(hour-timedelta(hours=i)) in checks else {}), "stations": sorted(
              (row for (label, _), row in selected.items() if label == iso(hour-timedelta(hours=i))),
              key=lambda row: row["stationKey"])} for i in reversed(range(12))]
 
@@ -169,7 +173,7 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
     # deployment or a retry happens later. Never re-label newer readings.
     hour = now.replace(minute=0, second=0, microsecond=0)
     previous = previous or {}
-    fresh, failed, successes = [], [], []
+    fresh, failed, successes, source_health = [], [], [], []
     with ThreadPoolExecutor(max_workers=3) as pool:
         work = {state: pool.submit(lambda st=state: parse(download(SOURCE + "?state=" + st), now)) for state in STATES}
         for network in RWIS_NETWORKS:
@@ -177,17 +181,22 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
         work["WISCONET"] = pool.submit(lambda: wisconet.parse(download(wisconet.url(hour)), hour))
         for source, result in work.items():
             try:
-                fresh.extend(result.result())
+                rows = result.result()
+                fresh.extend(rows)
                 successes.append(source)
+                source_health.append({"source": source, "status": "ok", "reports": sum(valid_saved(r, hour, WINDOW) for r in rows)})
             except Exception:
                 failed.append(source)
+                source_health.append({"source": source, "status": "failed", "reports": 0})
                 logger.exception("Station collection failed for %s", source)
     known_rows = [r for f in previous.get("history", []) for r in f.get("stations", [])]
     named = {row["stationKey"]: row for row in known_rows+fresh if row.get("name") and row["name"] != row["station"]}
     for row in fresh:
         if row["name"] == row["station"] and row["stationKey"] in named:
             row["name"] = named[row["stationKey"]]["name"]
-    metadata = {row["station"]: row for row in fresh if row["network"].endswith("_ASOS")}
+    # A state-current-feed outage must not make AWC fallback airports appear
+    # to vanish from their known state network merely because metadata failed.
+    metadata = {row["station"]: row for row in known_rows+fresh if row["network"].endswith("_ASOS")}
     selected = {}
     def add(row):
         if not valid_saved(row, hour, WINDOW):
@@ -217,6 +226,10 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
              "source": "NOAA Aviation Weather Center", "reportType": "METAR", "quality": "range-and-age-checked"})
     if airport_failed:
         failed.append("AWC METAR")
+    source_health.append({"source": "AWC METAR", "status": "failed" if airport_failed else
+                          "not-requested" if airport_rows is None else "ok",
+                          "reports": sum(valid_saved(r, hour, WINDOW) and r.get("reportType") == "METAR"
+                                         for r in airport_rows or [])})
     # Retain only still-valid reports from the same 30-minute window when a
     # source fails. Previous hours are kept on their own historical positions.
     for row in previous.get("stations", []):
@@ -248,12 +261,24 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
     frames = [{k: v for k, v in frame.items() if k != "analysisUrl" or frame["hour"] not in repaired}
               for frame in previous.get("history", [])]
     frames += [{"hour": label, "stations": rows} for label, rows in repaired.items()]
-    frames += [{"hour": iso(hour), "stations": list(selected.values())}]
+    frames += [{"hour": iso(hour), "stations": list(selected.values()), "sourceHealth": source_health}]
     frames = history(frames, hour)
+    # Keep the known-network baseline even if a whole network disappears from
+    # both current feeds and the rolling history. This is presence monitoring,
+    # not a claim that every individual station or every MADIS feed is present.
+    expected = set(RWIS_NETWORKS) | {"WISCONET"} | set(previous.get("expectedNetworks", []))
+    expected.update(r["network"] for r in known_rows+fresh+list(selected.values()))
+    expected.update(r["network"] for r in previous.get("coverage", []))
+    expected.discard("AWC_METAR")  # Fallback airport IDs can later gain state/network metadata.
+    for frame in frames:
+        counts = {}
+        for row in frame["stations"]:
+            counts[row["network"]] = counts.get(row["network"], 0)+1
+        frame["networkHealth"] = [{"network": net, "selected": counts.get(net, 0)} for net in sorted(expected)]
     coverage = [{"network": net, "available": len({r["stationKey"] for r in fresh if r["network"] == net}),
-                 "selected": sum(r["network"] == net for r in selected.values()),
+                 "selected": sum(r["network"] == net for r in frames[-1]["stations"]),
                  "latestReportTime": max((r["time"] for r in fresh if r["network"] == net), default=None)}
-                for net in sorted({r["network"] for r in fresh} | {r["network"] for r in selected.values()})]
+                for net in sorted(expected)]
     delayed = [r["network"] for r in coverage if r["network"].endswith("_RWIS") and not r["selected"]
                and r["latestReportTime"] and timestamp(r["latestReportTime"]) < hour-WINDOW]
     return {"version": VERSION, "collectionMode": "hourly-window", "hour": iso(hour), "checkedAt": iso(now), "bounds": BOUNDS,
@@ -261,7 +286,8 @@ def collect(download, now, previous=None, airport_rows=None, airport_failed=Fals
             "source": "Iowa Environmental Mesonet, NOAA AWC and UW–Madison Wisconet",
             "sourceUrl": SOURCE, "successfulStates": [s for s in successes if s in STATES],
             "failedStates": [s for s in failed if s in STATES], "failedSources": failed,
-            "coverage": coverage, "delayedNetworks": delayed, "backfilledHours": sorted(repaired)}
+            "coverage": coverage, "expectedNetworks": sorted(expected), "sourceHealth": source_health,
+            "delayedNetworks": delayed, "backfilledHours": sorted(repaired)}
 
 
 def current(data, now):
@@ -269,5 +295,9 @@ def current(data, now):
     # hour; the API never invents a new hour from older station readings.
     hour = timestamp(data.get("hour")) or now.replace(minute=0, second=0, microsecond=0)
     frames = history(data.get("history", []), hour)
+    saved = {f["hour"]: f for f in data.get("history", [])}
+    for frame in frames:
+        if "networkHealth" in saved.get(frame["hour"], {}):
+            frame["networkHealth"] = saved[frame["hour"]]["networkHealth"]
     return {key: value for key, value in data.items() if key not in ("pendingHour", "stations", "history", "maxAgeMinutes")} | {
         "history": frames, "stations": frames[-1]["stations"], "windowMinutes": 30}

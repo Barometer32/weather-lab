@@ -83,8 +83,9 @@ window.WeatherCloudViews = (() => {
     const hours=timeline();
     let metarIndex=Math.max(0,Math.min(indices[mode()],hours.length-1));indices[mode()]=metarIndex;
     const selected=hours[metarIndex],stations=selected.stations.filter(s=>!excluded.has(s.station)),plots=mode()==="plots";
-    const surfaceFrame=plots?selected:datasets.plots?.history.find(h=>h.hour===selected.hour);
-    window.WeatherSurfaceViews?.setFrame(surfaceFrame||{hour:selected.hour,stations:[]},datasets.plots||cloudData);
+    if(datasets.plots)window.WeatherSurfaceViews?.setData(datasets.plots);
+    el("station-feed-status").hidden=!plots;
+    if(plots)window.WeatherSurfaceViews?.showHealth(selected,cloudData,"station-feed-status");
     const ceilings=plots?[]:stations.filter(ceilingLayer);
     const drawn=plots?plotStations(stations):ceilings.filter(inView);
     const slider=el("metar-cloud-timeline");
