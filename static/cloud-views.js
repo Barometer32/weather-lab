@@ -93,7 +93,7 @@ window.WeatherCloudViews = (() => {
     el("metar-cloud-time").textContent=`${time.format(new Date(selected.hour))} · hourly ${metarIndex+1}/${cloudData.history.length}`;
     slider.setAttribute("aria-valuetext",el("metar-cloud-time").textContent);
     el("metar-heading").textContent=plots?"Station plots":"Cloud ceilings";
-    el("metar-timeline-description").textContent=plots?"Last 12 hourly snapshots · reports from :35–:59 · zoom in for more":"Last 12 routine hourly airport snapshots";
+    el("metar-timeline-description").textContent=plots?"Last 12 hourly snapshots · reports from :30–:59 · zoom in for more":"Last 12 routine hourly airport snapshots";
     slider.setAttribute("aria-label",plots?"Station timeline: twelve hourly snapshots":"METAR cloud timeline: twelve routine hourly snapshots");
     el("metar-cloud-map").setAttribute("aria-label",plots?"Individual station temperature and dew point in Fahrenheit, wind flow arrows and speed in mph":"Cloud ceiling observations");
     el("metar-cloud-legend").hidden=plots;el("metar-plot-legend").hidden=!plots;
@@ -134,8 +134,9 @@ window.WeatherCloudViews = (() => {
       el("metar-cloud-rows").append(row);
     }
     const failures=cloudData.failedSources||cloudData.failedStates||[];
+    const delayed=plots&&selected.hour===cloudData.hour&&(cloudData.delayedNetworks||[]).includes("MN_RWIS")?" · Minnesota road reports arriving late; check earlier hours":"";
     const missing=failures.length?` · Some feeds delayed: ${failures.join(", ")}`:"";
-    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} reporting sites · Hourly snapshot · :35–:59 reports${cloudData.stale?" · Background updates delayed":""}${missing}${listing.length?"":" · No reports available for this time"}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting airports · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}${stations.length?"":" · No airport reports available for this hour"}`;
+    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} reporting sites · Hourly snapshot · :30–:59 reports${delayed}${cloudData.stale?" · Background updates delayed":""}${missing}${listing.length?"":" · No reports available for this time"}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting airports · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}${stations.length?"":" · No airport reports available for this hour"}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

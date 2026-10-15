@@ -162,12 +162,12 @@ def collect_forecast(store, now):
 
 
 def collect_stations(store, now):
-    from station_plots import collect
+    from station_plots import collect, VERSION as STATION_VERSION
     import surface_analysis
     previous = store.read_json("live/station-plots.json")
     hour = now.replace(minute=0, second=0, microsecond=0)
     same_hour = (previous and previous.get("collectionMode") == "hourly-window"
-                 and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 25)
+                 and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 30 and previous.get("version") == STATION_VERSION)
     if same_hour:
         if previous.get("analysisVersion") == surface_analysis.VERSION:
             return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}

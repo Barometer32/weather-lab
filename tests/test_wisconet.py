@@ -34,8 +34,8 @@ class WisconetTests(unittest.TestCase):
         self.assertEqual(row["measurementPeriod"], "5-minute average")
 
     def test_time_window_inclusive_boundaries_stale_future_and_test_stations(self):
-        rows = wisconet.parse(payload(feature("START", "2026-10-14T19:35:00Z"), feature("END"),
-                       feature("OLD", "2026-10-14T19:34:59Z"), feature("FUT", "2026-10-14T20:00:01Z"),
+        rows = wisconet.parse(payload(feature("START", "2026-10-14T19:30:00Z"), feature("END"),
+                       feature("OLD", "2026-10-14T19:29:59Z"), feature("FUT", "2026-10-14T20:00:01Z"),
                        feature("WNTEST1"), feature("MITEST1")), HOUR)
         self.assertEqual({r["station"] for r in rows}, {"START", "END"})
 

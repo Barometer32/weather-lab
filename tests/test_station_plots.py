@@ -82,11 +82,11 @@ class StationPlotTests(unittest.TestCase):
 
     def test_hourly_window_boundaries_and_no_post_hour_relabeling(self):
         result = stations.collect(downloader(
-            row('START', 'MN_RWIS', utc_valid='2026-10-14T19:35:00Z'),
+            row('START', 'MN_RWIS', utc_valid='2026-10-14T19:30:00Z'),
             row('MNDOT', 'MN_RWIS', utc_valid='2026-10-14T19:40:00Z'),
             row('AT00', 'MN_RWIS', utc_valid='2026-10-14T20:00:00Z'),
             row('END', 'MN_RWIS', utc_valid='2026-10-14T19:59:59Z'),
-            row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:34:59Z'),
+            row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:29:59Z'),
             row('NEW', 'MN_RWIS', utc_valid='2026-10-14T20:00:01Z')), NOW+timedelta(minutes=10))
         self.assertEqual({r['station'] for r in result['stations']}, {'START', 'MNDOT', 'END'})
         self.assertEqual(result['hour'], '2026-10-14T20:00:00Z')
@@ -108,7 +108,7 @@ class StationPlotTests(unittest.TestCase):
         self.assertEqual(indexed['KMSP']['stationKey'], 'MN_ASOS:KMSP')
 
     def test_old_history_is_filtered_and_failed_collection_does_not_invent_a_new_hour(self):
-        rows = stations.parse(payload(row(), row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:30:00Z')), NOW)
+        rows = stations.parse(payload(row(), row('OLD', 'MN_RWIS', utc_valid='2026-10-14T19:29:59Z')), NOW)
         frames = stations.history([{'hour': stations.iso(NOW), 'stations': rows}], NOW)
         saved = {'hour': stations.iso(NOW), 'history': frames, 'stations': rows}
         result = stations.current(saved, NOW+timedelta(hours=2))

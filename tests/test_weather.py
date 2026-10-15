@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 from PIL import Image
-from app import hourly_snapshot, observations, recolor_and_project, wind_mean, scans_in_window, get_scans, _cache, app
+from app import routine_hour, hourly_snapshot, observations, recolor_and_project, wind_mean, scans_in_window, get_scans, _cache, app
 
 UTC = timezone.utc
 HOUR = datetime(2026, 10, 9, 1, tzinfo=UTC)
@@ -27,7 +27,7 @@ class WeatherTests(unittest.TestCase):
 
     def test_routine_53_wins_over_other_minutes_and_after_hour(self):
         rows = [report(offset=-7, temp=10), report(offset=-1, temp=30),
-                report(offset=4, temp=20), report("KMIC", offset=-16)]
+                report(offset=4, temp=20), report("KMIC", offset=-31)]
         x = hourly_snapshot(rows, HOUR, HOUR + timedelta(minutes=15))
         self.assertEqual(x["tempF"], 50)
         self.assertEqual(x["count"], 1)
@@ -40,7 +40,12 @@ class WeatherTests(unittest.TestCase):
 
     def test_small_routine_timing_variation_is_allowed(self):
         rows = [report(offset=-8), report("KMSP", offset=-10), report("KMIC", offset=-11)]
-        self.assertEqual(hourly_snapshot(rows,HOUR,HOUR)["count"],2)
+        self.assertEqual(hourly_snapshot(rows,HOUR,HOUR)["count"],3)
+
+    def test_routine_window_starts_at_30_and_excludes_00(self):
+        self.assertEqual(routine_hour(report(offset=-30),HOUR),HOUR)
+        self.assertIsNone(routine_hour(report(offset=-31),HOUR))
+        self.assertIsNone(routine_hour(report(offset=0),HOUR))
 
     def test_never_use_future_observation(self):
         x = hourly_snapshot([report()], HOUR, HOUR - timedelta(minutes=8))

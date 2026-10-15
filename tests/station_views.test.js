@@ -133,7 +133,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  // separate dataset and selected time. There is no extra live slider slot.
  const airportDataset=data;
  const currentSite={...stations[0],station:'WDVL',name:'Woodville',network:'WISCONET',source:'UW–Madison Wisconet',tempF:50.3,time:'2026-10-12T02:55:00Z',measurementPeriod:'5-minute average'};
- data={history:data.history.map((h,i)=>({...h,stations:i===11?[currentSite]:[]})),checkedAt:'2026-10-12T03:00:00Z',windowMinutes:25,failedSources:['WISCONET']};
+ data={history:data.history.map((h,i)=>({...h,stations:i===11?[currentSite]:[]})),checkedAt:'2026-10-12T03:00:00Z',windowMinutes:30,failedSources:['WISCONET']};
  context.fetch=async url=>({ok:true,json:async()=>url==='/api/metar-clouds'?airportDataset:data});
  get('metar-view').value='plots';get('metar-view').events.change();await flush();
  get('metar-cloud-timeline').events.input({target:{value:'11'}});
@@ -141,7 +141,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.ok(!get('metar-cloud-time').textContent.includes('Latest reports'));
  assert.ok(find('WDVL'));assert.match(find('WDVL'),/>50<\/text>/);
  assert.match(get('metar-cloud-status').textContent,/Some feeds delayed: WISCONET/);
- assert.match(get('metar-timeline-description').textContent,/:35–:59/);
+ assert.match(get('metar-timeline-description').textContent,/:30–:59/);
  get('metar-station-list').open=true;get('metar-cloud-search').value='WOOD';get('metar-cloud-search').events.input();
  assert.equal(get('metar-cloud-rows').children.length,1);
  get('metar-cloud-search').value='';

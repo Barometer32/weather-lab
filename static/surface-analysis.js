@@ -56,13 +56,14 @@ window.WeatherSurfaceViews = (() => {
     const banded=product.paletteMode==="discrete";
     const colorStops=banded?palette.slice(0,-1).flatMap(([v,c],i)=>[`${c} ${100*(v-low)/span}%`,`${c} ${100*(palette[i+1][0]-low)/span}%`]):palette.map(([v,c])=>`${c} ${100*(v-low)/span}%`);
     bar.style.background=`linear-gradient(to right,${colorStops.join(",")})`;
-    bar.setAttribute("aria-label",`${labels[field]} color scale${banded?", 5-degree Fahrenheit bands":""}`);
+    bar.setAttribute("aria-label",`${labels[field]} color scale${banded?field==="wind"?", 5-mile-per-hour bands":", 5-degree Fahrenheit bands":""}`);
     const ticks=node("div");ticks.className="surface-ticks";
-    for(const [v] of palette){if(banded&&v%10!==0&&v!==palette.at(-1)[0])continue;const tick=node("span",String(v));tick.style.left=`${100*(v-low)/span}%`;ticks.append(tick);}
-    el("surface-legend").append(node("strong",`${labels[field]} · ${unit}${banded?" · 5°F bands":""}`),bar,ticks);
-    if(banded){const note=node("p",field==="dewpointF"?"White: dew points below 20°F. Other bands change every 5°F.":"White: temperatures below −20°F or at least 105°F, following the reference scale.");note.className="small-note";el("surface-legend").append(note);}
+    for(const [v] of palette){if(banded&&field!=="wind"&&v%10!==0&&v!==palette.at(-1)[0])continue;const tick=node("span",String(v));tick.style.left=`${100*(v-low)/span}%`;ticks.append(tick);}
+    el("surface-legend").append(node("strong",`${labels[field]} · ${unit}${banded?field==="wind"?" · 5 mph bands":" · 5°F bands":""}`),bar,ticks);
+    if(banded&&field!=="wind"){const note=node("p","Temperature and dew point share identical colors at every 5°F interval. White: below −20°F or at least 105°F.");note.className="small-note";el("surface-legend").append(note);}
     const qc=product.qc||{};
-    el("surface-status").textContent=`${stamp.format(new Date(analysis.hour))} · ${product.used} spatially spaced inputs · ${qc.suspect||0} suspect fields excluded · ${qc.unverified||0} fields with limited neighbor checks${product.supportedCells?" · Blank areas have insufficient observations":" · Not enough observations for contours"}`;
+    const delayed=frame.hour===data.hour&&(data.delayedNetworks||[]).includes("MN_RWIS")?" · Minnesota road reports delayed; earlier hours fill in on hourly updates":"";
+    el("surface-status").textContent=`${stamp.format(new Date(analysis.hour))} ${delayed} · ${product.used} spatially spaced inputs · ${qc.suspect||0} suspect fields excluded · ${qc.unverified||0} fields with limited neighbor checks${product.supportedCells?" · Blank areas have insufficient observations":" · Not enough observations for contours"}`;
     setTimeout(()=>map.invalidateSize(),0);
   }
   async function setFrame(selected,dataset){

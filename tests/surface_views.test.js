@@ -15,14 +15,15 @@ vm.runInNewContext(fs.readFileSync('static/surface-analysis.js','utf8'),context)
 const viewer=context.window.WeatherSurfaceViews;
 const station={station:'MN001',stationKey:'MN_RWIS:MN001',name:'Road station',network:'MN_RWIS',lat:45,lon:-93,time:'2026-10-14T20:40:00Z',tempF:110,dewpointF:40,wind:{speedMph:10,direction:359},analysisQc:{tempF:{status:'suspect',reason:'Nearby disagreement'},dewpointF:{status:'screened',reason:'Consistent'},wind:{status:'screened',reason:'Consistent'}}};
 function product(){return {imageUrl:'/image.png',palette:[[0,'#fff'],[10,'#080'],[50,'#f00']],contours:{type:'FeatureCollection',features:[]},qc:{suspect:1},used:20,supportedCells:10};}
-function manifest(hour){return {hour,bounds:[[40,-100],[50,-85]],fields:{tempF:{...product(),paletteMode:'discrete',interval:5,palette:[[40,'#0f0'],[45,'#cf0'],[50,'#ff0'],[55,'#fc0']]},dewpointF:product(),wind:{...product(),arrows:[{lat:45,lon:-93,speed:10,direction:359}]}}};}
-const dataset={coverage:[{network:'MN_RWIS',available:169}]};
+function manifest(hour){return {hour,bounds:[[40,-100],[50,-85]],fields:{tempF:{...product(),paletteMode:'discrete',interval:5,palette:[[40,'#0f0'],[45,'#cf0'],[50,'#ff0'],[55,'#fc0']]},dewpointF:product(),wind:{...product(),paletteMode:'discrete',interval:5,palette:[[0,'#fff'],[5,'#ccc'],[10,'#080']],arrows:[{lat:45,lon:-93,speed:10,direction:359}]}}};}
+const dataset={hour:'2026-10-14T21:00:00Z',delayedNetworks:['MN_RWIS'],coverage:[{network:'MN_RWIS',available:169}]};
 const old={hour:'2026-10-14T20:00:00Z',analysisUrl:'/old.json',stations:[station]};
 const current={hour:'2026-10-14T21:00:00Z',analysisUrl:'/new.json',stations:[station]};
 (async()=>{
  const first=viewer.setFrame(old,dataset),second=viewer.setFrame(current,dataset);
  pending.get('/new.json')(manifest(current.hour));await second;
  assert.match(get('surface-status').textContent,/4:00 PM/);
+ assert.match(get('surface-status').textContent,/Minnesota road reports delayed/);
  assert.equal(shown.find(s=>s.kind==='point').options.fillColor,'#69706f');
  assert.match(get('surface-legend').children[0].textContent,/5°F bands/);
  assert.match(get('surface-legend').children[1].style.background,/#0f0 0%,#0f0 33\.333/);
@@ -32,10 +33,15 @@ const current={hour:'2026-10-14T21:00:00Z',analysisUrl:'/new.json',stations:[sta
  const before=clears;await viewer.setFrame(current,dataset);assert.equal(clears,before);assert.equal(fetches,2);
  get('surface-field').value='wind';get('surface-field').events.change();
  assert.ok(shown.find(s=>s.kind==='arrow').icon.html.includes('rotate(179)'));
+ assert.match(get('surface-legend').children[0].textContent,/5 mph bands/);
+ assert.equal(get('surface-legend').children[1]['aria-label'],'Wind color scale, 5-mile-per-hour bands');
+ assert.ok(!get('surface-legend').children[0].textContent.includes('°F'));
+ assert.deepEqual(get('surface-legend').children[2].children.map(t=>t.textContent),['0','5','10']);
  get('surface-points').checked=false;get('surface-points').events.change();assert.ok(!shown.some(s=>s.kind==='point'));
  const gap={hour:'2026-10-14T19:00:00Z',stations:[]};await viewer.setFrame(gap,dataset);
  assert.match(get('surface-status').textContent,/No prepared contours/);assert.equal(shown.length,0);
  await viewer.setFrame(old,dataset);assert.equal(fetches,2); // History uses the prepared cache.
  assert.match(get('surface-status').textContent,/3:00 PM/);
+ assert.ok(!get('surface-status').textContent.includes('Minnesota road reports delayed'));
  console.log('Surface-view checks passed: selected-hour maps, excluded point styling, wind vectors, race protection, prepared cache and explicit history gaps.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

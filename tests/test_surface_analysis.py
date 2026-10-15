@@ -82,9 +82,33 @@ class SurfaceTests(unittest.TestCase):
             self.assertEqual(image.getpixel((x, 1)), (*color,255))
         self.assertEqual(image.getpixel((72,1))[3], 0)
         image=Image.open(io.BytesIO(surface.image(np.full((2,2),19.9),surface.PALETTES["dewpointF"],banded=True)))
-        self.assertEqual(image.getpixel((2,2)),(255,255,255,255))
+        self.assertEqual(image.getpixel((2,2)),(0,153,255,255))
         image=Image.open(io.BytesIO(surface.image(np.full((2,2),20.),surface.PALETTES["dewpointF"],banded=True)))
         self.assertEqual(image.getpixel((2,2)),(0,204,255,255))
+
+    def test_same_fahrenheit_value_has_identical_temperature_and_dewpoint_colors(self):
+        self.assertEqual(surface.PALETTES['tempF'],surface.PALETTES['dewpointF'])
+        for value in [-10,20,40,45,50,55,70,85]:
+            grid=np.full((2,2),float(value))
+            self.assertEqual(surface.image(grid,surface.PALETTES['tempF'],True),surface.image(grid,surface.PALETTES['dewpointF'],True))
+
+    def test_wind_bands_are_five_mph_and_change_at_exact_boundary(self):
+        levels=[level for level,_ in surface.PALETTES['wind']]
+        self.assertTrue(all(b-a==5 for a,b in zip(levels,levels[1:])))
+        before=Image.open(io.BytesIO(surface.image(np.full((2,2),4.999),surface.PALETTES['wind'],True)))
+        after=Image.open(io.BytesIO(surface.image(np.full((2,2),5.),surface.PALETTES['wind'],True)))
+        self.assertNotEqual(before.getpixel((2,2)),after.getpixel((2,2)))
+
+    def test_changed_late_readings_get_new_immutable_assets_and_unchanged_history_is_reused(self):
+        rows=sample();store=MemoryStore();hour=station_plots.iso(NOW)
+        data={'hour':hour,'stations':rows,'history':[{'hour':hour,'stations':rows}]}
+        surface.prepare_history(data,store);old=data['history'][0]['analysisUrl'];writes=len(store.writes)
+        surface.prepare_history(data,store);self.assertEqual(len(store.writes),writes)
+        rows.append(site('LATE',45,-93,51))
+        surface.prepare_history(data,store);new=data['history'][0]['analysisUrl']
+        self.assertNotEqual(old,new)
+        self.assertIsNotNone(store.read(old.removeprefix('/api/prepared/')))
+        self.assertIsNotNone(store.read(new.removeprefix('/api/prepared/')))
 
     def test_contour_intervals_are_five_degrees(self):
         lons=np.linspace(-95,-90,10); lats=np.linspace(42,47,10)
@@ -96,7 +120,7 @@ class SurfaceTests(unittest.TestCase):
         store=MemoryStore(); current=station_plots.iso(NOW); past=station_plots.iso(NOW-timedelta(hours=1))
         rows=sample(); old=sample()
         for row in old:row['time']=station_plots.iso(NOW-timedelta(hours=1,minutes=20))
-        data={"collectionMode":"hourly-window","windowMinutes":25,"analysisVersion":"surface-v1", "hour":current,
+        data={"collectionMode":"hourly-window","windowMinutes":30,"version":station_plots.VERSION,"analysisVersion":"surface-v1", "hour":current,
               "checkedAt":current,"stations":rows,"history":[{"hour":past,"stations":old,"analysisUrl":"/api/prepared/analysis/surface-v1/old/manifest.json"},{"hour":current,"stations":rows}]}
         store.write_json('live/station-plots.json',data)
         with patch('app.download') as upstream:

@@ -167,7 +167,7 @@ class HourlyCloudTests(unittest.TestCase):
         items=[self.report(6,cloud='<sky_condition sky_cover="BKN" cloud_base_ft_agl="6000"/>'),
                self.report(7), self.report(7,cloud='<sky_condition sky_cover="OVC" cloud_base_ft_agl="9000"/>',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>'),
                self.report(5,kind='SPECI'), self.report(7,raw='SPECI KAAA OVC001'),
-               self.report(30,station='KOFF'),metar('KFUT',stamp=(NOW+timedelta(minutes=53)).isoformat())]
+               self.report(31,station='KOFF'),metar('KFUT',stamp=(NOW+timedelta(minutes=53)).isoformat())]
         data=snapshot(self.rows(*items),NOW)
         self.assertEqual([r['station'] for r in data['stations']],['KAAA'])
         self.assertEqual(data['stations'][0]['layers'][0]['baseFtAGL'],9000)

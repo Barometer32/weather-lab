@@ -3,6 +3,8 @@
 These are neighborhood screens, not official NOAA MADIS verification. Suspect
 fields are excluded independently, and sparse areas remain transparent.
 """
+import hashlib
+import json
 import io
 import math
 from collections import Counter
@@ -12,7 +14,7 @@ import numpy as np
 from PIL import Image
 from scipy.spatial import cKDTree, Delaunay, QhullError
 
-VERSION = "surface-v2"
+VERSION = "surface-v3"
 FIELDS = ("tempF", "dewpointF", "wind")
 # Colors sampled from the user's UCAR/RAP reference legends. Each entry is
 # the lower bound of a five-degree band; the final entry closes the scale.
@@ -22,14 +24,15 @@ TEMPERATURE_COLORS = [
     "#00ff00", "#99ff00", "#ccff00", "#ffff00", "#ffcc00", "#ff9900", "#ff6600",
     "#ff0000", "#ff0066", "#ff0099", "#ff9999", "#ff99ff", "#ffccff", "#ffffff",
 ]
-DEWPOINT_COLORS = ["#ffffff"]*12 + [
-    "#00ccff", "#00ffff", "#00ffcc", "#00ff00", "#ccff00", "#ffff00",
-    "#ffcc00", "#ff9900", "#ff6600", "#ff0000", "#ff0066",
-]
+# The same Fahrenheit value has the same color in both scalar fields.
+SCALAR_PALETTE = [[-30+5*i, color] for i, color in enumerate(TEMPERATURE_COLORS)] + [[110, TEMPERATURE_COLORS[-1]]]
 PALETTES = {
-    "tempF": [[-30+5*i, color] for i, color in enumerate(TEMPERATURE_COLORS)] + [[110, TEMPERATURE_COLORS[-1]]],
-    "dewpointF": [[-40+5*i, color] for i, color in enumerate(DEWPOINT_COLORS)] + [[75, DEWPOINT_COLORS[-1]]],
-    "wind": [[0,"#f0f3ed"],[5,"#c7e4d1"],[10,"#80c8b9"],[15,"#4aa6b6"],[20,"#487ab0"],[30,"#8159a7"],[40,"#ba5085"],[60,"#dc4b4b"]],
+    "tempF": SCALAR_PALETTE,
+    "dewpointF": SCALAR_PALETTE,
+    # Distinct five-mph speed bands, including explicit 25/35/45/50/55 bins.
+    "wind": [[0,"#f0f3ed"],[5,"#c7e4d1"],[10,"#80c8b9"],[15,"#4aa6b6"],
+             [20,"#487ab0"],[25,"#6367ab"],[30,"#8159a7"],[35,"#a05299"],
+             [40,"#ba5085"],[45,"#cd4d69"],[50,"#dc4b4b"],[55,"#bd3232"],[60,"#bd3232"]],
 }
 
 
@@ -194,6 +197,14 @@ def lines(lons, lats, z, step):
     return result
 
 
+def artifact_prefix(hour, rows):
+    readings = [{k: v for k, v in row.items() if k != "analysisQc"}
+                for row in sorted(rows, key=lambda row: row["stationKey"])]
+    digest = hashlib.sha256(json.dumps(readings, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()[:16]
+    label = hour.replace("-", "").replace(":", "")[:13].replace("T", "")
+    return "analysis/"+VERSION+"/"+label+"/"+digest
+
+
 def prepare(data, store):
     """Prepare only the newest hour; past immutable analysis links are retained."""
     rows = data["stations"]
@@ -201,13 +212,13 @@ def prepare(data, store):
     for frame in data["history"]:
         if frame["hour"] == data["hour"]:
             frame["stations"] = rows
-    prefix = "analysis/" + VERSION + "/" + data["hour"].replace("-", "").replace(":", "")[:13].replace("T", "")
+    prefix = artifact_prefix(data["hour"], rows)
     result = {"version": VERSION, "hour": data["hour"], "bounds": [[40, -100], [50, -85]], "fields": {},
               "method": "Local weighted analysis, 40% maximum station influence, no extrapolation; neighborhood screening is not official MADIS QC."}
     for field in FIELDS:
         lons, lats, z, u, v, used = grid(rows, field)
         key = prefix+"/"+field+".png"
-        store.write(key, image(z, PALETTES[field], banded=field != "wind"), "image/png")
+        store.write(key, image(z, PALETTES[field], banded=True), "image/png")
         counts = Counter(r["analysisQc"][field]["status"] for r in rows)
         arrows = []
         if field == "wind":
@@ -217,7 +228,7 @@ def prepare(data, store):
                         arrows.append({"lat": round(float(lats[iy]), 4), "lon": round(float(lons[ix]), 4),
                                        "speed": round(float(z[iy, ix]), 1),
                                        "direction": round(float(np.degrees(np.arctan2(-u[iy, ix], -v[iy, ix])) % 360), 1)})
-        result["fields"][field] = {"imageUrl": "/api/prepared/"+key, "palette": PALETTES[field], "paletteMode": "continuous" if field == "wind" else "discrete", "interval": 5,
+        result["fields"][field] = {"imageUrl": "/api/prepared/"+key, "palette": PALETTES[field], "paletteMode": "discrete", "interval": 5,
               "contours": {"type": "FeatureCollection", "features": lines(lons, lats, z, 5)},
               "arrows": arrows, "qc": dict(counts), "used": used, "supportedCells": int(np.isfinite(z).sum())}
     key = prefix+"/manifest.json"
@@ -232,7 +243,7 @@ def prepare(data, store):
 def prepare_history(data, store):
     """Refresh saved hours on a style migration without refetching observations."""
     for frame in data["history"]:
-        if not frame.get("stations") or ("/"+VERSION+"/") in frame.get("analysisUrl", ""):
+        if not frame.get("stations") or frame.get("analysisUrl", "").startswith("/api/prepared/"+artifact_prefix(frame["hour"], frame["stations"])+"/"):
             continue
         historical = {"hour": frame["hour"], "stations": frame["stations"], "history": [frame]}
         prepare(historical, store)

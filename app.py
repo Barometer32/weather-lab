@@ -149,8 +149,8 @@ def routine_hour(report, as_of):
     if not valid_number(stamp, 0, as_of.timestamp()):
         return None
     observed = datetime.fromtimestamp(stamp, UTC)
-    # Permit small changes in the routine reporting minute, never other reports.
-    if not 50 <= observed.minute <= 59:
+    # Accept the user’s :30–:59 window; selection still prefers routine :53.
+    if not 30 <= observed.minute <= 59:
         return None
     return (observed + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
@@ -229,7 +229,7 @@ def observations(reports=None, now=None, rapid_reports=None):
         current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
                        wind={"speedMph": None, "speedKnots": None, "direction": None})
     return {"fetchedAt": iso(now), "current": current, "history": history,
-            "method": "Shared hourly METAR bulk pull at :00; routine report nearest :53 within :50–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
+            "method": "Shared hourly METAR bulk pull at :00; routine report nearest :53 within :30–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
             "source": "NOAA Aviation Weather Center routine METARs"}
 
 
@@ -594,7 +594,8 @@ def prepared_asset(key):
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"analysis/surface-v[12]/\d{12}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key))
+               or re.fullmatch(r"analysis/surface-v[12]/\d{12}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key)
+               or re.fullmatch(r"analysis/surface-v3/\d{12}/[a-f0-9]{16}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:
