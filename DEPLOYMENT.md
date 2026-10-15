@@ -24,6 +24,21 @@ failure. The old `weather-lab` repository is retained and is not modified.
 
 To choose another fresh repository after a future deletion/restore, use
 `WEATHER_ARTIFACT_REPOSITORY=weather-lab-images-v2 bash deploy.sh PROJECT_ID`.
+
+If Cloud Build denies a submission even though your build permissions are
+present, use Docker directly in authenticated Cloud Shell:
+
+```bash
+WEATHER_BUILD_MODE=docker \
+  WEATHER_ARTIFACT_REPOSITORY=weather-lab-images-restored-20261014 \
+  bash deploy.sh weather-lab-20261013-204529
+```
+
+This builds the existing Dockerfile in Cloud Shell and pushes it to the selected
+Artifact Registry repository before deploying the collector and public app.
+It does not submit a Cloud Build job or configure a Cloud Build service account.
+A failed local build or push stops before either service's image is changed.
+
 If the new repository also reports "Project has been deleted" despite ACTIVE
 state and enabled billing, stop repeating builds and investigate the project
 restoration with Google Cloud Support. Resource Manager notes that restored
@@ -35,13 +50,15 @@ not prove that Artifact Registry has recovered.
 The four tabs are Observations (default), Radar, Satellite, and Forecast.
 All station plots combine IEM open bulk feeds from twelve states with the
 UW–Madison Wisconet public map API, filtered to the Upper Midwest. Airport, RWIS, agricultural and other
-sites with temperature/dew point/wind from :50–:00 appear, with more plots revealed
+sites with temperature/dew point/wind from :30–:59 appear, with more plots revealed
 as zoom increases. The slider has twelve hourly positions. A new data store builds hourly history over time. One shared hourly collector selects reports from the
-preceding ten minutes and prefers routine airport METARs. Range/age checks are
+preceding thirty minutes and prefers routine airport METARs. Late road reports
+backfill their original hourly snapshots on the next hourly collection.
+Range/age and conservative neighborhood checks are
 not full MADIS QC. Popups identify each network and actual report time.
 
 Cloud ceilings remain routine hourly NOAA AWC airport reports nearest :53
-within :50–:59, excluding SPECI/rapid reports and labeled with the following
+within :30–:59, excluding SPECI/rapid reports and labeled with the following
 hour. KFCM/KMIC/KMSP remain independent. KCFE/KFCE and KSGS are excluded.
 Cloud mode labels only the lowest reported BKN/OVC base, rounded to thousands
 of feet with a minimum displayed value of 1. It retains its twelve hourly positions and shares airport collection with

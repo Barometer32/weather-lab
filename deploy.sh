@@ -3,6 +3,16 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
+# Cloud Shell can build/push directly when Cloud Build rejects a submission.
+WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-cloudbuild}"
+case "$WEATHER_BUILD_MODE" in
+  cloudbuild) ;;
+  docker)
+    command -v docker >/dev/null || { echo 'Docker is required for WEATHER_BUILD_MODE=docker.' >&2; exit 1; }
+    docker info >/dev/null
+    ;;
+  *) echo 'WEATHER_BUILD_MODE must be cloudbuild or docker.' >&2; exit 1 ;;
+esac
 # A recovered Artifact Registry repository may reject pushes after project deletion.
 # Use a fresh repository; callers can select another unused name after a restore.
 WEATHER_ARTIFACT_REPOSITORY="${WEATHER_ARTIFACT_REPOSITORY:-weather-lab-images}"
@@ -26,7 +36,11 @@ if [[ "${WEATHER_BILLING_ENABLED,,}" != "true" ]]; then
 fi
 
 gcloud config set project "$WEATHER_PROJECT"
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com
+WEATHER_REQUIRED_APIS=(run.googleapis.com artifactregistry.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com)
+if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
+  WEATHER_REQUIRED_APIS+=(cloudbuild.googleapis.com)
+fi
+gcloud services enable "${WEATHER_REQUIRED_APIS[@]}"
 
 # Stop the retired model collector before building. Only Weather Lab's own job
 # names are touched; observations, radar and the replacement NWS forecast stay.
@@ -57,11 +71,16 @@ if ! gcloud artifacts repositories describe "$WEATHER_ARTIFACT_REPOSITORY" --loc
   gcloud artifacts repositories create "$WEATHER_ARTIFACT_REPOSITORY" --repository-format=docker --location="$WEATHER_REGION"
 fi
 for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-scheduler; do
+  if [[ "$WEATHER_SA_NAME" == weather-builder && "$WEATHER_BUILD_MODE" == docker ]]; then
+    continue
+  fi
   if ! gcloud iam service-accounts describe "${WEATHER_SA_NAME}@${WEATHER_PROJECT}.iam.gserviceaccount.com" >/dev/null 2>&1; then
     gcloud iam service-accounts create "$WEATHER_SA_NAME"
   fi
 done
-gcloud projects add-iam-policy-binding "$WEATHER_PROJECT" --member="serviceAccount:${WEATHER_BUILD_SA}" --role=roles/cloudbuild.builds.builder --condition=None
+if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
+  gcloud projects add-iam-policy-binding "$WEATHER_PROJECT" --member="serviceAccount:${WEATHER_BUILD_SA}" --role=roles/cloudbuild.builds.builder --condition=None
+fi
 
 if ! gcloud storage buckets describe "gs://${WEATHER_DATA_BUCKET}" >/dev/null 2>&1; then
   gcloud storage buckets create "gs://${WEATHER_DATA_BUCKET}" --location="$WEATHER_REGION" --uniform-bucket-level-access
@@ -71,7 +90,13 @@ gcloud storage buckets update "gs://${WEATHER_DATA_BUCKET}" --lifecycle-file=dat
 gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_COLLECTOR_SA}" --role=roles/storage.objectAdmin
 gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_WEB_SA}" --role=roles/storage.objectViewer
 
-gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
+if [[ "$WEATHER_BUILD_MODE" == docker ]]; then
+  gcloud auth configure-docker "${WEATHER_REGION}-docker.pkg.dev" --quiet
+  docker build --platform=linux/amd64 --tag "$WEATHER_IMAGE" .
+  docker push "$WEATHER_IMAGE"
+else
+  gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
+fi
 gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,300,collector:app
 gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
 for WEATHER_RETIRED_OBJECT in live/radar-KEVX.json live/radar-state-KEVX.json; do

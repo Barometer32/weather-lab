@@ -88,6 +88,16 @@ bash deploy.sh weather-lab-20261013-204529
 
 The script retires old model, KEVX radar, separate observations, Surface, and separate METAR-cloud Scheduler jobs. It builds the app, creates the private collector/data bucket, and configures **four** authenticated Scheduler jobs: KMPX radar every minute; satellite every five minutes; NWS forecast every five minutes; and the combined station/airport-cloud collector once hourly at :00. Deployment resumes paused jobs and triggers initial collection. Both services can scale to zero. Prepared images expire after one day; live manifests and station history remain. Changes take effect after deployment in authenticated Cloud Shell.
 
+If Cloud Build rejects a build submission despite the caller's required permissions being present, build directly in Cloud Shell with its installed Docker daemon:
+
+```bash
+WEATHER_BUILD_MODE=docker \
+  WEATHER_ARTIFACT_REPOSITORY=weather-lab-images-restored-20261014 \
+  bash deploy.sh weather-lab-20261013-204529
+```
+
+This mode configures the regional Artifact Registry credential helper, builds the existing Dockerfile for Linux/amd64, and pushes the image before deploying either service. It skips Cloud Build API enablement and its builder service-account setup. It uses the existing registry, services, runtime identities and schedules. Failed builds or pushes stop deployment before either service's image changes. Cloud Build remains the default mode. No service-account keys are created.
+
 ## Checks
 
 ```bash
