@@ -6,24 +6,12 @@ window.WeatherCloudViews = (() => {
   let metarMap,markers,data,busy=false,index=0,retryTimer,hourTimer,waitUntil=0;
   const excluded=new Set(["KCFE","KFCE","KSGS"]);
   const preferred=["KFCM","KMIC","KMSP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
-  const plotScale=.82,directions=["N","NE","E","SE","S","SW","W","NW"];
+  const model=window.WeatherStationModel;
+  const directions=["N","NE","E","SE","S","SW","W","NW"];
   const rounded=v=>v==null?"—":String(Math.round(v));
   const windMph=w=>w?.speedMph??(w?.speedKnots==null?null:w.speedKnots*1.150779);
   const windText=w=>windMph(w)==null?"—":windMph(w)<.5?"Calm":`${w.direction==null?(w.variable?"Variable":"?"):directions[Math.round(w.direction/45)%8]} ${rounded(windMph(w))} mph`;
   function node(tag,text,className){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(className)n.className=className;return n;}
-  function stationModel(station) {
-    const wind=station.wind, speed=windMph(wind);
-    let arrow;
-    if(speed!=null&&speed>=.5&&wind.direction!=null){
-      // METAR degrees describe where wind comes FROM; the arrow points TO.
-      const toward=(wind.direction+180)%360,path="M0 9V-9M-3 -4L0 -9L3 -4";
-      arrow=`<g class="wind-arrow" transform="translate(30 24) rotate(${toward})" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${path}" stroke="white" stroke-width="4.5"/><path d="${path}" stroke="#111" stroke-width="1.7"/></g>`;
-    }else{
-      const label=speed==null?"?":speed<.5?"Calm":wind.variable?"VRB":"?";
-      arrow=`<text class="plot-wind-state" x="30" y="27" text-anchor="middle">${label}</text>`;
-    }
-    return `<svg class="metar-plot" width="${84*plotScale}" height="${44*plotScale}" viewBox="0 0 84 44" aria-hidden="true">${arrow}<text class="plot-temp" x="17" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="17" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="44" y="29">${rounded(speed)}</text></svg>`;
-  }
   function initMetars() {
     if(metarMap)return;
     metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1});
@@ -49,9 +37,8 @@ window.WeatherCloudViews = (() => {
       if(point.x<0||point.y<0||point.x>size.x||point.y>size.y)continue;
       // Bound the actual labels and short arrow, including white halos and a
       // small gap. Two-digit plots can be closer than long/negative readings.
-      const digits=Math.max(rounded(station.tempF).length,rounded(station.dewpointF).length);
-      const box={left:point.x+(17-digits*9-30-5)*plotScale,right:point.x+(44+rounded(windMph(station.wind)).length*9-30+5)*plotScale,
-        top:point.y-24*plotScale,bottom:point.y+22*plotScale};
+      const f=model.footprint(station);
+      const box={left:point.x+f.left,right:point.x+f.right,top:point.y+f.top,bottom:point.y+f.bottom};
       if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
       boxes.push(box);accepted.push(station);
     }
@@ -74,16 +61,21 @@ window.WeatherCloudViews = (() => {
       popup.append(node("p",time.format(new Date(s.time))),node("p","Routine airport METAR · NOAA Aviation Weather Center"),
         node("p",`Temperature ${s.tempF==null?"—":s.tempF.toFixed(1)}°F · Dew point ${s.dewpointF==null?"—":s.dewpointF.toFixed(1)}°F`),
         node("p",`Wind from ${windText(s.wind)}`));
+      popup.append(node("p",model.cloudText(s)));
+      for(const layer of s.cloudLayers||[]){
+        const base=layer.baseFtAGL==null?"base not reported":`${layer.baseFtAGL.toLocaleString()} ft AGL`;
+        popup.append(node("p",`${layer.cover}: ${["CLR","SKC","NSC","NCD","CAVOK"].includes(layer.cover)?"no cloud base reported":base}`));
+      }
       if(s.rawOb)popup.append(node("p",s.rawOb));
-      const icon=L.divIcon({className:"weather-station",html:stationModel(s),iconSize:[84*plotScale,44*plotScale],iconAnchor:[30*plotScale,24*plotScale]});
-      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      const icon=L.divIcon({className:"weather-station",html:model.stationModel(s),iconSize:model.iconSize,iconAnchor:model.iconAnchor});
+      L.marker([s.lat,s.lon],{icon,title:`${s.station} · ${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)} · ${model.cloudText(s)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
     if(el("metar-station-list").open)for(const s of stations){
       if(query&&!`${s.station} ${s.name||""}`.toUpperCase().includes(query))continue;
       const row=node("tr"),cell=node("td"),button=node("button",s.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});
-      cell.append(button);row.append(cell,node("td",time.format(new Date(s.time))),node("td",`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)}`));
+      cell.append(button);row.append(cell,node("td",time.format(new Date(s.time))),node("td",`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)} · ${model.cloudText(s)}`));
       el("metar-cloud-rows").append(row);
     }
     const health=el("station-feed-status");health.hidden=false;

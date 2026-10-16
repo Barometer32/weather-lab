@@ -10,7 +10,8 @@
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/radar-roads.js"></script>
-  <script defer src="/static/cloud-views.js"></script>
+  <script defer src="/static/metar-model.js?v=cloud-wind-1"></script>
+  <script defer src="/static/cloud-views.js?v=cloud-wind-1"></script>
   <script defer src="/static/app.js"></script>
 </head>
 <body>
@@ -35,8 +36,8 @@
   </div>
   <p id="metar-cloud-status" class="small-note" role="status">Loading station reports…</p>
   <div id="station-feed-status" class="feed-health" role="status" hidden></div>
-  <p id="metar-plot-legend" class="small-note">Temperature upper left and dew point lower left in °F. The short black arrow points toward where the wind is going; the number beside it is wind speed in mph. Calm or variable winds have text instead of a directional arrow. KFCM, KMIC, KMSP and KSTP are separate stations. KCFE and KSGS are excluded. Plots stay at their real locations; zoom in to reveal more without overlapping. Tap for station ID, report time and exact values. The searchable list includes sites hidden to avoid overlap.</p>
-  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="Station ID, name, or network…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Temp / dew (°F) · wind (mph)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
+  <p id="metar-plot-legend" class="small-note">Temperature upper left and dew point lower left in °F; wind speed on the right in mph. The circle shows reported cloud cover: open = clear, ¼ filled = FEW (1–2/8), ½ = SCT (3–4/8), ¾ = BKN (5–7/8), solid = OVC (8/8). The arrow starts outside the circle and points toward where the wind is going. The number below is the lowest broken or overcast base in thousands of feet above ground: 2.5k = 2,500 ft AGL. ? = unknown; X = obscured sky, with VV for vertical visibility. CLR only describes sky below the sensor limit. Calm winds have an outer ring; variable winds show VRB. Tap for exact heights, all cloud layers and the actual report time. Zoom in for more stations.</p>
+  <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="Station ID, name, or network…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Temp / dew (°F) · wind (mph) · clouds</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
   <details class="method"><summary>About these observations</summary><p>Routine official airport METARs from NOAA Aviation Weather Center, including ASOS and AWOS reports. The map updates once an hour at :05, allowing a short arrival buffer. Each hourly snapshot accepts only reports timestamped :50–:59 of the preceding hour; the report nearest :53 is preferred. For example, 7:53 PM is labeled 8 PM, and its actual report time remains visible in the popup. SPECI reports and rapid MADISHF reports are excluded. Stations reporting outside this window are omitted. Twelve real hourly snapshots are backfilled automatically during setup.</p><p>Temperature and dew point are in °F; wind speed is mph. Missing or physically implausible values are removed, and dew point cannot exceed temperature beyond a small rounding tolerance. These are basic range and time checks, not complete instrument quality assurance. Missing reports stay missing.</p></details>
   <p class="source">Observations: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a>. State and county boundary tiles: Iowa Environmental Mesonet.</p>
 </section>

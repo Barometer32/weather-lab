@@ -1,1 +1,1 @@
-{"release":"metar-fresh-20261016","metarWindowMinutes":10,"metarCollectionMinute":5,"metarHistoryHours":12,"radarHistoryHours":2,"contours":false,"mesonetObservations":false}
+{"release":"metar-cloud-wind-20261016","metarWindowMinutes":10,"metarCollectionMinute":5,"metarHistoryHours":12,"radarHistoryHours":2,"contours":false,"mesonetObservations":false,"cloudCover":true,"ceilingUnit":"thousands of feet AGL"}

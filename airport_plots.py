@@ -2,9 +2,10 @@
 from datetime import timedelta
 
 import metar_clouds
+from cloud_conditions import summarize as cloud_conditions
 from station_plots import history, iso, number, timestamp, valid_saved, WINDOW
 
-VERSION = 7
+VERSION = 8
 NETWORK = 'AWC_METAR'
 SOURCE = 'NOAA Aviation Weather Center'
 MODE = 'official-airports'
@@ -35,7 +36,8 @@ def normalize(row, hour):
             'tempF': temp, 'dewpointF': dew,
             'wind': {'speedKnots': knots, 'speedMph': speed,
                      'direction': number(wind.get('direction'), 0, 360), 'variable': bool(wind.get('variable'))},
-            'source': SOURCE, 'reportType': 'METAR', 'quality': 'range-and-time-checked'}
+            'source': SOURCE, 'reportType': 'METAR', 'quality': 'range-and-time-checked',
+            **cloud_conditions(row)}
 
 
 def airport_history(frames, hour):
