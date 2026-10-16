@@ -23,7 +23,7 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES, HISTOR
 app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
-OBSERVATION_CHECK_MINUTES = (5,)
+OBSERVATION_CHECK_MINUTES = (2,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -255,7 +255,7 @@ def get_forecast(now=None):
     from nws_forecast import FORECAST_URL, normalize_forecast
     # Use MapClick's structured feed so wording and period selection match the
     # linked NWS webpage. Do not mix its issuance timestamp with another feed.
-    document = cached("nws-forecast", 300, lambda: json.loads(download(FORECAST_URL)))
+    document = cached("nws-forecast", 1800, lambda: json.loads(download(FORECAST_URL)))
     return normalize_forecast(document, now or utcnow())
 
 
@@ -271,7 +271,7 @@ def forecast_api():
     try:
         from nws_forecast import FORECAST_VERSION, current_periods
         now = utcnow()
-        data = prepared_snapshot("forecast", 900) or get_forecast(now)
+        data = prepared_snapshot("forecast", 2100) or get_forecast(now)
         if data.get("forecastVersion") != FORECAST_VERSION:
             return jsonify(error="The matching NWS webpage forecast is being prepared. Please refresh shortly."), 503
         periods = current_periods(data["periods"], now)

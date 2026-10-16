@@ -153,13 +153,13 @@ class HourlyMetarTests(unittest.TestCase):
         self.assertEqual(client.get('/api/metar-clouds').status_code,404)
         self.assertEqual(client.post('/collect/metar-clouds').status_code,404)
 
-    def test_hourly_staleness_allows_five_minute_arrival_buffer(self):
+    def test_hourly_staleness_follows_two_past_collection_and_processing_buffer(self):
         data={'checkedAt':airports.iso(NOW-timedelta(hours=1))}
         store=MemoryStore();store.write_json('live/station-plots.json',data)
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=HOUR+timedelta(minutes=6)):
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=HOUR+timedelta(minutes=3)):
             self.assertFalse(app.prepared_hourly_snapshot('station-plots')['stale'])
         app._cache.clear()
-        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=HOUR+timedelta(minutes=8)):
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=HOUR+timedelta(minutes=5)):
             self.assertTrue(app.prepared_hourly_snapshot('station-plots')['stale'])
 
 

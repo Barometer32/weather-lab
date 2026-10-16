@@ -102,6 +102,18 @@ class ForecastTests(unittest.TestCase):
             self.assertEqual(response.json["updatedAt"],data["updatedAt"])
             upstream.assert_not_called()
 
+    def test_forecast_stays_current_through_half_hour_interval_with_processing_buffer(self):
+        store=MemoryStore();data=normalize_forecast(document(),NOW)
+        checked=datetime(2026,10,9,23,tzinfo=timezone.utc)
+        data['checkedAt']=weather.iso(checked);store.write_json('live/forecast.json',data)
+        for minutes,stale in [(29,False),(31,False),(36,True)]:
+            with self.subTest(minutes=minutes),patch('app.get_store',return_value=store),patch('app.utcnow',return_value=checked+timedelta(minutes=minutes)),patch('app.download') as upstream:
+                _cache.clear()
+                response=app.test_client().get('/api/forecast')
+                self.assertEqual(response.status_code,200)
+                self.assertEqual(response.json['stale'],stale)
+                upstream.assert_not_called()
+
     def test_legacy_snapshot_does_not_masquerade_as_matching_webpage(self):
         store=MemoryStore();data=normalize_forecast(document(),NOW);data.pop("forecastVersion");data["checkedAt"]=weather.iso(NOW)
         store.write_json("live/forecast.json",data)
@@ -115,7 +127,7 @@ class ForecastTests(unittest.TestCase):
             for key in newer[group]:newer[group][key]=newer[group][key][1:]
         with patch("app.download",side_effect=[json.dumps(older).encode(),json.dumps(newer).encode()]) as upstream:
             collector.collect_forecast(store,NOW)
-            collector.collect_forecast(store,NOW+timedelta(minutes=5))
+            collector.collect_forecast(store,NOW+timedelta(minutes=30))
             self.assertEqual(upstream.call_count,2)
         saved=store.read_json("live/forecast.json")
         self.assertEqual(saved["updatedAt"],"2026-10-09T21:56:41Z")

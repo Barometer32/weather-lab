@@ -40,7 +40,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
  assert.equal(get('metar-cloud-timeline').max,'11');
  assert.equal(get('metar-cloud-timeline').value,'11');
- assert.ok(timers.some(t=>t.delay===390000)); // Next prepared-data read at :05:30.
+ assert.ok(timers.some(t=>t.delay===210000)); // Next prepared-data read at :02:30.
  assert.equal(shown.length,11);
  assert.match(find('KAAA'),/rotate\(270\)/); // East wind flows west.
  assert.match(find('KAAA'),/>40<\/text>/); // 35 kt => 40 mph.

@@ -329,7 +329,17 @@ document.addEventListener("keydown",event=>{
 selectTab("metar-clouds");
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
-setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
+// Read the prepared forecast shortly after each :00/:30 collection, rather
+// than starting a drifting half-hour timer when the page opens.
+function scheduleForecast(){
+  const interval=1800000,offset=30000;
+  const now=Date.now(),next=(Math.floor((now-offset)/interval)+1)*interval+offset;
+  setTimeout(()=>{
+    if(!document.hidden&&!$("forecast").hidden)loadForecast();
+    scheduleForecast();
+  },next-now);
+}
+scheduleForecast();
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},30000);
 

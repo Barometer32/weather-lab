@@ -17,7 +17,7 @@ The project ID is saved in `$HOME/weather-lab-metar-project.txt`. Rerunning the 
 
 Only routine NOAA Aviation Weather Center METARs are accepted, including reporting ASOS/AWOS airport sites. The Upper Midwest bounds are 40–50°N, 100–85°W. KCFE/KFCE and KSGS retain the existing station exclusions.
 
-Collection runs once an hour at **:05**. For each hour, accepted report timestamps are strictly **:50:00–:59:59 of the previous hour**. Prefer the report nearest :53; ties prefer newer observations and then corrections. An 11:53 report is labeled noon and retains 11:53 in its popup. SPECI and rapid MADISHF reports, out-of-window sites and missing values are omitted. These strict rules intentionally reduce station coverage.
+Collection runs once an hour at **:02**. For each hour, accepted report timestamps are strictly **:50:00–:59:59 of the previous hour**. Prefer the report nearest :53; ties prefer newer observations and then corrections. An 11:53 report is labeled noon and retains 11:53 in its popup. SPECI and rapid MADISHF reports, out-of-window sites and missing values are omitted. These strict rules intentionally reduce station coverage.
 
 Each collection queries the previous hour's NOAA archive, so a newer SPECI or off-window report cannot hide an eligible routine METAR in a latest-only cache. AWC's 400-result cap is handled by splitting geographic queries; requests are globally rate limited to fewer than 100/minute. Collection runs once per hour even when several capped queries are needed to retrieve that hour. Browser Refresh only reads prepared data.
 
@@ -29,7 +29,7 @@ Plots show temperature and dew point in °F and wind in mph, with arrows pointin
 
 - KMPX native Level II 0.5° reflectivity, the original continuous COD-style green-to-yellow/orange/red/magenta gradient, and all available scans in the rolling **two-hour** window. No personal-location dots. Faint major highways have no city labels. Radar collection runs every minute; native scan timing is controlled by NWS.
 - Central Minnesota GOES-East True Color, Day Cloud Phase and Nighttime Microphysics. Twenty-four images per product, original colors, state/county overlays, manual timeline. Prepared every five minutes.
-- Official NWS day/night point forecast for Hopkins at 44.9244, -93.4140, refreshed every five minutes and retaining NWS wording and issuance time.
+- Official NWS day/night point forecast for Hopkins at 44.9244, -93.4140, checked at :00 and :30 each hour and retaining NWS wording and issuance time.
 
 Both Cloud Run services scale to zero and have a maximum of one instance. There are four Cloud Scheduler jobs. Only the web service is public; collection requires authenticated invocation. The dedicated private bucket removes replaceable imagery after one day; live hourly history is retained.
 

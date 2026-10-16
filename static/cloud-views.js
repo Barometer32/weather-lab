@@ -82,7 +82,7 @@ window.WeatherCloudViews = (() => {
     }
     const health=el("station-feed-status");health.hidden=false;
     health.textContent=data.stale?"Hourly METAR update delayed. Showing saved reports with their actual timestamps.":stations.length?`NOAA airport METARs · ${stations.length} eligible reports for this hour`:"No eligible METARs saved for this hour. Initial history backfill may still be running.";
-    el("metar-cloud-status").textContent=`${drawn.length} plots visible${inView>drawn.length?` · ${inView-drawn.length} hidden for spacing (zoom in)`:""} · ${inView} airports in view · ${stations.length} in region · :50–:59 reports · updates hourly at :05${data.stale?" · Background updates delayed":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} plots visible${inView>drawn.length?` · ${inView-drawn.length} hidden for spacing (zoom in)`:""} · ${inView} airports in view · ${stations.length} in region · :50–:59 reports · updates hourly at :02${data.stale?" · Background updates delayed":""}`;
   }
   function retry(){
     clearTimeout(retryTimer);
@@ -98,7 +98,7 @@ window.WeatherCloudViews = (() => {
       const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
       index=restored>=0?restored:followLatest?data.history.length-1:0;
       renderMetars();
-      const now=new Date(),due=new Date(now);due.setUTCMinutes(5,0,0);
+      const now=new Date(),due=new Date(now);due.setUTCMinutes(2,0,0);
       if(due>now)due.setUTCHours(due.getUTCHours()-1);
       if(new Date(data.checkedAt)<due)retry();else{waitUntil=0;clearTimeout(retryTimer);}
     }catch(error){el("metar-cloud-status").textContent=`${error.message}${data?" Saved reports retained; check their timestamps.":""}`;retry();}
@@ -106,7 +106,7 @@ window.WeatherCloudViews = (() => {
   }
   function schedule(){
     clearTimeout(hourTimer);
-    const interval=3600000,offset=5*60000+30000;
+    const interval=3600000,offset=2*60000+30000;
     const next=(Math.floor((Date.now()-offset)/interval)+1)*interval+offset;
     hourTimer=setTimeout(()=>{
       if(!document.hidden&&!el("metar-clouds").hidden){waitUntil=Date.now()+3*60000;loadMetars();}

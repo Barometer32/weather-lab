@@ -1,1 +1,1 @@
-{"release":"metar-bold-wind-20261016","metarWindowMinutes":10,"metarCollectionMinute":5,"metarHistoryHours":12,"radarHistoryHours":2,"contours":false,"mesonetObservations":false,"cloudCover":true,"ceilingUnit":"hundreds of feet AGL","stationPlotLayout":"tight-quadrants"}
+{"release":"metar02-forecast30-20261016","metarWindowMinutes":10,"metarCollectionMinute":2,"metarHistoryHours":12,"radarHistoryHours":2,"contours":false,"mesonetObservations":false,"cloudCover":true,"ceilingUnit":"hundreds of feet AGL","stationPlotLayout":"tight-quadrants","forecastCollectionMinutes":[0,30]}
