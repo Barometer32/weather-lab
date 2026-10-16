@@ -4,9 +4,13 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 WEATHER_STATE_FILE="${WEATHER_STATE_FILE:-$HOME/weather-lab-metar-project.txt}"
 WEATHER_BILLING_ACCOUNT="${WEATHER_BILLING_ACCOUNT:-}"
+WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-cloudbuild}"
 command -v gcloud >/dev/null
-command -v docker >/dev/null
-docker info >/dev/null
+case "$WEATHER_BUILD_MODE" in
+  cloudbuild) ;;
+  docker) command -v docker >/dev/null; docker info >/dev/null ;;
+  *) echo 'WEATHER_BUILD_MODE must be cloudbuild or docker.' >&2; exit 1 ;;
+esac
 if [[ -z "$WEATHER_BILLING_ACCOUNT" ]]; then
   mapfile -t WEATHER_OPEN_ACCOUNTS < <(gcloud billing accounts list --filter='open=true' --format='value(name)')
   if [[ "${#WEATHER_OPEN_ACCOUNTS[@]}" != 1 ]]; then
@@ -41,11 +45,18 @@ printf '\nNEW WEATHER PROJECT: %s\n' "$WEATHER_PROJECT"
 # METAR collection is paused during the one-time import, preventing concurrent
 # writers. Always resume it, including after an import error or interruption.
 weather_resume_hourly() {
-  gcloud scheduler jobs resume weather-live-stations --project="$WEATHER_PROJECT" --location=us-central1 || true
+  local weather_job_state
+  # A failed image build/upload happens before this job is created.
+  if ! weather_job_state="$(gcloud scheduler jobs describe weather-live-stations --project="$WEATHER_PROJECT" --location=us-central1 --format='value(state)' 2>/dev/null)"; then
+    return 0
+  fi
+  if [[ "$weather_job_state" == PAUSED ]]; then
+    gcloud scheduler jobs resume weather-live-stations --project="$WEATHER_PROJECT" --location=us-central1 || true
+  fi
   gcloud scheduler jobs run weather-live-stations --project="$WEATHER_PROJECT" --location=us-central1 || true
 }
 trap weather_resume_hourly EXIT
-WEATHER_BUILD_MODE=docker WEATHER_INITIAL_BACKFILL=true bash deploy.sh "$WEATHER_PROJECT"
+WEATHER_BUILD_MODE="$WEATHER_BUILD_MODE" WEATHER_INITIAL_BACKFILL=true bash deploy.sh "$WEATHER_PROJECT"
 WEATHER_IMAGE="us-central1-docker.pkg.dev/${WEATHER_PROJECT}/${WEATHER_ARTIFACT_REPOSITORY:-weather-lab-images}/app:latest"
 gcloud run jobs deploy weather-metar-backfill --project="$WEATHER_PROJECT" --region=us-central1 \
   --image="$WEATHER_IMAGE" --service-account="weather-collector@${WEATHER_PROJECT}.iam.gserviceaccount.com" \

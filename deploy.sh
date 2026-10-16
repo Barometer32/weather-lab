@@ -3,8 +3,8 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
-# Cloud Shell can build/push directly when Cloud Build rejects a submission.
-WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-docker}"
+# Build in Google Cloud by default; local Docker remains an explicit option.
+WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-cloudbuild}"
 case "$WEATHER_BUILD_MODE" in
   cloudbuild) ;;
   docker)
@@ -51,7 +51,11 @@ weather_retry() {
 }
 weather_retry gcloud services enable "${WEATHER_REQUIRED_APIS[@]}" iam.googleapis.com --project="$WEATHER_PROJECT"
 # Create this NEW project's own managed identities; no deleted-project IDs.
-for WEATHER_SERVICE in artifactregistry.googleapis.com run.googleapis.com cloudscheduler.googleapis.com; do
+WEATHER_IDENTITY_SERVICES=(artifactregistry.googleapis.com run.googleapis.com cloudscheduler.googleapis.com)
+if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
+  WEATHER_IDENTITY_SERVICES+=(cloudbuild.googleapis.com)
+fi
+for WEATHER_SERVICE in "${WEATHER_IDENTITY_SERVICES[@]}"; do
   weather_retry gcloud beta services identity create --service="$WEATHER_SERVICE" --project="$WEATHER_PROJECT" --quiet
 done
 
@@ -67,7 +71,7 @@ for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-sch
   fi
 done
 if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
-  gcloud projects add-iam-policy-binding "$WEATHER_PROJECT" --member="serviceAccount:${WEATHER_BUILD_SA}" --role=roles/cloudbuild.builds.builder --condition=None
+  weather_retry gcloud projects add-iam-policy-binding "$WEATHER_PROJECT" --member="serviceAccount:${WEATHER_BUILD_SA}" --role=roles/cloudbuild.builds.builder --condition=None
 fi
 
 if ! gcloud storage buckets describe "gs://${WEATHER_DATA_BUCKET}" >/dev/null 2>&1; then

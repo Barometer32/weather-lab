@@ -5,7 +5,7 @@ Four views: hourly airport METAR plots, two-hour KMPX radar, Central Minnesota s
 ## Deploy to a new Google Cloud project
 
 Open Google Cloud Shell, clone this branch, and run `bash start-fresh.sh`.
-The script creates **Weather Lab METAR Fresh**, links an active billing account, builds the application with Docker, deploys public `weather-lab` and private `weather-collector` Cloud Run services, and imports twelve hours of NOAA METAR history. No ZIP upload or paid weather API is required.
+The script creates **Weather Lab METAR Fresh**, links an active billing account, builds and uploads the application using Google Cloud Build, deploys public `weather-lab` and private `weather-collector` Cloud Run services, and imports twelve hours of NOAA METAR history. No ZIP upload or paid weather API is required. Cloud Build uses a dedicated `weather-builder` service account and regional user-owned build/log buckets. Cloud Shell's local Docker daemon is not used unless you explicitly set `WEATHER_BUILD_MODE=docker`.
 
 If multiple billing accounts are available, set `WEATHER_BILLING_ACCOUNT=YOUR_ACCOUNT_ID` before running. The selected account must be open and accessible to your signed-in Google account. Google Cloud compute, storage and scheduling charges still apply.
 
