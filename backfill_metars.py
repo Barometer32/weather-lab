@@ -1,15 +1,16 @@
 """NOAA METAR archive reader and one-time twelve-hour history import.
 
 Run in an authenticated environment with WEATHER_DATA_BUCKET set. NOAA caps
-queries at 400 reports; recursively split the region instead of accepting a
-truncated archive. Routine reports from :50–:59 are selected using the same hourly parser.
+queries at 400 reports; recursively split explicit station batches instead of
+accepting a truncated archive. Discover regional airport IDs from NOAA station
+metadata; bbox queries can omit stations even below the cap. Routine reports
+from :50–:59 are selected using the same hourly parser.
 """
 import argparse
 from datetime import datetime, timezone
 import gzip
 import json
 import logging
-import math
 from pathlib import Path
 import time
 from urllib.parse import urlencode
@@ -22,6 +23,26 @@ from realtime import get_store
 
 ARCHIVE_URL = "https://aviationweather.gov/api/data/metar"
 RESULT_LIMIT = 400
+STATIONS_URL = "https://aviationweather.gov/data/cache/stations.cache.json.gz"
+
+
+def regional_station_ids(download):
+    raw = download(STATIONS_URL)
+    if raw.startswith(b"\x1f\x8b"):
+        from io import BytesIO
+        with gzip.GzipFile(fileobj=BytesIO(raw)) as stream:
+            raw = stream.read(30_000_001)
+    if len(raw) > 30_000_000:
+        raise ValueError("NOAA station metadata exceeds expected size")
+    catalog = json.loads(raw)
+    # Some reporting airports have an empty siteType list (e.g. K0D8), so do
+    # not restrict discovery to metadata with an explicit METAR type flag.
+    ids = {row["icaoId"] for row in catalog if row.get("icaoId")
+           and metar_clouds.in_region({"station":row["icaoId"],
+                                      "lat":row.get("lat"),"lon":row.get("lon")})}
+    if not ids:
+        raise ValueError("NOAA station metadata has no regional airports")
+    return sorted(ids)
 
 
 def fetch_history(download, now, *, limit=RESULT_LIMIT, pause=time.sleep, interval=0.7,
@@ -31,6 +52,7 @@ def fetch_history(download, now, *, limit=RESULT_LIMIT, pause=time.sleep, interv
     import threading
     from urllib.error import HTTPError, URLError
 
+    station_ids = regional_station_ids(download)
     end = now.replace(minute=0, second=0, microsecond=0)
     entries, requests = {}, 0
     last_request = None
@@ -39,9 +61,9 @@ def fetch_history(download, now, *, limit=RESULT_LIMIT, pause=time.sleep, interv
         cache_dir = Path(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_tile(bounds, depth):
+    def get_batch(ids):
         nonlocal requests, last_request
-        params = {"bbox": ",".join(map(str, bounds)), "format": "xml", "hours": hours,
+        params = {"ids": ",".join(ids), "format": "xml", "hours": hours,
                   "date": metar_clouds.iso(end)}
         url = ARCHIVE_URL+"?"+urlencode(params)
         cached = cache_dir/(sha256(url.encode()).hexdigest()+'.xml') if cache_dir is not None else None
@@ -68,7 +90,7 @@ def fetch_history(download, now, *, limit=RESULT_LIMIT, pause=time.sleep, interv
             if cached is not None:
                 # Cache each successful response so a local retry reuses it.
                 cached.write_bytes(xml)
-        if not xml:  # NOAA 204: no reports in this tile
+        if not xml:  # NOAA 204: no reports in this station batch
             return [], []
         root = ET.fromstring(xml)
         errors = root.find("errors")
@@ -76,24 +98,21 @@ def fetch_history(download, now, *, limit=RESULT_LIMIT, pause=time.sleep, interv
             raise ValueError("NOAA archive returned an error; no live history changed")
         reports = root.findall(".//METAR")
         if len(reports) >= limit:
-            if depth >= 12:
-                raise ValueError("NOAA archive is still capped in a small area; refusing incomplete history")
-            south, west, north, east = bounds
-            if (east-west)*math.cos(math.radians((south+north)/2)) > north-south:
-                middle = (west+east)/2
-                children = [(south, west, north, middle), (south, middle, north, east)]
-            else:
-                middle = (south+north)/2
-                children = [(south, west, middle, east), (middle, west, north, east)]
-            return [(child,depth+1) for child in children], []
+            if len(ids) < 2:
+                raise ValueError("NOAA archive is capped for one airport; refusing incomplete history")
+            middle = len(ids)//2
+            return [ids[:middle], ids[middle:]], []
         return [], metar_clouds.parse_reports(xml, end, hours=13)
 
-    queued, pending = [((40,-100,50,-85),0)], set()
+    # Bbox responses can thin airports without reaching the documented cap.
+    # Explicit station batches recover those reports and keep queries bounded.
+    queued = [station_ids[i:i+20] for i in range(0,len(station_ids),20)]
+    pending = set()
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while queued or pending:
             while queued and len(pending)<workers:
-                bounds,depth = queued.pop()
-                pending.add(pool.submit(get_tile,bounds,depth))
+                ids = queued.pop()
+                pending.add(pool.submit(get_batch,ids))
             done,pending = wait(pending,return_when=FIRST_COMPLETED)
             for future in done:
                 children,rows = future.result()

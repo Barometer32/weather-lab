@@ -32,9 +32,11 @@ window.WeatherCloudViews = (() => {
     const priority=s=>{const rank=preferred.indexOf(s.station);return rank<0?preferred.length:rank;};
     candidates.sort((a,b)=>priority(a)-priority(b)||a.station.localeCompare(b.station));
     const size=metarMap.getSize(),accepted=[],boxes=[];
+    let inView=0;
     for(const station of candidates){
       const point=metarMap.latLngToContainerPoint([station.lat,station.lon]);
       if(point.x<0||point.y<0||point.x>size.x||point.y>size.y)continue;
+      inView++;
       // Bound the actual labels and short arrow, including white halos and a
       // small gap. Two-digit plots can be closer than long/negative readings.
       const f=model.footprint(station);
@@ -42,14 +44,14 @@ window.WeatherCloudViews = (() => {
       if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
       boxes.push(box);accepted.push(station);
     }
-    return accepted;
+    return {drawn:accepted,inView};
   }
   function renderMetars(){
     if(!data)return;
     initMetars();markers.clearLayers();
     index=Math.max(0,Math.min(index,data.history.length-1));
     const selected=data.history[index],stations=selected.stations.filter(s=>!excluded.has(s.station));
-    const drawn=plotStations(stations),slider=el("metar-cloud-timeline");
+    const {drawn,inView}=plotStations(stations),slider=el("metar-cloud-timeline");
     slider.max=String(data.history.length-1);slider.value=String(index);slider.disabled=data.history.length<2;
     slider.style.setProperty("--progress",`${data.history.length>1?100*index/(data.history.length-1):0}%`);
     el("metar-cloud-time").textContent=`${time.format(new Date(selected.hour))} · hour ${index+1}/${data.history.length}`;
@@ -80,7 +82,7 @@ window.WeatherCloudViews = (() => {
     }
     const health=el("station-feed-status");health.hidden=false;
     health.textContent=data.stale?"Hourly METAR update delayed. Showing saved reports with their actual timestamps.":stations.length?`NOAA airport METARs · ${stations.length} eligible reports for this hour`:"No eligible METARs saved for this hour. Initial history backfill may still be running.";
-    el("metar-cloud-status").textContent=`${drawn.length} spaced plots visible · ${stations.length} reporting airports · :50–:59 reports · updates hourly at :05${data.stale?" · Background updates delayed":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} plots visible${inView>drawn.length?` · ${inView-drawn.length} hidden for spacing (zoom in)`:""} · ${inView} airports in view · ${stations.length} in region · :50–:59 reports · updates hourly at :05${data.stale?" · Background updates delayed":""}`;
   }
   function retry(){
     clearTimeout(retryTimer);

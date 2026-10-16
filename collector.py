@@ -153,7 +153,11 @@ def collect_stations(store, now):
         return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
     # Archive queries recover routine reports even when a newer SPECI or
     # off-window airport report has replaced them in the current cache.
-    archive = fetch_history(weather.download, now, hours=1)
+    # Repair any incomplete saved hourly frames once when this collector version
+    # changes. Subsequent hourly runs query only the latest completed hour.
+    repair_history = (previous.get("observationMode") == MODE
+                      and previous.get("version") != VERSION and bool(previous.get("history")))
+    archive = fetch_history(weather.download, now, hours=13 if repair_history else 1)
     reports = snapshot(archive["reports"], hour, weather.iso(now))
     rows = [row for frame in reports["history"] for row in frame["stations"]]
     data = collect(None, now, previous, airport_rows=rows)

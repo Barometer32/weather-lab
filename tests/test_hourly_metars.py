@@ -76,17 +76,53 @@ class HourlyMetarTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):collector.collect_stations(store,NOW+timedelta(hours=1))
         self.assertEqual(store.objects,previous)
 
-    def test_archive_query_is_capped_tiled_deduplicated_and_supports_one_hour(self):
+    def test_archive_query_batches_station_ids_splits_cap_and_deduplicates(self):
+        import json
         import xml.etree.ElementTree as ET
         one=ET.tostring(ET.fromstring(xml_report()).find('.//METAR'))
         calls=[]
         def download(url):
+            if url == backfill.STATIONS_URL:
+                return json.dumps([{'icaoId':s,'lat':44.9,'lon':-93.3} for s in ['KMSP','KSTP']]).encode()
             query=parse_qs(urlparse(url).query);calls.append(query)
-            return b'<response><data>'+one*(4 if query['bbox']==['40,-100,50,-85'] else 1)+b'</data></response>'
+            return b'<response><data>'+one*(4 if ',' in query['ids'][0] else 1)+b'</data></response>'
         archive=backfill.fetch_history(download,NOW,limit=4,interval=0,pause=lambda _:None,hours=1)
         self.assertEqual(len(calls),3)
         self.assertEqual(len(archive['reports']),1)
-        self.assertTrue(all(c['hours']==['1'] and c['date']==[airports.iso(HOUR)] for c in calls))
+        self.assertTrue(all(c['hours']==['1'] and c['date']==[airports.iso(HOUR)] and 'bbox' not in c for c in calls))
+
+    def test_below_cap_bbox_omissions_are_avoided_and_catalog_discovery_is_regional(self):
+        import gzip,json
+        calls=[]
+        catalog=[{'icaoId':s,'lat':44.9,'lon':-93.3,'siteType':[]} for s in ['KMSP','K0D8','KCFE']]
+        catalog += [{'icaoId':'KOUT','lat':20,'lon':-93},{'icaoId':None,'lat':45,'lon':-93}]
+        def download(url):
+            if url == backfill.STATIONS_URL:
+                return gzip.compress(json.dumps(catalog).encode())
+            query=parse_qs(urlparse(url).query);calls.append(query)
+            # Upstream bbox responses were incomplete even below 400 rows.
+            if 'bbox' in query:return b'<response><data/></response>'
+            return xml_report()
+        archive=backfill.fetch_history(download,NOW,interval=0,pause=lambda _:None,hours=1)
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0]['ids'],['K0D8,KMSP'])
+        self.assertEqual({r['station'] for r in archive['reports']},{'KMSP'})
+
+    def test_version_upgrade_repairs_history_once_then_returns_to_hourly_queries(self):
+        store=MemoryStore()
+        old=airports.collect(None,NOW,airport_rows=[row()])
+        old['version']=airports.VERSION-1
+        store.write_json('live/station-plots.json',old)
+        with patch('backfill_metars.fetch_history',return_value={'reports':raw_rows()}) as fetch:
+            collector.collect_stations(store,NOW)
+            self.assertEqual(fetch.call_args.kwargs['hours'],13)
+            self.assertTrue(all(f['stations'] for f in store.read_json('live/station-plots.json')['history']))
+            collector.collect_stations(store,NOW+timedelta(minutes=15))
+            self.assertEqual(fetch.call_count,1)
+            next_rows=[{**r,'time':airports.iso(airports.timestamp(r['time'])+timedelta(hours=1))} for r in raw_rows()]
+            fetch.return_value={'reports':next_rows}
+            collector.collect_stations(store,NOW+timedelta(hours=1))
+            self.assertEqual(fetch.call_args.kwargs['hours'],1)
 
     def test_hourly_collector_queries_archive_once_and_second_run_is_noop(self):
         store=MemoryStore()

@@ -66,6 +66,8 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(get('metar-cloud-rows').children.length,1);
  zoomScale=.5;get('metar-cloud-timeline').events.input({target:{value:'11'}});
  assert.ok(shown.length<11); // Zoom decluttering retains true coordinates.
+ assert.match(get("metar-cloud-status").textContent,/hidden for spacing/);
+ assert.match(get("metar-cloud-status").textContent,/11 airports in view/);
  data={...data,stale:true};get('refresh-metar-clouds').events.click();await flush();
  assert.match(get('station-feed-status').textContent,/delayed/);
  console.log('METAR viewer checks passed: plot-only UI, twelve-hour selection, hourly scheduling, search, decluttering and stale status.');
