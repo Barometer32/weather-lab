@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "stations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "stations")}
 
 
 def collect_radar_legacy(store, now):
@@ -134,25 +134,6 @@ def collect_satellite(store, now):
     return results
 
 
-def collect_metar_clouds(store, now, target_hour=None):
-    from metar_clouds import collect
-    previous = store.read_json("live/metar-clouds.json")
-    if previous and previous.get("collectionMode") == "shared-hourly-bulk":
-        checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
-        matching_target = target_hour is None or previous.get("hourlyTarget") == weather.iso(target_hour)
-        if matching_target and checked.replace(minute=0, second=0, microsecond=0) == now.replace(minute=0, second=0, microsecond=0):
-            return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
-    data = collect(weather.download, now, previous, target_hour=target_hour) if target_hour else collect(weather.download, now, previous)
-    # Publish all three views atomically through one canonical prepared object.
-    store.write_json("live/metar-clouds.json", data)
-    return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"])}
-
-
-def collect_observations(store, now):
-    # Legacy/manual route shares the same collector, never a second source.
-    return collect_metar_clouds(store, now)
-
-
 def collect_forecast(store, now):
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
@@ -162,33 +143,22 @@ def collect_forecast(store, now):
 
 
 def collect_stations(store, now):
-    from station_plots import collect, VERSION as STATION_VERSION
-    import surface_analysis
-    previous = store.read_json("live/station-plots.json")
+    from airport_plots import collect, VERSION, MODE
+    from backfill_metars import fetch_history
+    from metar_clouds import snapshot
+    previous = store.read_json("live/station-plots.json") or {}
     hour = now.replace(minute=0, second=0, microsecond=0)
-    same_hour = (previous and previous.get("collectionMode") == "hourly-window"
-                 and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 30 and previous.get("version") == STATION_VERSION)
-    if same_hour:
-        if previous.get("analysisVersion") == surface_analysis.VERSION:
-            return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
-        # A palette-only migration uses the genuine saved readings and times.
-        surface_analysis.prepare_history(previous, store)
-        store.write_json("live/station-plots.json", previous)
-        return {"stations": len(previous["stations"]), "status": "analysis style updated"}
-    airport_failed = False
-    try:
-        # One scheduled route also prepares the cloud view and reuses its
-        # official routine METARs. No second hourly airport download is needed.
-        collect_metar_clouds(store, now, target_hour=hour)
-    except Exception:
-        app.logger.exception("Hourly airport collection delayed")
-        airport_failed = True
-    airport_data = store.read_json("live/metar-clouds.json") or {}
-    airport_rows = [row for frame in airport_data.get("history", []) for row in frame.get("stations", [])]
-    data = collect(weather.download, now, previous, airport_rows=airport_rows, airport_failed=airport_failed)
-    surface_analysis.prepare_history(data, store)
+    if (previous.get("version") == VERSION and previous.get("observationMode") == MODE
+            and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 10):
+        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+    # Archive queries recover routine reports even when a newer SPECI or
+    # off-window airport report has replaced them in the current cache.
+    archive = fetch_history(weather.download, now, hours=1)
+    reports = snapshot(archive["reports"], hour, weather.iso(now))
+    rows = [row for frame in reports["history"] for row in frame["stations"]]
+    data = collect(None, now, previous, airport_rows=rows)
     store.write_json("live/station-plots.json", data)
-    return {"stations": len(data["stations"]), "failedStates": data["failedStates"]}
+    return {"stations": len(data["stations"]), "hour": data["hour"]}
 
 
 @app.get("/healthz")
@@ -200,11 +170,10 @@ def health():
 def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
-            "observations": collect_observations, "forecast": collect_forecast,
-            "metar-clouds": collect_metar_clouds, "stations": collect_stations}
+            "forecast": collect_forecast, "stations": collect_stations}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
-    lock_kind = "metar-clouds" if kind == "observations" else kind
+    lock_kind = kind
     if not locks[lock_kind].acquire(blocking=False):
         return jsonify(status="already collecting"), 200
     try:

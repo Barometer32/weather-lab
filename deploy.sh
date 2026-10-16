@@ -4,7 +4,7 @@ set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
 # Cloud Shell can build/push directly when Cloud Build rejects a submission.
-WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-cloudbuild}"
+WEATHER_BUILD_MODE="${WEATHER_BUILD_MODE:-docker}"
 case "$WEATHER_BUILD_MODE" in
   cloudbuild) ;;
   docker)
@@ -40,42 +40,30 @@ WEATHER_REQUIRED_APIS=(run.googleapis.com artifactregistry.googleapis.com clouds
 if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
   WEATHER_REQUIRED_APIS+=(cloudbuild.googleapis.com)
 fi
-gcloud services enable "${WEATHER_REQUIRED_APIS[@]}"
-
-# Stop the retired model collector before building. Only Weather Lab's own job
-# names are touched; observations, radar and the replacement NWS forecast stay.
-if gcloud scheduler jobs describe weather-hourly --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs delete weather-hourly --location="$WEATHER_REGION" --quiet
-fi
-# Remove the retired Eglin radar's background job; KMPX keeps its minute job.
-if gcloud scheduler jobs describe weather-live-radar-KEVX --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs delete weather-live-radar-KEVX --location="$WEATHER_REGION" --quiet
-fi
-# One shared hourly METAR job supplies airport plots and cloud ceilings.
-if gcloud scheduler jobs describe weather-live-observations --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs delete weather-live-observations --location="$WEATHER_REGION" --quiet
-fi
-# Retire the removed Surface/MADIS collector if an earlier deployment created it.
-if gcloud scheduler jobs describe weather-live-surface --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs delete weather-live-surface --location="$WEATHER_REGION" --quiet
-fi
-# The hourly station route now shares airport collection with cloud ceilings.
-if gcloud scheduler jobs describe weather-live-metar-clouds --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs delete weather-live-metar-clouds --location="$WEATHER_REGION" --quiet
-fi
-if gcloud run jobs describe weather-forecast --region="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud run jobs delete weather-forecast --region="$WEATHER_REGION" --quiet
-fi
+weather_retry() {
+  local weather_attempt
+  for weather_attempt in 1 2 3 4 5 6; do
+    if "$@"; then return 0; fi
+    if [[ "$weather_attempt" == 6 ]]; then return 1; fi
+    printf 'New-project permissions may still be propagating; retry %s/6.\n' "$weather_attempt" >&2
+    sleep "$((weather_attempt*5))"
+  done
+}
+weather_retry gcloud services enable "${WEATHER_REQUIRED_APIS[@]}" iam.googleapis.com --project="$WEATHER_PROJECT"
+# Create this NEW project's own managed identities; no deleted-project IDs.
+for WEATHER_SERVICE in artifactregistry.googleapis.com run.googleapis.com cloudscheduler.googleapis.com; do
+  weather_retry gcloud beta services identity create --service="$WEATHER_SERVICE" --project="$WEATHER_PROJECT" --quiet
+done
 
 if ! gcloud artifacts repositories describe "$WEATHER_ARTIFACT_REPOSITORY" --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud artifacts repositories create "$WEATHER_ARTIFACT_REPOSITORY" --repository-format=docker --location="$WEATHER_REGION"
+  weather_retry gcloud artifacts repositories create "$WEATHER_ARTIFACT_REPOSITORY" --repository-format=docker --location="$WEATHER_REGION"
 fi
 for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-scheduler; do
   if [[ "$WEATHER_SA_NAME" == weather-builder && "$WEATHER_BUILD_MODE" == docker ]]; then
     continue
   fi
   if ! gcloud iam service-accounts describe "${WEATHER_SA_NAME}@${WEATHER_PROJECT}.iam.gserviceaccount.com" >/dev/null 2>&1; then
-    gcloud iam service-accounts create "$WEATHER_SA_NAME"
+    weather_retry gcloud iam service-accounts create "$WEATHER_SA_NAME"
   fi
 done
 if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
@@ -87,23 +75,32 @@ if ! gcloud storage buckets describe "gs://${WEATHER_DATA_BUCKET}" >/dev/null 2>
 fi
 # This dedicated bucket contains replaceable prepared data, not user documents.
 gcloud storage buckets update "gs://${WEATHER_DATA_BUCKET}" --lifecycle-file=data-lifecycle.json --clear-soft-delete --no-versioning --public-access-prevention
-gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_COLLECTOR_SA}" --role=roles/storage.objectAdmin
-gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_WEB_SA}" --role=roles/storage.objectViewer
+weather_retry gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_COLLECTOR_SA}" --role=roles/storage.objectAdmin
+weather_retry gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_WEB_SA}" --role=roles/storage.objectViewer
 
 if [[ "$WEATHER_BUILD_MODE" == docker ]]; then
   gcloud auth configure-docker "${WEATHER_REGION}-docker.pkg.dev" --quiet
   docker build --platform=linux/amd64 --tag "$WEATHER_IMAGE" .
-  docker push "$WEATHER_IMAGE"
+  WEATHER_PUSH_OK=false
+  for WEATHER_PUSH_ATTEMPT in 1 2 3; do
+    if docker push "$WEATHER_IMAGE"; then
+      WEATHER_PUSH_OK=true
+      break
+    fi
+    if [[ "$WEATHER_PUSH_ATTEMPT" != 3 ]]; then
+      printf 'Upload failed; retrying the same built image (%s/3).\n' "$WEATHER_PUSH_ATTEMPT" >&2
+      sleep 5
+    fi
+  done
+  if [[ "$WEATHER_PUSH_OK" != true ]]; then
+    printf 'Image upload failed. Existing services were not replaced. Rerun this command to retry.\n' >&2
+    exit 1
+  fi
 else
   gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
 fi
-gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,300,collector:app
-gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
-for WEATHER_RETIRED_OBJECT in live/radar-KEVX.json live/radar-state-KEVX.json; do
-  if gcloud storage objects describe "gs://${WEATHER_DATA_BUCKET}/${WEATHER_RETIRED_OBJECT}" >/dev/null 2>&1; then
-    gcloud storage rm "gs://${WEATHER_DATA_BUCKET}/${WEATHER_RETIRED_OBJECT}"
-  fi
-done
+weather_retry gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,4,--timeout,300,collector:app
+weather_retry gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --region="$WEATHER_REGION" --format='value(status.url)')"
 
 weather_schedule() {
@@ -112,32 +109,21 @@ weather_schedule() {
     weather_action=update
   fi
   gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline="${weather_deadline}s" --max-retry-attempts="$weather_retries" --min-backoff=60s --max-backoff=120s
-  # Updating an existing job preserves its paused state. Restore background
-  # collection when redeploying a previously stopped WEATHER LAB project.
-  if [[ "$(gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" --format='value(state)')" == "PAUSED" ]]; then
-    gcloud scheduler jobs resume "weather-live-${weather_kind}" --location="$WEATHER_REGION"
+  if [[ "$weather_kind" == stations && "${WEATHER_INITIAL_BACKFILL:-false}" == true ]]; then
+    gcloud scheduler jobs pause "weather-live-${weather_kind}" --location="$WEATHER_REGION"
+  else
+    if [[ "$(gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" --format='value(state)')" == PAUSED ]]; then
+      gcloud scheduler jobs resume "weather-live-${weather_kind}" --location="$WEATHER_REGION"
+    fi
+    gcloud scheduler jobs run "weather-live-${weather_kind}" --location="$WEATHER_REGION"
   fi
-  gcloud scheduler jobs run "weather-live-${weather_kind}" --location="$WEATHER_REGION"
 }
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '*/5 * * * *'
-weather_schedule stations '0 * * * *' stations 300 0
+weather_schedule stations '5 * * * *' stations 300 0
 
-gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
+weather_retry gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
 
-# Remove only the obsolete model output, then the empty forecast bucket.
-# Leave unrelated objects alone if this bucket has been used for anything else.
-WEATHER_OLD_BUCKET="${WEATHER_PROJECT}-forecast"
-if gcloud storage buckets describe "gs://${WEATHER_OLD_BUCKET}" >/dev/null 2>&1; then
-  for WEATHER_OLD_OBJECT in forecast/latest.json; do
-    if gcloud storage objects describe "gs://${WEATHER_OLD_BUCKET}/${WEATHER_OLD_OBJECT}" >/dev/null 2>&1; then
-      gcloud storage rm "gs://${WEATHER_OLD_BUCKET}/${WEATHER_OLD_OBJECT}"
-    fi
-  done
-  if ! gcloud storage buckets delete "gs://${WEATHER_OLD_BUCKET}" --quiet; then
-    printf '%s\n' 'The retired forecast bucket is not empty; remaining objects were retained. No model collection jobs remain.'
-  fi
-fi
-printf '%s\n' 'Background collection enabled. The first two-hour radar and satellite backfill can take a few minutes.'
+printf '%s\n' 'Radar and satellite history are preparing in the background. The setup script imports twelve METAR hours.'
 gcloud run services describe weather-lab --region="$WEATHER_REGION" --format='value(status.url)'

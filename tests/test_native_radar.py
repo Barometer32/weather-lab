@@ -12,7 +12,7 @@ import numpy as np
 import app as weather
 import collector
 import native_radar as radar
-from test_realtime import MemoryStore
+from test_support import MemoryStore
 
 NOW = datetime(2026, 10, 9, 18, tzinfo=timezone.utc)
 
@@ -101,7 +101,7 @@ class NativeRadarTests(unittest.TestCase):
             store.assert_not_called()
 
     def test_two_hour_window_has_no_frame_count_cap(self):
-        for count in (30,100,241):
+        for count in (30,100,1441):
             with self.subTest(scans=count):
                 stamps=[NOW-timedelta(hours=2)+timedelta(seconds=7200*i/(count-1)) for i in range(count)]
                 frames=[{"id":str(i),"time":radar.iso(t)} for i,t in enumerate(stamps)]

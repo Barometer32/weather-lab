@@ -18,6 +18,7 @@ import numpy as np
 
 UTC = timezone.utc
 VERSION = "level2-polar-v2"
+HISTORY_HOURS = 2  # Radar only; METAR history remains twelve hours.
 SITES = {"KMPX": {"name": "Twin Cities", "center": [44.925, -93.462], "zoom": 8}}
 ARCHIVE = "https://unidata-nexrad-level2.s3.amazonaws.com/"
 CHUNKS = "https://unidata-nexrad-level2-chunks.s3.amazonaws.com/"
@@ -64,7 +65,7 @@ def objects(base, prefix):
 
 
 def archive_volumes(site, now):
-    start = now - timedelta(hours=2, minutes=15)
+    start = now - timedelta(hours=HISTORY_HOURS, minutes=15)
     dates = sorted({start.date(), now.date()})
     rows = []
     for date in dates:
@@ -210,14 +211,14 @@ def consume(radials, site, pending=None, cuts=None):
 
 def manifest(frames, now, site, palette):
     # Keep every available scan in the time window, regardless of scan frequency.
-    start = now - timedelta(hours=2)
+    start = now - timedelta(hours=HISTORY_HOURS)
     frames = [frame for frame in frames if start <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
     frames.sort(key=lambda frame: frame["time"])
     elevation = min((frame.get("elevationDegrees", 0.5) for frame in frames), default=0.5)
     frames = [frame for frame in frames if frame.get("elevationDegrees", 0.5) == elevation]
     return {"site": site, "siteName": SITES[site]["name"], "center": SITES[site]["center"],
             "zoom": SITES[site]["zoom"], "frames": frames, "palette": palette,
-            "renderVersion": VERSION, "windowStart": iso(start), "windowEnd": iso(now),
+            "renderVersion": VERSION, "windowStart": iso(start), "windowEnd": iso(now), "historyHours": HISTORY_HOURS,
             "checkedAt": iso(now), "product": "Level II reflectivity", "elevationDegrees": elevation,
             "source": "NOAA/NWS Level II via NSF Unidata public archive and real-time chunks"}
 
@@ -274,7 +275,7 @@ def collect_site(store, now, site, palette, budget=45):
 
     def save(items):
         for meta, data in items:
-            if not now-timedelta(hours=2) <= datetime.fromisoformat(meta["time"].replace("Z", "+00:00")) <= now:
+            if not now-timedelta(hours=HISTORY_HOURS) <= datetime.fromisoformat(meta["time"].replace("Z", "+00:00")) <= now:
                 continue
             if meta["id"] in frames:
                 continue
@@ -320,7 +321,7 @@ def collect_site(store, now, site, palette, budget=45):
                         break  # Retry this chunk; never silently skip a sequence.
         publish()
     state["streams"] = {str(number): state["streams"][str(number)] for number, _ in active if str(number) in state["streams"]}
-    # The archive fills the two-hour loop and recovers missed streaming chunks.
+    # The archive fills the configured history window and recovers missed streaming chunks.
     for row in reversed(volumes):
         if row["key"] in state["archives"] or time.monotonic() >= deadline:
             continue

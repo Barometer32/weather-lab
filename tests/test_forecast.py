@@ -9,7 +9,7 @@ import collector
 from app import app, _cache
 from nws_forecast import normalize_forecast, FORECAST_URL, FORECAST_VERSION
 from satellite import parse_loop, page_url, BASE
-from test_realtime import MemoryStore
+from test_support import MemoryStore
 
 NOW = datetime(2026, 10, 9, 16, 50, tzinfo=timezone.utc)
 

@@ -1,10 +1,17 @@
 {
   "rule": [
     {
-      "action": {"type": "Delete"},
+      "action": {
+        "type": "Delete"
+      },
       "condition": {
         "age": 1,
-        "matchesPrefix": ["analysis/", "radar/", "satellite/truecolor/", "satellite/dcphase/", "satellite/ntmicro/"]
+        "matchesPrefix": [
+          "radar/",
+          "satellite/truecolor/",
+          "satellite/dcphase/",
+          "satellite/ntmicro/"
+        ]
       }
     }
   ]

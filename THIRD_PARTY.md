@@ -41,8 +41,7 @@ Satellite imagery: NOAA GOES-East products and local sector processing/maps by
 College of DuPage NEXLAB. Original images, annotations and source credits retained.
 https://weather.cod.edu/satrad/
 
-Regional cloud observations: NOAA/NWS Aviation Weather Center complete METAR cache and historical METAR API.
-Cloud bases are feet above ground level; original coverage codes are retained.
+Airport station observations: NOAA/NWS Aviation Weather Center complete METAR cache and historical METAR API.
 https://aviationweather.gov/data/api/
 https://aviationweather.gov/help/data/
 
@@ -51,12 +50,5 @@ https://github.com/Unidata/MetPy
 https://registry.opendata.aws/noaa-nexrad/
 
 
-Hourly station plots also use open IEM current-observation bulk feeds and
-UW–Madison Wisconet temperature, dew point and wind observations. Wisconet
-data is licensed under Creative Commons Attribution 4.0 (CC BY 4.0).
-Source: https://wisconet.wisc.edu/
-API: https://api.wisconet.wisc.edu/docs
-License: https://creativecommons.org/licenses/by/4.0/
-Wisconet values are selected by report time, range-checked and filtered for
-hourly display; the underlying source measurements are not spatially averaged.
-Station identity, timestamps, source credits and available quality flags are retained.
+Faint highway geometry: US Census Bureau TIGERweb transportation roads, clipped to the radar region. No city labels or location markers are included.
+https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation_LargeScale/MapServer

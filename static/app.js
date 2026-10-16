@@ -18,26 +18,62 @@ async function api(url) {
   return data;
 }
 function cell(row, text) { const td = document.createElement("td"); td.textContent = text; row.append(td); }
-let map, nativeLayer, frames = [], overlays = [], index = 0, radarBusy = false, radarRequest = 0;
+let map, nativeLayer, frames = [], index = 0, radarBusy = false, radarRequest = 0;
 const radarSite = "KMPX";
 let radarPalette = [];
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
+let radarSelection=0, radarShownTime;
+const radarPending=new Map(), radarCacheLimit=24;
 
-function showFrame(n) {
-  if (!overlays.length) return;
-  index = (n + overlays.length) % overlays.length;
-  nativeLayer.setFrame(overlays[index],radarPalette);
+async function showFrame(n) {
+  if (!frames.length) return;
+  index = (n + frames.length) % frames.length;
+  const frame=frames[index],selection=++radarSelection,request=radarRequest;
   $("timeline").value = String(index);
   $("timeline").style.setProperty("--progress", `${frames.length > 1 ? index / (frames.length - 1) * 100 : 0}%`);
-  $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frames[index].time))}, scan ${index + 1} of ${frames.length}`);
-  $("radar-time").textContent = `${fullTime.format(new Date(frames[index].time))} · ${index + 1}/${frames.length}`;
+  $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frame.time))}, scan ${index + 1} of ${frames.length}`);
+  $("radar-time").textContent=`Loading ${fullTime.format(new Date(frame.time))} · ${index+1}/${frames.length}…`;
+  const key=frame.url;
+  try {
+    let decoded=radarLayers.get(key);
+    if(!decoded){
+      let pending=radarPending.get(key);
+      if(!pending){
+        pending=(async()=>{
+          const response=await fetch(frame.url);if(!response.ok)throw Error("Native scan could not load");
+          const result=NativeRadar.decode(await response.arrayBuffer());
+          if(result.meta.site!==radarSite||result.meta.id!==frame.id)throw Error("Radar scan mismatch");
+          return result;
+        })();
+        radarPending.set(key,pending);
+        pending.finally(()=>radarPending.delete(key)).catch(()=>{});
+      }
+      decoded=await pending;
+    }
+    if(selection!==radarSelection||request!==radarRequest)return false;
+    radarLayers.delete(key);radarLayers.set(key,decoded);
+    while(radarLayers.size>radarCacheLimit)radarLayers.delete(radarLayers.keys().next().value);
+    nativeLayer.setFrame(decoded,radarPalette);radarShownTime=frame.time;
+    $("radar-time").textContent=`${fullTime.format(new Date(frame.time))} · ${index+1}/${frames.length}`;
+    return true;
+  }catch(error){
+    if(selection===radarSelection&&request===radarRequest){
+      $("radar-time").textContent=radarShownTime?`Showing ${fullTime.format(new Date(radarShownTime))} · selected scan unavailable`:"Selected radar scan unavailable";
+      $("radar-status").textContent=`${error.message}. Select another scan or refresh.`;
+    }
+    return false;
+  }
 }
 function initMap() {
   if (map) return;
   map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
+  if (window.WeatherRadarRoads) window.WeatherRadarRoads.addTo(map).catch(() => {
+    $("map-note").hidden = false;
+    $("map-note").textContent = "Highway reference could not load. Radar echoes remain available.";
+  });
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
 
@@ -69,7 +105,6 @@ async function loadRadar() {
   if (radarBusy) return;
   const request = ++radarRequest;
   const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1;
-  const showInitial = !overlays.length;
   radarBusy = true; $("refresh-radar").disabled = true;
   try {
     initMap();
@@ -78,52 +113,27 @@ async function loadRadar() {
     if (request !== radarRequest) return;
     renderRadarLegend(data.palette); radarPalette=data.palette;
     $("radar-eyebrow").textContent=`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
-    const loaded = []; let completed = 0, failures = 0;
-    // Show the newest image first. Fetch only frames not already decoded.
-    const queue = [...data.frames].reverse();
-    async function worker() {
-      while(queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
-        const frame = queue.shift(), key = `${data.site}/${data.renderVersion}/${frame.id}`;
-        try {
-          let entry = radarLayers.get(key);
-          if (!entry) {
-            const response=await fetch(frame.url);
-            if(!response.ok)throw new Error("Native scan could not load");
-            const decoded=NativeRadar.decode(await response.arrayBuffer());
-            if(decoded.meta.site!==data.site || decoded.meta.id!==frame.id)throw new Error("Radar scan mismatch");
-            if (request !== radarRequest) return;
-            entry = {frame,data:decoded}; radarLayers.set(key,entry);
-          }
-          loaded.push(entry);
-          if (showInitial && (!frames.length || frame.time > frames[index].time)) { frames = [entry.frame]; overlays = [entry.data]; showFrame(0); }
-        } catch (_) { failures++; }
-        completed++;
-        if (request === radarRequest) $("radar-status").textContent = `Latest image ready · loading loop ${completed}/${data.frames.length} scans…`;
-      }
-    }
-    await Promise.all([worker(),worker(),worker()]);
-    if (request !== radarRequest) return;
-    if (!loaded.length) throw new Error("Radar scans could not be loaded. Please try Refresh scans.");
-    loaded.sort((a,b)=>a.frame.id.localeCompare(b.frame.id));
-    const keep = new Set(loaded.map(entry => `${data.site}/${data.renderVersion}/${entry.frame.id}`));
-    for (const [key, entry] of radarLayers) if (!keep.has(key)) { radarLayers.delete(key); }
-    frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.data);
-    $("timeline").max = String(frames.length-1);
-    $("timeline").disabled = frames.length < 2;
-    const restored = !followLatest && selectedTime ? frames.findIndex(frame => new Date(frame.time) >= new Date(selectedTime)) : -1;
-    showFrame(restored >= 0 ? restored : frames.length-1);
+    if(!data.frames.length)throw Error("No radar scans are available");
+    frames=[...data.frames].sort((a,b)=>a.time.localeCompare(b.time));
+    const keep=new Set(frames.map(frame=>frame.url));
+    for(const key of radarLayers.keys())if(!keep.has(key))radarLayers.delete(key);
+    $("timeline").max=String(frames.length-1);$("timeline").disabled=frames.length<2;
+    const restored=!followLatest&&selectedTime?frames.findIndex(frame=>new Date(frame.time)>=new Date(selectedTime)):-1;
+    const loaded=await showFrame(restored>=0?restored:frames.length-1);
+    if(request!==radarRequest||!loaded)return;
     const latest = new Date(frames.at(-1).time), age = (Date.now()-latest.getTime())/60000;
     const startsLate = (new Date(frames[0].time) - new Date(data.windowStart)) / 60000 > 15;
     const gap = frames.some((frame, i) => i && (new Date(frame.time) - new Date(frames[i-1].time)) / 60000 > 15);
-    const unavailable = failures + (data.collectionErrors || 0);
-    $("radar-status").textContent = `${data.site} · Past 2 hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} collection/loading errors` : ""}${startsLate || gap ? " · Some of the two-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.historyPending ? " · Earlier scans are filling in" : ""}${data.stale ? " · Background updates delayed" : ""}`;
+    const unavailable = data.collectionErrors || 0;
+    const historyHours=data.historyHours||2;
+    $("radar-status").textContent = `${data.site} · Past ${historyHours} hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} collection/loading errors` : ""}${startsLate || gap ? " · Some of the ${historyHours}-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.historyPending ? " · Earlier scans are filling in" : ""}${data.stale ? " · Background updates delayed" : ""}`;
   } catch(error) {
     if (request !== radarRequest) return;
-    $("radar-status").textContent=error.message; $("radar-time").textContent=overlays.length?"Previous radar loop · refresh failed":"Radar unavailable";
+    $("radar-status").textContent=error.message; $("radar-time").textContent=radarShownTime?"Previous radar loop · refresh failed":"Radar unavailable";
   } finally {
     if (request === radarRequest) {
       radarBusy=false; $("refresh-radar").disabled=false;
-      $("timeline").disabled=overlays.length<2;
+      $("timeline").disabled=frames.length<2;
     }
   }
 }

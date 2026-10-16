@@ -18,12 +18,12 @@ from flask import Flask, Response, jsonify, request, send_from_directory, render
 import numpy as np
 from PIL import Image
 from realtime import get_store
-from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
+from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES, HISTORY_HOURS as RADAR_HISTORY_HOURS
 
 app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
-OBSERVATION_CHECK_MINUTES = (0,)
+OBSERVATION_CHECK_MINUTES = (5,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -70,19 +70,6 @@ def cached(key, seconds, loader):
         return value
 
 
-def get_reports():
-    url = "https://aviationweather.gov/api/data/metar?" + urlencode(
-        {"ids": ",".join(STATIONS), "format": "json", "hours": 16})
-    return cached("metar", 300, lambda: json.loads(download(url)))
-
-
-def get_rapid_reports(now=None, regional=False):
-    from madis_observations import get_reports
-    now = now or utcnow()
-    rows = cached("madis-regional", 45, lambda: get_reports(None, now))
-    return rows if regional else [row for row in rows if row["icaoId"] in STATIONS]
-
-
 def valid_number(value, minimum, maximum):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and minimum <= value <= maximum
 
@@ -92,25 +79,6 @@ def valid_dewpoint(report):
     # Allow half a degree for reported-value rounding near saturation.
     return valid_number(value, -100, 60) and (not valid_number(temperature, -90, 60)
                                             or value <= temperature + 0.5)
-
-
-def quality_summary(chosen):
-    checks = {"temperature": 0, "dewpoint": 0, "wind": 0}
-    used = 0
-    for report in chosen:
-        passed = {"temperature": valid_number(report.get("temp"), -90, 60),
-                  "dewpoint": valid_dewpoint(report),
-                  "wind": valid_number(report.get("wspd"), 0, 200) and (
-                      report.get("wspd") == 0 or report.get("wdir") == "VRB"
-                      or valid_number(report.get("wdir"), 0, 360))}
-        for field, ok in passed.items():
-            checks[field] += int(ok)
-        used += int(all(passed.values()))
-    all_used = used == len(STATIONS)
-    return {"status": "passed" if all_used else "incomplete",
-            "stationsUsed": used, "stationsAvailable": len(chosen),
-            "stationsExpected": len(STATIONS), "allStationsUsed": all_used,
-            "checks": checks}
 
 
 def average(values):
@@ -143,14 +111,15 @@ def wind_mean(reports):
 
 def routine_hour(report, as_of):
     """Label the scheduled :53 METAR with the following hour; exclude SPECIs."""
-    if report.get("metarType") != "METAR" or str(report.get("rawOb", "")).startswith("SPECI"):
+    if (report.get("metarType") != "METAR" or str(report.get("rawOb", "")).startswith("SPECI")
+            or "MADISHF" in str(report.get("rawOb", ""))):
         return None
     stamp = report.get("obsTime")
     if not valid_number(stamp, 0, as_of.timestamp()):
         return None
     observed = datetime.fromtimestamp(stamp, UTC)
-    # Accept the user’s :30–:59 window; selection still prefers routine :53.
-    if not 30 <= observed.minute <= 59:
+    # Accept the user’s :50–:59 window; selection still prefers routine :53.
+    if not 50 <= observed.minute <= 59:
         return None
     return (observed + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
@@ -160,19 +129,6 @@ def receipt_timestamp(report):
         return datetime.fromisoformat(report.get("receiptTime", "").replace("Z", "+00:00")).timestamp()
     except (ValueError, AttributeError):
         return 0
-
-
-def hourly_snapshot(reports, target, as_of):
-    chosen = []
-    for station in STATIONS:
-        eligible = [r for r in reports if r.get("icaoId") == station
-                    and routine_hour(r, as_of) == target]
-        # Prefer :53, then newest report/correction receipt at the same timestamp.
-        if eligible:
-            expected = (target - timedelta(minutes=7)).timestamp()
-            chosen.append(metar_precision(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
-                -r["obsTime"], -receipt_timestamp(r)))))
-    return summarize(chosen, target)
 
 
 def metar_precision(report):
@@ -185,52 +141,6 @@ def metar_precision(report):
         if match[3] is not None:
             result["dewp"] = int(match[4]) / 10 * (-1 if match[3] == "1" else 1)
     return result
-
-
-def summarize(chosen, target):
-    temps = [r["temp"] for r in chosen if valid_number(r.get("temp"), -90, 60)]
-    dewpoints = [r["dewp"] for r in chosen if valid_dewpoint(r)]
-    temp_c = sum(temps) / len(temps) if temps else None
-    dew_c = sum(dewpoints) / len(dewpoints) if dewpoints else None
-    pressure = [r["altim"] for r in chosen if valid_number(r.get("altim"), 800, 1100)]
-    stations = []
-    for code, name in STATIONS.items():
-        r = next((r for r in chosen if r["icaoId"] == code), None)
-        stations.append({"code": code, "name": name, "available": r is not None,
-            "observedAt": iso(datetime.fromtimestamp(r["obsTime"], UTC)) if r else None,
-            "tempF": round(r["temp"] * 9 / 5 + 32, 1) if r and valid_number(r.get("temp"), -90, 60) else None,
-            "dewpointF": round(r["dewp"] * 9 / 5 + 32, 1) if r and valid_dewpoint(r) else None,
-            "cloudCover": r.get("cover") if r else None, "weather": r.get("wxString") if r else None,
-            "rawMetar": r.get("rawOb") if r else None})
-    return {"hour": iso(target), "tempC": temp_c, "dewpointC": dew_c,
-            "tempF": round(temp_c * 9 / 5 + 32, 1) if temp_c is not None else None,
-            "dewpointF": round(dew_c * 9 / 5 + 32, 1) if dew_c is not None else None,
-            "pressureHpa": average(pressure), "wind": wind_mean(chosen), "count": len(chosen),
-            "tempCount": len(temps), "dewpointCount": len(dewpoints), "stations": stations,
-            "qa": quality_summary(chosen)}
-
-
-def observations(reports=None, now=None, rapid_reports=None):
-    now = now or utcnow()
-    reports = get_reports() if reports is None else reports
-    # Display a routine report as soon as received, using its rounded hour label.
-    # An outage must not leave an old complete hour looking current indefinitely.
-    current_hour = now.replace(minute=0, second=0, microsecond=0)
-    hours = [routine_hour(r, now) for r in reports if r.get("icaoId") in STATIONS]
-    target = max([current_hour] + [hour for hour in hours if hour is not None])
-    history = [hourly_snapshot(reports, target - timedelta(hours=i), now) for i in range(12)]
-    current = dict(history[0])
-    stamps = [s["observedAt"] for s in current["stations"] if s["observedAt"]]
-    current.update(available=current["qa"]["allStationsUsed"], hourlyRoutine=True,
-                   observedAt=max(stamps, default=None), newestObservedAt=max(stamps, default=None),
-                   oldestObservedAt=min(stamps, default=None),
-                   missingStations=[s["code"] for s in current["stations"] if not s["available"]])
-    if not current["available"]:
-        current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
-                       wind={"speedMph": None, "speedKnots": None, "direction": None})
-    return {"fetchedAt": iso(now), "current": current, "history": history,
-            "method": "Shared hourly METAR bulk pull at :00; routine report nearest :53 within :30–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
-            "source": "NOAA Aviation Weather Center routine METARs"}
 
 
 def scans_in_window(scans, now):
@@ -341,29 +251,6 @@ def prepared_hourly_snapshot(name):
     return data
 
 
-def prepared_observations():
-    store = get_store()
-    if store is not None:
-        # Main observations and both METAR maps read one atomically published
-        # source object. Legacy observations remain usable during deployment.
-        shared = cached("prepared-metar-clouds", 10, lambda: store.read_json("live/metar-clouds.json"))
-        if shared and "observationReports" in shared:
-            shared = prepared_hourly_snapshot("metar-clouds")
-            return {"reports": shared["observationReports"],
-                    "checkedAt": shared["checkedAt"], "stale": shared["stale"]}
-    return prepared_hourly_snapshot("observations")
-
-
-def local_hourly_metars(now):
-    from metar_clouds import collect
-    # Local development also shares its source between the two API routes.
-    hour = now.replace(minute=0, second=0, microsecond=0)
-    entry = _cache.get("local-hourly-metars")
-    if entry and entry[1].get("checkedAt", "") < iso(hour):
-        _cache.pop("local-hourly-metars", None)
-    return cached("local-hourly-metars", 3600, lambda: collect(download, now))
-
-
 def get_forecast(now=None):
     from nws_forecast import FORECAST_URL, normalize_forecast
     # Use MapClick's structured feed so wording and period selection match the
@@ -377,57 +264,6 @@ def index():
     # The opening view is the individual METAR map; no metro average is
     # calculated while rendering the page and no source fetch occurs here.
     return render_template("index.html"), 200, {"Cache-Control": "no-store"}
-
-
-def observation_time(stamp, full=False):
-    moment = datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(ZoneInfo("America/Chicago"))
-    return moment.strftime("%b %-d, %-I:%M %p %Z" if full else "%-I:%M %p %Z")
-
-
-def observation_temperature(value):
-    return f"{math.floor(value+.5)}°F" if value is not None else "—"
-
-
-def observation_wind(wind):
-    speed, direction = wind.get("speedMph"), wind.get("direction")
-    if speed is None:
-        return "—"
-    if speed < .5:
-        return "Calm"
-    heading = "Variable" if direction is None else ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[math.floor(direction/45+.5)%8]
-    return f"{heading} {math.floor(speed+.5)} mph"
-
-
-def observation_qa(qa, stale=False):
-    if stale:
-        return "Refresh failed; displayed readings may be stale"
-    if qa["allStationsUsed"]:
-        return "Basic QA passed; all 3 stations used"
-    checks = qa["checks"]
-    return f"Basic QA incomplete; {qa['stationsUsed']}/3 stations passed. Temperature {checks['temperature']}/3, dew point {checks['dewpoint']}/3, wind {checks['wind']}/3"
-
-
-def observation_notice(data):
-    current, warnings = data["current"], []
-    if not current["available"]:
-        reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
-        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :00; hourly history remains below.")
-    if data.get("stale"):
-        warnings.append("Background observation checks are delayed; check the displayed observation hour.")
-    return " ".join(warnings)
-
-
-def observation_payload(saved_only=False):
-    data = prepared_observations()
-    if saved_only and data is None:
-        return None
-    if data is None:
-        shared = local_hourly_metars(utcnow())
-        data = {"reports": shared["observationReports"], "checkedAt": shared["checkedAt"], "stale": False}
-    result = observations(data["reports"])
-    if data:
-        result.update(checkedAt=data["checkedAt"], stale=data["stale"])
-    return result
 
 
 @app.get("/api/forecast")
@@ -464,32 +300,9 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
-@app.get("/api/metar-clouds")
-def metar_clouds_api():
-    from metar_clouds import current
-    try:
-        now = utcnow()
-        data = prepared_hourly_snapshot("metar-clouds")
-        if data is None:
-            data = local_hourly_metars(now)
-        elif data.get("version") not in (2, 3):
-            return jsonify(error="Hourly METAR history is being prepared. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
-        result = current(data, now)
-        response = jsonify(result)
-        response.headers["Cache-Control"] = "no-store"
-        response.headers["Vary"] = "Accept-Encoding"
-        if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
-            response.set_data(gzip.compress(response.data, compresslevel=3))
-            response.headers["Content-Encoding"] = "gzip"
-        return response
-    except Exception:
-        app.logger.exception("METAR cloud reports unavailable")
-        return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
-
-
 @app.get("/api/station-plots")
 def station_plots_api():
-    from station_plots import collect, current
+    from airport_plots import collect, current
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("station-plots")
@@ -516,16 +329,6 @@ def health():
     return jsonify(status="ok")
 
 
-@app.get("/api/observations")
-def observation_api():
-    try:
-        result = observation_payload()
-        return jsonify(result), 200, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.exception("Observation feed failed")
-        return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
-
-
 @app.get("/api/radar")
 def radar_api():
     try:
@@ -537,13 +340,13 @@ def radar_api():
         if not data or data.get("renderVersion") != NATIVE_VERSION:
             return jsonify(error="Native radar is being prepared. Please refresh shortly."), 503
         scans = [frame for frame in data["frames"]
-                 if now - timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
+                 if now - timedelta(hours=RADAR_HISTORY_HOURS) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
         if not scans:
             return jsonify(error=f"No recent {site} scans are available."), 503
         # Native packets retain raw reflectivity codes, so the current palette
         # applies immediately to every saved scan without recollecting history.
         return jsonify({**data, "frames": scans, "palette": radar_palette(),
-                        "paletteMode": "continuous", "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
+                        "paletteMode": "continuous", "windowStart": iso(now-timedelta(hours=RADAR_HISTORY_HOURS)), "windowEnd": iso(now), "historyHours": RADAR_HISTORY_HOURS})
     except Exception:
         app.logger.exception("Radar scan list failed")
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
@@ -588,14 +391,12 @@ def prepared_image(key):
 
 @app.get("/api/prepared/<path:key>")
 def prepared_asset(key):
-    # Visitors can read immutable imagery and hourly analysis manifests.
+    # Visitors can read immutable radar and satellite imagery.
     # Arbitrary bucket files remain private. Only the private collector can trigger processing.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
-               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"analysis/surface-v[12]/\d{12}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key)
-               or re.fullmatch(r"analysis/surface-v3/\d{12}/[a-f0-9]{16}/(tempF\.png|dewpointF\.png|wind\.png|manifest\.json)", key))
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:
