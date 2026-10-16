@@ -1,6 +1,6 @@
 # WEATHER LAB · METAR Fresh
 
-Four views: hourly airport METAR plots, two-hour KMPX radar, Central Minnesota satellite, and the NWS Hopkins forecast. No contours or mesonet observation feeds.
+Five views: hourly airport METAR plots, regional Maps, two-hour KMPX radar, Central Minnesota satellite, and the NWS Hopkins forecast. Observations and Maps use official airport METARs only.
 
 ## Deploy to a new Google Cloud project
 
@@ -24,6 +24,14 @@ Each collection queries the previous hour's NOAA archive, so a newer SPECI or of
 Twelve real hourly frames are backfilled during setup. History remains in a private Cloud Storage bucket when Cloud Run scales to zero. No synthetic times or station values fill gaps. Failed collections retain saved data, and the page shows delayed-update status. The initial import pauses the hourly writer, resumes it on exit, and immediately runs it afterward.
 
 Plots show temperature and dew point in °F and wind in mph, with arrows pointing toward wind flow. The central circle now shows reported sky cover: open for CLR/SKC, quarter-filled FEW, half-filled SCT, three-quarter BKN and solid OVC. Fractional fills represent METAR categories (1–2, 3–4 and 5–7 eighths), not exact measured oktas. The wind arrow has a longer, thicker shaft and solid arrowhead outside the circle; adjacent labels move just enough to clear its direction. Blue wind speed matches the temperature text size; calm winds have a second ring. Temperature and dew point sit close to the circle on the left, blue wind speed is at the lower right, and the lowest BKN/OVC base appears in black at the upper right in hundreds of feet AGL, such as `27` for 2,700 feet or `03` for 300 feet. Cloud height matches the temperature/dew-point text size. Bases above 9,900 feet retain three digits for accuracy. Obscured sky uses an X and a separately labeled VV value; unknown sky uses ?. Popups include all layers and exact heights. Existing history obtains cloud information from its saved raw METARs without new archive downloads. Regional collection discovers airport IDs from the NOAA station catalog and queries explicit station batches, splitting capped responses, because NOAA bbox queries can omit stations even below the cap. The version update repairs saved twelve-hour history once; subsequent collections remain hourly. Zoom reveals more non-overlapping stations; the searchable list includes plots hidden to prevent overlap. Actual METAR timestamps and raw reports remain in popups. Basic range, coordinate and dew-point checks apply; these do not constitute complete instrument QC.
+
+## Maps
+
+The Maps tab provides temperature, dew point, and wind speed/direction analysis with a twelve-hour slider and playback. Temperature and dew point reuse the same earlier reference palette in 5°F bands; wind uses the original 5 mph bands with direction arrows. Only state/county boundaries, contours, and wind vectors are drawn, with no station dots or city names.
+
+The existing :02 METAR collector builds missing map hours from saved observations, without re-downloading history. Unchanged hours reuse immutable image/contour assets. Map preparation is isolated from observation collection; a map failure preserves the observation data and previous map index. The public page only reads prepared maps. The first update fills all available twelve saved hours; ordinary updates prepare only changed/new hours.
+
+Analysis uses independent per-field neighbor screens, spatial de-clustering, a 40% maximum station weight, and vector-component interpolation for winds. Cells need three nearby stations and remain inside the station network's convex hull; unsupported cells stay transparent. These local estimates are not official instrument QC. QC and limited-neighbor counts appear under each map. Source reports remain unchanged on Observations.
 
 ## Radar, satellite and forecast
 

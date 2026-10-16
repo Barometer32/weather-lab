@@ -142,6 +142,15 @@ def collect_forecast(store, now):
     return {"periods": len(data["periods"])}
 
 
+def prepare_maps(store, observations):
+    try:
+        from surface_analysis import prepare_maps as build
+        return build(observations, store)
+    except Exception:
+        app.logger.exception("Maps preparation failed; previous map index retained")
+        return {"status": "delayed; previous maps retained"}
+
+
 def collect_stations(store, now):
     from airport_plots import collect, VERSION, MODE
     from backfill_metars import fetch_history
@@ -150,7 +159,8 @@ def collect_stations(store, now):
     hour = now.replace(minute=0, second=0, microsecond=0)
     if (previous.get("version") == VERSION and previous.get("observationMode") == MODE
             and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 10):
-        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+        return {"stations": len(previous["stations"]), "status": "already prepared for this hour",
+                "maps": prepare_maps(store, previous)}
     # Archive queries recover routine reports even when a newer SPECI or
     # off-window airport report has replaced them in the current cache.
     # Repair any incomplete saved hourly frames once when this collector version
@@ -162,7 +172,8 @@ def collect_stations(store, now):
     rows = [row for frame in reports["history"] for row in frame["stations"]]
     data = collect(None, now, previous, airport_rows=rows)
     store.write_json("live/station-plots.json", data)
-    return {"stations": len(data["stations"]), "hour": data["hour"]}
+    return {"stations": len(data["stations"]), "hour": data["hour"],
+            "maps": prepare_maps(store, data)}
 
 
 @app.get("/healthz")

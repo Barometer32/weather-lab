@@ -6,7 +6,7 @@ function get(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}
 const base=Date.UTC(2026,9,15,0),frames=Array.from({length:121},(_,i)=>({id:String(i),time:new Date(base+i*60000).toISOString(),url:'/scan/'+i}));
 let manifest={frames,site:'KMPX',renderVersion:'v2',palette:[{dbz:10,color:'#008800'},{dbz:80,color:'#ffffff'}],elevationDegrees:.5,historyHours:2,windowStart:frames[0].time,collectionErrors:0};
 const pane={style:{}},layer={addTo(){return this;},on(){return this;}};
-const context=vm.createContext({document:{getElementById:get,createElement:node,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,Error,Promise,window:{},WeatherCloudViews:{select(){}},setTimeout(){},setInterval(){},clearTimeout(){},
+const context=vm.createContext({document:{getElementById:get,createElement:node,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,Error,Promise,window:{},WeatherCloudViews:{select(){}},WeatherMaps:{select(){}},setTimeout(){},setInterval(){},clearTimeout(){},
  NativeRadar:{decode:x=>x,layer:()=>({addTo(){return this;},setFrame(data){drawn.push(data.meta.id);}})},
  L:{map(){return {setView(){return this;},createPane(){return pane;},getPane(){return pane;}};},tileLayer:()=>layer},
  fetch:async url=>{

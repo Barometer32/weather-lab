@@ -233,3 +233,15 @@ body.satellite-expanded { overflow: hidden; }
 .plot-sky-unknown { fill:#555; font:800 9px system-ui,sans-serif; stroke:none!important; }
 .plot-ceiling { fill:#111; font-size:13px; font-weight:800; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
+
+/* Maps use the existing regional contour colors and compact timeline controls. */
+#maps .metar-view-controls { margin:0 0 14px; }
+#surface-map { height:600px; background:#fff; }
+#maps .surface-legend { max-width:none; margin:16px 18px 12px; }
+#maps .surface-ticks { font-size:11px; }
+#maps .surface-legend p { margin:8px 0; font-size:13px; }
+@media(max-width:600px) {
+  #surface-map { height:470px; }
+  #maps .surface-ticks { font-size:9px; }
+  #maps .surface-legend { margin-left:12px; margin-right:12px; }
+}

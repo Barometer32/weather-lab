@@ -64,7 +64,7 @@ class FreshSetupTests(unittest.TestCase):
             self.assertTrue(any(c[:3]==['billing','projects','link'] and project in c for c in calls))
             self.assertEqual(sum(c[:3]==['artifacts','repositories','create'] for c in calls),2)
             station=[c for c in calls if c[:3]==['scheduler','jobs','create'] and 'weather-live-stations' in c][0]
-            self.assertIn('--schedule=5 * * * *',station)
+            self.assertIn('--schedule=2 * * * *',station)
             job_index=next(i for i,c in enumerate(calls) if c[:3]==['run','jobs','execute'])
             self.assertTrue(any(c[:3]==['scheduler','jobs','pause'] for c in calls[:job_index]))
             self.assertTrue(any(c[:3]==['scheduler','jobs','resume'] for c in calls[job_index+1:]))

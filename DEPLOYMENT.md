@@ -21,4 +21,4 @@ gcloud run jobs executions list \
   --region=us-central1
 ```
 
-The existing deleted/restored projects are not touched. Only one METAR observation collector is scheduled, at :02 each hour; its data is limited to :50–:59 of the preceding hour. Forecast collection runs at :00 and :30. Radar remains two hours; METAR history remains twelve. There are no contour jobs, MADIS downloads or mesonet observation downloads.
+The existing deleted/restored projects are not touched. Only one METAR observation collector is scheduled, at :02 each hour; its data is limited to :50–:59 of the preceding hour. Forecast collection runs at :00 and :30. Radar remains two hours; METAR history remains twelve. The same METAR collector also prepares the Maps tab from saved history; no additional scheduler job or observation download is needed. MADIS and mesonet observations remain disabled.

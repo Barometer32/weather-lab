@@ -6,18 +6,20 @@
   <meta name="description" content="Official Upper Midwest airport station weather, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=schedules-5">
+  <link rel="stylesheet" href="/static/style.css?v=maps-6">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/radar-roads.js"></script>
-  <script defer src="/static/metar-model.js?v=schedules-5"></script>
-  <script defer src="/static/cloud-views.js?v=schedules-5"></script>
-  <script defer src="/static/app.js?v=schedules-5"></script>
+  <script defer src="/static/metar-model.js?v=maps-6"></script>
+  <script defer src="/static/cloud-views.js?v=maps-6"></script>
+  <script defer src="/static/maps.js?v=maps-6"></script>
+  <script defer src="/static/app.js?v=maps-6"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">Observations</button>
+    <button role="tab" id="tab-maps" aria-selected="false" aria-controls="maps" tabindex="-1">Maps</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
@@ -42,6 +44,25 @@
   <p class="source">Observations: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a>. State and county boundary tiles: Iowa Environmental Mesonet.</p>
 </section>
 
+
+<section id="maps" role="tabpanel" aria-labelledby="tab-maps" hidden>
+  <div class="section-heading"><div><p class="eyebrow">HOURLY METAR ANALYSIS · UPPER MIDWEST</p><h1>Maps</h1><p>Last 12 hourly snapshots · official airport observations</p></div><button class="secondary" id="refresh-maps">Refresh maps</button></div>
+  <div class="metar-view-controls"><label for="surface-field">Map</label><select id="surface-field"><option value="tempF">Temperature</option><option value="dewpointF">Dew point</option><option value="wind">Wind speed and direction</option></select></div>
+  <div class="cloud-map-surface">
+    <div id="surface-map" aria-label="Hourly contour analysis with state and county boundaries"></div>
+    <div class="radar-controls viewer-controls">
+      <span id="surface-time" class="viewer-frame-time" aria-live="polite">Loading map history…</span>
+      <div class="timeline-control"><label class="sr-only" for="surface-timeline">Map history: twelve hourly snapshots</label><input id="surface-timeline" class="scan-timeline" type="range" min="0" max="0" value="0" step="1" aria-label="Map timeline: twelve hourly snapshots" disabled></div>
+      <div class="viewer-actions"><button id="surface-play" class="secondary" aria-pressed="false" disabled>Play</button><button id="surface-reset" class="secondary">Reset view</button></div>
+    </div>
+  </div>
+  <div id="surface-legend" class="surface-legend"></div>
+  <p id="surface-status" class="small-note" role="status">Maps prepare from the saved twelve hours of METAR reports.</p>
+  <div id="surface-feed-status" class="feed-health" role="status">Official METAR observations only.</div>
+  <p class="small-note">Temperature and dew point use matching 5°F color bands and contour lines. Wind uses 5 mph bands; arrows point toward where the wind is going. Blank areas have insufficient observations. No station dots are drawn.</p>
+  <details class="method"><summary>How these maps are made</summary><p>These are local estimates between official METAR stations, not additional measurements. A conservative neighbor check excludes isolated suspect values independently for each field. At least three nearby stations are needed; no single station gets more than 40% of the interpolation weight, and areas outside the station network stay blank. Areas with fewer neighbors have limited quality checks. Wind direction is interpolated as east/west and north/south components, so north winds do not incorrectly average to south winds. Original reports remain available on Observations.</p></details>
+  <p class="source">Observations: NOAA Aviation Weather Center. State and county boundaries: Iowa Environmental Mesonet.</p>
+</section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
