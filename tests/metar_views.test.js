@@ -31,6 +31,12 @@ const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 const windowEvents={};
 const windowStub={innerWidth:1200,innerHeight:900,addEventListener(k,f){windowEvents[k]=f;},requestAnimationFrame(f){f();}};
+let firstRead=true,finishFirst;
+windowStub.WeatherData={json:async(url,options)=>{
+ assert.equal(url,'/api/station-plots');
+ if(firstRead){firstRead=false;options.onCached({...data,stale:true});return new Promise(resolve=>{finishFirst=resolve;});}
+ return data;
+}};
 const context={window:windowStub,document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Set,fetch:async url=>{assert.equal(url,'/api/station-plots');return {ok:true,json:async()=>data};},clearTimeout(){},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);timer={callback,delay};timers.push(timer);return timers.length;},setInterval(){throw Error("No interval polling is allowed");},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
@@ -38,6 +44,9 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
 (async()=>{
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
+ assert.equal(shown.length,11);assert.match(get('metar-cloud-status').textContent,/Saved reports/);
+ finishFirst(data);await flush();
+ assert.ok(!get('metar-cloud-status').textContent.includes('checking for updates'));
  assert.equal(get('metar-cloud-timeline').max,'11');
  assert.equal(get('metar-cloud-timeline').value,'11');
  assert.ok(timers.some(t=>t.delay===210000)); // Next prepared-data read at :02:30.

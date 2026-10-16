@@ -11,7 +11,7 @@ window.WeatherMaps = (() => {
   function reset(){map.fitBounds([[42.3,-98],[49.4,-88.5]]);}
   function init(){
     if(map)return;
-    map=L.map("surface-map",{minZoom:5,maxZoom:12});reset();
+    map=L.map("surface-map",{minZoom:4,maxZoom:12,zoomSnap:.1,zoomDelta:.1,wheelPxPerZoomLevel:120});reset();
     map.createPane("mapsRaster").style.zIndex=250;
     map.createPane("mapsBoundaries").style.zIndex=450;
     map.getPane("mapsBoundaries").style.pointerEvents="none";
@@ -78,8 +78,8 @@ window.WeatherMaps = (() => {
     try{
       let result=cache.get(url);
       if(!result){
-        const response=await fetch(url);if(!response.ok)throw Error("Map temporarily unavailable");
-        result=await response.json();
+        if(window.WeatherData)result=await window.WeatherData.json(url,{maxAge:Infinity});
+        else{const response=await fetch(url);if(!response.ok)throw Error("Map temporarily unavailable");result=await response.json();}
         if(result.hour!==selected.hour)throw Error("Map time does not match the selected hour");
         cache.set(url,result);if(cache.size>12)cache.delete(cache.keys().next().value);
       }
@@ -98,19 +98,28 @@ window.WeatherMaps = (() => {
     clearTimeout(retryTimer);
     if(Date.now()<waitUntil)retryTimer=setTimeout(()=>{if(visible())load();},60000);
   }
+  async function applyMaps(fresh,saved=false){
+    if(!fresh.history?.length)throw Error("Map history is still preparing");
+    const previous=data;data=fresh;
+    for(const field of Object.keys(labels)){
+      const selected=selectedHours.get(field);
+      if(!selected||selected===previous?.history.at(-1)?.hour)selectedHours.set(field,data.history.at(-1).hour);
+      else if(!data.history.some(f=>f.hour===selected))selectedHours.set(field,data.history[0].hour);
+    }
+    await selectFrame(data.history.findIndex(f=>f.hour===selectedHours.get(el("surface-field").value)));
+    if(saved&&data===fresh)el("surface-feed-status").textContent+=" · Saved maps; checking for updates…";
+  }
   async function load(){
     if(busy)return;busy=true;el("refresh-maps").disabled=true;
     try{
-      const response=await fetch("/api/maps",{cache:"no-store"}),fresh=await response.json();
-      if(!response.ok)throw Error(fresh.error||"Maps temporarily unavailable");
-      if(!fresh.history?.length)throw Error("Map history is still preparing");
-      const previous=data;data=fresh;
-      for(const field of Object.keys(labels)){
-        const saved=selectedHours.get(field);
-        if(!saved||saved===previous?.history.at(-1)?.hour)selectedHours.set(field,data.history.at(-1).hour);
-        else if(!data.history.some(f=>f.hour===saved))selectedHours.set(field,data.history[0].hour);
+      let fresh;
+      if(window.WeatherData){
+        fresh=await window.WeatherData.json("/api/maps",{maxAge:30000,onCached:cached=>{if(!data)return applyMaps(cached,true);}});
+      }else{
+        const response=await fetch("/api/maps",{cache:"no-store"});fresh=await response.json();
+        if(!response.ok)throw Error(fresh.error||"Maps temporarily unavailable");
       }
-      await selectFrame(data.history.findIndex(f=>f.hour===selectedHours.get(el("surface-field").value)));
+      await applyMaps(fresh);
       const now=new Date(),due=new Date(now);due.setUTCMinutes(2,0,0);
       if(due>now)due.setUTCHours(due.getUTCHours()-1);
       if(new Date(data.checkedAt)<due)retry();else{waitUntil=0;clearTimeout(retryTimer);}

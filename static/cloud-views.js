@@ -88,16 +88,25 @@ window.WeatherCloudViews = (() => {
     clearTimeout(retryTimer);
     if(Date.now()<waitUntil)retryTimer=setTimeout(()=>{if(!document.hidden&&!el("metar-clouds").hidden)loadMetars();},60000);
   }
+  function applyMetars(fresh,saved=false){
+    const selected=data?.history[index]?.hour,followLatest=!data||index===data.history.length-1;
+    data=fresh;
+    const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
+    index=restored>=0?restored:followLatest?data.history.length-1:0;
+    renderMetars();
+    if(saved)el("metar-cloud-status").textContent+=" · Saved reports; checking for updates…";
+  }
   async function loadMetars(){
     if(busy)return;busy=true;el("refresh-metar-clouds").disabled=true;
     try{
-      const selected=data?.history[index]?.hour,followLatest=!data||index===data.history.length-1;
-      const response=await fetch("/api/station-plots",{cache:"no-store"}),fresh=await response.json();
-      if(!response.ok)throw Error(fresh.error||"METAR reports unavailable");
-      data=fresh;
-      const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
-      index=restored>=0?restored:followLatest?data.history.length-1:0;
-      renderMetars();
+      let fresh;
+      if(window.WeatherData){
+        fresh=await window.WeatherData.json("/api/station-plots",{maxAge:30000,onCached:cached=>{if(!data)applyMetars(cached,true);}});
+      }else{
+        const response=await fetch("/api/station-plots",{cache:"no-store"});fresh=await response.json();
+        if(!response.ok)throw Error(fresh.error||"METAR reports unavailable");
+      }
+      applyMetars(fresh);
       const now=new Date(),due=new Date(now);due.setUTCMinutes(2,0,0);
       if(due>now)due.setUTCHours(due.getUTCHours()-1);
       if(new Date(data.checkedAt)<due)retry();else{waitUntil=0;clearTimeout(retryTimer);}

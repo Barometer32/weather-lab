@@ -27,11 +27,15 @@ Plots show temperature and dew point in °F and wind in mph, with arrows pointin
 
 ## Maps
 
-The Maps tab provides temperature, dew point, and wind speed/direction analysis with a twelve-hour slider and playback. Temperature and dew point reuse the same earlier reference palette in 5°F bands; wind uses the original 5 mph bands with direction arrows. Only state/county boundaries, contours, and wind vectors are drawn, with no station dots or city names.
+The Maps tab covers 39–51°N and 108–80°W, including the full Dakotas with a surrounding station buffer. It provides temperature, dew point, and wind speed/direction analysis with a twelve-hour slider and playback. Zoom buttons use 0.1-level steps, and wheel zoom is slowed for finer control. Temperature and dew point reuse the same earlier reference palette in 5°F bands; wind uses the original 5 mph bands with direction arrows. Only state/county boundaries, contours, and wind vectors are drawn, with no station dots or city names.
 
-The existing :02 METAR collector builds missing map hours from saved observations, without re-downloading history. Unchanged hours reuse immutable image/contour assets. Map preparation is isolated from observation collection; a map failure preserves the observation data and previous map index. The public page only reads prepared maps. The first update fills all available twelve saved hours; ordinary updates prepare only changed/new hours.
+The coverage upgrade imports the wider twelve-hour airport history once, then returns to one-hour collections. The existing :02 METAR collector builds missing map hours from saved observations, without re-downloading history. Unchanged hours reuse immutable image/contour assets. Map preparation is isolated from observation collection; a map failure preserves the observation data and previous map index. The public page only reads prepared maps. The first update fills all available twelve saved hours; ordinary updates prepare only changed/new hours.
 
 Analysis uses independent per-field neighbor screens, spatial de-clustering, a 40% maximum station weight, and vector-component interpolation for winds. Cells need three nearby stations and remain inside the station network's convex hull; unsupported cells stay transparent. These local estimates are not official instrument QC. QC and limited-neighbor counts appear under each map. Source reports remain unchanged on Observations.
+
+## Loading
+
+Opening the page preloads the latest map index, all three latest map images, and the latest radar scan alongside observations. A bounded browser cache saves prepared data and immutable assets between visits. Saved views retain their real report/scan timestamps and display a refresh message while fresh data is checked. Concurrent reads share one network request; cached data is retained if a refresh fails. JSON histories are gzip-compressed for smaller transfers. First-time visits still need the initial network transfer and any server startup; preloading and caching reduce later tab and repeat-visit waits.
 
 ## Radar, satellite and forecast
 

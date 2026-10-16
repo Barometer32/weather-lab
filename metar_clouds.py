@@ -7,8 +7,8 @@ import re
 import xml.etree.ElementTree as ET
 
 SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
-# Original regional extent, shared by cloud ceilings and weather plots.
-BOUNDS = [[40, -100], [50, -85]]
+# Wider Midwest region with a buffer around the full Dakotas and Great Lakes.
+BOUNDS = [[39, -108], [51, -80]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
 # User-excluded unreliable cloud station. Enforce on fresh and retained history.
 EXCLUDED_STATIONS = frozenset({"KCFE", "KFCE", "KSGS"})
@@ -21,8 +21,8 @@ def included_station(station):
 
 def in_region(row):
     return (included_station(row["station"])
-            and value(row.get("lat"), 40, 50) is not None
-            and value(row.get("lon"), -100, -85) is not None)
+            and value(row.get("lat"), BOUNDS[0][0], BOUNDS[1][0]) is not None
+            and value(row.get("lon"), BOUNDS[0][1], BOUNDS[1][1]) is not None)
 
 
 def cloud_summary(row):
@@ -63,7 +63,7 @@ def parse_reports(xml, now, hours=13):
         station = row.findtext("station_id", "")
         if not included_station(station):
             continue
-        lat, lon = value(row.findtext("latitude"), 40, 50), value(row.findtext("longitude"), -100, -85)
+        lat, lon = value(row.findtext("latitude"), BOUNDS[0][0], BOUNDS[1][0]), value(row.findtext("longitude"), BOUNDS[0][1], BOUNDS[1][1])
         if lat is None or lon is None:
             continue
         try:

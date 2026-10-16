@@ -21,6 +21,23 @@ from realtime import get_store
 from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES, HISTORY_HOURS as RADAR_HISTORY_HOURS
 
 app = Flask(__name__, static_folder="static", template_folder="static")
+
+@app.after_request
+def compress_json(response):
+    # Native radar is already compressed. JSON histories compress particularly
+    # well because station metadata repeats across the twelve hourly frames.
+    if (response.status_code == 200 and response.mimetype == "application/json"
+            and not response.headers.get("Content-Encoding")
+            and request.accept_encodings["gzip"] > 0):
+        raw = response.get_data()
+        if len(raw) >= 1024:
+            packed = gzip.compress(raw, compresslevel=5, mtime=0)
+            if len(packed) < len(raw):
+                response.set_data(packed)
+                response.headers["Content-Encoding"] = "gzip"
+                response.vary.add("Accept-Encoding")
+    return response
+
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 OBSERVATION_CHECK_MINUTES = (2,)
@@ -305,7 +322,7 @@ def maps_api():
     try:
         from surface_analysis import VERSION
         data = prepared_hourly_snapshot("maps")
-        if data is None or data.get("version") != VERSION:
+        if data is None or data.get("version") not in (VERSION, "metar-maps-v1"):
             raise ValueError("Maps are still preparing")
         return jsonify(data), 200, {"Cache-Control": "no-store"}
     except Exception:
@@ -410,7 +427,7 @@ def prepared_asset(key):
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"analysis/metar-maps-v1/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
+               or re.fullmatch(r"analysis/metar-maps-v[12]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:

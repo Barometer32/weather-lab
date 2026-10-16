@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const elements=new Map(),events={},timers=[],panes=new Map(),pending=new Map();
+let mapOptions;
 let shown=[],fetches=[],clock=Date.UTC(2026,9,16,17,1);
 class ClockDate extends Date{constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
 function element(){return{value:'',hidden:false,disabled:false,children:[],events:{},style:{setProperty(){}},setAttribute(k,v){this[k]=v;},replaceChildren(){this.children=[];},append(...v){this.children.push(...v);},addEventListener(k,f){this.events[k]=f;}};}
@@ -11,7 +12,7 @@ let dataset={hour:history.at(-1).hour,checkedAt:'2026-10-16T17:02:00Z',history,s
 const map={fitBounds(){},createPane(n){const p={style:{}};panes.set(n,p);return p;},getPane(n){return panes.get(n);},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 const layer=(kind,value)=>({on(){return this;},addTo(){shown.push({kind,value});return this;}});
-const context={window:{},document:{hidden:false,getElementById:get,createElement:element,addEventListener(k,f){events[k]=f;}},Date:ClockDate,Intl,Math,Map,Set,clearTimeout(t){if(t)t.cleared=true;},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);const t={callback,delay};timers.push(t);return t;},fetch:async url=>{fetches.push(url);if(url==='/api/maps')return{ok:true,json:async()=>dataset};return{ok:true,json:()=>new Promise(resolve=>pending.set(url,resolve))};},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>group,imageOverlay:(url)=>layer('image',url),geoJSON:(geo)=>layer('contours',geo),divIcon:x=>x,marker:(_pos,options)=>layer('vector',options)}};
+const context={window:{},document:{hidden:false,getElementById:get,createElement:element,addEventListener(k,f){events[k]=f;}},Date:ClockDate,Intl,Math,Map,Set,clearTimeout(t){if(t)t.cleared=true;},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);const t={callback,delay};timers.push(t);return t;},fetch:async url=>{fetches.push(url);if(url==='/api/maps')return{ok:true,json:async()=>dataset};return{ok:true,json:()=>new Promise(resolve=>pending.set(url,resolve))};},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,imageOverlay:(url)=>layer('image',url),geoJSON:(geo)=>layer('contours',geo),divIcon:x=>x,marker:(_pos,options)=>layer('vector',options)}};
 vm.runInNewContext(fs.readFileSync('static/maps.js','utf8'),context);
 const viewer=context.window.WeatherMaps,flush=()=>new Promise(resolve=>setImmediate(resolve));
 function manifest(hour){
@@ -26,6 +27,7 @@ const field=value=>{get('surface-field').value=value;get('surface-field').events
  assert.equal(fetches.length,0);assert.ok(timers.some(t=>t.delay===90000)); // Next read at :02:30.
  viewer.select('metar-clouds');assert.equal(fetches.length,0);
  get('maps').hidden=false;viewer.select('maps');await flush();
+ assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);assert.equal(mapOptions.wheelPxPerZoomLevel,120);
  assert.equal(get('surface-timeline').max,'11');assert.equal(get('surface-timeline').value,'11');
  await resolveFrame(11);
  assert.equal(shown.filter(x=>x.kind==='image').length,1);assert.equal(shown.filter(x=>x.kind==='vector').length,0);

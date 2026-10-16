@@ -11,7 +11,8 @@
           "satellite/truecolor/",
           "satellite/dcphase/",
           "satellite/ntmicro/",
-          "analysis/metar-maps-v1/"
+          "analysis/metar-maps-v1/",
+          "analysis/metar-maps-v2/"
         ]
       }
     }

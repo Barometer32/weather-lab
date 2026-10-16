@@ -5,7 +5,7 @@ import metar_clouds
 from cloud_conditions import summarize as cloud_conditions
 from station_plots import history, iso, number, timestamp, valid_saved, WINDOW
 
-VERSION = 9
+VERSION = 10
 NETWORK = 'AWC_METAR'
 SOURCE = 'NOAA Aviation Weather Center'
 MODE = 'official-airports'

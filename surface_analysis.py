@@ -10,11 +10,12 @@ import math
 from collections import Counter
 
 import contourpy
+from metar_clouds import BOUNDS
 import numpy as np
 from PIL import Image
 from scipy.spatial import cKDTree, Delaunay, QhullError
 
-VERSION = "metar-maps-v1"
+VERSION = "metar-maps-v2"
 FIELDS = ("tempF", "dewpointF", "wind")
 # Colors sampled from the user's UCAR/RAP reference legends. Each entry is
 # the lower bound of a five-degree band; the final entry closes the scale.
@@ -114,10 +115,10 @@ def capped_weights(raw, cap=.4):
     return np.minimum(raw*(low+high)/2, cap)
 
 
-def grid(rows, field, nx=241, ny=161):
+def grid(rows, field, nx=449, ny=193):
     # Uniform Mercator y keeps image overlays aligned with Leaflet's map.
-    lons = np.linspace(-100, -85, nx)
-    merc = np.linspace(np.arcsinh(np.tan(np.radians(40))), np.arcsinh(np.tan(np.radians(50))), ny)
+    lons = np.linspace(BOUNDS[0][1], BOUNDS[1][1], nx)
+    merc = np.linspace(np.arcsinh(np.tan(np.radians(BOUNDS[0][0]))), np.arcsinh(np.tan(np.radians(BOUNDS[1][0]))), ny)
     lats = np.degrees(np.arctan(np.sinh(merc)))
     z = np.full((ny, nx), np.nan)
     u = z.copy(); v = z.copy()
@@ -213,7 +214,7 @@ def prepare(data, store):
         if frame["hour"] == data["hour"]:
             frame["stations"] = rows
     prefix = artifact_prefix(data["hour"], rows)
-    result = {"version": VERSION, "hour": data["hour"], "bounds": [[40, -100], [50, -85]], "fields": {},
+    result = {"version": VERSION, "hour": data["hour"], "bounds": BOUNDS, "fields": {},
               "method": "Local weighted analysis, 40% maximum station influence, no extrapolation; neighborhood screening is not official instrument QC."}
     for field in FIELDS:
         lons, lats, z, u, v, used = grid(rows, field)

@@ -12,6 +12,7 @@ function wind(w) {
   return `${dir} ${fmt(w.speedMph)} mph`;
 }
 async function api(url) {
+  if(window.WeatherData)return window.WeatherData.json(url,{maxAge:15000});
   const response = await fetch(url, {cache:"no-store"});
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Weather service unavailable.");
@@ -41,7 +42,7 @@ async function showFrame(n) {
       let pending=radarPending.get(key);
       if(!pending){
         pending=(async()=>{
-          const response=await fetch(frame.url);if(!response.ok)throw Error("Native scan could not load");
+          const response=window.WeatherData?await window.WeatherData.asset(frame.url):await fetch(frame.url);if(!response.ok)throw Error("Native scan could not load");
           const result=NativeRadar.decode(await response.arrayBuffer());
           if(result.meta.site!==radarSite||result.meta.id!==frame.id)throw Error("Radar scan mismatch");
           return result;
@@ -101,15 +102,7 @@ function renderRadarLegend(palette) {
   const label = document.createElement("p"); label.className = "small-note"; label.textContent = "Reflectivity · dBZ";
   $("legend").append(bar,ticks,label);
 }
-async function loadRadar() {
-  if (radarBusy) return;
-  const request = ++radarRequest;
-  const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1;
-  radarBusy = true; $("refresh-radar").disabled = true;
-  try {
-    initMap();
-    $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
-    const data = await api(`/api/radar?site=${radarSite}`);
+async function applyRadar(data,request,selectedTime,followLatest,saved=false){
     if (request !== radarRequest) return;
     renderRadarLegend(data.palette); radarPalette=data.palette;
     $("radar-eyebrow").textContent=`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
@@ -127,6 +120,20 @@ async function loadRadar() {
     const unavailable = data.collectionErrors || 0;
     const historyHours=data.historyHours||2;
     $("radar-status").textContent = `${data.site} · Past ${historyHours} hours · ${frames.length} scans · ${central.format(new Date(frames[0].time))} to ${central.format(latest)}${unavailable ? ` · ${unavailable} collection/loading errors` : ""}${startsLate || gap ? " · Some of the ${historyHours}-hour history is unavailable" : ""}${age > 15 ? ` · Latest scan is ${Math.round(age)} minutes old` : ""}${data.historyPending ? " · Earlier scans are filling in" : ""}${data.stale ? " · Background updates delayed" : ""}`;
+    if(saved)$("radar-status").textContent+=" · Saved radar; checking for updates…";
+}
+async function loadRadar() {
+  if (radarBusy) return;
+  const request = ++radarRequest;
+  const selectedTime = frames[index]?.time, followLatest = !frames.length || index === frames.length-1;
+  radarBusy = true; $("refresh-radar").disabled = true;
+  try {
+    initMap();
+    $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
+    const url=`/api/radar?site=${radarSite}`;
+    const data=window.WeatherData?await window.WeatherData.json(url,{maxAge:15000,onCached:cached=>applyRadar(cached,request,selectedTime,followLatest,true)}):await api(url);
+    await applyRadar(data,request,selectedTime,followLatest);
+
   } catch(error) {
     if (request !== radarRequest) return;
     $("radar-status").textContent=error.message; $("radar-time").textContent=radarShownTime?"Previous radar loop · refresh failed":"Radar unavailable";
@@ -328,6 +335,7 @@ document.addEventListener("keydown",event=>{
   }
 });
 selectTab("metar-clouds");
+if(window.WeatherData)window.WeatherData.prime();
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 
 // Read the prepared forecast shortly after each :00/:30 collection, rather

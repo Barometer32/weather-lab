@@ -51,6 +51,17 @@ class HourlyMetarTests(unittest.TestCase):
         self.assertEqual(new['stations'][0]['tempF'],51)
         self.assertEqual(new['stations'][0]['time'],'2026-10-16T11:53:00Z')
 
+    def test_wider_region_includes_central_and_western_dakota_reports(self):
+        rows=[row('KBIS',lat=46.77,lon=-100.75),row('KDIK',lat=46.8,lon=-102.8),
+              row('KRAP',lat=44.05,lon=-103.06),row('KOUT',lat=44,lon=-110)]
+        data=airports.collect(None,NOW,airport_rows=rows)
+        self.assertEqual({r['station'] for r in data['stations']},{'KBIS','KDIK','KRAP'})
+        self.assertEqual(data['bounds'],[[39,-108],[51,-80]])
+        catalog=[{'icaoId':r['station'],'lat':r['lat'],'lon':r['lon']} for r in rows]
+        import json
+        ids=backfill.regional_station_ids(lambda _:json.dumps(catalog).encode())
+        self.assertEqual(set(ids),{'KBIS','KDIK','KRAP'})
+
     def test_qc_rejects_bad_coordinates_and_impossible_fields(self):
         data=airports.collect(None,NOW,airport_rows=[row(dewpointF=90),row('KBAD',lat=0),row('KNULL',tempF=900,dewpointF=-900,wind={})])
         self.assertEqual(len(data['stations']),1)
