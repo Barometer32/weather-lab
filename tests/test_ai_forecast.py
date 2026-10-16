@@ -56,6 +56,15 @@ class ArchiveTests(unittest.TestCase):
         b,_=features.features(hours,sites,changed,pressure,24)
         np.testing.assert_equal(a[:30*3],b[:30*3])
         self.assertTrue(np.isnan(a[:3,names.index('tempF_lag9')]).all())
+        base,_=features.features(hours,sites,values,pressure,0)
+        hourly,_=features.features(hours,sites,values,pressure,7)
+        np.testing.assert_equal(features.for_lead(base,np.repeat(hours,3),names,7),hourly)
+
+    def test_three_character_airport_id_beginning_with_k_is_not_truncated(self):
+        text='station,valid,lon,lat,tmpf,dwpf,drct,sknt,alti,metar\n'
+        text+='K61,2026-10-01 12:53,-98.1,39.5,60,40,180,10,30.00,KK61 011253Z\n'
+        rows=ai_data.parse_csv(text)
+        self.assertEqual(rows[0]['station'],'K61')
 
     def test_portable_trees_follow_missing_paths_and_keep_wind_components(self):
         tree=[[0,1.,1,2,1,0],[-1,0,0,0,0,2],[-1,0,0,0,0,-3]]
@@ -68,15 +77,15 @@ class ArchiveTests(unittest.TestCase):
 
 
 class ForecastTests(unittest.TestCase):
-    def test_live_model_uses_only_saved_inputs_and_five_genuine_future_labels(self):
+    def test_live_model_uses_only_saved_inputs_and_24_genuine_future_labels(self):
         source=observations();before=deepcopy(source)
         with patch('app.download') as upstream:
             frames,reports=ai.predict(source,ai.local_model())
         upstream.assert_not_called();self.assertEqual(source,before)
-        self.assertEqual([f['leadHours'] for f in frames],[1,3,6,12,24])
+        self.assertEqual([f['leadHours'] for f in frames],list(range(1,25)))
         for frame in frames:
             self.assertEqual(ai.stamp(frame['hour']),ai.stamp(source['hour'])+timedelta(hours=frame['leadHours']))
-            self.assertEqual(len(frame['stations']),25)
+            self.assertEqual(len(frame['stations']),len(ai.local_model()['stations']))
             for row in frame['stations']:
                 self.assertLessEqual(row['dewpointF'],row['tempF']+.001)
                 self.assertEqual(row['product'],'forecast')
@@ -89,6 +98,23 @@ class ForecastTests(unittest.TestCase):
         predictions,_=ai.predict(source,ai.local_model())
         self.assertTrue(all(missing not in [r['station'] for r in f['stations']] for f in predictions))
 
+    def test_regional_model_predicts_eligible_airports_outside_the_training_list(self):
+        source=observations();extra=deepcopy(source['stations'][0])
+        extra.update(station='KZZZ',stationKey='AWC_METAR:KZZZ',lat=46.9,lon=-103.2)
+        for frame in source['history']:
+            row=deepcopy(extra);row['time']=ai.iso(ai.stamp(frame['hour'])-timedelta(minutes=7))
+            frame['stations'].append(row)
+        frames,_=ai.predict(source,ai.local_model())
+        self.assertTrue(all(any(r['station']=='KZZZ' for r in f['stations']) for f in frames))
+        self.assertEqual(len(frames),24)
+
+    def test_old_private_model_does_not_block_regional_bundle_upgrade(self):
+        store=MemoryStore();store.write_json('live/ai-model.json',{'modelId':'a'*16,
+            'key':'ai/models/'+'a'*16+'.json.gz','report':{'version':'airport-ai-v1'}})
+        self.assertEqual(ai.load_model(store)['version'],'airport-ai-v2')
+        store.write_json('live/ai-status.json',{'state':'completed','modelId':'a'*16})
+        self.assertEqual(ai.status(store)['modelId'],ai.local_model()['modelId'])
+
     def test_saved_model_overrides_bundle_only_with_matching_version_and_id(self):
         import gzip
         store=MemoryStore();bundle=deepcopy(ai.local_model());bundle['modelId']='a'*16
@@ -100,9 +126,9 @@ class ForecastTests(unittest.TestCase):
 
     def test_atomic_map_publish_reuse_and_numerical_archive_preserve_observations(self):
         store=MemoryStore();source=observations();before=deepcopy(source)
-        result=ai.prepare(store,source,NOW);self.assertEqual(result['frames'],5)
+        result=ai.prepare(store,source,NOW);self.assertEqual(result['frames'],24)
         index=store.read_json('live/ai-forecast.json');self.assertEqual(source,before)
-        self.assertEqual(len(index['history']),5)
+        self.assertEqual(len(index['history']),24)
         for frame in index['history']:
             manifest=store.read_json(frame['analysisUrl'].removeprefix('/api/prepared/'))
             self.assertTrue(all(p['supportedCells']>1000 for p in manifest['fields'].values()))
@@ -125,15 +151,20 @@ class ForecastTests(unittest.TestCase):
             self.assertEqual(manifest.status_code,200)
             self.assertEqual(client.get(manifest.json['fields']['wind']['imageUrl']).mimetype,'image/png')
             self.assertEqual(client.get('/api/prepared/ai/models/'+'a'*16+'.json.gz').status_code,404)
+            self.assertEqual(client.get(url.replace('/24/','/25/')).status_code,404)
+            self.assertEqual(client.get(url.replace('/24/','/00/')).status_code,404)
+            intermediate=response.json['forecast']['history'][6]['analysisUrl']
+            self.assertEqual(client.get(intermediate).json['leadHours'],7)
             work.assert_not_called();upstream.assert_not_called()
         app.prepared_image.cache_clear()
 
     def test_training_scores_include_embargoed_split_and_fallback_disclosure(self):
         r=ai.local_model()['report']
-        self.assertEqual(r['stationCount'],25);self.assertEqual(r['trainingData']['days'],120)
+        self.assertGreaterEqual(r['stationCount'],100);self.assertEqual(r['trainingData']['days'],120)
+        self.assertEqual(r['horizons'],list(range(1,25)))
+        self.assertTrue(r['spatialHoldoutStations'])
         self.assertLess(ai.stamp(r['fitEndExclusive']),ai.stamp(r['testStart']))
         self.assertEqual(r['excludedInputs'],['Radar','Satellite','Upper-air data','Numerical forecast guidance'])
-        self.assertEqual(r['scores'][0]['modelWeight']['dewpointF'],0)
         for score in r['scores']:
             for field in ('tempF','dewpointF','wind'):
                 self.assertGreater(score['forecast'][field]['count'],100)

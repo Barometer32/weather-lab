@@ -7,7 +7,6 @@ import csv
 from datetime import datetime, timedelta, timezone
 import gzip
 import hashlib
-import io
 import json
 import math
 from pathlib import Path
@@ -16,9 +15,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 UTC = timezone.utc
-STATIONS = ('MSP','FCM','STC','AXN','BRD','BJI','INL','DLH','HIB','RWF',
-            'MKT','RST','FRM','OTG','FAR','GFK','BIS','JMS','FSD','ABR',
-            'ATY','EAU','LSE','MCW','DSM')
+NETWORK = json.loads((Path(__file__).parent/'ai_station_network.json').read_text())
+STATIONS = tuple(s['station'] for s in NETWORK['stations'])
 ARCHIVE = 'https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py'
 COLUMNS = ('tmpf','dwpf','drct','sknt','alti','metar')
 
@@ -36,7 +34,9 @@ def parse_csv(text):
     result = {}
     for raw in csv.DictReader(line for line in text.splitlines() if not line.startswith('#')):
         try:
-            station = raw['station'].removeprefix('K')
+            station = raw['station']
+            if station.startswith('K') and len(station)==4:
+                station = station[1:]
             if station not in STATIONS:
                 continue
             observed = datetime.fromisoformat(raw['valid']).replace(tzinfo=UTC)
@@ -76,10 +76,10 @@ def download_history(days, end, cache_dir, progress=lambda *args, **kwargs: None
     start = end-timedelta(days=days)
     cache_dir = Path(cache_dir); cache_dir.mkdir(parents=True, exist_ok=True)
     rows, requests = [], []
-    for offset in range(0, len(STATIONS), 5):
+    for offset in range(0, len(STATIONS), 10):
         if deadline is not None and time.monotonic() >= deadline:
             raise TimeoutError('Training runtime limit reached during download')
-        group = STATIONS[offset:offset+5]
+        group = STATIONS[offset:offset+10]
         params = [('station', s) for s in group]+[('data', c) for c in COLUMNS]
         params += [('report_type', '3'), ('latlon', 'yes'), ('tz', 'UTC'),
                    ('format', 'onlycomma'), ('missing', 'M'),
@@ -112,14 +112,17 @@ def download_history(days, end, cache_dir, progress=lambda *args, **kwargs: None
             time.sleep(1.1)  # IEM requires at least one second between requests.
         parsed = parse_csv(text)
         present = {r['station'] for r in parsed}
-        if len(present) < 3 or len(parsed) < 500:
-            raise ValueError('Too few eligible reports in an archive batch')
         rows.extend(parsed)
-        requests.append({'stations': list(group), 'reports': len(parsed), 'sha256': hashlib.sha256(text.encode()).hexdigest()})
+        requests.append({'stations': list(group), 'reports': len(parsed),
+                         'missingStations': sorted(set(group)-present), 'sha256': hashlib.sha256(text.encode()).hexdigest()})
+    available = {r['station'] for r in rows}
+    if len(available)<100 or len(rows)<30000:
+        raise ValueError('Too few eligible regional reports to train the expanded model')
     meta = {'provider': 'Iowa Environmental Mesonet archive of official airport METARs',
             'sourceUrl': 'https://mesonet.agron.iastate.edu/request/download.phtml',
             'start': start.isoformat(), 'endExclusive': end.isoformat(), 'days': days,
-            'requestedStations': list(STATIONS), 'requests': requests,
+            'requestedStations': list(STATIONS), 'missingStations': sorted(set(STATIONS)-available),
+            'regionBounds': NETWORK['bounds'], 'stationSelection': NETWORK['selection'], 'requests': requests,
             'reportType': 'Routine METAR only', 'windowMinutes': [50,59], 'reports': len(rows)}
     return rows, meta
 
@@ -127,7 +130,7 @@ def download_history(days, end, cache_dir, progress=lambda *args, **kwargs: None
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(); parser.add_argument('--days', type=int, default=120)
-    parser.add_argument('--output', default='training/history.json.gz')
+    parser.add_argument('--output', default='training/region-history.json.gz')
     args = parser.parse_args()
     rows, metadata = download_history(args.days, datetime.now(UTC), 'training/cache',
         lambda stage, pct, detail, **kw: print(f'{pct}% {detail}', flush=True))

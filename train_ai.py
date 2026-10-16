@@ -18,7 +18,7 @@ from ai_data import STATIONS, download_history
 from ai_features import FEATURE_VERSION, LEADS, TARGETS, make_arrays, features, predict_ensemble, constrain
 
 UTC = timezone.utc
-VERSION = 'airport-ai-v1'
+VERSION = 'airport-ai-v2'
 
 
 def iso_now():
@@ -80,90 +80,120 @@ def metrics(predicted, truth, current, mask):
 
 def train(rows, metadata, progress, deadline):
     from sklearn.ensemble import HistGradientBoostingRegressor
+    from ai_features import for_lead
     import sklearn
     hours, stations, values, pressure = make_arrays(rows,STATIONS)
-    if len(stations)<15 or len(hours)<30*24:
-        raise ValueError('At least 15 airports and 30 days are required')
+    if len(stations)<100 or len(hours)<30*24:
+        raise ValueError('At least 100 regional airports and 30 days are required')
     train_end = hours[int(len(hours)*.75)]
     test_start = hours[int(len(hours)*.875)]
     issue = np.repeat(hours,len(stations))
     current = values.reshape(-1,4)
-    leads, scores, feature_names = {}, [], None
+    base, feature_names = features(hours,stations,values,pressure,0)
+    # One geographic station group is never a training target. It remains
+    # available as a contemporaneous input, as it is in real operation.
+    heldout = np.array([int(hashlib.sha256(s['station'].encode()).hexdigest()[:8],16)%5==0 for s in stations])
+    spatial = np.tile(heldout,len(hours)); rng = np.random.RandomState(42)
+    progress('sampling',35,'Building balanced examples for all 24 forecast hours',
+             completedUnits=0,totalUnits=24)
+    training_x=[[] for _ in TARGETS];training_y=[[] for _ in TARGETS]
     for li,lead in enumerate(LEADS):
-        x, feature_names = features(hours,stations,values,pressure,lead)
-        future = np.full_like(values,np.nan); future[:-lead] = values[lead:]
-        truth = future.reshape(-1,4)
-        train_mask = (issue>=hours[0]+9)&(issue+lead<train_end)
-        validation = (issue>=train_end)&(issue+lead<test_start)
-        test = (issue>=test_start)&(issue+lead<=hours[-1])
-        raw_prediction = np.full_like(current,np.nan); models = []
-        for ti,target in enumerate(TARGETS):
-            if time.monotonic()>=deadline:
-                raise TimeoutError('Training time limit reached')
-            completed = li*4+ti
-            progress('training',35+int(45*completed/20),f'Training +{lead} h {target}',
-                     completedUnits=completed,totalUnits=20)
-            good = train_mask&np.isfinite(current[:,ti])&np.isfinite(truth[:,ti])
-            if good.sum()<1000:
-                raise ValueError('Insufficient training reports for '+target)
-            model = HistGradientBoostingRegressor(max_iter=60,max_leaf_nodes=9,learning_rate=.08,
-                min_samples_leaf=45,l2_regularization=5.,early_stopping=False,random_state=42)
-            model.fit(x[good],truth[good,ti]-current[good,ti])
-            exported = export_model(model)
-            probe = x[np.flatnonzero(validation|test)[::17]]
-            np.testing.assert_allclose(predict_ensemble(exported,probe),model.predict(probe),atol=1e-7,rtol=1e-7)
-            raw_prediction[:,ti] = current[:,ti]+model.predict(x)
-            models.append(exported)
-        raw_prediction = constrain(raw_prediction)
-        alpha = np.zeros(4)
+        if time.monotonic()>=deadline:raise TimeoutError('Training sampling time limit reached')
+        truth=np.full_like(values,np.nan);truth[:-lead]=values[lead:];truth=truth.reshape(-1,4)
+        train_mask=(issue>=hours[0]+9)&(issue+lead<train_end)&~spatial
+        for ti in range(4):
+            good=np.flatnonzero(train_mask&np.isfinite(current[:,ti])&np.isfinite(truth[:,ti]))
+            if len(good)<1000:raise ValueError('Insufficient regional training reports')
+            take=rng.choice(good,min(8000,len(good)),replace=False)
+            training_x[ti].append(for_lead(base[take],issue[take],feature_names,lead))
+            training_y[ti].append(truth[take,ti]-current[take,ti])
+        progress('sampling',35+int(5*(li+1)/len(LEADS)),f'Prepared +{lead} h training examples',
+                 completedUnits=li+1,totalUnits=len(LEADS))
+    estimators=[]; portable=[];sample_counts=[]
+    for ti,target in enumerate(TARGETS):
+        if time.monotonic()>=deadline:raise TimeoutError('Training runtime limit reached')
+        progress('training',40+ti*5,f'Training regional {target} model for hours 1–24',
+                 completedUnits=ti,totalUnits=4)
+        x=np.concatenate(training_x[ti]); y=np.concatenate(training_y[ti]);sample_counts.append(len(y))
+        training_x[ti]=[];training_y[ti]=[]
+        model=HistGradientBoostingRegressor(max_iter=110,max_leaf_nodes=15,learning_rate=.07,
+            min_samples_leaf=50,l2_regularization=8.,early_stopping=False,random_state=42)
+        model.fit(x,y);exported=export_model(model)
+        probe=x[::max(1,len(x)//1200)]
+        np.testing.assert_allclose(predict_ensemble(exported,probe),model.predict(probe),atol=1e-7,rtol=1e-7)
+        estimators.append(model);portable.append(exported)
+        del x,y
+    # Evaluate only later dates, reusing their causal inputs for every lead.
+    eval_indices=np.flatnonzero(issue>=train_end)
+    eval_base=base[eval_indices];eval_issue=issue[eval_indices];eval_current=current[eval_indices]
+    eval_spatial=spatial[eval_indices]
+    leads={};scores=[]
+    for li,lead in enumerate(LEADS):
+        if time.monotonic()>=deadline:raise TimeoutError('Validation runtime limit reached')
+        progress('testing',60+int(30*li/len(LEADS)),f'Testing +{lead} h on held-out dates',
+                 completedUnits=li,totalUnits=len(LEADS))
+        x=for_lead(eval_base,eval_issue,feature_names,lead)
+        raw_prediction=constrain(eval_current+np.column_stack([m.predict(x) for m in estimators]))
+        # Verify exported inference on real missing-value and calendar inputs.
+        probe=x[::max(1,len(x)//500)]
+        for ti,m in enumerate(estimators):
+            np.testing.assert_allclose(predict_ensemble(portable[ti],probe),m.predict(probe),atol=1e-7,rtol=1e-7)
+        future=np.full_like(values,np.nan);future[:-lead]=values[lead:]
+        truth=future.reshape(-1,4)[eval_indices]
+        validation=(eval_issue+lead<test_start)&~eval_spatial
+        test=(eval_issue>=test_start)&(eval_issue+lead<=hours[-1])
+        alpha=np.zeros(4)
         for indexes in ([0],[1],[2,3]):
-            good = validation.copy()
+            good=validation.copy()
             for ti in indexes:
-                good &= np.isfinite(current[:,ti])&np.isfinite(truth[:,ti])&np.isfinite(raw_prediction[:,ti])
-            if good.sum()<100:
-                raise ValueError('Insufficient validation examples')
-            losses = []
+                good &= np.isfinite(eval_current[:,ti])&np.isfinite(truth[:,ti])&np.isfinite(raw_prediction[:,ti])
+            if good.sum()<100:raise ValueError('Insufficient validation examples')
+            losses=[]
             for a in (0.,.25,.5,.75,1.):
-                prediction = current[good][:,indexes]+a*(raw_prediction[good][:,indexes]-current[good][:,indexes])
-                residual = prediction-truth[good][:,indexes]
+                prediction=eval_current[good][:,indexes]+a*(raw_prediction[good][:,indexes]-eval_current[good][:,indexes])
+                residual=prediction-truth[good][:,indexes]
                 losses.append(float(np.abs(residual[:,0]).mean()) if len(indexes)==1 else float(np.linalg.norm(residual,axis=1).mean()))
-            alpha[indexes] = (0.,.25,.5,.75,1.)[int(np.argmin(losses))]
-        prediction = constrain(current+alpha*(raw_prediction-current))
-        deployed_metrics = metrics(prediction,truth,current,test)
-        baseline_metrics = metrics(constrain(current),truth,current,test)
-        raw_metrics = metrics(raw_prediction,truth,current,test)
-        scores.append({'leadHours':lead,'forecast':deployed_metrics,'persistence':baseline_metrics,'rawModel':raw_metrics,
-            'modelWeight':{'tempF':float(alpha[0]),'dewpointF':float(alpha[1]),'wind':float(alpha[2])}})
-        leads[str(lead)] = {'models':models,'alpha':alpha.tolist()}
-    progress('testing',85,'Checking held-out forecast errors and portable model parity')
+            alpha[indexes]=(0.,.25,.5,.75,1.)[int(np.argmin(losses))]
+        prediction=constrain(eval_current+alpha*(raw_prediction-eval_current))
+        score={'leadHours':lead,'forecast':metrics(prediction,truth,eval_current,test),
+            'persistence':metrics(constrain(eval_current),truth,eval_current,test),
+            'rawModel':metrics(raw_prediction,truth,eval_current,test),
+            'spatialHoldout':metrics(prediction,truth,eval_current,test&eval_spatial),
+            'modelWeight':{'tempF':float(alpha[0]),'dewpointF':float(alpha[1]),'wind':float(alpha[2])}}
+        scores.append(score);leads[str(lead)]={'alpha':alpha.tolist()}
+    progress('saving',93,'Saving 24-hour regional model and verification results')
     def stamp(hour):
         return datetime.fromtimestamp(int(hour)*3600,UTC).isoformat().replace('+00:00','Z')
-    report = {'version':VERSION,'trainedAt':iso_now(),'trainingData':metadata,'stationCount':len(stations),
+    report={'version':VERSION,'trainedAt':iso_now(),'trainingData':metadata,'stationCount':len(stations),
+        'fitStationCount':int((~heldout).sum()),'spatialHoldoutStations':[s['station'] for i,s in enumerate(stations) if heldout[i]],
         'stations':stations,'featureVersion':FEATURE_VERSION,'features':feature_names,'horizons':list(LEADS),
+        'regionBounds':metadata['regionBounds'],'forecastNetwork':'All eligible live airport METARs within the observation region',
         'fitEndExclusive':stamp(train_end),'validationStart':stamp(train_end),'testStart':stamp(test_start),
-        'testEnd':stamp(hours[-1]),'splitMethod':'Chronological 75% fit / 12.5% selection / 12.5% test; labels embargoed at each boundary',
-        'scores':scores,'algorithm':'Histogram gradient boosted trees predicting changes in temperature, dew point, and vector wind',
-        'baseline':'Persistence: conditions remain at their issue-time values',
-        'selection':'Blend weights selected on validation dates only; held-out test never selects weights',
-        'inputs':['Official routine airport METARs','Recent local and nearby-airport history','Altimeter pressure trends','Time of day, season and coordinates'],
+        'testEnd':stamp(hours[-1]),'splitMethod':'Chronological 75% fit / 12.5% selection / 12.5% test; labels embargoed at boundaries; a geographic station group excluded from fitting and blend selection',
+        'scores':scores,'algorithm':'Four pooled histogram gradient boosted models conditioned on forecast hour; predict temperature, dew point and vector-wind changes',
+        'trainingSamplesPerTarget':sample_counts,'baseline':'Persistence: conditions remain at their issue-time values',
+        'selection':'Hourly blend weights selected on validation dates only; held-out dates and geographic stations never select weights',
+        'inputs':['Official routine airport METARs','Recent local and nearby-airport history','Altimeter pressure trends','Time of day, season, coordinates and forecast hour'],
         'excludedInputs':['Radar','Satellite','Upper-air data','Numerical forecast guidance'],
         'limitations':['Experimental surface-only forecasts; not official NWS guidance',
-            'Sparse airport network provides coarse spatial detail; interpolation adds no observations',
+            'Regional training uses a geographically balanced subset; predictions at other airports generalize the pooled model',
+            'Interpolation adds no observations; empty source areas and unsupported edges can remain blank',
             'Short training history does not cover all seasons; 12–24 h predictions can miss approaching systems',
             'Archive quality checks cover ranges, times and dew point consistency, not complete instrument QC',
             'Historical reports can include corrections unavailable at original issue time; prospective verification is still required'],
         'software':{'scikit-learn':sklearn.__version__,'numpy':np.__version__}}
-    bundle = {'version':VERSION,'featureVersion':FEATURE_VERSION,'stations':stations,'leads':leads,'report':report}
-    encoded = json.dumps(bundle,separators=(',',':'),allow_nan=False).encode()
-    model_id = hashlib.sha256(encoded).hexdigest()[:16]
-    bundle['modelId'] = model_id;report['modelId'] = model_id
+    bundle={'version':VERSION,'featureVersion':FEATURE_VERSION,'networkMode':'all-live-regional-airports',
+        'stations':stations,'sharedModels':portable,'leads':leads,'report':report}
+    encoded=json.dumps(bundle,separators=(',',':'),allow_nan=False).encode()
+    model_id=hashlib.sha256(encoded).hexdigest()[:16]
+    bundle['modelId']=model_id;report['modelId']=model_id
     return bundle
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--days',type=int,default=120)
-    parser.add_argument('--history',default='training/history.json.gz')
+    parser.add_argument('--history',default='training/region-history.json.gz')
     parser.add_argument('--output',default='ai_bundle')
     parser.add_argument('--publish',action='store_true',help='Publish private model and progress to the existing weather bucket')
     parser.add_argument('--max-seconds',type=int,default=1500)
@@ -187,13 +217,13 @@ def main():
         if path.exists():
             data = json.loads(gzip.decompress(path.read_bytes()))
             rows, metadata = data['rows'], data['metadata']
-            if metadata['days']!=args.days:
+            if metadata['days']!=args.days or metadata['requestedStations']!=list(STATIONS):
                 raise ValueError('Cached history has a different day count; choose a fresh --history path')
         else:
             rows, metadata = download_history(args.days,datetime.now(UTC),path.parent/'cache',progress,deadline)
             path.parent.mkdir(parents=True,exist_ok=True)
             path.write_bytes(gzip.compress(json.dumps({'rows':rows,'metadata':metadata}).encode(),mtime=0))
-        progress('preparing',32,f'Preparing {len(rows):,} eligible reports from 25 airports',completedStations=25,totalStations=25)
+        progress('preparing',32,f'Preparing {len(rows):,} eligible reports from {len(STATIONS)} requested airports',completedStations=len(STATIONS),totalStations=len(STATIONS))
         bundle = train(rows,metadata,progress,deadline)
         progress('saving',95,'Saving model, verification scores and training record')
         packed = gzip.compress(json.dumps(bundle,separators=(',',':'),allow_nan=False).encode(),mtime=0)

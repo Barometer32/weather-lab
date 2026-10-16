@@ -447,7 +447,7 @@ def prepared_asset(key):
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"ai/forecast-v1/\d{12}/[a-f0-9]{16}/[a-f0-9]{16}/(01|03|06|12|24)/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key)
+               or re.fullmatch(r"ai/forecast-v[12]/\d{12}/[a-f0-9]{16}/[a-f0-9]{16}/(0[1-9]|1[0-9]|2[0-4])/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key)
                or re.fullmatch(r"analysis/metar-maps-v[123]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404

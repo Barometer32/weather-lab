@@ -1,0 +1,1097 @@
+{
+  "bounds": [
+    [
+      39,
+      -108
+    ],
+    [
+      51,
+      -80
+    ]
+  ],
+  "selection": "Network-hull and original pilot airports plus farthest-point geographic sampling of eligible hourly METAR stations",
+  "selectedAt": "2026-10-16T22:02:03.593659Z",
+  "candidateCount": 682,
+  "stations": [
+    {
+      "station": "00U",
+      "icaoId": "K00U",
+      "lat": 45.7453,
+      "lon": -107.6606
+    },
+    {
+      "station": "1CN",
+      "icaoId": "K1CN",
+      "lat": 47.71,
+      "lon": -101.01
+    },
+    {
+      "station": "1HW",
+      "icaoId": "K1HW",
+      "lat": 41.325,
+      "lon": -102.83
+    },
+    {
+      "station": "1JN",
+      "icaoId": "K1JN",
+      "lat": 48.41,
+      "lon": -101.89
+    },
+    {
+      "station": "1LW",
+      "icaoId": "K1LW",
+      "lat": 40.921,
+      "lon": -103.691
+    },
+    {
+      "station": "20V",
+      "icaoId": "K20V",
+      "lat": 40.0563,
+      "lon": -106.3744
+    },
+    {
+      "station": "2P2",
+      "icaoId": "K2P2",
+      "lat": 45.388,
+      "lon": -86.924
+    },
+    {
+      "station": "2V6",
+      "icaoId": "K2V6",
+      "lat": 40.1047,
+      "lon": -102.7128
+    },
+    {
+      "station": "2WX",
+      "icaoId": "K2WX",
+      "lat": 45.6043,
+      "lon": -103.547
+    },
+    {
+      "station": "33V",
+      "icaoId": "K33V",
+      "lat": 40.7454,
+      "lon": -106.2754
+    },
+    {
+      "station": "3LF",
+      "icaoId": "K3LF",
+      "lat": 39.1605,
+      "lon": -89.6742
+    },
+    {
+      "station": "3N8",
+      "icaoId": "K3N8",
+      "lat": 47.26,
+      "lon": -95.928
+    },
+    {
+      "station": "4BM",
+      "icaoId": "K4BM",
+      "lat": 39.05,
+      "lon": -105.514
+    },
+    {
+      "station": "4R5",
+      "icaoId": "K4R5",
+      "lat": 46.7887,
+      "lon": -90.7559
+    },
+    {
+      "station": "5H4",
+      "icaoId": "K5H4",
+      "lat": 47.7906,
+      "lon": -99.9346
+    },
+    {
+      "station": "96D",
+      "icaoId": "K96D",
+      "lat": 48.9402,
+      "lon": -97.9053
+    },
+    {
+      "station": "98D",
+      "icaoId": "K98D",
+      "lat": 44.7008,
+      "lon": -100.101
+    },
+    {
+      "station": "9Y1",
+      "icaoId": "K9Y1",
+      "lat": 47.3941,
+      "lon": -102.7731
+    },
+    {
+      "station": "ABR",
+      "icaoId": "KABR",
+      "lat": 45.4436,
+      "lon": -98.4138
+    },
+    {
+      "station": "AIA",
+      "icaoId": "KAIA",
+      "lat": 42.0573,
+      "lon": -102.8017
+    },
+    {
+      "station": "ALO",
+      "icaoId": "KALO",
+      "lat": 42.5544,
+      "lon": -92.4013
+    },
+    {
+      "station": "ANJ",
+      "icaoId": "KANJ",
+      "lat": 46.48,
+      "lon": -84.3581
+    },
+    {
+      "station": "ANQ",
+      "icaoId": "KANQ",
+      "lat": 41.6405,
+      "lon": -85.0852
+    },
+    {
+      "station": "ANW",
+      "icaoId": "KANW",
+      "lat": 42.5748,
+      "lon": -99.9984
+    },
+    {
+      "station": "APN",
+      "icaoId": "KAPN",
+      "lat": 45.0716,
+      "lon": -83.5645
+    },
+    {
+      "station": "ASE",
+      "icaoId": "KASE",
+      "lat": 39.2299,
+      "lon": -106.8705
+    },
+    {
+      "station": "ATY",
+      "icaoId": "KATY",
+      "lat": 44.9045,
+      "lon": -97.1496
+    },
+    {
+      "station": "AXN",
+      "icaoId": "KAXN",
+      "lat": 45.868,
+      "lon": -95.394
+    },
+    {
+      "station": "AXV",
+      "icaoId": "KAXV",
+      "lat": 40.4959,
+      "lon": -84.2929
+    },
+    {
+      "station": "BAX",
+      "icaoId": "KBAX",
+      "lat": 43.7774,
+      "lon": -82.9828
+    },
+    {
+      "station": "BBW",
+      "icaoId": "KBBW",
+      "lat": 41.4365,
+      "lon": -99.6385
+    },
+    {
+      "station": "BHK",
+      "icaoId": "KBHK",
+      "lat": 46.352,
+      "lon": -104.2613
+    },
+    {
+      "station": "BIS",
+      "icaoId": "KBIS",
+      "lat": 46.7823,
+      "lon": -100.7575
+    },
+    {
+      "station": "BIV",
+      "icaoId": "KBIV",
+      "lat": 42.7463,
+      "lon": -86.0968
+    },
+    {
+      "station": "BJI",
+      "icaoId": "KBJI",
+      "lat": 47.5076,
+      "lon": -94.9279
+    },
+    {
+      "station": "BKL",
+      "icaoId": "KBKL",
+      "lat": 41.5173,
+      "lon": -81.6832
+    },
+    {
+      "station": "BMI",
+      "icaoId": "KBMI",
+      "lat": 40.4777,
+      "lon": -88.9144
+    },
+    {
+      "station": "BRD",
+      "icaoId": "KBRD",
+      "lat": 46.4021,
+      "lon": -94.1273
+    },
+    {
+      "station": "BVN",
+      "icaoId": "KBVN",
+      "lat": 41.7302,
+      "lon": -98.0546
+    },
+    {
+      "station": "CHT",
+      "icaoId": "KCHT",
+      "lat": 39.782,
+      "lon": -93.496
+    },
+    {
+      "station": "CKB",
+      "icaoId": "KCKB",
+      "lat": 39.3022,
+      "lon": -80.2239
+    },
+    {
+      "station": "CKC",
+      "icaoId": "KCKC",
+      "lat": 47.8366,
+      "lon": -90.3864
+    },
+    {
+      "station": "CPR",
+      "icaoId": "KCPR",
+      "lat": 42.8978,
+      "lon": -106.4736
+    },
+    {
+      "station": "CVG",
+      "icaoId": "KCVG",
+      "lat": 39.0444,
+      "lon": -84.6724
+    },
+    {
+      "station": "CWA",
+      "icaoId": "KCWA",
+      "lat": 44.7795,
+      "lon": -89.671
+    },
+    {
+      "station": "D07",
+      "icaoId": "KD07",
+      "lat": 45.0326,
+      "lon": -102.02
+    },
+    {
+      "station": "D09",
+      "icaoId": "KD09",
+      "lat": 48.83,
+      "lon": -100.417
+    },
+    {
+      "station": "D25",
+      "icaoId": "KD25",
+      "lat": 46.1204,
+      "lon": -89.88
+    },
+    {
+      "station": "D50",
+      "icaoId": "KD50",
+      "lat": 48.9248,
+      "lon": -103.2958
+    },
+    {
+      "station": "D57",
+      "icaoId": "KD57",
+      "lat": 46.814,
+      "lon": -101.864
+    },
+    {
+      "station": "DEH",
+      "icaoId": "KDEH",
+      "lat": 43.2755,
+      "lon": -91.7433
+    },
+    {
+      "station": "DGW",
+      "icaoId": "KDGW",
+      "lat": 42.796,
+      "lon": -105.38
+    },
+    {
+      "station": "DLH",
+      "icaoId": "KDLH",
+      "lat": 46.8435,
+      "lon": -92.1866
+    },
+    {
+      "station": "DNS",
+      "icaoId": "KDNS",
+      "lat": 41.9842,
+      "lon": -95.38
+    },
+    {
+      "station": "DRM",
+      "icaoId": "KDRM",
+      "lat": 46.009,
+      "lon": -83.743
+    },
+    {
+      "station": "DSM",
+      "icaoId": "KDSM",
+      "lat": 41.5339,
+      "lon": -93.6531
+    },
+    {
+      "station": "DVL",
+      "icaoId": "KDVL",
+      "lat": 48.1136,
+      "lon": -98.9034
+    },
+    {
+      "station": "DXX",
+      "icaoId": "KDXX",
+      "lat": 44.9839,
+      "lon": -96.1789
+    },
+    {
+      "station": "EAU",
+      "icaoId": "KEAU",
+      "lat": 44.8665,
+      "lon": -91.4881
+    },
+    {
+      "station": "ECS",
+      "icaoId": "KECS",
+      "lat": 43.8845,
+      "lon": -104.312
+    },
+    {
+      "station": "EEO",
+      "icaoId": "KEEO",
+      "lat": 40.0444,
+      "lon": -107.8884
+    },
+    {
+      "station": "EFT",
+      "icaoId": "KEFT",
+      "lat": 42.6196,
+      "lon": -89.5931
+    },
+    {
+      "station": "ELO",
+      "icaoId": "KELO",
+      "lat": 47.8287,
+      "lon": -91.8371
+    },
+    {
+      "station": "ENW",
+      "icaoId": "KENW",
+      "lat": 42.5953,
+      "lon": -87.9383
+    },
+    {
+      "station": "EOP",
+      "icaoId": "KEOP",
+      "lat": 39.1669,
+      "lon": -82.9282
+    },
+    {
+      "station": "ERI",
+      "icaoId": "KERI",
+      "lat": 42.0803,
+      "lon": -80.1824
+    },
+    {
+      "station": "ETH",
+      "icaoId": "KETH",
+      "lat": 45.7828,
+      "lon": -96.5461
+    },
+    {
+      "station": "FAR",
+      "icaoId": "KFAR",
+      "lat": 46.9242,
+      "lon": -96.8119
+    },
+    {
+      "station": "FCM",
+      "icaoId": "KFCM",
+      "lat": 44.8321,
+      "lon": -93.4705
+    },
+    {
+      "station": "FET",
+      "icaoId": "KFET",
+      "lat": 41.4489,
+      "lon": -96.5237
+    },
+    {
+      "station": "FEW",
+      "icaoId": "KFEW",
+      "lat": 41.141,
+      "lon": -104.869
+    },
+    {
+      "station": "FFL",
+      "icaoId": "KFFL",
+      "lat": 41.0521,
+      "lon": -91.9834
+    },
+    {
+      "station": "FGN",
+      "icaoId": "KFGN",
+      "lat": 49.318,
+      "lon": -94.902
+    },
+    {
+      "station": "FOD",
+      "icaoId": "KFOD",
+      "lat": 42.549,
+      "lon": -94.182
+    },
+    {
+      "station": "FOZ",
+      "icaoId": "KFOZ",
+      "lat": 47.7832,
+      "lon": -93.6533
+    },
+    {
+      "station": "FRI",
+      "icaoId": "KFRI",
+      "lat": 39.0568,
+      "lon": -96.7617
+    },
+    {
+      "station": "FRM",
+      "icaoId": "KFRM",
+      "lat": 43.6455,
+      "lon": -94.4168
+    },
+    {
+      "station": "FSD",
+      "icaoId": "KFSD",
+      "lat": 43.5775,
+      "lon": -96.7539
+    },
+    {
+      "station": "GBG",
+      "icaoId": "KGBG",
+      "lat": 40.9329,
+      "lon": -90.4334
+    },
+    {
+      "station": "GCC",
+      "icaoId": "KGCC",
+      "lat": 44.3398,
+      "lon": -105.5416
+    },
+    {
+      "station": "GDK",
+      "icaoId": "KGDK",
+      "lat": 39.6935,
+      "lon": -83.9896
+    },
+    {
+      "station": "GDV",
+      "icaoId": "KGDV",
+      "lat": 47.1401,
+      "lon": -104.8127
+    },
+    {
+      "station": "GFK",
+      "icaoId": "KGFK",
+      "lat": 47.9428,
+      "lon": -97.1829
+    },
+    {
+      "station": "GGW",
+      "icaoId": "KGGW",
+      "lat": 48.2142,
+      "lon": -106.6214
+    },
+    {
+      "station": "GUS",
+      "icaoId": "KGUS",
+      "lat": 40.6375,
+      "lon": -86.1631
+    },
+    {
+      "station": "GWR",
+      "icaoId": "KGWR",
+      "lat": 46.2185,
+      "lon": -97.6396
+    },
+    {
+      "station": "GYY",
+      "icaoId": "KGYY",
+      "lat": 41.6121,
+      "lon": -87.4091
+    },
+    {
+      "station": "HCO",
+      "icaoId": "KHCO",
+      "lat": 48.7524,
+      "lon": -96.9376
+    },
+    {
+      "station": "HDE",
+      "icaoId": "KHDE",
+      "lat": 40.4496,
+      "lon": -99.3363
+    },
+    {
+      "station": "HEI",
+      "icaoId": "KHEI",
+      "lat": 46.0108,
+      "lon": -102.6518
+    },
+    {
+      "station": "HFY",
+      "icaoId": "KHFY",
+      "lat": 39.628,
+      "lon": -86.088
+    },
+    {
+      "station": "HIB",
+      "icaoId": "KHIB",
+      "lat": 47.3804,
+      "lon": -92.8325
+    },
+    {
+      "station": "HJH",
+      "icaoId": "KHJH",
+      "lat": 40.1493,
+      "lon": -97.5872
+    },
+    {
+      "station": "HTL",
+      "icaoId": "KHTL",
+      "lat": 44.359,
+      "lon": -84.6739
+    },
+    {
+      "station": "I63",
+      "icaoId": "KI63",
+      "lat": 39.9883,
+      "lon": -90.8023
+    },
+    {
+      "station": "ICR",
+      "icaoId": "KICR",
+      "lat": 43.391,
+      "lon": -99.8462
+    },
+    {
+      "station": "IEN",
+      "icaoId": "KIEN",
+      "lat": 43.0262,
+      "lon": -102.52
+    },
+    {
+      "station": "IMT",
+      "icaoId": "KIMT",
+      "lat": 45.8134,
+      "lon": -88.1129
+    },
+    {
+      "station": "INL",
+      "icaoId": "KINL",
+      "lat": 48.5594,
+      "lon": -93.3955
+    },
+    {
+      "station": "IRK",
+      "icaoId": "KIRK",
+      "lat": 40.0966,
+      "lon": -92.5469
+    },
+    {
+      "station": "ITR",
+      "icaoId": "KITR",
+      "lat": 39.2415,
+      "lon": -102.2819
+    },
+    {
+      "station": "JMS",
+      "icaoId": "KJMS",
+      "lat": 46.9259,
+      "lon": -98.6704
+    },
+    {
+      "station": "JYR",
+      "icaoId": "KJYR",
+      "lat": 40.8942,
+      "lon": -97.6258
+    },
+    {
+      "station": "K61",
+      "icaoId": "KK61",
+      "lat": 39.4712,
+      "lon": -98.1288
+    },
+    {
+      "station": "LBF",
+      "icaoId": "KLBF",
+      "lat": 41.122,
+      "lon": -100.6689
+    },
+    {
+      "station": "LCG",
+      "icaoId": "KLCG",
+      "lat": 42.2423,
+      "lon": -96.983
+    },
+    {
+      "station": "LDM",
+      "icaoId": "KLDM",
+      "lat": 43.9614,
+      "lon": -86.4107
+    },
+    {
+      "station": "LIC",
+      "icaoId": "KLIC",
+      "lat": 39.2733,
+      "lon": -103.6674
+    },
+    {
+      "station": "LMO",
+      "icaoId": "KLMO",
+      "lat": 40.1612,
+      "lon": -105.1605
+    },
+    {
+      "station": "LNR",
+      "icaoId": "KLNR",
+      "lat": 43.2111,
+      "lon": -90.1874
+    },
+    {
+      "station": "LRJ",
+      "icaoId": "KLRJ",
+      "lat": 42.7771,
+      "lon": -96.195
+    },
+    {
+      "station": "LSE",
+      "icaoId": "KLSE",
+      "lat": 43.8792,
+      "lon": -91.253
+    },
+    {
+      "station": "LWC",
+      "icaoId": "KLWC",
+      "lat": 39.0078,
+      "lon": -95.2115
+    },
+    {
+      "station": "LWD",
+      "icaoId": "KLWD",
+      "lat": 40.6306,
+      "lon": -93.9005
+    },
+    {
+      "station": "M46",
+      "icaoId": "KM46",
+      "lat": 45.8524,
+      "lon": -106.7061
+    },
+    {
+      "station": "M75",
+      "icaoId": "KM75",
+      "lat": 48.3686,
+      "lon": -107.9188
+    },
+    {
+      "station": "MBG",
+      "icaoId": "KMBG",
+      "lat": 45.543,
+      "lon": -100.404
+    },
+    {
+      "station": "MCW",
+      "icaoId": "KMCW",
+      "lat": 43.1543,
+      "lon": -93.3262
+    },
+    {
+      "station": "MFD",
+      "icaoId": "KMFD",
+      "lat": 40.8204,
+      "lon": -82.5177
+    },
+    {
+      "station": "MHE",
+      "icaoId": "KMHE",
+      "lat": 43.7743,
+      "lon": -98.0384
+    },
+    {
+      "station": "MHL",
+      "icaoId": "KMHL",
+      "lat": 39.093,
+      "lon": -93.2024
+    },
+    {
+      "station": "MKT",
+      "icaoId": "KMKT",
+      "lat": 44.2184,
+      "lon": -93.9179
+    },
+    {
+      "station": "MLS",
+      "icaoId": "KMLS",
+      "lat": 46.4265,
+      "lon": -105.8834
+    },
+    {
+      "station": "MOP",
+      "icaoId": "KMOP",
+      "lat": 43.6229,
+      "lon": -84.743
+    },
+    {
+      "station": "MSP",
+      "icaoId": "KMSP",
+      "lat": 44.8852,
+      "lon": -93.2313
+    },
+    {
+      "station": "MTC",
+      "icaoId": "KMTC",
+      "lat": 42.6045,
+      "lon": -82.8353
+    },
+    {
+      "station": "MTW",
+      "icaoId": "KMTW",
+      "lat": 44.1322,
+      "lon": -87.6819
+    },
+    {
+      "station": "MXO",
+      "icaoId": "KMXO",
+      "lat": 42.2203,
+      "lon": -91.1604
+    },
+    {
+      "station": "MYJ",
+      "icaoId": "KMYJ",
+      "lat": 39.1561,
+      "lon": -91.8129
+    },
+    {
+      "station": "MYZ",
+      "icaoId": "KMYZ",
+      "lat": 39.8544,
+      "lon": -96.6279
+    },
+    {
+      "station": "OCQ",
+      "icaoId": "KOCQ",
+      "lat": 44.8749,
+      "lon": -87.9084
+    },
+    {
+      "station": "OEL",
+      "icaoId": "KOEL",
+      "lat": 39.1139,
+      "lon": -100.819
+    },
+    {
+      "station": "OGA",
+      "icaoId": "KOGA",
+      "lat": 41.1164,
+      "lon": -101.7679
+    },
+    {
+      "station": "OIN",
+      "icaoId": "KOIN",
+      "lat": 39.8298,
+      "lon": -100.5377
+    },
+    {
+      "station": "OLF",
+      "icaoId": "KOLF",
+      "lat": 48.0942,
+      "lon": -105.5784
+    },
+    {
+      "station": "ONL",
+      "icaoId": "KONL",
+      "lat": 42.4691,
+      "lon": -98.6903
+    },
+    {
+      "station": "OTG",
+      "icaoId": "KOTG",
+      "lat": 43.6525,
+      "lon": -95.5759
+    },
+    {
+      "station": "P53",
+      "icaoId": "KP53",
+      "lat": 46.412,
+      "lon": -86.6504
+    },
+    {
+      "station": "P59",
+      "icaoId": "KP59",
+      "lat": 47.467,
+      "lon": -87.875
+    },
+    {
+      "station": "PHD",
+      "icaoId": "KPHD",
+      "lat": 40.4703,
+      "lon": -81.4218
+    },
+    {
+      "station": "PHG",
+      "icaoId": "KPHG",
+      "lat": 39.7343,
+      "lon": -99.3179
+    },
+    {
+      "station": "PHP",
+      "icaoId": "KPHP",
+      "lat": 44.051,
+      "lon": -101.6014
+    },
+    {
+      "station": "PJC",
+      "icaoId": "KPJC",
+      "lat": 40.8009,
+      "lon": -80.1624
+    },
+    {
+      "station": "PKB",
+      "icaoId": "KPKB",
+      "lat": 39.3395,
+      "lon": -81.4438
+    },
+    {
+      "station": "PRG",
+      "icaoId": "KPRG",
+      "lat": 39.6982,
+      "lon": -87.6669
+    },
+    {
+      "station": "PWD",
+      "icaoId": "KPWD",
+      "lat": 48.7912,
+      "lon": -104.5253
+    },
+    {
+      "station": "RCA",
+      "icaoId": "KRCA",
+      "lat": 44.155,
+      "lon": -103.118
+    },
+    {
+      "station": "RCX",
+      "icaoId": "KRCX",
+      "lat": 45.4935,
+      "lon": -90.9985
+    },
+    {
+      "station": "RIL",
+      "icaoId": "KRIL",
+      "lat": 39.5279,
+      "lon": -107.7197
+    },
+    {
+      "station": "ROX",
+      "icaoId": "KROX",
+      "lat": 48.856,
+      "lon": -95.6949
+    },
+    {
+      "station": "RPJ",
+      "icaoId": "KRPJ",
+      "lat": 41.8906,
+      "lon": -89.0817
+    },
+    {
+      "station": "RST",
+      "icaoId": "KRST",
+      "lat": 43.904,
+      "lon": -92.4921
+    },
+    {
+      "station": "RSV",
+      "icaoId": "KRSV",
+      "lat": 39.0136,
+      "lon": -87.6484
+    },
+    {
+      "station": "RWF",
+      "icaoId": "KRWF",
+      "lat": 44.5483,
+      "lon": -95.0804
+    },
+    {
+      "station": "RZL",
+      "icaoId": "KRZL",
+      "lat": 40.9488,
+      "lon": -87.1851
+    },
+    {
+      "station": "RZN",
+      "icaoId": "KRZN",
+      "lat": 45.8229,
+      "lon": -92.3706
+    },
+    {
+      "station": "SAA",
+      "icaoId": "KSAA",
+      "lat": 41.447,
+      "lon": -106.815
+    },
+    {
+      "station": "SBN",
+      "icaoId": "KSBN",
+      "lat": 41.7072,
+      "lon": -86.3163
+    },
+    {
+      "station": "SDA",
+      "icaoId": "KSDA",
+      "lat": 40.7533,
+      "lon": -95.4112
+    },
+    {
+      "station": "SDY",
+      "icaoId": "KSDY",
+      "lat": 47.7029,
+      "lon": -104.1951
+    },
+    {
+      "station": "SFY",
+      "icaoId": "KSFY",
+      "lat": 42.0454,
+      "lon": -90.1101
+    },
+    {
+      "station": "SHR",
+      "icaoId": "KSHR",
+      "lat": 44.7603,
+      "lon": -106.9741
+    },
+    {
+      "station": "SJX",
+      "icaoId": "KSJX",
+      "lat": 45.6928,
+      "lon": -85.5662
+    },
+    {
+      "station": "SPI",
+      "icaoId": "KSPI",
+      "lat": 39.8453,
+      "lon": -89.684
+    },
+    {
+      "station": "STC",
+      "icaoId": "KSTC",
+      "lat": 45.5442,
+      "lon": -94.0516
+    },
+    {
+      "station": "STJ",
+      "icaoId": "KSTJ",
+      "lat": 39.7683,
+      "lon": -94.9095
+    },
+    {
+      "station": "SUO",
+      "icaoId": "KSUO",
+      "lat": 43.259,
+      "lon": -100.862
+    },
+    {
+      "station": "TDZ",
+      "icaoId": "KTDZ",
+      "lat": 41.5633,
+      "lon": -83.4767
+    },
+    {
+      "station": "TEW",
+      "icaoId": "KTEW",
+      "lat": 42.5636,
+      "lon": -84.4223
+    },
+    {
+      "station": "TIF",
+      "icaoId": "KTIF",
+      "lat": 41.9646,
+      "lon": -100.5687
+    },
+    {
+      "station": "TOR",
+      "icaoId": "KTOR",
+      "lat": 42.0613,
+      "lon": -104.1585
+    },
+    {
+      "station": "TVC",
+      "icaoId": "KTVC",
+      "lat": 44.739,
+      "lon": -85.5694
+    },
+    {
+      "station": "TVF",
+      "icaoId": "KTVF",
+      "lat": 48.0597,
+      "lon": -96.1787
+    },
+    {
+      "station": "UNU",
+      "icaoId": "KUNU",
+      "lat": 43.4285,
+      "lon": -88.7017
+    },
+    {
+      "station": "VTA",
+      "icaoId": "KVTA",
+      "lat": 40.0264,
+      "lon": -82.4635
+    },
+    {
+      "station": "VWU",
+      "icaoId": "KVWU",
+      "lat": 48.1502,
+      "lon": -94.5121
+    },
+    {
+      "station": "W43",
+      "icaoId": "KW43",
+      "lat": 44.6607,
+      "lon": -104.5677
+    },
+    {
+      "station": "WRL",
+      "icaoId": "KWRL",
+      "lat": 43.9654,
+      "lon": -107.9502
+    },
+    {
+      "station": "Y50",
+      "icaoId": "KY50",
+      "lat": 44.0435,
+      "lon": -89.304
+    },
+    {
+      "station": "YKN",
+      "icaoId": "KYKN",
+      "lat": 42.9141,
+      "lon": -97.3807
+    }
+  ]
+}

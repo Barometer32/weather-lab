@@ -15,7 +15,7 @@
   <script defer src="/static/cloud-views.js?v=ready-wide-7"></script>
   <script defer src="/static/weather-data.js?v=ready-wide-7"></script>
   <script defer src="/static/maps.js?v=ready-wide-7"></script>
-  <script defer src="/static/ai-forecast.js?v=ai-pilot-1"></script>
+  <script defer src="/static/ai-forecast.js?v=ai-region-hourly-2"></script>
   <script defer src="/static/app.js?v=ai-pilot-1"></script>
 </head>
 <body>
@@ -69,7 +69,7 @@
 </section>
 
 <section id="ai-forecast" role="tabpanel" aria-labelledby="tab-ai-forecast" hidden>
-  <div class="section-heading"><div><p class="eyebrow">EXPERIMENTAL · AIRPORT MODEL</p><h1>AI Forecast</h1><p>Temperature, dew point and wind · five lead times through 24 hours</p></div><button class="secondary" id="refresh-ai">Refresh status</button></div>
+  <div class="section-heading"><div><p class="eyebrow">EXPERIMENTAL · REGIONAL AIRPORT MODEL</p><h1>AI Forecast</h1><p>Full METAR region · temperature, dew point and wind · hourly through 24 hours</p></div><button class="secondary" id="refresh-ai">Refresh status</button></div>
   <div class="ai-progress-card" role="status" aria-live="polite">
     <strong id="ai-stage">Checking model status…</strong>
     <progress id="ai-progress" max="100" value="0" aria-label="Model training progress"></progress>
@@ -82,7 +82,7 @@
     <div id="ai-map" aria-label="Experimental future weather maps with state and county boundaries"></div>
     <div class="radar-controls viewer-controls">
       <span id="ai-time" class="viewer-frame-time" aria-live="polite">Forecast maps prepare after the next METAR collection.</span>
-      <div class="timeline-control"><label class="sr-only" for="ai-timeline">Forecast lead: 1, 3, 6, 12 or 24 hours</label><input id="ai-timeline" class="scan-timeline" type="range" min="0" max="4" value="0" step="1" disabled></div>
+      <div class="timeline-control"><label class="sr-only" for="ai-timeline">Forecast lead: every hour from 1 to 24 hours ahead</label><input id="ai-timeline" class="scan-timeline" type="range" min="0" max="23" value="0" step="1" disabled></div>
       <div class="viewer-actions"><button id="ai-play" class="secondary" aria-pressed="false" disabled>Play</button><button id="ai-reset" class="secondary">Reset view</button></div>
     </div>
   </div>

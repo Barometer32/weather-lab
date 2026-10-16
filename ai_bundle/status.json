@@ -3,161 +3,221 @@
   "stage": "completed",
   "percent": 100,
   "message": "Model trained and tested; forecast maps prepare with the hourly METAR collection",
-  "updatedAt": "2026-10-16T22:05:05.640090Z",
-  "elapsedSeconds": 12,
+  "updatedAt": "2026-10-16T22:40:51.926425Z",
+  "elapsedSeconds": 52,
   "estimatedRemainingSeconds": null,
-  "modelId": "169dfc70c836a75c",
-  "trainedAt": "2026-10-16T22:05:05.530633Z",
+  "modelId": "d0b1c481fa7bc2e4",
+  "trainedAt": "2026-10-16T22:40:51.836367Z",
   "events": [
     {
-      "stage": "starting",
-      "percent": 0,
-      "message": "Starting bounded CPU-only experiment",
-      "elapsedSeconds": 0
-    },
-    {
-      "stage": "preparing",
-      "percent": 32,
-      "message": "Preparing 71,700 eligible reports from 25 airports",
-      "elapsedSeconds": 0
-    },
-    {
-      "stage": "training",
-      "percent": 35,
-      "message": "Training +1 h tempF",
-      "elapsedSeconds": 1
-    },
-    {
-      "stage": "training",
-      "percent": 37,
-      "message": "Training +1 h dewpointF",
-      "elapsedSeconds": 2
-    },
-    {
-      "stage": "training",
+      "stage": "sampling",
       "percent": 39,
-      "message": "Training +1 h uMph",
-      "elapsedSeconds": 2
+      "message": "Prepared +21 h training examples",
+      "elapsedSeconds": 4
     },
     {
-      "stage": "training",
-      "percent": 41,
-      "message": "Training +1 h vMph",
-      "elapsedSeconds": 3
+      "stage": "sampling",
+      "percent": 39,
+      "message": "Prepared +22 h training examples",
+      "elapsedSeconds": 4
     },
     {
-      "stage": "training",
-      "percent": 44,
-      "message": "Training +3 h tempF",
-      "elapsedSeconds": 3
+      "stage": "sampling",
+      "percent": 39,
+      "message": "Prepared +23 h training examples",
+      "elapsedSeconds": 4
     },
     {
-      "stage": "training",
-      "percent": 46,
-      "message": "Training +3 h dewpointF",
+      "stage": "sampling",
+      "percent": 40,
+      "message": "Prepared +24 h training examples",
       "elapsedSeconds": 4
     },
     {
       "stage": "training",
-      "percent": 48,
-      "message": "Training +3 h uMph",
+      "percent": 40,
+      "message": "Training regional tempF model for hours 1\u201324",
       "elapsedSeconds": 4
+    },
+    {
+      "stage": "training",
+      "percent": 45,
+      "message": "Training regional dewpointF model for hours 1\u201324",
+      "elapsedSeconds": 7
     },
     {
       "stage": "training",
       "percent": 50,
-      "message": "Training +3 h vMph",
-      "elapsedSeconds": 5
-    },
-    {
-      "stage": "training",
-      "percent": 53,
-      "message": "Training +6 h tempF",
-      "elapsedSeconds": 6
+      "message": "Training regional uMph model for hours 1\u201324",
+      "elapsedSeconds": 9
     },
     {
       "stage": "training",
       "percent": 55,
-      "message": "Training +6 h dewpointF",
-      "elapsedSeconds": 6
+      "message": "Training regional vMph model for hours 1\u201324",
+      "elapsedSeconds": 11
     },
     {
-      "stage": "training",
-      "percent": 57,
-      "message": "Training +6 h uMph",
-      "elapsedSeconds": 7
+      "stage": "testing",
+      "percent": 60,
+      "message": "Testing +1 h on held-out dates",
+      "elapsedSeconds": 13
     },
     {
-      "stage": "training",
-      "percent": 59,
-      "message": "Training +6 h vMph",
-      "elapsedSeconds": 7
+      "stage": "testing",
+      "percent": 61,
+      "message": "Testing +2 h on held-out dates",
+      "elapsedSeconds": 15
     },
     {
-      "stage": "training",
+      "stage": "testing",
       "percent": 62,
-      "message": "Training +12 h tempF",
-      "elapsedSeconds": 8
+      "message": "Testing +3 h on held-out dates",
+      "elapsedSeconds": 17
     },
     {
-      "stage": "training",
-      "percent": 64,
-      "message": "Training +12 h dewpointF",
-      "elapsedSeconds": 8
+      "stage": "testing",
+      "percent": 63,
+      "message": "Testing +4 h on held-out dates",
+      "elapsedSeconds": 18
     },
     {
-      "stage": "training",
+      "stage": "testing",
+      "percent": 65,
+      "message": "Testing +5 h on held-out dates",
+      "elapsedSeconds": 20
+    },
+    {
+      "stage": "testing",
       "percent": 66,
-      "message": "Training +12 h uMph",
-      "elapsedSeconds": 9
+      "message": "Testing +6 h on held-out dates",
+      "elapsedSeconds": 21
     },
     {
-      "stage": "training",
+      "stage": "testing",
+      "percent": 67,
+      "message": "Testing +7 h on held-out dates",
+      "elapsedSeconds": 23
+    },
+    {
+      "stage": "testing",
       "percent": 68,
-      "message": "Training +12 h vMph",
-      "elapsedSeconds": 9
+      "message": "Testing +8 h on held-out dates",
+      "elapsedSeconds": 25
     },
     {
-      "stage": "training",
+      "stage": "testing",
+      "percent": 70,
+      "message": "Testing +9 h on held-out dates",
+      "elapsedSeconds": 26
+    },
+    {
+      "stage": "testing",
       "percent": 71,
-      "message": "Training +24 h tempF",
-      "elapsedSeconds": 10
+      "message": "Testing +10 h on held-out dates",
+      "elapsedSeconds": 28
     },
     {
-      "stage": "training",
+      "stage": "testing",
+      "percent": 72,
+      "message": "Testing +11 h on held-out dates",
+      "elapsedSeconds": 30
+    },
+    {
+      "stage": "testing",
       "percent": 73,
-      "message": "Training +24 h dewpointF",
-      "elapsedSeconds": 11
+      "message": "Testing +12 h on held-out dates",
+      "elapsedSeconds": 31
     },
     {
-      "stage": "training",
+      "stage": "testing",
       "percent": 75,
-      "message": "Training +24 h uMph",
-      "elapsedSeconds": 11
+      "message": "Testing +13 h on held-out dates",
+      "elapsedSeconds": 33
     },
     {
-      "stage": "training",
+      "stage": "testing",
+      "percent": 76,
+      "message": "Testing +14 h on held-out dates",
+      "elapsedSeconds": 34
+    },
+    {
+      "stage": "testing",
       "percent": 77,
-      "message": "Training +24 h vMph",
-      "elapsedSeconds": 12
+      "message": "Testing +15 h on held-out dates",
+      "elapsedSeconds": 36
+    },
+    {
+      "stage": "testing",
+      "percent": 78,
+      "message": "Testing +16 h on held-out dates",
+      "elapsedSeconds": 38
+    },
+    {
+      "stage": "testing",
+      "percent": 80,
+      "message": "Testing +17 h on held-out dates",
+      "elapsedSeconds": 39
+    },
+    {
+      "stage": "testing",
+      "percent": 81,
+      "message": "Testing +18 h on held-out dates",
+      "elapsedSeconds": 41
+    },
+    {
+      "stage": "testing",
+      "percent": 82,
+      "message": "Testing +19 h on held-out dates",
+      "elapsedSeconds": 43
+    },
+    {
+      "stage": "testing",
+      "percent": 83,
+      "message": "Testing +20 h on held-out dates",
+      "elapsedSeconds": 44
     },
     {
       "stage": "testing",
       "percent": 85,
-      "message": "Checking held-out forecast errors and portable model parity",
-      "elapsedSeconds": 12
+      "message": "Testing +21 h on held-out dates",
+      "elapsedSeconds": 46
+    },
+    {
+      "stage": "testing",
+      "percent": 86,
+      "message": "Testing +22 h on held-out dates",
+      "elapsedSeconds": 47
+    },
+    {
+      "stage": "testing",
+      "percent": 87,
+      "message": "Testing +23 h on held-out dates",
+      "elapsedSeconds": 49
+    },
+    {
+      "stage": "testing",
+      "percent": 88,
+      "message": "Testing +24 h on held-out dates",
+      "elapsedSeconds": 50
+    },
+    {
+      "stage": "saving",
+      "percent": 93,
+      "message": "Saving 24-hour regional model and verification results",
+      "elapsedSeconds": 52
     },
     {
       "stage": "saving",
       "percent": 95,
       "message": "Saving model, verification scores and training record",
-      "elapsedSeconds": 12
+      "elapsedSeconds": 52
     },
     {
       "stage": "completed",
       "percent": 100,
       "message": "Model trained and tested; forecast maps prepare with the hourly METAR collection",
-      "elapsedSeconds": 12
+      "elapsedSeconds": 52
     }
   ]
 }

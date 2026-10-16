@@ -1,6 +1,6 @@
 {
-  "version": "airport-ai-v1",
-  "trainedAt": "2026-10-16T22:05:05.530633Z",
+  "version": "airport-ai-v2",
+  "trainedAt": "2026-10-16T22:40:51.836367Z",
   "trainingData": {
     "provider": "Iowa Environmental Mesonet archive of official airport METARs",
     "sourceUrl": "https://mesonet.agron.iastate.edu/request/download.phtml",
@@ -8,87 +8,514 @@
     "endExclusive": "2026-10-16T00:00:00+00:00",
     "days": 120,
     "requestedStations": [
-      "MSP",
-      "FCM",
-      "STC",
-      "AXN",
-      "BRD",
-      "BJI",
-      "INL",
-      "DLH",
-      "HIB",
-      "RWF",
-      "MKT",
-      "RST",
-      "FRM",
-      "OTG",
-      "FAR",
-      "GFK",
-      "BIS",
-      "JMS",
-      "FSD",
+      "00U",
+      "1CN",
+      "1HW",
+      "1JN",
+      "1LW",
+      "20V",
+      "2P2",
+      "2V6",
+      "2WX",
+      "33V",
+      "3LF",
+      "3N8",
+      "4BM",
+      "4R5",
+      "5H4",
+      "96D",
+      "98D",
+      "9Y1",
       "ABR",
+      "AIA",
+      "ALO",
+      "ANJ",
+      "ANQ",
+      "ANW",
+      "APN",
+      "ASE",
       "ATY",
+      "AXN",
+      "AXV",
+      "BAX",
+      "BBW",
+      "BHK",
+      "BIS",
+      "BIV",
+      "BJI",
+      "BKL",
+      "BMI",
+      "BRD",
+      "BVN",
+      "CHT",
+      "CKB",
+      "CKC",
+      "CPR",
+      "CVG",
+      "CWA",
+      "D07",
+      "D09",
+      "D25",
+      "D50",
+      "D57",
+      "DEH",
+      "DGW",
+      "DLH",
+      "DNS",
+      "DRM",
+      "DSM",
+      "DVL",
+      "DXX",
       "EAU",
+      "ECS",
+      "EEO",
+      "EFT",
+      "ELO",
+      "ENW",
+      "EOP",
+      "ERI",
+      "ETH",
+      "FAR",
+      "FCM",
+      "FET",
+      "FEW",
+      "FFL",
+      "FGN",
+      "FOD",
+      "FOZ",
+      "FRI",
+      "FRM",
+      "FSD",
+      "GBG",
+      "GCC",
+      "GDK",
+      "GDV",
+      "GFK",
+      "GGW",
+      "GUS",
+      "GWR",
+      "GYY",
+      "HCO",
+      "HDE",
+      "HEI",
+      "HFY",
+      "HIB",
+      "HJH",
+      "HTL",
+      "I63",
+      "ICR",
+      "IEN",
+      "IMT",
+      "INL",
+      "IRK",
+      "ITR",
+      "JMS",
+      "JYR",
+      "K61",
+      "LBF",
+      "LCG",
+      "LDM",
+      "LIC",
+      "LMO",
+      "LNR",
+      "LRJ",
       "LSE",
+      "LWC",
+      "LWD",
+      "M46",
+      "M75",
+      "MBG",
       "MCW",
-      "DSM"
+      "MFD",
+      "MHE",
+      "MHL",
+      "MKT",
+      "MLS",
+      "MOP",
+      "MSP",
+      "MTC",
+      "MTW",
+      "MXO",
+      "MYJ",
+      "MYZ",
+      "OCQ",
+      "OEL",
+      "OGA",
+      "OIN",
+      "OLF",
+      "ONL",
+      "OTG",
+      "P53",
+      "P59",
+      "PHD",
+      "PHG",
+      "PHP",
+      "PJC",
+      "PKB",
+      "PRG",
+      "PWD",
+      "RCA",
+      "RCX",
+      "RIL",
+      "ROX",
+      "RPJ",
+      "RST",
+      "RSV",
+      "RWF",
+      "RZL",
+      "RZN",
+      "SAA",
+      "SBN",
+      "SDA",
+      "SDY",
+      "SFY",
+      "SHR",
+      "SJX",
+      "SPI",
+      "STC",
+      "STJ",
+      "SUO",
+      "TDZ",
+      "TEW",
+      "TIF",
+      "TOR",
+      "TVC",
+      "TVF",
+      "UNU",
+      "VTA",
+      "VWU",
+      "W43",
+      "WRL",
+      "Y50",
+      "YKN"
     ],
+    "missingStations": [
+      "1CN",
+      "1LW",
+      "K61"
+    ],
+    "regionBounds": [
+      [
+        39,
+        -108
+      ],
+      [
+        51,
+        -80
+      ]
+    ],
+    "stationSelection": "Network-hull and original pilot airports plus farthest-point geographic sampling of eligible hourly METAR stations",
     "requests": [
       {
         "stations": [
-          "MSP",
-          "FCM",
-          "STC",
-          "AXN",
-          "BRD"
+          "00U",
+          "1CN",
+          "1HW",
+          "1JN",
+          "1LW",
+          "20V",
+          "2P2",
+          "2V6",
+          "2WX",
+          "33V"
         ],
-        "reports": 14382,
-        "sha256": "5f675c56d395f087f265d4fafdc1f5eb37d67605944e1d20d1085a05a67c18a8"
+        "reports": 21619,
+        "missingStations": [
+          "1CN",
+          "1LW"
+        ],
+        "sha256": "3aa60b0d0889668ec9e1f410844b61f3eb6a2e072f67b3509d958edc15c5b674"
       },
       {
         "stations": [
-          "BJI",
-          "INL",
-          "DLH",
-          "HIB",
-          "RWF"
+          "3LF",
+          "3N8",
+          "4BM",
+          "4R5",
+          "5H4",
+          "96D",
+          "98D",
+          "9Y1",
+          "ABR",
+          "AIA"
         ],
-        "reports": 14290,
-        "sha256": "6b79bacbde1b8849c8d0344e2a14294c231d40c724467cff8b4c38705dacf22c"
+        "reports": 27778,
+        "missingStations": [],
+        "sha256": "a483d1d1f2b935ca3e076961b15fae1eeef161bf4706afbda192745dd528ecaa"
       },
       {
         "stations": [
-          "MKT",
-          "RST",
-          "FRM",
-          "OTG",
-          "FAR"
-        ],
-        "reports": 14365,
-        "sha256": "e21463785416e0b2c3a552fb1324d10a3c4ad5e6518332a5ac96ccfc2783fae9"
-      },
-      {
-        "stations": [
-          "GFK",
-          "BIS",
-          "JMS",
-          "FSD",
-          "ABR"
-        ],
-        "reports": 14340,
-        "sha256": "4c97edf426376e00130fd29397113a4b38f6b8fd0aa9185dc6a5069457d20b8f"
-      },
-      {
-        "stations": [
+          "ALO",
+          "ANJ",
+          "ANQ",
+          "ANW",
+          "APN",
+          "ASE",
           "ATY",
-          "EAU",
-          "LSE",
-          "MCW",
-          "DSM"
+          "AXN",
+          "AXV",
+          "BAX"
         ],
-        "reports": 14323,
-        "sha256": "5a9d6280ff095c39af0bb67c77a702da4a2bea0e22c4dab6220981feaa5bc856"
+        "reports": 27889,
+        "missingStations": [],
+        "sha256": "428ffaca13ec94c30f0099e95703e5b41ca4733c7453fa89ec828cfa3ab20119"
+      },
+      {
+        "stations": [
+          "BBW",
+          "BHK",
+          "BIS",
+          "BIV",
+          "BJI",
+          "BKL",
+          "BMI",
+          "BRD",
+          "BVN",
+          "CHT"
+        ],
+        "reports": 26798,
+        "missingStations": [],
+        "sha256": "f52d4cead17d8f2dae2c474232d888baae2b2296d5c9117d08c20a78eeba8d94"
+      },
+      {
+        "stations": [
+          "CKB",
+          "CKC",
+          "CPR",
+          "CVG",
+          "CWA",
+          "D07",
+          "D09",
+          "D25",
+          "D50",
+          "D57"
+        ],
+        "reports": 27690,
+        "missingStations": [],
+        "sha256": "bc6f2813d32a8ef1891faab0842fd3d10279ca19fd0ad664dcbcac9db237ba38"
+      },
+      {
+        "stations": [
+          "DEH",
+          "DGW",
+          "DLH",
+          "DNS",
+          "DRM",
+          "DSM",
+          "DVL",
+          "DXX",
+          "EAU",
+          "ECS"
+        ],
+        "reports": 28323,
+        "missingStations": [],
+        "sha256": "c8bd08494bd530b1ea747fb0d1b73bed56d253abe022b9d1cc6b280f7781a6a3"
+      },
+      {
+        "stations": [
+          "EEO",
+          "EFT",
+          "ELO",
+          "ENW",
+          "EOP",
+          "ERI",
+          "ETH",
+          "FAR",
+          "FCM",
+          "FET"
+        ],
+        "reports": 28045,
+        "missingStations": [],
+        "sha256": "792ddf8aec672bf439c3d18a168bfcb88f86a6a7685a4c5f6e6e99e960650fb3"
+      },
+      {
+        "stations": [
+          "FEW",
+          "FFL",
+          "FGN",
+          "FOD",
+          "FOZ",
+          "FRI",
+          "FRM",
+          "FSD",
+          "GBG",
+          "GCC"
+        ],
+        "reports": 28361,
+        "missingStations": [],
+        "sha256": "fdf1a3a614b13b4074d313fd1bdee29043844a71b05d371866f98de6b4b51648"
+      },
+      {
+        "stations": [
+          "GDK",
+          "GDV",
+          "GFK",
+          "GGW",
+          "GUS",
+          "GWR",
+          "GYY",
+          "HCO",
+          "HDE",
+          "HEI"
+        ],
+        "reports": 28017,
+        "missingStations": [],
+        "sha256": "12467eeb5405a1d32c01f530d17f058b2c0bd98f376e278a5014c18b00cfd376"
+      },
+      {
+        "stations": [
+          "HFY",
+          "HIB",
+          "HJH",
+          "HTL",
+          "I63",
+          "ICR",
+          "IEN",
+          "IMT",
+          "INL",
+          "IRK"
+        ],
+        "reports": 27567,
+        "missingStations": [],
+        "sha256": "ed31209452528ba0bb1ee69543e204fa73b124dbe80c13d71018ff1beb2ebe81"
+      },
+      {
+        "stations": [
+          "ITR",
+          "JMS",
+          "JYR",
+          "K61",
+          "LBF",
+          "LCG",
+          "LDM",
+          "LIC",
+          "LMO",
+          "LNR"
+        ],
+        "reports": 25636,
+        "missingStations": [
+          "K61"
+        ],
+        "sha256": "7a76268d6f6c846e870244706e3a6f603141484234a836d743a3535ab715daf6"
+      },
+      {
+        "stations": [
+          "LRJ",
+          "LSE",
+          "LWC",
+          "LWD",
+          "M46",
+          "M75",
+          "MBG",
+          "MCW",
+          "MFD",
+          "MHE"
+        ],
+        "reports": 26504,
+        "missingStations": [],
+        "sha256": "f54447dcb7b3b90a680412a03a8af536c7bbd69bee054fa9eb5f0298c7bac454"
+      },
+      {
+        "stations": [
+          "MHL",
+          "MKT",
+          "MLS",
+          "MOP",
+          "MSP",
+          "MTC",
+          "MTW",
+          "MXO",
+          "MYJ",
+          "MYZ"
+        ],
+        "reports": 28157,
+        "missingStations": [],
+        "sha256": "69ada5467941f8ea5bfea2cb0c80f81a43dc2eea746d46b8d1cfcc7db197b968"
+      },
+      {
+        "stations": [
+          "OCQ",
+          "OEL",
+          "OGA",
+          "OIN",
+          "OLF",
+          "ONL",
+          "OTG",
+          "P53",
+          "P59",
+          "PHD"
+        ],
+        "reports": 28366,
+        "missingStations": [],
+        "sha256": "9f48d2c8e5fa179d8c1cc9a9a205878ddc9ed9bd949720e19f65a710e6b2db90"
+      },
+      {
+        "stations": [
+          "PHG",
+          "PHP",
+          "PJC",
+          "PKB",
+          "PRG",
+          "PWD",
+          "RCA",
+          "RCX",
+          "RIL",
+          "ROX"
+        ],
+        "reports": 26598,
+        "missingStations": [],
+        "sha256": "b8490b5f0299a2fe028e95a9b33fc21eef5f91ac4f25898a71410ddf5a0b64df"
+      },
+      {
+        "stations": [
+          "RPJ",
+          "RST",
+          "RSV",
+          "RWF",
+          "RZL",
+          "RZN",
+          "SAA",
+          "SBN",
+          "SDA",
+          "SDY"
+        ],
+        "reports": 28250,
+        "missingStations": [],
+        "sha256": "05b7b9fa8fef0f2d72706330bbc59dc547c957dbbd05bdb05d2501ef693eaa08"
+      },
+      {
+        "stations": [
+          "SFY",
+          "SHR",
+          "SJX",
+          "SPI",
+          "STC",
+          "STJ",
+          "SUO",
+          "TDZ",
+          "TEW",
+          "TIF"
+        ],
+        "reports": 27861,
+        "missingStations": [],
+        "sha256": "4cbe08fcb3a7b87200da9fc2a284889b66804210c5b76d72ca424e201d5443de"
+      },
+      {
+        "stations": [
+          "TOR",
+          "TVC",
+          "TVF",
+          "UNU",
+          "VTA",
+          "VWU",
+          "W43",
+          "WRL",
+          "Y50",
+          "YKN"
+        ],
+        "reports": 27165,
+        "missingStations": [],
+        "sha256": "7a27cbcee4838425e4e7b77c1b65598ecf1a7175a90609c7b8bd01f08ab078e1"
       }
     ],
     "reportType": "Routine METAR only",
@@ -96,104 +523,124 @@
       50,
       59
     ],
-    "reports": 71700
+    "reports": 490624
   },
-  "stationCount": 25,
+  "stationCount": 177,
+  "fitStationCount": 145,
+  "spatialHoldoutStations": [
+    "20V",
+    "ABR",
+    "ANQ",
+    "ATY",
+    "AXV",
+    "CWA",
+    "D50",
+    "DGW",
+    "DLH",
+    "DSM",
+    "EFT",
+    "ELO",
+    "FAR",
+    "HIB",
+    "HJH",
+    "I63",
+    "IRK",
+    "LDM",
+    "LSE",
+    "MHE",
+    "MKT",
+    "OEL",
+    "OGA",
+    "OLF",
+    "PRG",
+    "RCA",
+    "ROX",
+    "RST",
+    "RWF",
+    "SFY",
+    "TOR",
+    "TVC"
+  ],
   "stations": [
     {
-      "station": "MSP",
-      "lat": 44.8854,
-      "lon": -93.2313
+      "station": "00U",
+      "lat": 45.7444,
+      "lon": -107.6604
     },
     {
-      "station": "FCM",
-      "lat": 44.8261,
-      "lon": -93.4607
+      "station": "1HW",
+      "lat": 41.3251,
+      "lon": -102.8289
     },
     {
-      "station": "STC",
-      "lat": 45.5433,
-      "lon": -94.0513
+      "station": "1JN",
+      "lat": 48.41,
+      "lon": -101.89
     },
     {
-      "station": "AXN",
-      "lat": 45.8663,
-      "lon": -95.3947
+      "station": "20V",
+      "lat": 40.0537,
+      "lon": -106.3689
     },
     {
-      "station": "BRD",
-      "lat": 46.4047,
-      "lon": -94.1308
+      "station": "2P2",
+      "lat": 45.3883,
+      "lon": -86.924
     },
     {
-      "station": "BJI",
-      "lat": 47.5094,
-      "lon": -94.9337
+      "station": "2V6",
+      "lat": 40.1046,
+      "lon": -102.7128
     },
     {
-      "station": "INL",
-      "lat": 48.5595,
-      "lon": -93.3956
+      "station": "2WX",
+      "lat": 45.6044,
+      "lon": -103.5464
     },
     {
-      "station": "DLH",
-      "lat": 46.8421,
-      "lon": -92.1936
+      "station": "33V",
+      "lat": 40.7503,
+      "lon": -106.2715
     },
     {
-      "station": "HIB",
-      "lat": 47.3866,
-      "lon": -92.839
+      "station": "3LF",
+      "lat": 39.1625,
+      "lon": -89.6746
     },
     {
-      "station": "RWF",
-      "lat": 44.5469,
-      "lon": -95.082
+      "station": "3N8",
+      "lat": 47.2605,
+      "lon": -95.9281
     },
     {
-      "station": "MKT",
-      "lat": 44.22,
-      "lon": -93.92
+      "station": "4BM",
+      "lat": 39.05,
+      "lon": -105.514
     },
     {
-      "station": "RST",
-      "lat": 43.9041,
-      "lon": -92.4916
+      "station": "4R5",
+      "lat": 46.7887,
+      "lon": -90.7587
     },
     {
-      "station": "FRM",
-      "lat": 43.6439,
-      "lon": -94.4156
+      "station": "5H4",
+      "lat": 47.7912,
+      "lon": -99.9317
     },
     {
-      "station": "OTG",
-      "lat": 43.6551,
-      "lon": -95.5792
+      "station": "96D",
+      "lat": 48.9406,
+      "lon": -97.9028
     },
     {
-      "station": "FAR",
-      "lat": 46.9253,
-      "lon": -96.8111
+      "station": "98D",
+      "lat": 44.7014,
+      "lon": -100.1039
     },
     {
-      "station": "GFK",
-      "lat": 47.9492,
-      "lon": -97.1761
-    },
-    {
-      "station": "BIS",
-      "lat": 46.7727,
-      "lon": -100.7458
-    },
-    {
-      "station": "JMS",
-      "lat": 46.93,
-      "lon": -98.68
-    },
-    {
-      "station": "FSD",
-      "lat": 43.5769,
-      "lon": -96.7536
+      "station": "9Y1",
+      "lat": 47.3928,
+      "lon": -102.7707
     },
     {
       "station": "ABR",
@@ -201,9 +648,199 @@
       "lon": -98.42
     },
     {
+      "station": "AIA",
+      "lat": 42.0572,
+      "lon": -102.8
+    },
+    {
+      "station": "ALO",
+      "lat": 42.5544,
+      "lon": -92.4013
+    },
+    {
+      "station": "ANJ",
+      "lat": 46.4792,
+      "lon": -84.3684
+    },
+    {
+      "station": "ANQ",
+      "lat": 41.6397,
+      "lon": -85.0835
+    },
+    {
+      "station": "ANW",
+      "lat": 42.5792,
+      "lon": -99.993
+    },
+    {
+      "station": "APN",
+      "lat": 45.0717,
+      "lon": -83.5644
+    },
+    {
+      "station": "ASE",
+      "lat": 39.2232,
+      "lon": -106.8689
+    },
+    {
       "station": "ATY",
       "lat": 44.914,
       "lon": -97.1547
+    },
+    {
+      "station": "AXN",
+      "lat": 45.8663,
+      "lon": -95.3947
+    },
+    {
+      "station": "AXV",
+      "lat": 40.4934,
+      "lon": -84.2989
+    },
+    {
+      "station": "BAX",
+      "lat": 43.7802,
+      "lon": -82.9854
+    },
+    {
+      "station": "BBW",
+      "lat": 41.4365,
+      "lon": -99.6385
+    },
+    {
+      "station": "BHK",
+      "lat": 46.3476,
+      "lon": -104.2595
+    },
+    {
+      "station": "BIS",
+      "lat": 46.7727,
+      "lon": -100.7458
+    },
+    {
+      "station": "BIV",
+      "lat": 42.7461,
+      "lon": -86.0967
+    },
+    {
+      "station": "BJI",
+      "lat": 47.5094,
+      "lon": -94.9337
+    },
+    {
+      "station": "BKL",
+      "lat": 41.5175,
+      "lon": -81.6833
+    },
+    {
+      "station": "BMI",
+      "lat": 40.4771,
+      "lon": -88.9159
+    },
+    {
+      "station": "BRD",
+      "lat": 46.4047,
+      "lon": -94.1308
+    },
+    {
+      "station": "BVN",
+      "lat": 41.7286,
+      "lon": -98.0558
+    },
+    {
+      "station": "CHT",
+      "lat": 39.782,
+      "lon": -93.4962
+    },
+    {
+      "station": "CKB",
+      "lat": 39.2966,
+      "lon": -80.2281
+    },
+    {
+      "station": "CKC",
+      "lat": 47.8383,
+      "lon": -90.3829
+    },
+    {
+      "station": "CPR",
+      "lat": 42.908,
+      "lon": -106.4644
+    },
+    {
+      "station": "CVG",
+      "lat": 39.0431,
+      "lon": -84.6717
+    },
+    {
+      "station": "CWA",
+      "lat": 44.7776,
+      "lon": -89.6668
+    },
+    {
+      "station": "D07",
+      "lat": 45.03,
+      "lon": -102.02
+    },
+    {
+      "station": "D09",
+      "lat": 48.8305,
+      "lon": -100.4173
+    },
+    {
+      "station": "D25",
+      "lat": 46.1202,
+      "lon": -89.8822
+    },
+    {
+      "station": "D50",
+      "lat": 48.9285,
+      "lon": -103.2973
+    },
+    {
+      "station": "D57",
+      "lat": 46.8128,
+      "lon": -101.8602
+    },
+    {
+      "station": "DEH",
+      "lat": 43.2755,
+      "lon": -91.7433
+    },
+    {
+      "station": "DGW",
+      "lat": 42.7972,
+      "lon": -105.3858
+    },
+    {
+      "station": "DLH",
+      "lat": 46.8421,
+      "lon": -92.1936
+    },
+    {
+      "station": "DNS",
+      "lat": 41.9842,
+      "lon": -95.38
+    },
+    {
+      "station": "DRM",
+      "lat": 46.0093,
+      "lon": -83.7439
+    },
+    {
+      "station": "DSM",
+      "lat": 41.5339,
+      "lon": -93.6531
+    },
+    {
+      "station": "DVL",
+      "lat": 48.1146,
+      "lon": -98.9083
+    },
+    {
+      "station": "DXX",
+      "lat": 44.9864,
+      "lon": -96.1779
     },
     {
       "station": "EAU",
@@ -211,9 +848,289 @@
       "lon": -91.4843
     },
     {
+      "station": "ECS",
+      "lat": 43.8854,
+      "lon": -104.3179
+    },
+    {
+      "station": "EEO",
+      "lat": 40.0488,
+      "lon": -107.8859
+    },
+    {
+      "station": "EFT",
+      "lat": 42.6149,
+      "lon": -89.5904
+    },
+    {
+      "station": "ELO",
+      "lat": 47.8287,
+      "lon": -91.8371
+    },
+    {
+      "station": "ENW",
+      "lat": 42.595,
+      "lon": -87.9381
+    },
+    {
+      "station": "EOP",
+      "lat": 39.167,
+      "lon": -82.9283
+    },
+    {
+      "station": "ERI",
+      "lat": 42.08,
+      "lon": -80.18
+    },
+    {
+      "station": "ETH",
+      "lat": 45.7805,
+      "lon": -96.5435
+    },
+    {
+      "station": "FAR",
+      "lat": 46.9253,
+      "lon": -96.8111
+    },
+    {
+      "station": "FCM",
+      "lat": 44.8261,
+      "lon": -93.4607
+    },
+    {
+      "station": "FET",
+      "lat": 41.45,
+      "lon": -96.52
+    },
+    {
+      "station": "FEW",
+      "lat": 41.1333,
+      "lon": -104.8672
+    },
+    {
+      "station": "FFL",
+      "lat": 41.0521,
+      "lon": -91.9834
+    },
+    {
+      "station": "FGN",
+      "lat": 49.3183,
+      "lon": -94.9028
+    },
+    {
+      "station": "FOD",
+      "lat": 42.5497,
+      "lon": -94.2032
+    },
+    {
+      "station": "FOZ",
+      "lat": 47.7828,
+      "lon": -93.6502
+    },
+    {
+      "station": "FRI",
+      "lat": 39.0526,
+      "lon": -96.7645
+    },
+    {
+      "station": "FRM",
+      "lat": 43.6439,
+      "lon": -94.4156
+    },
+    {
+      "station": "FSD",
+      "lat": 43.5769,
+      "lon": -96.7536
+    },
+    {
+      "station": "GBG",
+      "lat": 40.938,
+      "lon": -90.4311
+    },
+    {
+      "station": "GCC",
+      "lat": 44.3489,
+      "lon": -105.5394
+    },
+    {
+      "station": "GDK",
+      "lat": 39.6907,
+      "lon": -83.9928
+    },
+    {
+      "station": "GDV",
+      "lat": 47.1387,
+      "lon": -104.8072
+    },
+    {
+      "station": "GFK",
+      "lat": 47.9492,
+      "lon": -97.1761
+    },
+    {
+      "station": "GGW",
+      "lat": 48.2138,
+      "lon": -106.6214
+    },
+    {
+      "station": "GUS",
+      "lat": 40.6481,
+      "lon": -86.1521
+    },
+    {
+      "station": "GWR",
+      "lat": 46.2187,
+      "lon": -97.6435
+    },
+    {
+      "station": "GYY",
+      "lat": 41.6163,
+      "lon": -87.4128
+    },
+    {
+      "station": "HCO",
+      "lat": 48.7527,
+      "lon": -96.943
+    },
+    {
+      "station": "HDE",
+      "lat": 40.4521,
+      "lon": -99.3365
+    },
+    {
+      "station": "HEI",
+      "lat": 46.0149,
+      "lon": -102.656
+    },
+    {
+      "station": "HFY",
+      "lat": 39.6276,
+      "lon": -86.088
+    },
+    {
+      "station": "HIB",
+      "lat": 47.3866,
+      "lon": -92.839
+    },
+    {
+      "station": "HJH",
+      "lat": 40.1523,
+      "lon": -97.587
+    },
+    {
+      "station": "HTL",
+      "lat": 44.3598,
+      "lon": -84.6711
+    },
+    {
+      "station": "I63",
+      "lat": 39.9875,
+      "lon": -90.8042
+    },
+    {
+      "station": "ICR",
+      "lat": 43.3903,
+      "lon": -99.8422
+    },
+    {
+      "station": "IEN",
+      "lat": 43.0225,
+      "lon": -102.511
+    },
+    {
+      "station": "IMT",
+      "lat": 45.8184,
+      "lon": -88.1146
+    },
+    {
+      "station": "INL",
+      "lat": 48.5595,
+      "lon": -93.3956
+    },
+    {
+      "station": "IRK",
+      "lat": 40.0972,
+      "lon": -92.5433
+    },
+    {
+      "station": "ITR",
+      "lat": 39.2425,
+      "lon": -102.2854
+    },
+    {
+      "station": "JMS",
+      "lat": 46.93,
+      "lon": -98.68
+    },
+    {
+      "station": "JYR",
+      "lat": 40.8967,
+      "lon": -97.6228
+    },
+    {
+      "station": "LBF",
+      "lat": 41.1219,
+      "lon": -100.669
+    },
+    {
+      "station": "LCG",
+      "lat": 42.2419,
+      "lon": -96.9814
+    },
+    {
+      "station": "LDM",
+      "lat": 43.9625,
+      "lon": -86.4079
+    },
+    {
+      "station": "LIC",
+      "lat": 39.2748,
+      "lon": -103.6659
+    },
+    {
+      "station": "LMO",
+      "lat": 40.1637,
+      "lon": -105.163
+    },
+    {
+      "station": "LNR",
+      "lat": 43.2119,
+      "lon": -90.1798
+    },
+    {
+      "station": "LRJ",
+      "lat": 42.7771,
+      "lon": -96.195
+    },
+    {
       "station": "LSE",
       "lat": 43.8792,
       "lon": -91.253
+    },
+    {
+      "station": "LWC",
+      "lat": 39.0077,
+      "lon": -95.2115
+    },
+    {
+      "station": "LWD",
+      "lat": 40.6306,
+      "lon": -93.9005
+    },
+    {
+      "station": "M46",
+      "lat": 45.8528,
+      "lon": -106.7093
+    },
+    {
+      "station": "M75",
+      "lat": 48.3689,
+      "lon": -107.9179
+    },
+    {
+      "station": "MBG",
+      "lat": 45.5464,
+      "lon": -100.4078
     },
     {
       "station": "MCW",
@@ -221,12 +1138,317 @@
       "lon": -93.3261
     },
     {
-      "station": "DSM",
-      "lat": 41.5339,
-      "lon": -93.6531
+      "station": "MFD",
+      "lat": 40.82,
+      "lon": -82.52
+    },
+    {
+      "station": "MHE",
+      "lat": 43.7748,
+      "lon": -98.0386
+    },
+    {
+      "station": "MHL",
+      "lat": 39.0955,
+      "lon": -93.2028
+    },
+    {
+      "station": "MKT",
+      "lat": 44.22,
+      "lon": -93.92
+    },
+    {
+      "station": "MLS",
+      "lat": 46.428,
+      "lon": -105.8863
+    },
+    {
+      "station": "MOP",
+      "lat": 43.6217,
+      "lon": -84.7372
+    },
+    {
+      "station": "MSP",
+      "lat": 44.8854,
+      "lon": -93.2313
+    },
+    {
+      "station": "MTC",
+      "lat": 42.6083,
+      "lon": -82.8355
+    },
+    {
+      "station": "MTW",
+      "lat": 44.1288,
+      "lon": -87.6806
+    },
+    {
+      "station": "MXO",
+      "lat": 42.2204,
+      "lon": -91.1605
+    },
+    {
+      "station": "MYJ",
+      "lat": 39.1575,
+      "lon": -91.8183
+    },
+    {
+      "station": "MYZ",
+      "lat": 39.8553,
+      "lon": -96.6306
+    },
+    {
+      "station": "OCQ",
+      "lat": 44.8742,
+      "lon": -87.9096
+    },
+    {
+      "station": "OEL",
+      "lat": 39.1017,
+      "lon": -100.8166
+    },
+    {
+      "station": "OGA",
+      "lat": 41.1195,
+      "lon": -101.7697
+    },
+    {
+      "station": "OIN",
+      "lat": 39.8339,
+      "lon": -100.5393
+    },
+    {
+      "station": "OLF",
+      "lat": 48.0945,
+      "lon": -105.5751
+    },
+    {
+      "station": "ONL",
+      "lat": 42.4697,
+      "lon": -98.6881
+    },
+    {
+      "station": "OTG",
+      "lat": 43.6551,
+      "lon": -95.5792
+    },
+    {
+      "station": "P53",
+      "lat": 46.4119,
+      "lon": -86.6508
+    },
+    {
+      "station": "P59",
+      "lat": 47.4674,
+      "lon": -87.8751
+    },
+    {
+      "station": "PHD",
+      "lat": 40.4719,
+      "lon": -81.4236
+    },
+    {
+      "station": "PHG",
+      "lat": 39.7358,
+      "lon": -99.3171
+    },
+    {
+      "station": "PHP",
+      "lat": 44.05,
+      "lon": -101.6
+    },
+    {
+      "station": "PJC",
+      "lat": 40.8009,
+      "lon": -80.1624
+    },
+    {
+      "station": "PKB",
+      "lat": 39.3395,
+      "lon": -81.4438
+    },
+    {
+      "station": "PRG",
+      "lat": 39.7,
+      "lon": -87.67
+    },
+    {
+      "station": "PWD",
+      "lat": 48.7886,
+      "lon": -104.5232
+    },
+    {
+      "station": "RCA",
+      "lat": 44.1451,
+      "lon": -103.1036
+    },
+    {
+      "station": "RCX",
+      "lat": 45.4968,
+      "lon": -91.0005
+    },
+    {
+      "station": "RIL",
+      "lat": 39.5263,
+      "lon": -107.7269
+    },
+    {
+      "station": "ROX",
+      "lat": 48.856,
+      "lon": -95.6971
+    },
+    {
+      "station": "RPJ",
+      "lat": 41.893,
+      "lon": -89.0783
+    },
+    {
+      "station": "RST",
+      "lat": 43.9041,
+      "lon": -92.4916
+    },
+    {
+      "station": "RSV",
+      "lat": 39.016,
+      "lon": -87.6498
+    },
+    {
+      "station": "RWF",
+      "lat": 44.5469,
+      "lon": -95.082
+    },
+    {
+      "station": "RZL",
+      "lat": 40.9479,
+      "lon": -87.1826
+    },
+    {
+      "station": "RZN",
+      "lat": 45.8227,
+      "lon": -92.3725
+    },
+    {
+      "station": "SAA",
+      "lat": 41.4435,
+      "lon": -106.8275
+    },
+    {
+      "station": "SBN",
+      "lat": 41.7072,
+      "lon": -86.3164
+    },
+    {
+      "station": "SDA",
+      "lat": 40.7533,
+      "lon": -95.4112
+    },
+    {
+      "station": "SDY",
+      "lat": 47.7069,
+      "lon": -104.1926
+    },
+    {
+      "station": "SFY",
+      "lat": 42.0458,
+      "lon": -90.1079
+    },
+    {
+      "station": "SHR",
+      "lat": 44.77,
+      "lon": -106.97
+    },
+    {
+      "station": "SJX",
+      "lat": 45.6923,
+      "lon": -85.5666
+    },
+    {
+      "station": "SPI",
+      "lat": 39.8447,
+      "lon": -89.6839
+    },
+    {
+      "station": "STC",
+      "lat": 45.5433,
+      "lon": -94.0513
+    },
+    {
+      "station": "STJ",
+      "lat": 39.7719,
+      "lon": -94.9097
+    },
+    {
+      "station": "SUO",
+      "lat": 43.2585,
+      "lon": -100.8595
+    },
+    {
+      "station": "TDZ",
+      "lat": 41.5631,
+      "lon": -83.4764
+    },
+    {
+      "station": "TEW",
+      "lat": 42.5658,
+      "lon": -84.4232
+    },
+    {
+      "station": "TIF",
+      "lat": 41.9622,
+      "lon": -100.569
+    },
+    {
+      "station": "TOR",
+      "lat": 42.0647,
+      "lon": -104.1528
+    },
+    {
+      "station": "TVC",
+      "lat": 44.7416,
+      "lon": -85.5824
+    },
+    {
+      "station": "TVF",
+      "lat": 48.0657,
+      "lon": -96.185
+    },
+    {
+      "station": "UNU",
+      "lat": 43.4265,
+      "lon": -88.7038
+    },
+    {
+      "station": "VTA",
+      "lat": 40.0247,
+      "lon": -82.4618
+    },
+    {
+      "station": "VWU",
+      "lat": 48.1539,
+      "lon": -94.5167
+    },
+    {
+      "station": "W43",
+      "lat": 44.6629,
+      "lon": -104.5678
+    },
+    {
+      "station": "WRL",
+      "lat": 43.9657,
+      "lon": -107.9508
+    },
+    {
+      "station": "Y50",
+      "lat": 44.0416,
+      "lon": -89.3045
+    },
+    {
+      "station": "YKN",
+      "lat": 42.9167,
+      "lon": -97.3859
     }
   ],
-  "featureVersion": "airport-features-v1",
+  "featureVersion": "airport-features-v2",
   "features": [
     "tempF_lag0",
     "dewpointF_lag0",
@@ -266,137 +1488,524 @@
     "seasonSin",
     "seasonCos",
     "lat",
-    "lon"
+    "lon",
+    "leadHours"
   ],
   "horizons": [
     1,
+    2,
     3,
+    4,
+    5,
     6,
+    7,
+    8,
+    9,
+    10,
+    11,
     12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
     24
   ],
+  "regionBounds": [
+    [
+      39,
+      -108
+    ],
+    [
+      51,
+      -80
+    ]
+  ],
+  "forecastNetwork": "All eligible live airport METARs within the observation region",
   "fitEndExclusive": "2026-09-16T01:00:00Z",
   "validationStart": "2026-09-16T01:00:00Z",
   "testStart": "2026-10-01T01:00:00Z",
   "testEnd": "2026-10-16T00:00:00Z",
-  "splitMethod": "Chronological 75% fit / 12.5% selection / 12.5% test; labels embargoed at each boundary",
+  "splitMethod": "Chronological 75% fit / 12.5% selection / 12.5% test; labels embargoed at boundaries; a geographic station group excluded from fitting and blend selection",
   "scores": [
     {
       "leadHours": 1,
       "forecast": {
         "tempF": {
-          "mae": 1.546,
-          "count": 8932,
+          "mae": 1.966,
+          "count": 60707,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 1.015,
-          "count": 8930,
+          "mae": 1.1,
+          "count": 60536,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 3.142,
-          "count": 8574,
+          "mae": 3.34,
+          "count": 58454,
           "unit": "mph vector error",
-          "speedMae": 2.155
+          "speedMae": 2.257
         }
       },
       "persistence": {
         "tempF": {
-          "mae": 1.899,
-          "count": 8932,
+          "mae": 2.079,
+          "count": 60707,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 1.016,
-          "count": 8930,
+          "mae": 1.099,
+          "count": 60536,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 3.332,
-          "count": 8574,
+          "mae": 3.38,
+          "count": 58454,
           "unit": "mph vector error",
-          "speedMae": 2.161
+          "speedMae": 2.242
         }
       },
       "rawModel": {
         "tempF": {
-          "mae": 1.464,
-          "count": 8932,
+          "mae": 3.067,
+          "count": 60707,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 1.063,
-          "count": 8930,
+          "mae": 2.267,
+          "count": 60536,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 3.142,
-          "count": 8574,
+          "mae": 4.317,
+          "count": 58454,
           "unit": "mph vector error",
-          "speedMae": 2.155
+          "speedMae": 2.94
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 1.972,
+          "count": 10953,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.09,
+          "count": 10939,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 3.357,
+          "count": 10578,
+          "unit": "mph vector error",
+          "speedMae": 2.246
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.25,
+        "dewpointF": 0.0,
+        "wind": 0.25
+      }
+    },
+    {
+      "leadHours": 2,
+      "forecast": {
+        "tempF": {
+          "mae": 3.117,
+          "count": 60390,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.745,
+          "count": 60215,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.148,
+          "count": 58063,
+          "unit": "mph vector error",
+          "speedMae": 2.782
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 3.777,
+          "count": 60390,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.748,
+          "count": 60215,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.311,
+          "count": 58063,
+          "unit": "mph vector error",
+          "speedMae": 2.856
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 3.444,
+          "count": 60390,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.456,
+          "count": 60215,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.667,
+          "count": 58063,
+          "unit": "mph vector error",
+          "speedMae": 3.148
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 3.124,
+          "count": 10896,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.73,
+          "count": 10885,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.162,
+          "count": 10505,
+          "unit": "mph vector error",
+          "speedMae": 2.76
         }
       },
       "modelWeight": {
         "tempF": 0.5,
         "dewpointF": 0.0,
-        "wind": 1.0
+        "wind": 0.25
       }
     },
     {
       "leadHours": 3,
       "forecast": {
         "tempF": {
-          "mae": 3.441,
-          "count": 8877,
+          "mae": 3.867,
+          "count": 60160,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 1.992,
-          "count": 8875,
+          "mae": 2.209,
+          "count": 59973,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 4.442,
-          "count": 8502,
+          "mae": 4.703,
+          "count": 57778,
           "unit": "mph vector error",
-          "speedMae": 3.015
+          "speedMae": 3.17
         }
       },
       "persistence": {
         "tempF": {
-          "mae": 4.937,
-          "count": 8877,
+          "mae": 5.39,
+          "count": 60160,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 2.157,
-          "count": 8875,
+          "mae": 2.284,
+          "count": 59973,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 4.988,
-          "count": 8502,
+          "mae": 5.059,
+          "count": 57778,
           "unit": "mph vector error",
-          "speedMae": 3.282
+          "speedMae": 3.341
         }
       },
       "rawModel": {
         "tempF": {
-          "mae": 3.301,
-          "count": 8877,
+          "mae": 3.92,
+          "count": 60160,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 2.028,
-          "count": 8875,
+          "mae": 2.644,
+          "count": 59973,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 4.434,
-          "count": 8502,
+          "mae": 5.015,
+          "count": 57778,
           "unit": "mph vector error",
-          "speedMae": 3.053
+          "speedMae": 3.386
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 3.87,
+          "count": 10858,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.171,
+          "count": 10846,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.715,
+          "count": 10458,
+          "unit": "mph vector error",
+          "speedMae": 3.156
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.25,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 4,
+      "forecast": {
+        "tempF": {
+          "mae": 4.518,
+          "count": 60001,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.557,
+          "count": 59815,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.175,
+          "count": 57598,
+          "unit": "mph vector error",
+          "speedMae": 3.464
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 6.904,
+          "count": 60001,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.727,
+          "count": 59815,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.708,
+          "count": 57598,
+          "unit": "mph vector error",
+          "speedMae": 3.759
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 4.37,
+          "count": 60001,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.845,
+          "count": 59815,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.327,
+          "count": 57598,
+          "unit": "mph vector error",
+          "speedMae": 3.59
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 4.535,
+          "count": 10824,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.519,
+          "count": 10811,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.167,
+          "count": 10425,
+          "unit": "mph vector error",
+          "speedMae": 3.432
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 5,
+      "forecast": {
+        "tempF": {
+          "mae": 5.077,
+          "count": 59789,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.83,
+          "count": 59598,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.576,
+          "count": 57357,
+          "unit": "mph vector error",
+          "speedMae": 3.726
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 8.289,
+          "count": 59789,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.1,
+          "count": 59598,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.289,
+          "count": 57357,
+          "unit": "mph vector error",
+          "speedMae": 4.117
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 4.765,
+          "count": 59789,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.013,
+          "count": 59598,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.654,
+          "count": 57357,
+          "unit": "mph vector error",
+          "speedMae": 3.838
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 5.097,
+          "count": 10787,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.792,
+          "count": 10774,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.559,
+          "count": 10377,
+          "unit": "mph vector error",
+          "speedMae": 3.7
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 6,
+      "forecast": {
+        "tempF": {
+          "mae": 5.569,
+          "count": 59600,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.063,
+          "count": 59404,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.823,
+          "count": 57134,
+          "unit": "mph vector error",
+          "speedMae": 3.939
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 9.537,
+          "count": 59600,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.408,
+          "count": 59404,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.816,
+          "count": 57134,
+          "unit": "mph vector error",
+          "speedMae": 4.449
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.097,
+          "count": 59600,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.194,
+          "count": 59404,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.943,
+          "count": 57134,
+          "unit": "mph vector error",
+          "speedMae": 4.029
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 5.604,
+          "count": 10753,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.024,
+          "count": 10740,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.817,
+          "count": 10338,
+          "unit": "mph vector error",
+          "speedMae": 3.936
         }
       },
       "modelWeight": {
@@ -406,59 +2015,397 @@
       }
     },
     {
-      "leadHours": 6,
+      "leadHours": 7,
       "forecast": {
         "tempF": {
-          "mae": 5.412,
-          "count": 8800,
+          "mae": 5.945,
+          "count": 59382,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 2.935,
-          "count": 8798,
+          "mae": 3.253,
+          "count": 59180,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 5.928,
-          "count": 8408,
+          "mae": 6.094,
+          "count": 56905,
           "unit": "mph vector error",
-          "speedMae": 3.878
+          "speedMae": 4.134
         }
       },
       "persistence": {
         "tempF": {
-          "mae": 8.699,
-          "count": 8800,
+          "mae": 10.619,
+          "count": 59382,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 3.322,
-          "count": 8798,
+          "mae": 3.663,
+          "count": 59180,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 6.843,
-          "count": 8408,
+          "mae": 7.296,
+          "count": 56905,
           "unit": "mph vector error",
-          "speedMae": 4.485
+          "speedMae": 4.732
         }
       },
       "rawModel": {
         "tempF": {
-          "mae": 4.987,
-          "count": 8800,
+          "mae": 5.342,
+          "count": 59382,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 2.952,
-          "count": 8798,
+          "mae": 3.331,
+          "count": 59180,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 5.769,
-          "count": 8408,
+          "mae": 6.227,
+          "count": 56905,
           "unit": "mph vector error",
-          "speedMae": 3.818
+          "speedMae": 4.238
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 5.987,
+          "count": 10715,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.21,
+          "count": 10705,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.075,
+          "count": 10296,
+          "unit": "mph vector error",
+          "speedMae": 4.121
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.75
+      }
+    },
+    {
+      "leadHours": 8,
+      "forecast": {
+        "tempF": {
+          "mae": 6.206,
+          "count": 59238,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.428,
+          "count": 59035,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.314,
+          "count": 56745,
+          "unit": "mph vector error",
+          "speedMae": 4.25
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 11.524,
+          "count": 59238,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.876,
+          "count": 59035,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.722,
+          "count": 56745,
+          "unit": "mph vector error",
+          "speedMae": 4.98
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.499,
+          "count": 59238,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.472,
+          "count": 59035,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.43,
+          "count": 56745,
+          "unit": "mph vector error",
+          "speedMae": 4.316
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.249,
+          "count": 10690,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.382,
+          "count": 10678,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.299,
+          "count": 10268,
+          "unit": "mph vector error",
+          "speedMae": 4.244
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.75
+      }
+    },
+    {
+      "leadHours": 9,
+      "forecast": {
+        "tempF": {
+          "mae": 6.438,
+          "count": 59053,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.579,
+          "count": 58846,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.492,
+          "count": 56555,
+          "unit": "mph vector error",
+          "speedMae": 4.387
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 12.231,
+          "count": 59053,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.062,
+          "count": 58846,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.076,
+          "count": 56555,
+          "unit": "mph vector error",
+          "speedMae": 5.153
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.647,
+          "count": 59053,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.662,
+          "count": 58846,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.635,
+          "count": 56555,
+          "unit": "mph vector error",
+          "speedMae": 4.44
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.472,
+          "count": 10662,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.533,
+          "count": 10649,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.494,
+          "count": 10240,
+          "unit": "mph vector error",
+          "speedMae": 4.397
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.75
+      }
+    },
+    {
+      "leadHours": 10,
+      "forecast": {
+        "tempF": {
+          "mae": 6.633,
+          "count": 58892,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.727,
+          "count": 58682,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.65,
+          "count": 56403,
+          "unit": "mph vector error",
+          "speedMae": 4.468
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 12.743,
+          "count": 58892,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.242,
+          "count": 58682,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.394,
+          "count": 56403,
+          "unit": "mph vector error",
+          "speedMae": 5.299
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.811,
+          "count": 58892,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.842,
+          "count": 58682,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.798,
+          "count": 56403,
+          "unit": "mph vector error",
+          "speedMae": 4.505
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.648,
+          "count": 10628,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.675,
+          "count": 10617,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.655,
+          "count": 10209,
+          "unit": "mph vector error",
+          "speedMae": 4.477
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.75
+      }
+    },
+    {
+      "leadHours": 11,
+      "forecast": {
+        "tempF": {
+          "mae": 6.725,
+          "count": 58666,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.875,
+          "count": 58450,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.058,
+          "count": 56177,
+          "unit": "mph vector error",
+          "speedMae": 4.599
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 13.079,
+          "count": 58666,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.422,
+          "count": 58450,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.673,
+          "count": 56177,
+          "unit": "mph vector error",
+          "speedMae": 5.394
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.861,
+          "count": 58666,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.05,
+          "count": 58450,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.983,
+          "count": 56177,
+          "unit": "mph vector error",
+          "speedMae": 4.544
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.734,
+          "count": 10588,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.824,
+          "count": 10575,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.049,
+          "count": 10168,
+          "unit": "mph vector error",
+          "speedMae": 4.592
         }
       },
       "modelWeight": {
@@ -471,56 +2418,74 @@
       "leadHours": 12,
       "forecast": {
         "tempF": {
-          "mae": 6.903,
-          "count": 8646,
+          "mae": 6.802,
+          "count": 58499,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 3.963,
-          "count": 8644,
+          "mae": 4.017,
+          "count": 58285,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 7.601,
-          "count": 8253,
+          "mae": 7.222,
+          "count": 56009,
           "unit": "mph vector error",
-          "speedMae": 4.786
+          "speedMae": 4.653
         }
       },
       "persistence": {
         "tempF": {
-          "mae": 12.004,
-          "count": 8646,
+          "mae": 13.247,
+          "count": 58499,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 4.651,
-          "count": 8644,
+          "mae": 4.599,
+          "count": 58285,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 9.317,
-          "count": 8253,
+          "mae": 8.925,
+          "count": 56009,
           "unit": "mph vector error",
-          "speedMae": 5.681
+          "speedMae": 5.481
         }
       },
       "rawModel": {
         "tempF": {
-          "mae": 5.946,
-          "count": 8646,
+          "mae": 5.939,
+          "count": 58499,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 3.935,
-          "count": 8644,
+          "mae": 4.16,
+          "count": 58285,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 7.583,
-          "count": 8253,
+          "mae": 7.141,
+          "count": 56009,
           "unit": "mph vector error",
-          "speedMae": 4.647
+          "speedMae": 4.573
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.801,
+          "count": 10557,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.977,
+          "count": 10546,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.222,
+          "count": 10138,
+          "unit": "mph vector error",
+          "speedMae": 4.643
         }
       },
       "modelWeight": {
@@ -530,76 +2495,980 @@
       }
     },
     {
-      "leadHours": 24,
+      "leadHours": 13,
       "forecast": {
         "tempF": {
-          "mae": 6.593,
-          "count": 8347,
+          "mae": 6.762,
+          "count": 58278,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 5.127,
-          "count": 8345,
+          "mae": 4.151,
+          "count": 58062,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 9.642,
-          "count": 7965,
+          "mae": 7.361,
+          "count": 55786,
           "unit": "mph vector error",
-          "speedMae": 5.129
+          "speedMae": 4.72
         }
       },
       "persistence": {
         "tempF": {
-          "mae": 7.002,
-          "count": 8347,
+          "mae": 13.254,
+          "count": 58278,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 6.185,
-          "count": 8345,
+          "mae": 4.773,
+          "count": 58062,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 11.608,
-          "count": 7965,
+          "mae": 9.17,
+          "count": 55786,
           "unit": "mph vector error",
-          "speedMae": 5.541
+          "speedMae": 5.553
         }
       },
       "rawModel": {
         "tempF": {
-          "mae": 6.162,
-          "count": 8347,
+          "mae": 5.875,
+          "count": 58278,
           "unit": "\u00b0F"
         },
         "dewpointF": {
-          "mae": 5.437,
-          "count": 8345,
+          "mae": 4.321,
+          "count": 58062,
           "unit": "\u00b0F"
         },
         "wind": {
-          "mae": 8.738,
-          "count": 7965,
+          "mae": 7.274,
+          "count": 55786,
+          "unit": "mph vector error",
+          "speedMae": 4.607
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.766,
+          "count": 10515,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.106,
+          "count": 10503,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.355,
+          "count": 10101,
+          "unit": "mph vector error",
+          "speedMae": 4.709
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 14,
+      "forecast": {
+        "tempF": {
+          "mae": 6.81,
+          "count": 58108,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.278,
+          "count": 57894,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.495,
+          "count": 55616,
+          "unit": "mph vector error",
+          "speedMae": 4.779
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 13.11,
+          "count": 58108,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.947,
+          "count": 57894,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.397,
+          "count": 55616,
+          "unit": "mph vector error",
+          "speedMae": 5.611
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.941,
+          "count": 58108,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.398,
+          "count": 57894,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.371,
+          "count": 55616,
+          "unit": "mph vector error",
+          "speedMae": 4.64
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.807,
+          "count": 10483,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.229,
+          "count": 10472,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.505,
+          "count": 10068,
+          "unit": "mph vector error",
+          "speedMae": 4.78
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 15,
+      "forecast": {
+        "tempF": {
+          "mae": 6.818,
+          "count": 57907,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.41,
+          "count": 57699,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.596,
+          "count": 55412,
+          "unit": "mph vector error",
+          "speedMae": 4.826
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 12.8,
+          "count": 57907,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.123,
+          "count": 57699,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.576,
+          "count": 55412,
+          "unit": "mph vector error",
+          "speedMae": 5.628
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.002,
+          "count": 57907,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.513,
+          "count": 57699,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.483,
+          "count": 55412,
+          "unit": "mph vector error",
+          "speedMae": 4.684
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.82,
+          "count": 10450,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.357,
+          "count": 10438,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.621,
+          "count": 10029,
+          "unit": "mph vector error",
+          "speedMae": 4.839
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 16,
+      "forecast": {
+        "tempF": {
+          "mae": 6.779,
+          "count": 57737,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.534,
+          "count": 57533,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.678,
+          "count": 55245,
+          "unit": "mph vector error",
+          "speedMae": 4.865
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 12.318,
+          "count": 57737,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.287,
+          "count": 57533,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.728,
+          "count": 55245,
+          "unit": "mph vector error",
+          "speedMae": 5.609
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.045,
+          "count": 57737,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.587,
+          "count": 57533,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.597,
+          "count": 55245,
+          "unit": "mph vector error",
+          "speedMae": 4.726
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.783,
+          "count": 10417,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.481,
+          "count": 10404,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.737,
+          "count": 9995,
+          "unit": "mph vector error",
+          "speedMae": 4.907
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 17,
+      "forecast": {
+        "tempF": {
+          "mae": 6.71,
+          "count": 57559,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.658,
+          "count": 57360,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.744,
+          "count": 55091,
+          "unit": "mph vector error",
+          "speedMae": 4.865
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 11.668,
+          "count": 57559,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.438,
+          "count": 57360,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.847,
+          "count": 55091,
+          "unit": "mph vector error",
+          "speedMae": 5.553
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.087,
+          "count": 57559,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.702,
+          "count": 57360,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.662,
+          "count": 55091,
           "unit": "mph vector error",
           "speedMae": 4.752
         }
       },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.703,
+          "count": 10386,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.605,
+          "count": 10376,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.814,
+          "count": 9971,
+          "unit": "mph vector error",
+          "speedMae": 4.909
+        }
+      },
       "modelWeight": {
-        "tempF": 0.25,
+        "tempF": 0.75,
         "dewpointF": 0.5,
-        "wind": 0.25
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 18,
+      "forecast": {
+        "tempF": {
+          "mae": 6.603,
+          "count": 57404,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.756,
+          "count": 57197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.806,
+          "count": 54955,
+          "unit": "mph vector error",
+          "speedMae": 4.848
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 10.896,
+          "count": 57404,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.562,
+          "count": 57197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.943,
+          "count": 54955,
+          "unit": "mph vector error",
+          "speedMae": 5.467
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.1,
+          "count": 57404,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.807,
+          "count": 57197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.684,
+          "count": 54955,
+          "unit": "mph vector error",
+          "speedMae": 4.762
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.603,
+          "count": 10357,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.708,
+          "count": 10344,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.884,
+          "count": 9945,
+          "unit": "mph vector error",
+          "speedMae": 4.895
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 19,
+      "forecast": {
+        "tempF": {
+          "mae": 6.457,
+          "count": 57228,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.844,
+          "count": 57023,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.862,
+          "count": 54820,
+          "unit": "mph vector error",
+          "speedMae": 4.811
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 10.032,
+          "count": 57228,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.664,
+          "count": 57023,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.023,
+          "count": 54820,
+          "unit": "mph vector error",
+          "speedMae": 5.375
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.081,
+          "count": 57228,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.85,
+          "count": 57023,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.698,
+          "count": 54820,
+          "unit": "mph vector error",
+          "speedMae": 4.76
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.447,
+          "count": 10324,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.801,
+          "count": 10312,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.952,
+          "count": 9921,
+          "unit": "mph vector error",
+          "speedMae": 4.868
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 20,
+      "forecast": {
+        "tempF": {
+          "mae": 6.311,
+          "count": 57076,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.933,
+          "count": 56874,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.9,
+          "count": 54678,
+          "unit": "mph vector error",
+          "speedMae": 4.765
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 9.121,
+          "count": 57076,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.739,
+          "count": 56874,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.076,
+          "count": 54678,
+          "unit": "mph vector error",
+          "speedMae": 5.265
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.04,
+          "count": 57076,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.015,
+          "count": 56874,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.713,
+          "count": 54678,
+          "unit": "mph vector error",
+          "speedMae": 4.757
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.302,
+          "count": 10297,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.895,
+          "count": 10284,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.01,
+          "count": 9895,
+          "unit": "mph vector error",
+          "speedMae": 4.848
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 21,
+      "forecast": {
+        "tempF": {
+          "mae": 6.145,
+          "count": 56897,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.003,
+          "count": 56701,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.947,
+          "count": 54523,
+          "unit": "mph vector error",
+          "speedMae": 4.721
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 8.216,
+          "count": 56897,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.798,
+          "count": 56701,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.128,
+          "count": 54523,
+          "unit": "mph vector error",
+          "speedMae": 5.161
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.017,
+          "count": 56897,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.061,
+          "count": 56701,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.714,
+          "count": 54523,
+          "unit": "mph vector error",
+          "speedMae": 4.75
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.131,
+          "count": 10268,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.967,
+          "count": 10258,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.064,
+          "count": 9872,
+          "unit": "mph vector error",
+          "speedMae": 4.803
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 22,
+      "forecast": {
+        "tempF": {
+          "mae": 5.998,
+          "count": 56721,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.067,
+          "count": 56527,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.982,
+          "count": 54362,
+          "unit": "mph vector error",
+          "speedMae": 4.673
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 7.385,
+          "count": 56721,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.846,
+          "count": 56527,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.17,
+          "count": 54362,
+          "unit": "mph vector error",
+          "speedMae": 5.058
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.995,
+          "count": 56721,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.103,
+          "count": 56527,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.709,
+          "count": 54362,
+          "unit": "mph vector error",
+          "speedMae": 4.736
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 5.984,
+          "count": 10232,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.037,
+          "count": 10220,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.1,
+          "count": 9839,
+          "unit": "mph vector error",
+          "speedMae": 4.74
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 23,
+      "forecast": {
+        "tempF": {
+          "mae": 5.994,
+          "count": 56521,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.133,
+          "count": 56325,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.044,
+          "count": 54172,
+          "unit": "mph vector error",
+          "speedMae": 4.641
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 6.745,
+          "count": 56521,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.901,
+          "count": 56325,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.241,
+          "count": 54172,
+          "unit": "mph vector error",
+          "speedMae": 4.966
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.983,
+          "count": 56521,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.145,
+          "count": 56325,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.72,
+          "count": 54172,
+          "unit": "mph vector error",
+          "speedMae": 4.734
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.019,
+          "count": 10197,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.116,
+          "count": 10184,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.143,
+          "count": 9810,
+          "unit": "mph vector error",
+          "speedMae": 4.696
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.5,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 24,
+      "forecast": {
+        "tempF": {
+          "mae": 5.997,
+          "count": 56387,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.206,
+          "count": 56197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.133,
+          "count": 54052,
+          "unit": "mph vector error",
+          "speedMae": 4.628
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 6.541,
+          "count": 56387,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.983,
+          "count": 56197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 10.357,
+          "count": 54052,
+          "unit": "mph vector error",
+          "speedMae": 4.939
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.051,
+          "count": 56387,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.186,
+          "count": 56197,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.745,
+          "count": 54052,
+          "unit": "mph vector error",
+          "speedMae": 4.73
+        }
+      },
+      "spatialHoldout": {
+        "tempF": {
+          "mae": 6.021,
+          "count": 10167,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.189,
+          "count": 10155,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.257,
+          "count": 9776,
+          "unit": "mph vector error",
+          "speedMae": 4.711
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.5,
+        "dewpointF": 0.5,
+        "wind": 0.5
       }
     }
   ],
-  "algorithm": "Histogram gradient boosted trees predicting changes in temperature, dew point, and vector wind",
+  "algorithm": "Four pooled histogram gradient boosted models conditioned on forecast hour; predict temperature, dew point and vector-wind changes",
+  "trainingSamplesPerTarget": [
+    192000,
+    192000,
+    192000,
+    192000
+  ],
   "baseline": "Persistence: conditions remain at their issue-time values",
-  "selection": "Blend weights selected on validation dates only; held-out test never selects weights",
+  "selection": "Hourly blend weights selected on validation dates only; held-out dates and geographic stations never select weights",
   "inputs": [
     "Official routine airport METARs",
     "Recent local and nearby-airport history",
     "Altimeter pressure trends",
-    "Time of day, season and coordinates"
+    "Time of day, season, coordinates and forecast hour"
   ],
   "excludedInputs": [
     "Radar",
@@ -609,7 +3478,8 @@
   ],
   "limitations": [
     "Experimental surface-only forecasts; not official NWS guidance",
-    "Sparse airport network provides coarse spatial detail; interpolation adds no observations",
+    "Regional training uses a geographically balanced subset; predictions at other airports generalize the pooled model",
+    "Interpolation adds no observations; empty source areas and unsupported edges can remain blank",
     "Short training history does not cover all seasons; 12\u201324 h predictions can miss approaching systems",
     "Archive quality checks cover ranges, times and dew point consistency, not complete instrument QC",
     "Historical reports can include corrections unavailable at original issue time; prospective verification is still required"
@@ -618,5 +3488,5 @@
     "scikit-learn": "1.8.0",
     "numpy": "2.3.5"
   },
-  "modelId": "169dfc70c836a75c"
+  "modelId": "d0b1c481fa7bc2e4"
 }

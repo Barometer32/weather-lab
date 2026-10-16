@@ -8,7 +8,7 @@ window.WeatherAI = (() => {
   const visible=()=>!document.hidden&&!el("ai-forecast").hidden;
   function node(tag,text){const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;}
   const duration=s=>s<60?`${s} s`:`${Math.floor(s/60)} min ${s%60} s`;
-  function reset(){map.fitBounds([[41.4,-102.2],[49.2,-90.2]]);}
+  function reset(){map.fitBounds([[39,-108],[51,-80]]);}
   function init(){
     if(map)return;
     map=L.map("ai-map",{minZoom:4,maxZoom:12,zoomSnap:.1,zoomDelta:.1,wheelPxPerZoomLevel:120});reset();
@@ -43,7 +43,8 @@ window.WeatherAI = (() => {
       }
       body.append(row);
     }
-    el("ai-model-description").textContent=`${report.algorithm}. Trained ${time.format(new Date(report.trainedAt))}; model ${report.modelId}. Only the 25-airport network is forecast; maps between airports are estimates. No training job starts from a page visit.`;
+    const region=report.version==="airport-ai-v1"?"Saved 25-airport pilot forecast; the regional update is preparing.":`${report.stationCount} geographically distributed archive airports; forecasts use the current METAR network across 39–51°N, 108–80°W.`;
+    el("ai-model-description").textContent=`${report.algorithm}. Trained ${time.format(new Date(report.trainedAt))}; model ${report.modelId}. ${region} Maps between airports are estimates. No training job starts from a page visit.`;
     el("ai-limitations").replaceChildren();
     for(const text of report.limitations||[])el("ai-limitations").append(node("li",text));
   }
@@ -76,7 +77,7 @@ window.WeatherAI = (() => {
         if(window.WeatherData)manifest=await window.WeatherData.json(frame.analysisUrl,{maxAge:Infinity});
         else{const response=await fetch(frame.analysisUrl);if(!response.ok)throw Error("Forecast map could not load");manifest=await response.json();}
         if(manifest.hour!==frame.hour||manifest.leadHours!==frame.leadHours)throw Error("Forecast map time mismatch");
-        cache.set(frame.analysisUrl,manifest);if(cache.size>10)cache.delete(cache.keys().next().value);
+        cache.set(frame.analysisUrl,manifest);if(cache.size>24)cache.delete(cache.keys().next().value);
       }
       if(token!==request)return;
       const product=manifest.fields[field];
@@ -92,7 +93,9 @@ window.WeatherAI = (() => {
       }
       legend(product,field);
       const score=forecast.modelReport.scores.find(s=>s.leadHours===frame.leadHours),weight=score?.modelWeight[field];
-      el("ai-map-status").textContent=`${product.used} airport predictions · ${weight===0?"Unchanged-value fallback selected by validation":`Experimental ${Math.round(100*(weight??1))}% model blend`} · ${forecast.stale?"Input update delayed; showing saved forecast":"Coarse station-based estimates; not observed conditions"}`;
+      const sparse=product.coverage?.sparseEstimateCells||0;
+      const coverage=sparse&&product.supportedCells?` · ${Math.round(100*sparse/product.supportedCells)}% of mapped cells use broader sparse-area estimates`:"";
+      el("ai-map-status").textContent=`${product.used} airport predictions · ${weight===0?"Unchanged-value fallback selected by validation":`Experimental ${Math.round(100*(weight??1))}% model blend`}${coverage} · ${forecast.stale?"Input update delayed; showing saved forecast":"Station-based estimates; not observed conditions"}`;
       setTimeout(()=>map.invalidateSize(),0);
     }catch(error){if(token===request)el("ai-map-status").textContent=error.message;}
   }

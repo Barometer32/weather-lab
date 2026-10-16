@@ -2,8 +2,8 @@
 import math
 import numpy as np
 
-FEATURE_VERSION = 'airport-features-v1'
-LEADS = (1, 3, 6, 12, 24)
+FEATURE_VERSION = 'airport-features-v2'
+LEADS = tuple(range(1,25))
 LAGS = (0, 1, 3, 6, 9)
 TARGETS = ('tempF', 'dewpointF', 'uMph', 'vMph')
 
@@ -42,17 +42,16 @@ def features(hours, stations, values, pressure, lead):
     xy = np.column_stack((lon*111.2*math.cos(math.radians(45)), lat*111.2))
     distance = np.linalg.norm(xy[:,None]-xy[None,:], axis=2)
     np.fill_diagonal(distance, np.inf)
-    weights = np.where(distance <= 350, 1/np.maximum(distance, 10), 0)
-    # At most five nearby airports per site; missing neighbors cannot vote.
-    order = np.argsort(distance, axis=1)
-    mask = np.zeros_like(weights, dtype=bool)
-    for i in range(n):
-        mask[i, order[i, :min(5,n-1)]] = True
-    weights *= mask
+    # Sparse neighbor gathering scales with five neighbors per site rather
+    # than a dense time-by-station-by-station multiplication for the region.
+    neighbors = np.argsort(distance,axis=1)[:,:min(5,n-1)]
+    near_distance = np.take_along_axis(distance,neighbors,axis=1)
+    weights = np.where(near_distance<=350,1/np.maximum(near_distance,10),0)
     for label, inputs in [('neighbors', values), ('neighborChange3', values-lag(values,3))]:
-        good = np.isfinite(inputs)
-        numerator = np.einsum('ij,tjk->tik', weights, np.where(good, inputs, 0))
-        denominator = np.einsum('ij,tjk->tik', weights, good.astype(float))
+        near = inputs[:,neighbors,:]
+        good = np.isfinite(near)
+        numerator = (np.where(good,near,0)*weights[None,:,:,None]).sum(axis=2)
+        denominator = (good*weights[None,:,:,None]).sum(axis=2)
         parts.append(np.divide(numerator, denominator, out=np.full_like(numerator,np.nan), where=denominator>0))
         names.extend(f'{label}_{key}' for key in TARGETS)
     for label, inputs in [('altimeter',pressure),('pressureChange3',pressure-lag(pressure,3)),('pressureChange6',pressure-lag(pressure,6))]:
@@ -65,7 +64,18 @@ def features(hours, stations, values, pressure, lead):
     names.extend(('issueHourSin','issueHourCos','validHourSin','validHourCos','seasonSin','seasonCos'))
     parts.append(np.broadcast_to(np.column_stack((lat,lon))[None,:,:],(h,n,2)))
     names.extend(('lat','lon'))
+    parts.append(np.full((h,n,1),float(lead)))
+    names.append('leadHours')
     return np.concatenate(parts,axis=2).reshape(h*n,-1), names
+
+
+def for_lead(base, issue_hours, names, lead):
+    """Change only horizon and target-hour cycles; causal features are reused."""
+    x = base.copy()
+    x[:,names.index('validHourSin')] = np.sin(2*np.pi*((issue_hours+lead)%24)/24)
+    x[:,names.index('validHourCos')] = np.cos(2*np.pi*((issue_hours+lead)%24)/24)
+    x[:,names.index('leadHours')] = lead
+    return x
 
 
 def predict_tree(tree, x):

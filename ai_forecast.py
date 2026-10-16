@@ -9,10 +9,11 @@ from pathlib import Path
 import re
 
 import numpy as np
-from ai_features import FEATURE_VERSION, LEADS, features, predict_ensemble, constrain
+from ai_features import FEATURE_VERSION, LEADS, features, for_lead, predict_ensemble, constrain
+from metar_clouds import BOUNDS, in_region
 from surface_analysis import FIELDS, PALETTES, grid, image, lines, value
 
-VERSION = 'airport-ai-v1'
+VERSION = 'airport-ai-v2'
 BUNDLE = Path(__file__).parent/'ai_bundle'
 UTC = timezone.utc
 
@@ -40,7 +41,7 @@ def saved_model(model_id, packed):
 
 def load_model(store=None):
     pointer = store.read_json('live/ai-model.json') if store else None
-    if pointer:
+    if pointer and pointer.get('report',{}).get('version')!='airport-ai-v1':
         if not re.fullmatch(r'ai/models/[a-f0-9]{16}\.json\.gz',pointer.get('key','')):
             raise ValueError('Invalid saved model path')
         bundle = saved_model(pointer['modelId'],store.read(pointer['key']))
@@ -53,6 +54,10 @@ def load_model(store=None):
 
 def status(store=None):
     training = store.read_json('live/ai-status.json') if store else None
+    if training and training.get('state')=='completed' and store:
+        pointer = store.read_json('live/ai-model.json') or {}
+        if pointer.get('report',{}).get('version')=='airport-ai-v1':
+            training = None  # The regional bundle supersedes the old pilot.
     if training is None:
         training = json.loads((BUNDLE/'status.json').read_text()) if (BUNDLE/'status.json').exists() else {
             'state':'not-started','stage':'not-started','percent':0,'message':'Model has not been trained yet'}
@@ -66,7 +71,16 @@ def status(store=None):
 def live_inputs(observations,bundle):
     hour = stamp(observations['hour'])
     hours = np.arange(int(hour.timestamp()/3600)-11,int(hour.timestamp()/3600)+1)
-    stations = bundle['stations']; indexes = {s['station']:i for i,s in enumerate(stations)}
+    # The regional pooled model forecasts the actual live airport network,
+    # including airports that were not supervised training targets.
+    metadata = {}
+    for frame in observations.get('history',[]):
+        for row in frame.get('stations',[]):
+            if in_region(row):
+                station = row['station'].removeprefix('K') if row['station'].startswith('K') and len(row['station'])==4 else row['station']
+                metadata[station] = {'station':station,'icaoId':row['station'],'lat':row['lat'],'lon':row['lon']}
+    stations = [metadata[s] for s in sorted(metadata)]
+    indexes = {s['station']:i for i,s in enumerate(stations)}
     values = np.full((12,len(stations),4),np.nan); pressure = np.full((12,len(stations)),np.nan)
     latest_reports = []
     for frame in observations.get('history',[]):
@@ -74,7 +88,7 @@ def live_inputs(observations,bundle):
         if not 0<=index<12:
             continue
         for row in frame.get('stations',[]):
-            station = row['station'].removeprefix('K')
+            station = row['station'].removeprefix('K') if row['station'].startswith('K') and len(row['station'])==4 else row['station']
             if station not in indexes:
                 continue
             si = indexes[station]
@@ -96,16 +110,17 @@ def live_inputs(observations,bundle):
 def predict(observations,bundle):
     hours,stations,values,pressure,latest_reports = live_inputs(observations,bundle)
     if np.isfinite(values[-1,:,0]).sum()<8:
-        raise ValueError('Fewer than eight trained airports have current temperature reports')
+        raise ValueError('Fewer than eight eligible airports have current temperature reports')
     now_values = values[-1]
+    base,names = features(hours,stations,values,pressure,0)
+    base = base[-len(stations):]
+    if names!=bundle['report']['features']:
+        raise ValueError('Model feature order differs from training')
     frames = []
     for lead in LEADS:
-        x,names = features(hours,stations,values,pressure,lead)
-        if names!=bundle['report']['features']:
-            raise ValueError('Model feature order differs from training')
-        x = x[-len(stations):]
+        x = for_lead(base,np.full(len(stations),hours[-1]),names,lead)
         spec = bundle['leads'][str(lead)]
-        delta = np.column_stack([predict_ensemble(m,x) for m in spec['models']])
+        delta = np.column_stack([predict_ensemble(m,x) for m in bundle['sharedModels']])
         # Apply constraints before blending, exactly as in validation/testing.
         raw = constrain(now_values+delta)
         prediction = constrain(now_values+np.asarray(spec['alpha'])*(raw-now_values))
@@ -116,7 +131,7 @@ def predict(observations,bundle):
             finite = lambda n: round(float(n),3) if np.isfinite(n) else None
             if not np.isfinite(p).any():
                 continue
-            rows.append({'station':'K'+station['station'],'stationKey':'AI:'+station['station'],
+            rows.append({'station':station['icaoId'],'stationKey':'AI:'+station['station'],
                 'network':'EXPERIMENTAL_AI','lat':station['lat'],'lon':station['lon'],
                 'time':iso(valid_at),'tempF':finite(p[0]),'dewpointF':finite(p[1]),
                 'wind':{'speedMph':finite(speed),'direction':round(float(np.degrees(np.arctan2(-p[2],-p[3]))%360),2) if math.isfinite(speed) else None},
@@ -126,7 +141,7 @@ def predict(observations,bundle):
 
 
 def render(frame,store,prefix):
-    result = {'hour':frame['hour'],'leadHours':frame['leadHours'],'bounds':[[39,-108],[51,-80]],'fields':{}}
+    result = {'hour':frame['hour'],'leadHours':frame['leadHours'],'bounds':BOUNDS,'fields':{}}
     for field in FIELDS:
         coverage = {}
         lons,lats,z,u,v,used = grid(frame['stations'],field,coverage=coverage)
@@ -155,12 +170,12 @@ def prepare(store,observations,now):
     signature = hashlib.sha256(json.dumps(observations.get('history',[]),sort_keys=True,separators=(',',':')).encode()).hexdigest()[:16]
     if previous.get('modelId')==bundle['modelId'] and previous.get('inputSignature')==signature:
         return {'status':'already prepared','issueHour':previous['issueHour']}
-    store.write_json('live/ai-forecast-status.json',{'state':'running','updatedAt':iso(now),'message':'Preparing five forecast lead times'})
+    store.write_json('live/ai-forecast-status.json',{'state':'running','updatedAt':iso(now),'message':'Preparing 24 hourly forecasts'})
     frames,latest_reports = predict(observations,bundle)
     saved = []
     label = stamp(observations['hour']).strftime('%Y%m%d%H%M')
     for frame in frames:
-        prefix = f"ai/forecast-v1/{label}/{bundle['modelId']}/{signature}/{frame['leadHours']:02}"
+        prefix = f"ai/forecast-v2/{label}/{bundle['modelId']}/{signature}/{frame['leadHours']:02}"
         url = render(frame,store,prefix)
         saved.append({'hour':frame['hour'],'leadHours':frame['leadHours'],'stationCount':len(frame['stations']),'analysisUrl':url})
     # Keep numerical forecasts as issued for later prospective verification.
@@ -172,7 +187,7 @@ def prepare(store,observations,now):
         'issueHour':observations['hour'],'generatedAt':iso(now),'inputCheckedAt':observations['checkedAt'],
         'latestReportTime':max(latest_reports) if latest_reports else None,
         'history':saved,'modelReport':bundle['report']}
-    # Publish only after all five immutable products are complete.
+    # Publish only after all 24 immutable products are complete.
     store.write_json('live/ai-forecast.json',result)
-    store.write_json('live/ai-forecast-status.json',{'state':'completed','updatedAt':iso(now),'message':'Five forecast lead times ready'})
+    store.write_json('live/ai-forecast-status.json',{'state':'completed','updatedAt':iso(now),'message':'All 24 hourly forecasts ready'})
     return {'status':'prepared','issueHour':observations['hour'],'frames':len(saved)}
