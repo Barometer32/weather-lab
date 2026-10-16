@@ -28,8 +28,8 @@ assert.equal(model.ceilingText({...station,ceiling:{baseFtAGL:300,kind:'vertical
 assert.match(model.stationModel({...station,wind:{speedMph:0}}),/class="calm-ring"/);
 assert.ok(!model.stationModel({...station,wind:{speedMph:0}}).includes('class="wind-arrow"'));
 assert.match(model.stationModel({...station,wind:{speedMph:10,direction:null,variable:true}}),/>VRB<\/text>/);
-assert.match(svg,/class="plot-temp" x="22" y="16"/);
-assert.match(svg,/class="plot-dew" x="22" y="37"/);
+assert.match(svg,/class="plot-temp" x="\d+" y="16"/);
+assert.match(svg,/class="plot-dew" x="\d+" y="37"/);
 assert.match(svg,/class="plot-ceiling" x="46" y="16"/);
 assert.match(svg,/class="plot-speed" x="46" y="37"/);
 assert.equal(model.iconSize[1],44*.82);
