@@ -72,6 +72,7 @@ for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-sch
 done
 if [[ "$WEATHER_BUILD_MODE" == cloudbuild ]]; then
   weather_retry gcloud projects add-iam-policy-binding "$WEATHER_PROJECT" --member="serviceAccount:${WEATHER_BUILD_SA}" --role=roles/cloudbuild.builds.builder --condition=None
+  python3 build_access.py "$WEATHER_PROJECT"
 fi
 
 if ! gcloud storage buckets describe "gs://${WEATHER_DATA_BUCKET}" >/dev/null 2>&1; then

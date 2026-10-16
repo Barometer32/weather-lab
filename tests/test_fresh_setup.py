@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+import shlex
 import tempfile
 import unittest
 
@@ -40,7 +42,7 @@ if args[:4]==['run','jobs','execute','weather-metar-backfill'] and os.environ.ge
 class FreshSetupTests(unittest.TestCase):
     def run_setup(self, directory, **extra):
         folder=Path(directory)
-        for name,content in [('gcloud',FAKE_GCLOUD),('docker','#!/bin/sh\necho docker >> "$WEATHER_FAKE_DIR/docker-calls"\nexit 0\n'),('sleep','#!/bin/sh\nexit 0\n')]:
+        for name,content in [('gcloud',FAKE_GCLOUD),('docker','#!/bin/sh\necho docker >> "$WEATHER_FAKE_DIR/docker-calls"\nexit 0\n'),('sleep','#!/bin/sh\nexit 0\n'),('python3','#!/bin/sh\nif [ "$1" = build_access.py ]; then echo checked >> "$WEATHER_FAKE_DIR/access-checks"; exit 0; fi\nexec '+shlex.quote(sys.executable)+' "$@"\n')]:
             f=folder/name;f.write_text(content);f.chmod(0o755)
         env={**os.environ,'PATH':str(folder)+os.pathsep+os.environ['PATH'],
              'WEATHER_FAKE_DIR':str(folder),'WEATHER_BILLING_ACCOUNT':'TEST-ACCOUNT',
@@ -76,6 +78,7 @@ class FreshSetupTests(unittest.TestCase):
             result,calls=self.run_setup(directory)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertFalse((Path(directory)/'docker-calls').exists())
+            self.assertTrue((Path(directory)/'access-checks').exists())
             build=next(c for c in calls if c[:2]==['builds','submit'])
             self.assertIn('--default-buckets-behavior=regional-user-owned-bucket',build)
             self.assertTrue(any(c.startswith('--service-account=projects/weather-metar-') and '/serviceAccounts/weather-builder@' in c for c in build))
