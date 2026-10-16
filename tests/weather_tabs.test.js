@@ -8,7 +8,7 @@ function get(id){assert.ok(!id.includes('observations'),'Retired observation ele
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date:ClockDate,Math,Map,Set,window:{WeatherData:{prime(){primed++;}}},WeatherCloudViews:{select(id){selected.push(id);}},WeatherMaps:{select(){}},fetch(){sourceFetches++;throw Error('No non-METAR startup fetch');},setTimeout(callback,delay){timers.push({callback,delay});},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
 assert.equal(primed,1);assert.equal(selected[0],'metar-clouds');assert.equal(get('metar-clouds').hidden,false);
-for(const id of ['maps','radar','satellite','forecast'])assert.equal(get(id).hidden,true);
+for(const id of ['maps','ai-forecast','radar','satellite','forecast'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
 const forecastTimer=timers.find(t=>t.delay===810000); // 14:17 -> 14:30:30.
 assert.ok(forecastTimer);

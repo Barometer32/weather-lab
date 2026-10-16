@@ -151,6 +151,17 @@ def prepare_maps(store, observations):
         return {"status": "delayed; previous maps retained"}
 
 
+def prepare_ai(store, observations, now):
+    try:
+        from ai_forecast import prepare
+        return prepare(store, observations, now)
+    except Exception:
+        app.logger.exception("AI forecast preparation failed; previous forecast retained")
+        store.write_json("live/ai-forecast-status.json", {"state":"failed", "updatedAt":weather.iso(now),
+            "message":"Forecast update delayed; previous prepared maps retained"})
+        return {"status":"delayed; previous forecast retained"}
+
+
 def collect_stations(store, now):
     from airport_plots import collect, VERSION, MODE
     from backfill_metars import fetch_history
@@ -160,7 +171,7 @@ def collect_stations(store, now):
     if (previous.get("version") == VERSION and previous.get("observationMode") == MODE
             and previous.get("hour") == weather.iso(hour) and previous.get("windowMinutes") == 10):
         return {"stations": len(previous["stations"]), "status": "already prepared for this hour",
-                "maps": prepare_maps(store, previous)}
+                "maps": prepare_maps(store, previous), "ai":prepare_ai(store,previous,now)}
     # Archive queries recover routine reports even when a newer SPECI or
     # off-window airport report has replaced them in the current cache.
     # Repair any incomplete saved hourly frames once when this collector version
@@ -173,7 +184,7 @@ def collect_stations(store, now):
     data = collect(None, now, previous, airport_rows=rows)
     store.write_json("live/station-plots.json", data)
     return {"stations": len(data["stations"]), "hour": data["hour"],
-            "maps": prepare_maps(store, data)}
+            "maps": prepare_maps(store, data), "ai":prepare_ai(store,data,now)}
 
 
 @app.get("/healthz")

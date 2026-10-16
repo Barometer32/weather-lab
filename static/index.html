@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://mesonet.agron.iastate.edu">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=ready-wide-7">
+  <link rel="stylesheet" href="/static/style.css?v=ai-pilot-1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/radar-roads.js"></script>
@@ -15,13 +15,15 @@
   <script defer src="/static/cloud-views.js?v=ready-wide-7"></script>
   <script defer src="/static/weather-data.js?v=ready-wide-7"></script>
   <script defer src="/static/maps.js?v=ready-wide-7"></script>
-  <script defer src="/static/app.js?v=ready-wide-7"></script>
+  <script defer src="/static/ai-forecast.js?v=ai-pilot-1"></script>
+  <script defer src="/static/app.js?v=ai-pilot-1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">Observations</button>
     <button role="tab" id="tab-maps" aria-selected="false" aria-controls="maps" tabindex="-1">Maps</button>
+    <button role="tab" id="tab-ai-forecast" aria-selected="false" aria-controls="ai-forecast" tabindex="-1">AI Forecast</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
@@ -64,6 +66,36 @@
   <p class="small-note">Temperature and dew point use matching 5°F color bands and contour lines. Wind uses 5 mph bands; arrows point toward where the wind is going. Sparse areas use broader estimates, which can miss local details. No station dots are drawn.</p>
   <details class="method"><summary>How these maps are made</summary><p>These are estimates between official METAR stations, not additional measurements. A conservative neighbor check excludes isolated suspect values independently for each field. In sparse areas the blend expands: the nearest station must be within 180 km and at least three independent stations within 250 km. No single station gets more than 40% of the interpolation weight, and areas outside the station network stay blank. The status line shows the share of grid cells using broader estimates. Those estimates have less local detail; inputs with fewer neighbors also have limited quality checks. Wind direction is interpolated as east/west and north/south components, so north winds do not incorrectly average to south winds. Original reports remain available on Observations.</p></details>
   <p class="source">Observations: NOAA Aviation Weather Center. State and county boundaries: Iowa Environmental Mesonet.</p>
+</section>
+
+<section id="ai-forecast" role="tabpanel" aria-labelledby="tab-ai-forecast" hidden>
+  <div class="section-heading"><div><p class="eyebrow">EXPERIMENTAL · AIRPORT MODEL</p><h1>AI Forecast</h1><p>Temperature, dew point and wind · five lead times through 24 hours</p></div><button class="secondary" id="refresh-ai">Refresh status</button></div>
+  <div class="ai-progress-card" role="status" aria-live="polite">
+    <strong id="ai-stage">Checking model status…</strong>
+    <progress id="ai-progress" max="100" value="0" aria-label="Model training progress"></progress>
+    <p id="ai-progress-detail">Training runs separately; opening this page reads saved progress.</p>
+    <details><summary>Progress log</summary><ol id="ai-events"></ol></details>
+  </div>
+  <p class="notice">Experimental surface-only predictions. Coarse airport coverage; longer forecasts can miss approaching fronts and storms. Use the official Forecast tab for NWS guidance.</p>
+  <div class="metar-view-controls"><label for="ai-field">Map</label><select id="ai-field"><option value="tempF">Temperature</option><option value="dewpointF">Dew point</option><option value="wind">Wind speed and direction</option></select></div>
+  <div class="cloud-map-surface">
+    <div id="ai-map" aria-label="Experimental future weather maps with state and county boundaries"></div>
+    <div class="radar-controls viewer-controls">
+      <span id="ai-time" class="viewer-frame-time" aria-live="polite">Forecast maps prepare after the next METAR collection.</span>
+      <div class="timeline-control"><label class="sr-only" for="ai-timeline">Forecast lead: 1, 3, 6, 12 or 24 hours</label><input id="ai-timeline" class="scan-timeline" type="range" min="0" max="4" value="0" step="1" disabled></div>
+      <div class="viewer-actions"><button id="ai-play" class="secondary" aria-pressed="false" disabled>Play</button><button id="ai-reset" class="secondary">Reset view</button></div>
+    </div>
+  </div>
+  <div id="ai-legend" class="surface-legend"></div>
+  <p id="ai-map-status" class="small-note" role="status">No additional model training is triggered by visiting this page.</p>
+  <div id="ai-source-status" class="feed-health">Inputs: official routine airport METARs. Radar, satellite and upper-air data are not inputs to this pilot.</div>
+  <details class="method" open><summary>How well did it forecast?</summary>
+    <p id="ai-test-period">Loading held-out test results…</p>
+    <p class="small-note">Average absolute error; lower is better. “Unchanged” keeps the last observed conditions. Each field shows forecast error / unchanged error. Wind uses vector error in mph, accounting for speed and direction. These are historical test averages, not confidence bounds for today's forecast.</p>
+    <div class="table-wrap"><table class="ai-score-table"><thead><tr><th scope="col">Ahead</th><th scope="col">Temperature °F</th><th scope="col">Dew point °F</th><th scope="col">Wind mph</th></tr></thead><tbody id="ai-scores"></tbody></table></div>
+  </details>
+  <details class="method"><summary>Model, coverage and limitations</summary><p id="ai-model-description"></p><ul id="ai-limitations"></ul><p>Future times follow the same hourly METAR labels as Observations: the +1-hour target uses the :50–:59 report in the hour before that label. Predictions between airports are interpolated; smooth contours do not add spatial detail. Missing inputs stay missing. Cloud cover and precipitation are not forecast by this first version.</p></details>
+  <p class="source">Training archive: <a href="https://mesonet.agron.iastate.edu/request/download.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet archive of airport METARs</a>. Live inputs: NOAA Aviation Weather Center. Boundaries: Iowa Environmental Mesonet.</p>
 </section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>

@@ -1,0 +1,622 @@
+{
+  "version": "airport-ai-v1",
+  "trainedAt": "2026-10-16T22:05:05.530633Z",
+  "trainingData": {
+    "provider": "Iowa Environmental Mesonet archive of official airport METARs",
+    "sourceUrl": "https://mesonet.agron.iastate.edu/request/download.phtml",
+    "start": "2026-06-18T00:00:00+00:00",
+    "endExclusive": "2026-10-16T00:00:00+00:00",
+    "days": 120,
+    "requestedStations": [
+      "MSP",
+      "FCM",
+      "STC",
+      "AXN",
+      "BRD",
+      "BJI",
+      "INL",
+      "DLH",
+      "HIB",
+      "RWF",
+      "MKT",
+      "RST",
+      "FRM",
+      "OTG",
+      "FAR",
+      "GFK",
+      "BIS",
+      "JMS",
+      "FSD",
+      "ABR",
+      "ATY",
+      "EAU",
+      "LSE",
+      "MCW",
+      "DSM"
+    ],
+    "requests": [
+      {
+        "stations": [
+          "MSP",
+          "FCM",
+          "STC",
+          "AXN",
+          "BRD"
+        ],
+        "reports": 14382,
+        "sha256": "5f675c56d395f087f265d4fafdc1f5eb37d67605944e1d20d1085a05a67c18a8"
+      },
+      {
+        "stations": [
+          "BJI",
+          "INL",
+          "DLH",
+          "HIB",
+          "RWF"
+        ],
+        "reports": 14290,
+        "sha256": "6b79bacbde1b8849c8d0344e2a14294c231d40c724467cff8b4c38705dacf22c"
+      },
+      {
+        "stations": [
+          "MKT",
+          "RST",
+          "FRM",
+          "OTG",
+          "FAR"
+        ],
+        "reports": 14365,
+        "sha256": "e21463785416e0b2c3a552fb1324d10a3c4ad5e6518332a5ac96ccfc2783fae9"
+      },
+      {
+        "stations": [
+          "GFK",
+          "BIS",
+          "JMS",
+          "FSD",
+          "ABR"
+        ],
+        "reports": 14340,
+        "sha256": "4c97edf426376e00130fd29397113a4b38f6b8fd0aa9185dc6a5069457d20b8f"
+      },
+      {
+        "stations": [
+          "ATY",
+          "EAU",
+          "LSE",
+          "MCW",
+          "DSM"
+        ],
+        "reports": 14323,
+        "sha256": "5a9d6280ff095c39af0bb67c77a702da4a2bea0e22c4dab6220981feaa5bc856"
+      }
+    ],
+    "reportType": "Routine METAR only",
+    "windowMinutes": [
+      50,
+      59
+    ],
+    "reports": 71700
+  },
+  "stationCount": 25,
+  "stations": [
+    {
+      "station": "MSP",
+      "lat": 44.8854,
+      "lon": -93.2313
+    },
+    {
+      "station": "FCM",
+      "lat": 44.8261,
+      "lon": -93.4607
+    },
+    {
+      "station": "STC",
+      "lat": 45.5433,
+      "lon": -94.0513
+    },
+    {
+      "station": "AXN",
+      "lat": 45.8663,
+      "lon": -95.3947
+    },
+    {
+      "station": "BRD",
+      "lat": 46.4047,
+      "lon": -94.1308
+    },
+    {
+      "station": "BJI",
+      "lat": 47.5094,
+      "lon": -94.9337
+    },
+    {
+      "station": "INL",
+      "lat": 48.5595,
+      "lon": -93.3956
+    },
+    {
+      "station": "DLH",
+      "lat": 46.8421,
+      "lon": -92.1936
+    },
+    {
+      "station": "HIB",
+      "lat": 47.3866,
+      "lon": -92.839
+    },
+    {
+      "station": "RWF",
+      "lat": 44.5469,
+      "lon": -95.082
+    },
+    {
+      "station": "MKT",
+      "lat": 44.22,
+      "lon": -93.92
+    },
+    {
+      "station": "RST",
+      "lat": 43.9041,
+      "lon": -92.4916
+    },
+    {
+      "station": "FRM",
+      "lat": 43.6439,
+      "lon": -94.4156
+    },
+    {
+      "station": "OTG",
+      "lat": 43.6551,
+      "lon": -95.5792
+    },
+    {
+      "station": "FAR",
+      "lat": 46.9253,
+      "lon": -96.8111
+    },
+    {
+      "station": "GFK",
+      "lat": 47.9492,
+      "lon": -97.1761
+    },
+    {
+      "station": "BIS",
+      "lat": 46.7727,
+      "lon": -100.7458
+    },
+    {
+      "station": "JMS",
+      "lat": 46.93,
+      "lon": -98.68
+    },
+    {
+      "station": "FSD",
+      "lat": 43.5769,
+      "lon": -96.7536
+    },
+    {
+      "station": "ABR",
+      "lat": 45.45,
+      "lon": -98.42
+    },
+    {
+      "station": "ATY",
+      "lat": 44.914,
+      "lon": -97.1547
+    },
+    {
+      "station": "EAU",
+      "lat": 44.8658,
+      "lon": -91.4843
+    },
+    {
+      "station": "LSE",
+      "lat": 43.8792,
+      "lon": -91.253
+    },
+    {
+      "station": "MCW",
+      "lat": 43.1544,
+      "lon": -93.3261
+    },
+    {
+      "station": "DSM",
+      "lat": 41.5339,
+      "lon": -93.6531
+    }
+  ],
+  "featureVersion": "airport-features-v1",
+  "features": [
+    "tempF_lag0",
+    "dewpointF_lag0",
+    "uMph_lag0",
+    "vMph_lag0",
+    "tempF_lag1",
+    "dewpointF_lag1",
+    "uMph_lag1",
+    "vMph_lag1",
+    "tempF_lag3",
+    "dewpointF_lag3",
+    "uMph_lag3",
+    "vMph_lag3",
+    "tempF_lag6",
+    "dewpointF_lag6",
+    "uMph_lag6",
+    "vMph_lag6",
+    "tempF_lag9",
+    "dewpointF_lag9",
+    "uMph_lag9",
+    "vMph_lag9",
+    "neighbors_tempF",
+    "neighbors_dewpointF",
+    "neighbors_uMph",
+    "neighbors_vMph",
+    "neighborChange3_tempF",
+    "neighborChange3_dewpointF",
+    "neighborChange3_uMph",
+    "neighborChange3_vMph",
+    "altimeter",
+    "pressureChange3",
+    "pressureChange6",
+    "issueHourSin",
+    "issueHourCos",
+    "validHourSin",
+    "validHourCos",
+    "seasonSin",
+    "seasonCos",
+    "lat",
+    "lon"
+  ],
+  "horizons": [
+    1,
+    3,
+    6,
+    12,
+    24
+  ],
+  "fitEndExclusive": "2026-09-16T01:00:00Z",
+  "validationStart": "2026-09-16T01:00:00Z",
+  "testStart": "2026-10-01T01:00:00Z",
+  "testEnd": "2026-10-16T00:00:00Z",
+  "splitMethod": "Chronological 75% fit / 12.5% selection / 12.5% test; labels embargoed at each boundary",
+  "scores": [
+    {
+      "leadHours": 1,
+      "forecast": {
+        "tempF": {
+          "mae": 1.546,
+          "count": 8932,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.015,
+          "count": 8930,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 3.142,
+          "count": 8574,
+          "unit": "mph vector error",
+          "speedMae": 2.155
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 1.899,
+          "count": 8932,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.016,
+          "count": 8930,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 3.332,
+          "count": 8574,
+          "unit": "mph vector error",
+          "speedMae": 2.161
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 1.464,
+          "count": 8932,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.063,
+          "count": 8930,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 3.142,
+          "count": 8574,
+          "unit": "mph vector error",
+          "speedMae": 2.155
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.5,
+        "dewpointF": 0.0,
+        "wind": 1.0
+      }
+    },
+    {
+      "leadHours": 3,
+      "forecast": {
+        "tempF": {
+          "mae": 3.441,
+          "count": 8877,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 1.992,
+          "count": 8875,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.442,
+          "count": 8502,
+          "unit": "mph vector error",
+          "speedMae": 3.015
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 4.937,
+          "count": 8877,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.157,
+          "count": 8875,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.988,
+          "count": 8502,
+          "unit": "mph vector error",
+          "speedMae": 3.282
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 3.301,
+          "count": 8877,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.028,
+          "count": 8875,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 4.434,
+          "count": 8502,
+          "unit": "mph vector error",
+          "speedMae": 3.053
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.75
+      }
+    },
+    {
+      "leadHours": 6,
+      "forecast": {
+        "tempF": {
+          "mae": 5.412,
+          "count": 8800,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.935,
+          "count": 8798,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.928,
+          "count": 8408,
+          "unit": "mph vector error",
+          "speedMae": 3.878
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 8.699,
+          "count": 8800,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.322,
+          "count": 8798,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 6.843,
+          "count": 8408,
+          "unit": "mph vector error",
+          "speedMae": 4.485
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 4.987,
+          "count": 8800,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 2.952,
+          "count": 8798,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 5.769,
+          "count": 8408,
+          "unit": "mph vector error",
+          "speedMae": 3.818
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 12,
+      "forecast": {
+        "tempF": {
+          "mae": 6.903,
+          "count": 8646,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.963,
+          "count": 8644,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.601,
+          "count": 8253,
+          "unit": "mph vector error",
+          "speedMae": 4.786
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 12.004,
+          "count": 8646,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 4.651,
+          "count": 8644,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.317,
+          "count": 8253,
+          "unit": "mph vector error",
+          "speedMae": 5.681
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 5.946,
+          "count": 8646,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 3.935,
+          "count": 8644,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 7.583,
+          "count": 8253,
+          "unit": "mph vector error",
+          "speedMae": 4.647
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.75,
+        "dewpointF": 0.5,
+        "wind": 0.5
+      }
+    },
+    {
+      "leadHours": 24,
+      "forecast": {
+        "tempF": {
+          "mae": 6.593,
+          "count": 8347,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.127,
+          "count": 8345,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 9.642,
+          "count": 7965,
+          "unit": "mph vector error",
+          "speedMae": 5.129
+        }
+      },
+      "persistence": {
+        "tempF": {
+          "mae": 7.002,
+          "count": 8347,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 6.185,
+          "count": 8345,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 11.608,
+          "count": 7965,
+          "unit": "mph vector error",
+          "speedMae": 5.541
+        }
+      },
+      "rawModel": {
+        "tempF": {
+          "mae": 6.162,
+          "count": 8347,
+          "unit": "\u00b0F"
+        },
+        "dewpointF": {
+          "mae": 5.437,
+          "count": 8345,
+          "unit": "\u00b0F"
+        },
+        "wind": {
+          "mae": 8.738,
+          "count": 7965,
+          "unit": "mph vector error",
+          "speedMae": 4.752
+        }
+      },
+      "modelWeight": {
+        "tempF": 0.25,
+        "dewpointF": 0.5,
+        "wind": 0.25
+      }
+    }
+  ],
+  "algorithm": "Histogram gradient boosted trees predicting changes in temperature, dew point, and vector wind",
+  "baseline": "Persistence: conditions remain at their issue-time values",
+  "selection": "Blend weights selected on validation dates only; held-out test never selects weights",
+  "inputs": [
+    "Official routine airport METARs",
+    "Recent local and nearby-airport history",
+    "Altimeter pressure trends",
+    "Time of day, season and coordinates"
+  ],
+  "excludedInputs": [
+    "Radar",
+    "Satellite",
+    "Upper-air data",
+    "Numerical forecast guidance"
+  ],
+  "limitations": [
+    "Experimental surface-only forecasts; not official NWS guidance",
+    "Sparse airport network provides coarse spatial detail; interpolation adds no observations",
+    "Short training history does not cover all seasons; 12\u201324 h predictions can miss approaching systems",
+    "Archive quality checks cover ranges, times and dew point consistency, not complete instrument QC",
+    "Historical reports can include corrections unavailable at original issue time; prospective verification is still required"
+  ],
+  "software": {
+    "scikit-learn": "1.8.0",
+    "numpy": "2.3.5"
+  },
+  "modelId": "169dfc70c836a75c"
+}

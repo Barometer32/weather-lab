@@ -13,9 +13,14 @@
           "satellite/ntmicro/",
           "analysis/metar-maps-v1/",
           "analysis/metar-maps-v2/",
-          "analysis/metar-maps-v3/"
+          "analysis/metar-maps-v3/",
+          "ai/forecast-v1/"
         ]
       }
+    },
+    {
+      "action": {"type": "Delete"},
+      "condition": {"age": 30, "matchesPrefix": ["ai/issued/"]}
     }
   ]
 }

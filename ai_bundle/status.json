@@ -1,0 +1,163 @@
+{
+  "state": "completed",
+  "stage": "completed",
+  "percent": 100,
+  "message": "Model trained and tested; forecast maps prepare with the hourly METAR collection",
+  "updatedAt": "2026-10-16T22:05:05.640090Z",
+  "elapsedSeconds": 12,
+  "estimatedRemainingSeconds": null,
+  "modelId": "169dfc70c836a75c",
+  "trainedAt": "2026-10-16T22:05:05.530633Z",
+  "events": [
+    {
+      "stage": "starting",
+      "percent": 0,
+      "message": "Starting bounded CPU-only experiment",
+      "elapsedSeconds": 0
+    },
+    {
+      "stage": "preparing",
+      "percent": 32,
+      "message": "Preparing 71,700 eligible reports from 25 airports",
+      "elapsedSeconds": 0
+    },
+    {
+      "stage": "training",
+      "percent": 35,
+      "message": "Training +1 h tempF",
+      "elapsedSeconds": 1
+    },
+    {
+      "stage": "training",
+      "percent": 37,
+      "message": "Training +1 h dewpointF",
+      "elapsedSeconds": 2
+    },
+    {
+      "stage": "training",
+      "percent": 39,
+      "message": "Training +1 h uMph",
+      "elapsedSeconds": 2
+    },
+    {
+      "stage": "training",
+      "percent": 41,
+      "message": "Training +1 h vMph",
+      "elapsedSeconds": 3
+    },
+    {
+      "stage": "training",
+      "percent": 44,
+      "message": "Training +3 h tempF",
+      "elapsedSeconds": 3
+    },
+    {
+      "stage": "training",
+      "percent": 46,
+      "message": "Training +3 h dewpointF",
+      "elapsedSeconds": 4
+    },
+    {
+      "stage": "training",
+      "percent": 48,
+      "message": "Training +3 h uMph",
+      "elapsedSeconds": 4
+    },
+    {
+      "stage": "training",
+      "percent": 50,
+      "message": "Training +3 h vMph",
+      "elapsedSeconds": 5
+    },
+    {
+      "stage": "training",
+      "percent": 53,
+      "message": "Training +6 h tempF",
+      "elapsedSeconds": 6
+    },
+    {
+      "stage": "training",
+      "percent": 55,
+      "message": "Training +6 h dewpointF",
+      "elapsedSeconds": 6
+    },
+    {
+      "stage": "training",
+      "percent": 57,
+      "message": "Training +6 h uMph",
+      "elapsedSeconds": 7
+    },
+    {
+      "stage": "training",
+      "percent": 59,
+      "message": "Training +6 h vMph",
+      "elapsedSeconds": 7
+    },
+    {
+      "stage": "training",
+      "percent": 62,
+      "message": "Training +12 h tempF",
+      "elapsedSeconds": 8
+    },
+    {
+      "stage": "training",
+      "percent": 64,
+      "message": "Training +12 h dewpointF",
+      "elapsedSeconds": 8
+    },
+    {
+      "stage": "training",
+      "percent": 66,
+      "message": "Training +12 h uMph",
+      "elapsedSeconds": 9
+    },
+    {
+      "stage": "training",
+      "percent": 68,
+      "message": "Training +12 h vMph",
+      "elapsedSeconds": 9
+    },
+    {
+      "stage": "training",
+      "percent": 71,
+      "message": "Training +24 h tempF",
+      "elapsedSeconds": 10
+    },
+    {
+      "stage": "training",
+      "percent": 73,
+      "message": "Training +24 h dewpointF",
+      "elapsedSeconds": 11
+    },
+    {
+      "stage": "training",
+      "percent": 75,
+      "message": "Training +24 h uMph",
+      "elapsedSeconds": 11
+    },
+    {
+      "stage": "training",
+      "percent": 77,
+      "message": "Training +24 h vMph",
+      "elapsedSeconds": 12
+    },
+    {
+      "stage": "testing",
+      "percent": 85,
+      "message": "Checking held-out forecast errors and portable model parity",
+      "elapsedSeconds": 12
+    },
+    {
+      "stage": "saving",
+      "percent": 95,
+      "message": "Saving model, verification scores and training record",
+      "elapsedSeconds": 12
+    },
+    {
+      "stage": "completed",
+      "percent": 100,
+      "message": "Model trained and tested; forecast maps prepare with the hourly METAR collection",
+      "elapsedSeconds": 12
+    }
+  ]
+}

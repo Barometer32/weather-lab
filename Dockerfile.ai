@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt requirements-ai.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-ai.txt
+COPY . .
+ENV PYTHONUNBUFFERED=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
+CMD ["python", "train_ai.py", "--days", "120", "--history", "/tmp/ai-history.json.gz", "--output", "/tmp/ai_bundle", "--publish", "--max-seconds", "1500"]
