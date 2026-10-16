@@ -1,7 +1,7 @@
-"""Conservative local surface analysis; original station readings stay intact.
+"""Screened surface estimates; original station readings stay intact.
 
 These are neighborhood screens, not official instrument verification. Suspect
-fields are excluded independently, and sparse areas remain transparent.
+fields are excluded independently, with a broader blend in sparse areas.
 """
 import hashlib
 import json
@@ -15,8 +15,11 @@ import numpy as np
 from PIL import Image
 from scipy.spatial import cKDTree, Delaunay, QhullError
 
-VERSION = "metar-maps-v2"
+VERSION = "metar-maps-v3"
 FIELDS = ("tempF", "dewpointF", "wind")
+MAX_NEAREST_KM = 180
+MAX_THIRD_KM = 250
+BLEND_RADIUS_KM = 300
 # Colors sampled from the user's UCAR/RAP reference legends. Each entry is
 # the lower bound of a five-degree band; the final entry closes the scale.
 TEMPERATURE_COLORS = [
@@ -106,7 +109,10 @@ def screen(rows):
 def capped_weights(raw, cap=.4):
     """Nonnegative weights sum to one; no individual site exceeds 40%."""
     low = np.zeros((len(raw), 1))
-    high = 1 / np.maximum(np.min(np.where(raw > 0, raw, np.inf), axis=1, keepdims=True), 1e-100)
+    # Three positive contributors suffice to reach a total of one at a 40%
+    # cap. An almost-zero fourth neighbor must not inflate the search range.
+    third = np.partition(raw, -3, axis=1)[:, -3, None]
+    high = 1 / np.maximum(third, 1e-100)
     for _ in range(40):
         middle = (low+high)/2
         total = np.minimum(raw*middle, cap).sum(axis=1, keepdims=True)
@@ -115,7 +121,10 @@ def capped_weights(raw, cap=.4):
     return np.minimum(raw*(low+high)/2, cap)
 
 
-def grid(rows, field, nx=449, ny=193):
+def grid(rows, field, nx=449, ny=193, coverage=None):
+    if coverage is not None:
+        coverage.update(sparseEstimateCells=0, maxNearestKm=MAX_NEAREST_KM,
+                        maxThirdNeighborKm=MAX_THIRD_KM)
     # Uniform Mercator y keeps image overlays aligned with Leaflet's map.
     lons = np.linspace(BOUNDS[0][1], BOUNDS[1][1], nx)
     merc = np.linspace(np.arcsinh(np.tan(np.radians(BOUNDS[0][0]))), np.arcsinh(np.tan(np.radians(BOUNDS[1][0]))), ny)
@@ -142,10 +151,17 @@ def grid(rows, field, nx=449, ny=193):
         inside = Delaunay(xy).find_simplex(points) >= 0
     except QhullError:
         return lons, lats, z, u, v, len(candidates)
-    supported = inside & (distances[:, 0] <= 65) & (distances[:, 2] <= 110)
-    # Require three neighbors within 120 km; no extrapolation outside the hull.
-    raw = np.exp(-.5*(distances[supported]/60)**2)/(distances[supported]**2+20**2)
-    raw[distances[supported] > 120] = 0
+    supported = inside & (distances[:, 0] <= MAX_NEAREST_KM) & (distances[:, 2] <= MAX_THIRD_KM)
+    local = (distances[:, 0] <= 65) & (distances[:, 2] <= 110)
+    if coverage is not None:
+        coverage["sparseEstimateCells"] = int(np.count_nonzero(supported & ~local))
+    # Widen the kernel continuously with the third neighbor's distance. Keep
+    # three independent inputs, bounded positive weights and the station hull;
+    # this fills interior gaps without inventing observations at missing sites.
+    distance = distances[supported]
+    bandwidth = np.maximum(60., .7*distance[:, 2:3])
+    taper = np.maximum(0., 1-(distance/BLEND_RADIUS_KM)**2)**2
+    raw = np.exp(-.5*(distance/bandwidth)**2)*taper/(distance**2+20**2)
     weights = capped_weights(raw)
     values = np.array([value(row, field) for row in candidates])
     if field == "wind":
@@ -215,9 +231,10 @@ def prepare(data, store):
             frame["stations"] = rows
     prefix = artifact_prefix(data["hour"], rows)
     result = {"version": VERSION, "hour": data["hour"], "bounds": BOUNDS, "fields": {},
-              "method": "Local weighted analysis, 40% maximum station influence, no extrapolation; neighborhood screening is not official instrument QC."}
+              "method": "Adaptive weighted estimates; nearest station within 180 km and three within 250 km; 40% maximum station influence, no extrapolation. Neighborhood screening is not official instrument QC."}
     for field in FIELDS:
-        lons, lats, z, u, v, used = grid(rows, field)
+        coverage = {}
+        lons, lats, z, u, v, used = grid(rows, field, coverage=coverage)
         key = prefix+"/"+field+".png"
         store.write(key, image(z, PALETTES[field], banded=True), "image/png")
         counts = Counter(r["analysisQc"][field]["status"] for r in rows)
@@ -231,7 +248,8 @@ def prepare(data, store):
                                        "direction": round(float(np.degrees(np.arctan2(-u[iy, ix], -v[iy, ix])) % 360), 1)})
         result["fields"][field] = {"imageUrl": "/api/prepared/"+key, "palette": PALETTES[field], "paletteMode": "discrete", "interval": 5,
               "contours": {"type": "FeatureCollection", "features": lines(lons, lats, z, 5)},
-              "arrows": arrows, "qc": dict(counts), "used": used, "supportedCells": int(np.isfinite(z).sum())}
+              "arrows": arrows, "qc": dict(counts), "used": used, "supportedCells": int(np.isfinite(z).sum()),
+              "coverage": coverage}
     key = prefix+"/manifest.json"
     store.write_json(key, result)
     for frame in data["history"]:

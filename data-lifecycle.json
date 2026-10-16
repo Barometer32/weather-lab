@@ -12,7 +12,8 @@
           "satellite/dcphase/",
           "satellite/ntmicro/",
           "analysis/metar-maps-v1/",
-          "analysis/metar-maps-v2/"
+          "analysis/metar-maps-v2/",
+          "analysis/metar-maps-v3/"
         ]
       }
     }

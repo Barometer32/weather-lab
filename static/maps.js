@@ -62,7 +62,9 @@ window.WeatherMaps = (() => {
     el("surface-legend").append(node("strong",`${labels[field]} · ${unit} · 5 ${unit} bands`),bar,ticks);
     if(field!=="wind")el("surface-legend").append(node("p","Temperature and dew point use identical colors at the same Fahrenheit values."));
     const qc=product.qc||{};
-    el("surface-status").textContent=`${product.used} spatially spaced inputs · ${qc.suspect||0} suspect values excluded · ${qc.unverified||0} inputs with limited neighbor checks · ${product.supportedCells?"Blank areas have insufficient observations":"Insufficient observations for a supported map"}`;
+    const sparse=product.coverage?.sparseEstimateCells||0;
+    const estimates=sparse&&product.supportedCells?`${Math.round(100*sparse/product.supportedCells)}% of mapped area uses broader sparse-area estimates · `:"";
+    el("surface-status").textContent=`${product.used} spatially spaced inputs · ${qc.suspect||0} suspect values excluded · ${qc.unverified||0} inputs with limited neighbor checks · ${estimates}${product.supportedCells?"Blank areas are outside coverage limits":"Insufficient observations for a supported map"}`;
     setTimeout(()=>map.invalidateSize(),0);
   }
   async function selectFrame(position){

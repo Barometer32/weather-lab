@@ -46,10 +46,36 @@ class SurfaceTests(unittest.TestCase):
         self.assertFalse(np.isfinite(surface.grid(rows, "tempF")[2]).any())
 
     def test_weight_cap_normalization_and_bounded_values(self):
-        weights = surface.capped_weights(np.array([[10000., 1, 1, 1], [10., 2, 1, 0], [.1, .2, .3, .4]]))
+        weights = surface.capped_weights(np.array([[10000., 1, 1, 1], [10., 2, 1, 0], [.1, .2, .3, .4], [1., .2, .1, 1e-50]]))
         np.testing.assert_allclose(weights.sum(axis=1), 1, atol=1e-7)
         self.assertTrue((weights >= 0).all()); self.assertLessEqual(weights.max(), .40000001)
         self.assertTrue(((weights*np.array([10, 20, 30, 40])).sum(axis=1) <= 40).all())
+
+    def test_sparse_interior_is_estimated_with_bounded_values_and_vector_winds(self):
+        rows = [site(i, lat, lon, temp=40+10*i, direction=359 if i%2 else 1)
+                for i, (lat, lon) in enumerate([(44,-102.5),(44,-99.5),(46,-102.5),(46,-99.5)])]
+        surface.screen(rows)
+        for field in surface.FIELDS:
+            coverage = {}
+            lons, lats, z, u, v, _ = surface.grid(rows, field, coverage=coverage)
+            iy, ix = np.argmin(abs(lats-45)), np.argmin(abs(lons+101))
+            self.assertTrue(np.isfinite(z[iy, ix]), field)
+            self.assertGreater(coverage['sparseEstimateCells'], 0)
+            self.assertTrue(np.isnan(z[0, 0]))  # Outside the station hull.
+            if field == 'tempF':
+                self.assertTrue(40 <= z[iy, ix] <= 70)
+            elif field == 'wind':
+                self.assertLess(v[iy, ix], -9.9)
+                self.assertLess(abs(u[iy, ix]), .18)
+
+    def test_wide_blend_still_rejects_large_unsupported_interior_gaps(self):
+        rows = [site(i, lat, lon) for i, (lat, lon) in enumerate([(40,-107),(50,-107),(45,-81)])]
+        coverage = {}
+        lons, lats, z, *_ = surface.grid(rows, 'tempF', coverage=coverage)
+        iy, ix = np.argmin(abs(lats-45)), np.argmin(abs(lons+99))
+        self.assertTrue(np.isnan(z[iy, ix]))
+        self.assertEqual(coverage['maxNearestKm'], 180)
+        self.assertEqual(coverage['maxThirdNeighborKm'], 250)
 
     def test_vector_winds_handle_north_wrap_and_sparse_mask(self):
         rows = sample()
@@ -150,6 +176,7 @@ class SurfaceTests(unittest.TestCase):
             manifest=client.get(url)
             self.assertEqual(manifest.status_code,200)
             self.assertEqual(manifest.mimetype,'application/json')
+            self.assertIn('sparseEstimateCells',manifest.json['fields']['wind']['coverage'])
             self.assertEqual(client.get(manifest.json['fields']['wind']['imageUrl']).mimetype,'image/png')
             self.assertEqual(client.get('/api/prepared/live/maps.json').status_code,404)
             self.assertEqual(client.get('/api/prepared/analysis/metar-maps-v1/../../live/maps.json').status_code,404)

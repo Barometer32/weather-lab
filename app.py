@@ -322,7 +322,7 @@ def maps_api():
     try:
         from surface_analysis import VERSION
         data = prepared_hourly_snapshot("maps")
-        if data is None or data.get("version") not in (VERSION, "metar-maps-v1"):
+        if data is None or data.get("version") not in (VERSION, "metar-maps-v2", "metar-maps-v1"):
             raise ValueError("Maps are still preparing")
         return jsonify(data), 200, {"Cache-Control": "no-store"}
     except Exception:
@@ -427,7 +427,7 @@ def prepared_asset(key):
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"analysis/metar-maps-v[12]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
+               or re.fullmatch(r"analysis/metar-maps-v[123]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:

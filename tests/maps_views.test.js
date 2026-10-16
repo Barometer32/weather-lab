@@ -17,7 +17,7 @@ vm.runInNewContext(fs.readFileSync('static/maps.js','utf8'),context);
 const viewer=context.window.WeatherMaps,flush=()=>new Promise(resolve=>setImmediate(resolve));
 function manifest(hour){
  const palette=[[0,'#0f0'],[5,'#ff0'],[10,'#f00'],[15,'#f00']];
- const base={palette,paletteMode:'discrete',interval:5,contours:{type:'FeatureCollection',features:[]},arrows:[],used:300,supportedCells:20000,qc:{suspect:1,unverified:12}};
+ const base={palette,paletteMode:'discrete',interval:5,contours:{type:'FeatureCollection',features:[]},arrows:[],used:300,supportedCells:20000,coverage:{sparseEstimateCells:2000},qc:{suspect:1,unverified:12}};
  return{hour,bounds:[[40,-100],[50,-85]],fields:{tempF:{...base,imageUrl:hour+'/temp.png'},dewpointF:{...base,imageUrl:hour+'/dew.png'},wind:{...base,imageUrl:hour+'/wind.png',arrows:[{lat:45,lon:-93,direction:359,speed:12}]}}};
 }
 async function resolveFrame(i){pending.get(history[i].analysisUrl)(manifest(history[i].hour));await flush();}
@@ -35,6 +35,7 @@ const field=value=>{get('surface-field').value=value;get('surface-field').events
  const temperatureScale=get('surface-legend').children[1].style.background;
  assert.match(get('surface-feed-status').textContent,/364 eligible airport METARs/);
  assert.match(get('surface-status').textContent,/1 suspect values excluded/);
+ assert.match(get('surface-status').textContent,/10% of mapped area uses broader sparse-area estimates/);
  // A stale response from a prior slider position cannot paint over a new selection.
  scrub(10);await flush();scrub(9);await flush();await resolveFrame(10);
  assert.equal(shown.filter(x=>x.kind==='image').length,0);
