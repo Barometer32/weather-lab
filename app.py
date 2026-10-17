@@ -317,26 +317,6 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
-@app.get("/api/ai-forecast")
-def ai_forecast_api():
-    # Read-only: viewing this tab cannot start training or forecast work.
-    from ai_forecast import status, BUNDLE
-    store = get_store()
-    training = status(store)
-    data = store.read_json("live/ai-forecast.json") if store else None
-    preparation = store.read_json("live/ai-forecast-status.json") if store else None
-    if data:
-        data = dict(data)
-        data["stale"] = (utcnow()-datetime.fromisoformat(data["issueHour"].replace("Z","+00:00"))).total_seconds()>7200
-        report = data["modelReport"]
-    else:
-        pointer = store.read_json("live/ai-model.json") if store else None
-        report = pointer.get("report") if pointer else None
-        if report is None and (BUNDLE/"report.json").exists():
-            report = json.loads((BUNDLE/"report.json").read_text())
-    return jsonify(training=training, preparation=preparation, forecast=data, model=report), 200, {"Cache-Control":"no-store"}
-
-
 @app.get("/api/maps")
 def maps_api():
     try:
@@ -447,7 +427,6 @@ def prepared_asset(key):
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"ai/forecast-v[12]/\d{12}/[a-f0-9]{16}/[a-f0-9]{16}/(0[1-9]|1[0-9]|2[0-4])/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key)
                or re.fullmatch(r"analysis/metar-maps-v[123]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404

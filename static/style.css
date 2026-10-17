@@ -228,16 +228,6 @@ body.satellite-expanded { overflow: hidden; }
 .feed-health-unknown { border-color:#c7cfce; border-left-color:#73817c; background:#f7f9f8; }
 .feed-health-warning { border-color:#dcc087; border-left-color:#b57a13; background:#fff8e9; }
 #surface-map { border:0; border-radius:0; }
-#ai-map { height:600px; background:#f7faf8; }
-#ai-field { min-height:44px; padding:8px; border:1px solid var(--border); border-radius:6px; background:white; }
-.ai-progress-card { margin-bottom:18px; padding:16px 18px; border:1px solid var(--border); border-radius:8px; background:#f4faf6; }
-.ai-progress-card progress { display:block; width:100%; height:12px; margin:12px 0; accent-color:var(--green); }
-.ai-progress-card p,.ai-progress-card li { font-size:13px; color:var(--muted); }
-.ai-progress-card ol { padding-left:22px; max-height:180px; overflow:auto; }
-.ai-score-table { width:100%; font-variant-numeric:tabular-nums; }
-.ai-score-table th,.ai-score-table td { padding:10px 12px; text-align:left; white-space:nowrap; border-bottom:1px solid var(--border); }
-.ai-score-table small { display:block; color:var(--muted); font-size:11px; }
-@media(max-width:600px) { #ai-map { height:470px; } }
 
 /* Combined METAR wind and sky model. Cloud circle stays on the true station location. */
 .plot-sky-unknown { fill:#555; font:800 9px system-ui,sans-serif; stroke:none!important; }

@@ -1,2 +1,0 @@
-# Training only; the web/collector image runs portable numeric trees with NumPy.
-scikit-learn==1.8.0
