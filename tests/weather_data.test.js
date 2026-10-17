@@ -5,8 +5,6 @@ class ClockDate extends Date{static now(){return clock;}}
 const stores=new Map();
 const caches={async open(name){if(!stores.has(name))stores.set(name,new Map());const entries=stores.get(name);return{async match(key){return entries.get(key)?.clone();},async put(key,response){entries.set(key,response.clone());},async keys(){return [...entries.keys()];},async delete(key){return entries.delete(key);}};}};
 function payload(url){
- if(url==='/api/maps')return{history:[{analysisUrl:'/map.json'}]};
- if(url==='/map.json')return{fields:{tempF:{imageUrl:'/temp.png'},dewpointF:{imageUrl:'/dew.png'},wind:{imageUrl:'/wind.png'}}};
  if(url.startsWith('/api/radar'))return{frames:[{url:'/scan.bin'}]};
  return{version:clock};
 }
@@ -36,6 +34,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual([...new Uint8Array(await responses[0].arrayBuffer())],[0,1,2]);
  assert.deepEqual([...new Uint8Array(await responses[1].arrayBuffer())],[0,1,2]);
  service.prime();for(let i=0;i<8;i++)await flush();
- for(const url of ['/api/station-plots','/api/maps','/api/radar?site=KMPX','/map.json','/temp.png','/dew.png','/wind.png','/scan.bin'])assert.ok(network.includes(url),url);
- console.log('Weather-data checks passed: request deduplication, immediate saved content, persistent reload cache, reusable binary responses, and map/radar preloading.');
+ for(const url of ['/api/station-plots','/api/radar?site=KMPX','/scan.bin'])assert.ok(network.includes(url),url);
+ assert.ok(!network.includes('/api/maps'));
+ console.log('Weather-data checks passed: request deduplication, immediate saved content, persistent reload cache, reusable binary responses, and radar preloading without contour requests.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

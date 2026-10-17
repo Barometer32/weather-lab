@@ -317,19 +317,6 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
-@app.get("/api/maps")
-def maps_api():
-    try:
-        from surface_analysis import VERSION
-        data = prepared_hourly_snapshot("maps")
-        if data is None or data.get("version") not in (VERSION, "metar-maps-v2", "metar-maps-v1"):
-            raise ValueError("Maps are still preparing")
-        return jsonify(data), 200, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.info("Maps are not prepared yet")
-        return jsonify(error="Maps are preparing from the saved METAR history. Please refresh shortly."), 503
-
-
 @app.get("/api/station-plots")
 def station_plots_api():
     from airport_plots import collect, current
@@ -421,13 +408,12 @@ def prepared_image(key):
 
 @app.get("/api/prepared/<path:key>")
 def prepared_asset(key):
-    # Visitors can read immutable radar, satellite and METAR map assets.
+    # Visitors can read immutable radar and satellite assets.
     # Arbitrary bucket files remain private. Only the private collector can trigger processing.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
-               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
-               or re.fullmatch(r"analysis/metar-maps-v[123]/\d{12}/[a-f0-9]{16}/(manifest\.json|tempF\.png|dewpointF\.png|wind\.png)", key))
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:

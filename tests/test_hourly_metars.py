@@ -143,7 +143,7 @@ class HourlyMetarTests(unittest.TestCase):
         fetch.assert_called_once()
         self.assertEqual(fetch.call_args.kwargs['hours'],1)
         self.assertEqual(store.writes.count('live/station-plots.json'),1)
-        self.assertIsNotNone(store.read_json('live/maps.json'))
+        self.assertEqual(store.writes,['live/station-plots.json'])
 
     def test_public_reader_only_reads_prepared_data_and_has_twelve_positions(self):
         store=MemoryStore();rows=[row(minutes=7+60*i) for i in range(12)]
@@ -159,8 +159,10 @@ class HourlyMetarTests(unittest.TestCase):
         client=app.app.test_client();html=client.get('/').get_data(as_text=True)
         for text in ['tab-metar-clouds','tab-radar','tab-satellite','tab-forecast',':50–:59']:
             self.assertIn(text,html)
-        for text in ['surface-analysis.js','id="metar-view"','id="observations"']:
+        for text in ['surface-analysis.js','maps.js','tab-maps','tab-ai-forecast','id="metar-view"','id="observations"']:
             self.assertNotIn(text,html)
+        self.assertEqual(client.get('/api/maps').status_code,404)
+        self.assertEqual(client.get('/api/prepared/analysis/metar-maps-v3/202610161200/0000000000000000/tempF.png').status_code,404)
         self.assertEqual(client.get('/api/prepared/analysis/surface-v3/202610161200/0000000000000000/tempF.png').status_code,404)
         self.assertEqual(client.get('/api/metar-clouds').status_code,404)
         self.assertEqual(client.post('/collect/metar-clouds').status_code,404)

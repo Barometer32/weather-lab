@@ -209,39 +209,24 @@ body.satellite-expanded { overflow: hidden; }
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
 
-.surface-section { margin-top:36px; padding-top:28px; border-top:1px solid var(--border); }
-.surface-section h2 { margin:4px 0 10px; font-size:28px; letter-spacing:-.5px; }
-#surface-map { height:600px; background:#f7faf8; border:1px solid var(--border); border-radius:8px; }
-#surface-field { min-height:44px; padding:8px; border:1px solid var(--border); border-radius:6px; background:white; max-width:100%; }
-.surface-legend { max-width:650px; margin:16px 0 8px; font-size:13px; }
-.surface-gradient { height:15px; border-radius:4px; margin-top:8px; }
-.surface-ticks { position:relative; height:18px; font-size:11px; margin-top:4px; }
-.surface-ticks span { position:absolute; transform:translateX(-50%); }
-.surface-wind { background:transparent; border:0; }
-#surface-coverage td { font-size:13px; }
-@media(max-width:600px) { #surface-map { height:470px; } .surface-section .metar-view-controls { align-items:flex-start; } }
-.surface-contour-label { background:#ffffffc9; border:0; box-shadow:none; font:600 10px Arial,sans-serif; color:#263e3b; padding:0 2px; }
-
 .feed-health { margin:12px 0; padding:12px 15px; border:1px solid #bdccc4; border-left:4px solid #218552; border-radius:6px; background:#f4faf6; font-size:13px; line-height:1.5; }
 .feed-health[hidden] { display:none; }
 .feed-health p { margin:4px 0 0; }
 .feed-health-unknown { border-color:#c7cfce; border-left-color:#73817c; background:#f7f9f8; }
 .feed-health-warning { border-color:#dcc087; border-left-color:#b57a13; background:#fff8e9; }
-#surface-map { border:0; border-radius:0; }
 
 /* Combined METAR wind and sky model. Cloud circle stays on the true station location. */
 .plot-sky-unknown { fill:#555; font:800 9px system-ui,sans-serif; stroke:none!important; }
 .plot-ceiling { fill:#111; font-size:13px; font-weight:800; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
 
-/* Maps use the existing regional contour colors and compact timeline controls. */
-#maps .metar-view-controls { margin:0 0 14px; }
-#surface-map { height:600px; background:#fff; }
-#maps .surface-legend { max-width:none; margin:16px 18px 12px; }
-#maps .surface-ticks { font-size:11px; }
-#maps .surface-legend p { margin:8px 0; font-size:13px; }
-@media(max-width:600px) {
-  #surface-map { height:470px; }
-  #maps .surface-ticks { font-size:9px; }
-  #maps .surface-legend { margin-left:12px; margin-right:12px; }
-}
+/* Current solar elevation sits above the satellite product controls. */
+.sun-angle { display:flex; align-items:center; flex-wrap:wrap; gap:12px 24px; padding:16px 18px; margin:0 0 20px; border:1px solid var(--border); border-radius:10px; background:#f4faf6; }
+.sun-angle-reading { display:flex; flex-direction:column; gap:4px; }
+.sun-angle-reading .eyebrow { margin:0; }
+.sun-angle-reading strong { color:var(--green); font-size:32px; line-height:1.1; font-variant-numeric:tabular-nums; }
+.sun-angle p { margin:4px 0; }
+.sun-angle .small-note { font-size:12px; }
+.sun-angle[data-position="below"] { background:#f4f6f8; }
+.sun-angle[data-position="below"] strong { color:#41546a; }
+@media(max-width:600px) { .sun-angle { padding:14px; gap:10px 18px; } .sun-angle-reading strong { font-size:28px; } }

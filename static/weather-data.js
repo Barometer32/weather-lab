@@ -50,15 +50,9 @@ window.WeatherData = (() => {
     await asset(url);
     if(typeof Image!=="undefined"){const img=new Image();img.src=url;if(img.decode)await img.decode().catch(()=>{});}
   }
-  async function warmMaps(index){
-    const latest=index.history?.at(-1);if(!latest?.analysisUrl)return;
-    const manifest=await json(latest.analysisUrl,{maxAge:Infinity});
-    await Promise.allSettled(Object.values(manifest.fields).map(field=>image(field.imageUrl)));
-  }
   async function warmRadar(index){const latest=index.frames?.at(-1);if(latest)await asset(latest.url);}
   function prime(){
     json("/api/station-plots",{maxAge:30000}).catch(()=>{});
-    json("/api/maps",{maxAge:30000,onCached:warmMaps}).then(warmMaps).catch(()=>{});
     json("/api/radar?site=KMPX",{maxAge:15000,onCached:warmRadar}).then(warmRadar).catch(()=>{});
   }
   return {json,asset,image,prime};

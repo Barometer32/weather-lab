@@ -287,14 +287,13 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar-clouds","maps","radar","satellite","forecast"];
+const tabs = ["metar-clouds","radar","satellite","forecast"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   WeatherCloudViews.select(id);
-  WeatherMaps.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
-  if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
+  if(id === "satellite") { window.WeatherSun?.refresh(); loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
 for(const id of tabs) {
   $("tab-"+id).addEventListener("click",()=>selectTab(id));
