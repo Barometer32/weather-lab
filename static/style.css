@@ -201,10 +201,16 @@ body.satellite-expanded { overflow: hidden; }
 .metar-plot text { paint-order:stroke fill; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
 .plot-temp { fill:#a62926; }
 .plot-dew { fill:#176741; }
-.plot-speed { fill:#111; font-size:12px; }
+.plot-speed { fill:#1254c4; font-size:13px; }
 .plot-wind-state { fill:#111; font-size:8px; }
 
 #metar-clouds .section-heading { flex-wrap:wrap; }
 @media(max-width:600px) {
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
+
+/* Saved customized station model: cloud circle and ceiling, with blue wind speed. */
+.plot-sky-unknown { fill:#555; font:800 9px system-ui,sans-serif; stroke:none!important; }
+.plot-ceiling { fill:#111; font-size:13px; font-weight:800; }
+.metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
+

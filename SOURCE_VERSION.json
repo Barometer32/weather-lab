@@ -1,0 +1,9 @@
+{
+  "variant": "original-site-custom-metar-clouds",
+  "baseCommit": "eb6871d2b467647d4b362e8c36e56fba8c629213",
+  "stationModelCommit": "74d9e1e0d1e592cf63a428bb773bdcbf5608dae6",
+  "branch": "metar-cloud-history-20261019",
+  "projectId": "weather-orig-261019-183538",
+  "metarCollectionMinute": 2,
+  "historyHours": 12
+}

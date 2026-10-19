@@ -26,12 +26,13 @@ const stations=[
  ['KFLAG',67,52,65,{cover:'CLR',baseFtAGL:null}],
 ].map(([station,tempF,dewpointF,speedKnots,...layers],i)=>({station,tempF,dewpointF,wind:{speedKnots,direction:station==='KVAR'?null:90,variable:station==='KVAR'},layers,mapLayer:layers[0],hasCeiling:layers.some(l=>['BKN','OVC'].includes(l.cover)),time:'2026-10-12T00:53:00Z',lat:i+1,lon:0}));
 const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8,dewpointF:53.6,wind:{speedKnots:12,direction:350},time:'2026-10-12T00:53:00Z'};
-let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T02:00:00Z'};
+let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T02:02:00Z'};
 const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getZoom(){return 7;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*80*zoomScale,y:lat*50*zoomScale};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 const windowEvents={};
 const windowStub={innerWidth:1200,innerHeight:900,addEventListener(k,f){windowEvents[k]=f;},requestAnimationFrame(f){f();}};
 const context={window:windowStub,document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Set,fetch:async()=>({ok:true,json:async()=>data}),clearTimeout(){},setTimeout(callback,delay){if(delay===0)return setTimeout(callback,0);timer={callback,delay};timers.push(timer);return timers.length;},setInterval(){throw Error("No interval polling is allowed");},L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options});return this;}})}};
+vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
@@ -44,7 +45,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.match(find('KLOW'),/>1<\/span>/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.minZoom,5);
  assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);
- assert.equal(timer.delay,90000); // One scheduled prepared-data check at :00:30.
+ assert.equal(timer.delay,210000); // One scheduled prepared-data check at :02:30.
  get('metar-cloud-reset').events.click();assert.equal(lastView.zoom,8.5);
  assert.equal(find('KSCT'),undefined);assert.equal(find('KUNK'),undefined);assert.equal(find('KCLR'),undefined);
  assert.ok(shown.every(s=>!s.icon.html.includes('<circle')));
@@ -60,7 +61,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(find('METRO'),undefined);
  for(const id of ['KFCM','KMIC','KMSP','KSTP'])assert.ok(find(id),id+' has its own plot');
  for(const id of ['KSGS','KCFE','KFCE'])assert.equal(find(id),undefined);
- assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')&&!s.icon.html.includes('<circle')));
+ assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')&&s.icon.html.includes('class="plot-sky"')));
  assert.ok(shown.every(s=>!s.icon.html.includes('wind-full-barb')&&!s.icon.html.includes('wind-pennant')));
  assert.ok(!get('metar-cloud-time').textContent.includes('Live'));
  assert.ok(timer.delay>0);
@@ -102,14 +103,14 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  // Real airport coordinates at the new fractional desktop zoom: the three
  // focus stations fit, and nearby KSTP cannot displace KMSP.
  const geographic=[['KFCM',44.8321,-93.4705],['KMIC',45.0623,-93.3511],['KMSP',44.8852,-93.2313],['KSTP',44.9323,-93.0559]];
- const world=256*Math.pow(2,8.5);
+ const world=256*Math.pow(2,8.6);
  const mercator=([lat,lon])=>({x:world*(lon+180)/360,y:world*(.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI))});
  const center=mercator([44.925,-93.35]);
  map.latLngToContainerPoint=coords=>{const p=mercator(coords);return{x:500+p.x-center.x,y:300+p.y-center.y};};
  const focusSites=geographic.map(([station,lat,lon])=>({...stations[0],station,lat,lon}));
  data={...data,history:data.history.map(h=>({...h,stations:focusSites}))};
  get('refresh-metar-clouds').events.click();await flush();
- for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.5');
+ for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.6');
  assert.equal(find('KSTP'),undefined);
  map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.
@@ -121,11 +122,12 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.equal(get('metar-cloud-rows').children.length,0);
  get('metar-station-list').open=true;get('metar-station-list').events.toggle();
  assert.equal(get('metar-cloud-rows').children.length,cases.length);
- clock=Date.UTC(2026,9,12,3,0,30);
- const scheduled=timers.find(t=>t.delay===90000);scheduled.callback();await flush();
+ clock=Date.UTC(2026,9,12,3,2,30);
+ const scheduled=timers.find(t=>t.delay===210000);scheduled.callback();await flush();
  assert.equal(timer.delay,60000);
- data={...data,checkedAt:'2026-10-12T03:00:00Z'};
+ data={...data,checkedAt:'2026-10-12T03:02:00Z'};
  const count=timers.length;timer.callback();await flush();
  assert.equal(timers.length,count);
  console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, individual stations and denser non-overlapping plots, scheduled refresh and selection.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+

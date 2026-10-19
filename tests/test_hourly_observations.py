@@ -68,11 +68,11 @@ class HourlyObservationTests(unittest.TestCase):
 
     def test_saved_snapshot_not_stale_during_hourly_gap_but_flags_missed_collection(self):
         hour=NOW.replace(minute=0)
-        for now,checked,stale in [(hour+timedelta(minutes=40),hour,False),
-                                  (hour+timedelta(minutes=59),hour,False),
-                                  (hour+timedelta(hours=1,minutes=1),hour,False),
-                                  (hour+timedelta(hours=1,minutes=3),hour,True),
-                                  (hour+timedelta(hours=1,minutes=3),hour+timedelta(hours=1),False)]:
+        for now,checked,stale in [(hour+timedelta(minutes=40),hour+timedelta(minutes=2),False),
+                                  (hour+timedelta(minutes=59),hour+timedelta(minutes=2),False),
+                                  (hour+timedelta(hours=1,minutes=3),hour+timedelta(minutes=2),False),
+                                  (hour+timedelta(hours=1,minutes=5),hour+timedelta(minutes=2),True),
+                                  (hour+timedelta(hours=1,minutes=5),hour+timedelta(hours=1,minutes=2),False)]:
             with self.subTest(now=now,checked=checked):
                 app._cache.clear();store=MemoryStore()
                 store.write_json('live/observations.json',dict(reports=reports(),checkedAt=app.iso(checked)))
@@ -83,6 +83,7 @@ class HourlyObservationTests(unittest.TestCase):
     def test_deployment_has_one_shared_hourly_job_and_retires_separate_observations(self):
         from pathlib import Path
         text=Path('deploy.sh').read_text()
-        self.assertIn("weather_schedule metar-clouds '0 * * * *'",text)
+        self.assertIn("weather_schedule metar-clouds '2 * * * *'",text)
         self.assertNotIn('weather_schedule observations',text)
         self.assertIn('gcloud scheduler jobs delete weather-live-observations',text)
+

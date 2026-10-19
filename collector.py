@@ -137,10 +137,10 @@ def collect_satellite(store, now):
 def collect_metar_clouds(store, now):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
-    if previous and previous.get("collectionMode") == "shared-hourly-bulk":
-        checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
-        if checked.replace(minute=0, second=0, microsecond=0) == now.replace(minute=0, second=0, microsecond=0):
-            return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+    target = weather.iso(now.replace(minute=0, second=0, microsecond=0))
+    if (previous and previous.get("collectionMode") == "official-hourly-archive"
+            and previous.get("hourlyTarget") == target and previous.get("stations")):
+        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
     data = collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)
@@ -188,3 +188,4 @@ def collect(kind):
 
 
 logging.basicConfig(level=logging.INFO)
+

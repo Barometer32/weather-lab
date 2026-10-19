@@ -1,3 +1,9 @@
+## METAR cloud-circle restoration (October 19)
+
+The active update branch is `metar-cloud-history-20261019`, based on the original October 12 site. It restores the saved October 17 station-model renderer and collision-aware density: temperature and dew point on the left, reported sky-cover circle at the station, ceiling in hundreds of feet upper right, and blue wind speed lower right with the directional arrow outside the circle. The radar, satellite, and forecast application code remains from the original site.
+
+Run `bash update-metars.sh` from this branch in Cloud Shell to update `weather-orig-261019-183538` and import twelve actual completed hours. The one-time Cloud Run job downloads explicit NOAA airport batches, splits capped responses, and refuses to replace history if an entire hour is empty. Hourly collection runs at :02, requests only the latest completed hour, and selects routine METARs from :50 through :59, preferring :53. Existing twelve-hour history is retained. The map reports how many of the twelve slots contain observations.
+
 # WEATHER LAB
 
 A phone-friendly Twin Cities weather page with four views:
@@ -95,3 +101,4 @@ node --check static/native-radar.js
 node --check static/cloud-views.js
 bash -n deploy.sh
 ```
+

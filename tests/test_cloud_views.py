@@ -25,6 +25,7 @@ class CloudReportTests(unittest.TestCase):
     def setUp(self):
         weather._cache.clear()
         rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
+        region=patch('metar_history.regional_station_ids',return_value=['KAAA']);region.start();self.addCleanup(region.stop)
 
     def test_preserves_all_layers_and_heights_above_twelve_thousand(self):
         cloud='<sky_condition sky_cover="FEW" cloud_base_ft_agl="3500"/><sky_condition sky_cover="BKN" cloud_base_ft_agl="12000"/><sky_condition sky_cover="BKN" cloud_base_ft_agl="25000"/>'
@@ -89,6 +90,7 @@ class HourlyCloudTests(unittest.TestCase):
     def setUp(self):
         weather._cache.clear()
         rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
+        region=patch('metar_history.regional_station_ids',return_value=['KAAA']);region.start();self.addCleanup(region.stop)
     def rows(self, *items):return parse_reports(xml(*items), NOW)
 
     def report(self, minutes=7, **kwargs):
@@ -194,18 +196,20 @@ class HourlyCloudTests(unittest.TestCase):
         data=snapshot(self.rows(self.report(7),self.report(7,cloud='',raw='METAR KAAA',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>')),NOW)
         self.assertEqual(data['stations'][0]['layers'],[])
 
-    def test_one_bulk_pull_merges_saved_history_without_historical_requests(self):
+    def test_one_hour_archive_query_merges_saved_history(self):
         previous=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
         urls=[]
         def fetch(url):
             urls.append(url)
             return xml(metar(stamp=(NOW+timedelta(minutes=53)).isoformat()))
         data=collect(fetch,NOW+timedelta(hours=1),previous)
-        self.assertEqual(urls,['https://aviationweather.gov/data/cache/metars.cache.xml.gz'])
+        self.assertEqual(len(urls),1)
+        self.assertIn('hours=1',urls[0])
+        self.assertIn('ids=KAAA',urls[0])
         self.assertEqual(len(data['history']),12)
         self.assertTrue(all(h['stations'] for h in data['history']))
         self.assertEqual(data['history'][-1]['hour'],'2026-10-10T03:00:00Z')
-        self.assertEqual(data['collectionMode'],'shared-hourly-bulk')
+        self.assertEqual(data['collectionMode'],'official-hourly-archive')
 
     def test_bulk_speci_does_not_replace_a_saved_routine_report(self):
         previous=snapshot(self.rows(self.report()),NOW)
@@ -231,3 +235,4 @@ class HourlyCloudTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+

@@ -35,7 +35,8 @@ def cloud_summary(row):
     from app import valid_number, valid_dewpoint, wind_mean, metar_precision
     row = metar_precision(row)
     temperature = row.get("temp")
-    return {**row, "mapLayer": layer, "hasCeiling": bool(ceilings),
+    from cloud_conditions import summarize
+    return {**row, **summarize(row), "mapLayer": layer, "hasCeiling": bool(ceilings),
             "tempF": round(temperature * 9 / 5 + 32, 1) if valid_number(temperature, -90, 60) else None,
             "dewpointF": round(row["dewp"] * 9 / 5 + 32, 1) if valid_dewpoint(row) else None,
             "wind": wind_mean([row])}
@@ -168,7 +169,9 @@ def current(data, now):
     # A legacy latest-only snapshot cannot supply the requested hourly history.
     if data.get("version") not in (2, 3):
         rows = data.get("stations", [])
-    result = snapshot(rows, now, data["checkedAt"])
+    target = now.replace(minute=0, second=0, microsecond=0)
+    rows = [row for row in rows if datetime.fromisoformat(row["time"].replace("Z", "+00:00")) < target]
+    result = snapshot(rows, target, data["checkedAt"])
     result["historyPending"] = data.get("version") != 3
     return {**result, "stale": data.get("stale", False)}
 
@@ -183,17 +186,18 @@ def observation_reports(data):
 
 
 def collect(download, now, previous=None):
+    """Download only the last completed hour, preserving twelve saved hours."""
+    from metar_history import fetch_history
     previous = previous or {}
-    # One complete AWC bulk download per collection. No per-station requests,
-    # retries, historical queries or separate main-observation source download.
-    fresh = reports(download(SOURCE_URL), now)
-    retained = [row for hour in previous.get("history", []) for row in hour["stations"]
-                if in_region(row)]
-    # Keep valid existing twelve-hour history when switching from the former
-    # regional/national collectors. A new empty store builds history over time.
-    data = snapshot(retained+fresh["stations"], now)
-    if not any(hour["stations"] for hour in data["history"]):
-        raise ValueError("No routine hourly reports; previous snapshot retained")
+    target = now.replace(minute=0, second=0, microsecond=0)
+    archive = fetch_history(download, now, hours=1)
+    retained = [row for frame in previous.get("history", [])
+                for row in frame.get("stations", []) if in_region(row)]
+    data = snapshot(retained+archive["reports"], target, iso(now))
+    if not data["stations"]:
+        raise ValueError("No routine METARs in the completed hour's :50–:59 window; previous data retained")
     data["observationReports"] = observation_reports(data)
-    data["collectionMode"] = "shared-hourly-bulk"
+    data["collectionMode"] = "official-hourly-archive"
+    data["hourlyTarget"] = iso(target)
     return data
+

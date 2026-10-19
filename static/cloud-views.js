@@ -7,7 +7,8 @@ window.WeatherCloudViews = (() => {
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const excluded = new Set(["KCFE","KFCE","KSGS"]);
   const preferred = ["KFCM","KMIC","KMSP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
-  const plotScale=.82;
+  const model=window.WeatherStationModel;
+  const plotScale=model.scale;
   const directions=["N","NE","E","SE","S","SW","W","NW"];
   const rounded=value=>value==null?"—":String(Math.round(value));
   const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
@@ -25,19 +26,7 @@ window.WeatherCloudViews = (() => {
     if(compact)return `${layer.cover==="VV"?"VV ":""}${base}`;
     return `${covers[layer.cover]||layer.cover} · ${base}${layer.cover==="VV"?" vertical visibility":""}`;
   }
-  function stationModel(station) {
-    const wind=station.wind, speed=windMph(wind);
-    let arrow;
-    if(speed!=null&&speed>=.5&&wind.direction!=null){
-      // METAR degrees describe where wind comes FROM; the arrow points TO.
-      const toward=(wind.direction+180)%360,path="M0 9V-9M-3 -4L0 -9L3 -4";
-      arrow=`<g class="wind-arrow" transform="translate(30 24) rotate(${toward})" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${path}" stroke="white" stroke-width="4.5"/><path d="${path}" stroke="#111" stroke-width="1.7"/></g>`;
-    }else{
-      const label=speed==null?"?":speed<.5?"Calm":wind.variable?"VRB":"?";
-      arrow=`<text class="plot-wind-state" x="30" y="27" text-anchor="middle">${label}</text>`;
-    }
-    return `<svg class="metar-plot" width="${84*plotScale}" height="${44*plotScale}" viewBox="0 0 84 44" aria-hidden="true">${arrow}<text class="plot-temp" x="17" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="17" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="44" y="29">${rounded(speed)}</text></svg>`;
-  }
+  const stationModel=station=>model.stationModel(station);
   function initMetars() {
     if(metarMap)return;
     metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1});
@@ -67,9 +56,8 @@ window.WeatherCloudViews = (() => {
       if(point.x<0||point.y<0||point.x>size.x||point.y>size.y)continue;
       // Bound the actual labels and short arrow, including white halos and a
       // small gap. Two-digit plots can be closer than long/negative readings.
-      const digits=Math.max(rounded(station.tempF).length,rounded(station.dewpointF).length);
-      const box={left:point.x+(17-digits*9-30-5)*plotScale,right:point.x+(44+rounded(windMph(station.wind)).length*9-30+5)*plotScale,
-        top:point.y-24*plotScale,bottom:point.y+22*plotScale};
+      const f=model.footprint(station);
+      const box={left:point.x+f.left,right:point.x+f.right,top:point.y+f.top,bottom:point.y+f.bottom};
       if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
       boxes.push(box);accepted.push(station);
     }
@@ -91,7 +79,7 @@ window.WeatherCloudViews = (() => {
     el("metar-heading").textContent=plots?"METAR plots":"Cloud ceilings";
     el("metar-timeline-description").textContent="Last 12 routine hourly snapshots";
     slider.setAttribute("aria-label","Manual METAR timeline: last 12 routine hourly snapshots");
-    el("metar-cloud-map").setAttribute("aria-label",plots?"Individual station temperature and dew point in Fahrenheit, wind flow arrows and speed in mph":"Cloud ceiling observations");
+    el("metar-cloud-map").setAttribute("aria-label",plots?"Station temperature and dew point, cloud-cover circle, ceiling in hundreds of feet, and wind flow arrow and speed":"Cloud ceiling observations");
     el("metar-cloud-legend").hidden=plots;el("metar-plot-legend").hidden=!plots;
     el("metar-table-values").textContent=plots?"Temp / dew (°F) · wind (mph)":"Coverage / bases (ft AGL)";
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
@@ -100,12 +88,12 @@ window.WeatherCloudViews = (() => {
       const summary=layer?heights(layer,true):"";
       const description=plots?`${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)}`:layer?(s.hasCeiling?`${layer.cover==="VV"?"Indefinite ceiling":"Ceiling"}: ${heights(layer)}`:`${covers[layer.cover]||layer.cover} · No ceiling reported`):"Cloud information not reported";
       const glyph=plots?stationModel(s):`<span class="cloud-ceiling-number">${summary}</span>`;
-      const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?[84*plotScale,44*plotScale]:[24,24],iconAnchor:plots?[30*plotScale,24*plotScale]:[12,12]});
+      const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?model.iconSize:[24,24],iconAnchor:plots?model.iconAnchor:[12,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.station));
       const stamp=plots?(s.weatherTime||s.time):s.time;
       popup.append(node("p",stamp?time.format(new Date(stamp)):"Report time unavailable"));
       if(plots){
-        popup.append(node("p",`Temperature ${rounded(s.tempF)}°F · Dew point ${rounded(s.dewpointF)}°F`),node("p",`Wind from ${windText(s.wind)}`));
+        popup.append(node("p",`Temperature ${rounded(s.tempF)}°F · Dew point ${rounded(s.dewpointF)}°F`),node("p",`Wind from ${windText(s.wind)}`),node("p",model.cloudText(s)));
       }else{
         if(layer)popup.append(node("p",description));
         if(!s.layers.length)popup.append(node("p","Cloud information not reported."));
@@ -121,10 +109,10 @@ window.WeatherCloudViews = (() => {
       const row=node("tr"),cell=node("td"),button=node("button",s.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
       const stamp=plots?(s.weatherTime||s.time):s.time;
-      row.append(cell,node("td",stamp?time.format(new Date(stamp)):"Unavailable"),node("td",plots?`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)}`:s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));
+      row.append(cell,node("td",stamp?time.format(new Date(stamp)):"Unavailable"),node("td",plots?`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)} · ${model.cloudText(s)}`:s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} sites in the list · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} sites in the list · ${hours.filter(h=>h.stations.length).length}/12 hours with reports · :50–:59 METARs · updates at :02${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {
@@ -143,10 +131,10 @@ window.WeatherCloudViews = (() => {
       const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
       metarIndex=restored>=0?restored:followLatest?timeline().length-1:0;
       renderMetars();
-      // After the :00 collection starts, wait for its prepared result rather
+      // After the :02 collection starts, wait for its prepared result rather
       // than treating the old snapshot as this hour's completed update. These
       // bounded reads never trigger additional upstream collection.
-      const now=new Date(),due=new Date(now);due.setUTCMinutes(0,0,0);
+      const now=new Date(),due=new Date(now);due.setUTCMinutes(2,0,0);
       if(due>now)due.setUTCHours(due.getUTCHours()-1);
       clearTimeout(metarRetry);
       if(scheduledWaitUntil>Date.now()&&new Date(data.checkedAt)<due){
@@ -161,7 +149,7 @@ window.WeatherCloudViews = (() => {
   function scheduleMetars() {
     clearTimeout(metarTimer);
     const now=new Date(),hour=new Date(now);hour.setUTCMinutes(0,0,0);
-    const next=[0,1].map(offset=>new Date(hour.getTime()+offset*3600000+30000)).find(t=>t>now);
+    const next=[0,1].map(offset=>new Date(hour.getTime()+offset*3600000+150000)).find(t=>t>now);
     metarTimer=setTimeout(()=>{
       if(!document.hidden&&!el("metar-clouds").hidden){scheduledWaitUntil=Date.now()+2*60000;loadMetars();}
       scheduleMetars();
@@ -179,3 +167,4 @@ window.WeatherCloudViews = (() => {
   scheduleMetars();
   return {select};
 })();
+

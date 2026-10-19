@@ -23,7 +23,7 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
-OBSERVATION_CHECK_MINUTES = (0,)
+OBSERVATION_CHECK_MINUTES = (2,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -583,3 +583,4 @@ def prepared_asset(key):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), debug=False)
+

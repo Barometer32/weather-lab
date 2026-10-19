@@ -9,14 +9,16 @@ import collector
 from metar_clouds import parse_reports, snapshot, current, collect
 from test_realtime import MemoryStore
 
-NOW=datetime(2026,10,11,23,58,tzinfo=timezone.utc)
+NOW=datetime(2026,10,12,0,2,tzinfo=timezone.utc)
 def row(station='KAAA',minute=53,**values):
-    return {'station':station,'time':NOW.replace(minute=minute).isoformat().replace('+00:00','Z'),
+    return {'station':station,'time':(NOW-timedelta(hours=1)).replace(minute=minute).isoformat().replace('+00:00','Z'),
             'lat':44.9,'lon':-93.4,'layers':[{'cover':'BKN','baseFtAGL':6000,'heightType':'cloudBase'}],
             'temp':24,'dewp':12,'wspd':5,'wdir':350,'reportType':'METAR',**values}
 
 class HourlyMetarViewTests(unittest.TestCase):
-    def setUp(self):app._cache.clear()
+    def setUp(self):
+        app._cache.clear()
+        region=patch('metar_history.regional_station_ids',return_value=list(app.STATIONS));region.start();self.addCleanup(region.stop)
 
     def test_xml_decodes_hourly_weather_values_and_precise_t_remarks(self):
         payload=b'<response><data><METAR><station_id>KMKT</station_id><latitude>44.2</latitude><longitude>-93.9</longitude><observation_time>2026-10-11T23:53:00Z</observation_time><temp_c>24</temp_c><dewpoint_c>12</dewpoint_c><wind_speed_kt>7</wind_speed_kt><wind_dir_degrees>180</wind_dir_degrees><raw_text>KMKT 112353Z 24/12 RMK T02440122</raw_text><sky_condition sky_cover="SCT" cloud_base_ft_agl="3000"/></METAR></data></response>'
@@ -82,7 +84,7 @@ class HourlyMetarViewTests(unittest.TestCase):
         with patch('metar_clouds.collect',return_value=dict(snapshot([row()],NOW),observationReports=[])),patch('app.get_rapid_reports') as rapid:
             collector.collect_metar_clouds(store,NOW)
         rapid.assert_not_called()
-        self.assertIn("weather_schedule metar-clouds '0 * * * *'",Path('deploy.sh').read_text())
+        self.assertIn("weather_schedule metar-clouds '2 * * * *'",Path('deploy.sh').read_text())
 
     def test_large_metar_payload_compression_preserves_data_and_respects_negotiation(self):
         store=MemoryStore();rows=[row('K'+str(i).zfill(3)) for i in range(100)]
@@ -107,3 +109,4 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertTrue(response.json['stale'])
 
 if __name__=='__main__':unittest.main()
+
