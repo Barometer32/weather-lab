@@ -39,11 +39,29 @@ if [[ -z "$WEATHER_EXISTING_SA" ]]; then
 fi
 gcloud run services add-iam-policy-binding weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --member="serviceAccount:$WEATHER_SCHEDULER" --role=roles/run.invoker >/dev/null
 
+# Pause any accessible legacy schedules before activating replacement names.
+# A deleted project's old names can return NOT_FOUND yet reject creation.
+WEATHER_LOOKUP_ERROR="$(mktemp)"
+trap 'rm -f "$WEATHER_LOOKUP_ERROR"' EXIT
+for WEATHER_OLD_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-stations weather-live-observations; do
+  if WEATHER_OLD_STATE="$(gcloud scheduler jobs describe "$WEATHER_OLD_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='value(state)' 2>"$WEATHER_LOOKUP_ERROR")"; then
+    if [[ "$WEATHER_OLD_STATE" == "ENABLED" ]]; then
+      gcloud scheduler jobs pause "$WEATHER_OLD_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
+    fi
+  elif ! grep -q 'NOT_FOUND' "$WEATHER_LOOKUP_ERROR"; then
+    cat "$WEATHER_LOOKUP_ERROR" >&2
+    exit 1
+  fi
+done
+
 weather_restore_job() {
   local weather_name="$1" weather_cron="$2" weather_endpoint="$3"
   local weather_action="create" weather_state
-  if gcloud scheduler jobs describe "$weather_name" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" >/dev/null 2>&1; then
+  if gcloud scheduler jobs describe "$weather_name" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" >/dev/null 2>"$WEATHER_LOOKUP_ERROR"; then
     weather_action="update"
+  elif ! grep -q 'NOT_FOUND' "$WEATHER_LOOKUP_ERROR"; then
+    cat "$WEATHER_LOOKUP_ERROR" >&2
+    return 1
   fi
   echo "Restoring $weather_name"
   gcloud scheduler jobs "$weather_action" http "$weather_name" \
@@ -58,12 +76,12 @@ weather_restore_job() {
     gcloud scheduler jobs resume "$weather_name" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
   fi
 }
-weather_restore_job weather-live-radar '* * * * *' radar-KMPX
-weather_restore_job weather-live-satellite '*/5 * * * *' satellite
-weather_restore_job weather-live-forecast '*/5 * * * *' forecast
-weather_restore_job weather-live-metar-clouds '0 * * * *' metar-clouds
+weather_restore_job weather-restored-20261019-radar '* * * * *' radar-KMPX
+weather_restore_job weather-restored-20261019-satellite '*/5 * * * *' satellite
+weather_restore_job weather-restored-20261019-forecast '*/5 * * * *' forecast
+weather_restore_job weather-restored-20261019-metar '0 * * * *' metar-clouds
 
-for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds; do
+for WEATHER_JOB in weather-restored-20261019-radar weather-restored-20261019-satellite weather-restored-20261019-forecast weather-restored-20261019-metar; do
   echo "Requesting initial update: $WEATHER_JOB"
   gcloud scheduler jobs run "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
 done
