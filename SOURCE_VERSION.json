@@ -5,5 +5,9 @@
   "branch": "metar-cloud-history-20261019",
   "projectId": "weather-orig-261019-183538",
   "metarCollectionMinute": 2,
-  "historyHours": 12
+  "historyHours": 12,
+  "metarReportWindowMinutes": [
+    45,
+    59
+  ]
 }

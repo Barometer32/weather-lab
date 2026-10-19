@@ -54,11 +54,8 @@ fi
 echo "Step 5/5: resuming hourly collection and verifying the published timeline."
 gcloud scheduler jobs resume "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
 WEATHER_PAUSED=0
-WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
-WEATHER_HTTP="$(curl -sS --max-time 310 -o "$WEATHER_WORK/latest-hour-response.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $(gcloud auth print-identity-token)" "$WEATHER_COLLECTOR_URL/collect/metar-clouds")"
-cat "$WEATHER_WORK/latest-hour-response.json"
-printf '\nLatest hour refresh: HTTP %s\n' "$WEATHER_HTTP"
-if [[ "$WEATHER_HTTP" != "200" ]]; then exit 1; fi
+gcloud scheduler jobs run "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
+echo "Requested an authenticated Scheduler refresh. Submission does not confirm collection; checking the completed archive import below."
 gcloud storage cat "gs://$WEATHER_BUCKET/live/metar-clouds.json" >"$WEATHER_WORK/published-metar-history.json"
 python3 - "$WEATHER_WORK/published-metar-history.json" <<'PY'
 import json,sys
@@ -84,5 +81,5 @@ if ! grep -q 'metar-model.js' "$WEATHER_WORK/published-page.html"; then
   exit 1
 fi
 printf '\nUpdate complete. Open and hard-refresh: %s\nSource: %s\n' "$WEATHER_URL" "$WEATHER_COMMIT"
-echo "METARs: :50–:59 reports; hourly collection at :02. The one-time archive import is finished."
+echo "METARs: :45–:59 reports; hourly collection at :02. The one-time archive import is finished."
 

@@ -112,7 +112,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",stamp?time.format(new Date(stamp)):"Unavailable"),node("td",plots?`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)} · ${model.cloudText(s)}`:s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} sites in the list · ${hours.filter(h=>h.stations.length).length}/12 hours with reports · :50–:59 METARs · updates at :02${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=plots?`${drawn.length} spaced plots visible · ${listing.length} sites in the list · ${hours.filter(h=>h.stations.length).length}/12 hours with reports · :45–:59 METARs · updates at :02${cloudData.stale?" · Background updates delayed":""}`:`${drawn.length} ceilings visible · ${ceilings.length} broken/overcast ceilings · ${stations.length} reporting stations · routine hourly snapshot${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

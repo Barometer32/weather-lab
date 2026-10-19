@@ -195,7 +195,7 @@ def collect(download, now, previous=None):
                 for row in frame.get("stations", []) if in_region(row)]
     data = snapshot(retained+archive["reports"], target, iso(now))
     if not data["stations"]:
-        raise ValueError("No routine METARs in the completed hour's :50–:59 window; previous data retained")
+        raise ValueError("No routine METARs in the completed hour's :45–:59 window; previous data retained")
     data["observationReports"] = observation_reports(data)
     data["collectionMode"] = "official-hourly-archive"
     data["hourlyTarget"] = iso(target)

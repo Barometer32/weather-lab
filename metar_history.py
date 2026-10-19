@@ -4,7 +4,7 @@ Run in an authenticated environment with WEATHER_DATA_BUCKET set. NOAA caps
 queries at 400 reports; recursively split explicit station batches instead of
 accepting a truncated archive. Discover regional airport IDs from NOAA station
 metadata; bbox queries can omit stations even below the cap. Routine reports
-from :50–:59 are selected using the same hourly parser.
+from :45–:59 are selected using the same hourly parser.
 """
 import argparse
 from datetime import datetime, timezone

@@ -146,7 +146,7 @@ def routine_hour(report, as_of):
         return None
     observed = datetime.fromtimestamp(stamp, UTC)
     # Permit small changes in the routine reporting minute, never other reports.
-    if not 50 <= observed.minute <= 59:
+    if not 45 <= observed.minute <= 59:
         return None
     return (observed + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
@@ -225,7 +225,7 @@ def observations(reports=None, now=None, rapid_reports=None):
         current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
                        wind={"speedMph": None, "speedKnots": None, "direction": None})
     return {"fetchedAt": iso(now), "current": current, "history": history,
-            "method": "Shared hourly METAR bulk pull at :00; routine report nearest :53 within :50–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
+            "method": "Shared hourly METAR archive pull at :02; routine report nearest :53 within :45–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
             "source": "NOAA Aviation Weather Center routine METARs"}
 
 
@@ -407,7 +407,7 @@ def observation_notice(data):
     current, warnings = data["current"], []
     if not current["available"]:
         reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
-        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :00; hourly history remains below.")
+        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :02; hourly history remains below.")
     if data.get("stale"):
         warnings.append("Background observation checks are delayed; check the displayed observation hour.")
     return " ".join(warnings)

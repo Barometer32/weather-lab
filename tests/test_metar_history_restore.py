@@ -83,6 +83,31 @@ def test_window_and_official_report_filter_selects_closest_to_53():
     assert data["stations"][0]["time"] == metar_clouds.iso(HOUR-timedelta(minutes=7))
 
 
+@pytest.mark.parametrize("minute,expected", [(44,False),(45,True),(49,True),(50,True),(59,True),(0,False)])
+def test_widened_window_boundaries_apply_to_canonical_and_public_history(minute, expected):
+    stamp = (HOUR-timedelta(hours=1)).replace(minute=minute)
+    rows = metar_clouds.parse_reports(xml(xml_report(stamp)), HOUR)
+    data = metar_clouds.snapshot(rows, HOUR)
+    public = metar_clouds.current(data, HOUR)
+    assert bool(data["stations"]) is expected
+    assert bool(public["stations"]) is expected
+    if expected:
+        assert data["stations"][0]["time"] == metar_clouds.iso(stamp)
+        assert len(data["history"]) == 12
+
+
+def test_earlier_report_fills_missing_station_without_replacing_preferred_53():
+    stamps = [HOUR-timedelta(minutes=m) for m in [15,11,7]]
+    rows = metar_clouds.parse_reports(xml(*(xml_report(t) for t in stamps),
+        xml_report(stamps[0], station="KFCM"),
+        xml_report(stamps[0], station="KSPE", kind="SPECI"),
+        xml_report(stamps[0], station="KHF1", kind="HFMETAR")), HOUR)
+    result = {r["station"]: r for r in metar_clouds.snapshot(rows, HOUR)["stations"]}
+    assert set(result) == {"KMSP","KFCM"}
+    assert result["KMSP"]["time"] == metar_clouds.iso(HOUR-timedelta(minutes=7))
+    assert result["KFCM"]["time"] == metar_clouds.iso(HOUR-timedelta(minutes=15))
+
+
 def test_archive_discovery_batches_split_at_the_noaa_cap():
     catalog = [{"icaoId": s, "lat": 44.9, "lon": -93.4} for s in ["KAAA", "KBBB"]]
     calls = []
