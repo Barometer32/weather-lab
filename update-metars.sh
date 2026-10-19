@@ -6,6 +6,7 @@ WEATHER_REGION="us-central1"
 WEATHER_BRANCH="metar-cloud-history-20261019"
 WEATHER_WORK="$(mktemp -d "$HOME/weather-metar-cloud-update.XXXXXX")"
 WEATHER_PAUSED=0
+WEATHER_UPDATE_METAR_HISTORY="${WEATHER_UPDATE_METAR_HISTORY:-1}"
 WEATHER_JOB="weather-live-metar-clouds"
 
 weather_cleanup() {
@@ -45,10 +46,15 @@ gcloud run services update weather-collector --project="$WEATHER_PROJECT" --regi
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud scheduler jobs update http "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --schedule='2 * * * *' --time-zone=Etc/UTC --quiet
 
+if [[ "$WEATHER_UPDATE_METAR_HISTORY" == "1" ]]; then
 echo "Step 4/5: importing the last 12 completed hours from NOAA."
 if ! gcloud run jobs deploy weather-metar-backfill --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args=metar_history.py --tasks=1 --parallelism=1 --cpu=1 --memory=1Gi --max-retries=0 --task-timeout=1200s --execute-now --wait --quiet; then
   gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="weather-metar-backfill"' --project="$WEATHER_PROJECT" --freshness=30m --limit=30 --format='value(textPayload,jsonPayload.message)' || true
   exit 1
+fi
+
+else
+  echo "Step 4/5: keeping the existing twelve-hour history; no new archive import."
 fi
 
 echo "Step 5/5: resuming hourly collection and verifying the published timeline."
@@ -81,5 +87,5 @@ if ! grep -q 'metar-model.js' "$WEATHER_WORK/published-page.html"; then
   exit 1
 fi
 printf '\nUpdate complete. Open and hard-refresh: %s\nSource: %s\n' "$WEATHER_URL" "$WEATHER_COMMIT"
-echo "METARs: :45–:59 reports; hourly collection at :02. The one-time archive import is finished."
+echo "METARs: :45–:59 reports; hourly collection at :02. The published twelve-hour timeline has been verified."
 

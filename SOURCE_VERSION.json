@@ -9,5 +9,7 @@
   "metarReportWindowMinutes": [
     45,
     59
-  ]
+  ],
+  "stationLabelLayout": "fixed-quadrants",
+  "stationSpacing": "maximum-footprint-across-12-hours"
 }

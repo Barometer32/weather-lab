@@ -29,26 +29,10 @@ window.WeatherStationModel = (() => {
     else if(fill!==0)interior=`<text class="plot-sky-unknown" x="${cx}" y="${cy+3.3}" text-anchor="middle">?</text>`;
     return `<g class="plot-sky" data-cover="${sky?.code||"unknown"}"><circle cx="${cx}" cy="${cy}" r="${r+1.7}" fill="white"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>${interior}<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#111" stroke-width="1.4"/></g>`;
   }
-  function plotLayout(station){
-    const wind=station.wind||{},speed=windMph(wind);
-    const labels={temp:22,dew:22,ceiling:46,speed:46};
-    if(speed!=null&&speed>=.5&&wind.direction!=null){
-      const toward=(wind.direction+180)%360,angle=toward*Math.PI/180;
-      // Bound the longer shaft, solid arrowhead and white outline. Move only
-      // the adjacent label when that direction enters its text row.
-      const points=[[0,-8.5],[0,-14],[0,-18],[-3.2,-12.8],[3.2,-12.8]];
-      const x=points.map(([x,y])=>x*Math.cos(angle)-y*Math.sin(angle));
-      const y=points.map(([x,y])=>x*Math.sin(angle)+y*Math.cos(angle));
-      const left=cx+Math.min(...x)-2.5,right=cx+Math.max(...x)+2.5;
-      const top=cy+Math.min(...y)-2.5,bottom=cy+Math.max(...y)+2.5;
-      for(const [a,b,rowTop,rowBottom] of [["temp","ceiling",4.5,18],["dew","speed",25.5,39]]){
-        if(top<=rowBottom&&bottom>=rowTop){
-          labels[a]=Math.min(labels[a],Math.floor(left-2));
-          labels[b]=Math.max(labels[b],Math.ceil(right+2));
-        }
-      }
-    }
-    return labels;
+  function plotLayout(){
+    // Fixed quadrants leave the entire rotating arrow and its halo a central
+    // corridor. Wind changes must never move a value during the hourly loop.
+    return {temp:13,dew:13,ceiling:55,speed:55};
   }
   function stationModel(station){
     const wind=station.wind||{},speed=windMph(wind),ceiling=ceilingText(station),labels=plotLayout(station);

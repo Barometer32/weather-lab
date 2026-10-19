@@ -91,6 +91,24 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  data={...data,history:data.history.map(h=>({...h,stations:windSites}))};
  get('metar-view').value='plots';get('refresh-metar-clouds').events.click();await flush();
  directions.forEach((direction,i)=>assert.ok(find('KW'+i).includes('rotate('+((direction+180)%360)+')')));
+ // Reserve the same station set across hours, even when a neighboring
+ // station is missing or its labels grow; never display an old report.
+ const beforeStableProjection=map.latLngToContainerPoint;
+ map.latLngToContainerPoint=([lat])=>({x:lat*80,y:200});
+ const stableSites=[['KAA1',1],['KBB2',1.8],['KCC3',4]].map(([station,lat])=>({...stations[0],station,lat}));
+ data={...data,history:data.history.map((h,i)=>({...h,stations:i===0?
+  stableSites.map(s=>s.station==='KBB2'?{...s,tempF:-100}:s):
+  i===1?stableSites.slice(1):stableSites}))};
+ get('refresh-metar-clouds').events.click();await flush();
+ assert.ok(find('KAA1'));assert.equal(find('KBB2'),undefined);assert.ok(find('KCC3'));
+ get('metar-cloud-timeline').events.input({target:{value:'0'}});
+ assert.ok(find('KAA1'));assert.equal(find('KBB2'),undefined);assert.ok(find('KCC3'));
+ get('metar-cloud-timeline').events.input({target:{value:'1'}});
+ assert.equal(find('KAA1'),undefined,'missing station must not borrow an earlier report');
+ assert.equal(find('KBB2'),undefined,'missing neighbor does not free a slot during the loop');
+ assert.ok(find('KCC3'));
+ map.latLngToContainerPoint=beforeStableProjection;
+ get('metar-cloud-timeline').events.input({target:{value:'11'}});
  // Horizontal stations can be closer than the old 90 px rule; a third plot
  // that would touch an existing arrow/label is hidden until zoom permits it.
  const project=map.latLngToContainerPoint;
@@ -103,14 +121,14 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  // Real airport coordinates at the new fractional desktop zoom: the three
  // focus stations fit, and nearby KSTP cannot displace KMSP.
  const geographic=[['KFCM',44.8321,-93.4705],['KMIC',45.0623,-93.3511],['KMSP',44.8852,-93.2313],['KSTP',44.9323,-93.0559]];
- const world=256*Math.pow(2,8.6);
+ const world=256*Math.pow(2,8.7);
  const mercator=([lat,lon])=>({x:world*(lon+180)/360,y:world*(.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI))});
  const center=mercator([44.925,-93.35]);
  map.latLngToContainerPoint=coords=>{const p=mercator(coords);return{x:500+p.x-center.x,y:300+p.y-center.y};};
  const focusSites=geographic.map(([station,lat,lon])=>({...stations[0],station,lat,lon}));
  data={...data,history:data.history.map(h=>({...h,stations:focusSites}))};
  get('refresh-metar-clouds').events.click();await flush();
- for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.6');
+ for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.7');
  assert.equal(find('KSTP'),undefined);
  map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.

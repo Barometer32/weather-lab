@@ -47,21 +47,33 @@ window.WeatherCloudViews = (() => {
     return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
   }
   function plotStations(stations) {
-    const candidates=stations.filter(s=>!excluded.has(s.station));
+    // Reserve each station's largest footprint across the complete timeline.
+    // Missing reports keep their space; nearby plots cannot take turns using
+    // that slot as the slider moves. This never carries a report forward.
+    const reserved=new Map();
+    for(const hour of timeline())for(const s of hour.stations){
+      if(excluded.has(s.station))continue;
+      const f=model.footprint(s),old=reserved.get(s.station);
+      reserved.set(s.station,{station:s.station,lat:s.lat,lon:s.lon,footprint:old?{
+        left:Math.min(old.footprint.left,f.left),right:Math.max(old.footprint.right,f.right),
+        top:Math.min(old.footprint.top,f.top),bottom:Math.max(old.footprint.bottom,f.bottom)
+      }:f});
+    }
+    const candidates=[...reserved.values()];
     const priority=s=>{const rank=preferred.indexOf(s.station);return rank<0?preferred.length:rank;};
     candidates.sort((a,b)=>priority(a)-priority(b)||a.station.localeCompare(b.station));
     const size=metarMap.getSize(),accepted=[],boxes=[];
     for(const station of candidates){
       const point=metarMap.latLngToContainerPoint([station.lat,station.lon]);
       if(point.x<0||point.y<0||point.x>size.x||point.y>size.y)continue;
-      // Bound the actual labels and short arrow, including white halos and a
-      // small gap. Two-digit plots can be closer than long/negative readings.
-      const f=model.footprint(station);
+      // Use the same reserved box for every hour at this map view.
+      const f=station.footprint;
       const box={left:point.x+f.left,right:point.x+f.right,top:point.y+f.top,bottom:point.y+f.bottom};
       if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
       boxes.push(box);accepted.push(station);
     }
-    return accepted;
+    const selected=new Map(stations.map(s=>[s.station,s]));
+    return accepted.map(s=>selected.get(s.station)).filter(Boolean);
   }
   function renderMetars() {
     if(!cloudData)return;
