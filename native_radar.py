@@ -237,32 +237,8 @@ def collect_site(store, now, site, palette, budget=45):
         raise ValueError("No recent Level II archive volumes; previous radar retained")
     recent_keys = {row["key"] for row in volumes}
     state["archives"] = [key for key in state["archives"] if key in recent_keys]
-    # A 24-byte range request supplies the volume sequence, avoiding an entire
-    # completed volume download merely to locate the current streaming directory.
-    head = fetch(ARCHIVE + volumes[-1]["key"], header=True)
-    if not head.startswith(b"AR2V") or head[20:24].decode() != site:
-        raise ValueError("Unexpected native volume header")
-    anchor = int(head[9:12])
-    candidates = {(anchor+i-1) % 999+1 for i in range(5)}
-    # Old incomplete stream entries are retried; closed streams are recovered
-    # through the completed-volume archive if a chunk was missing.
-    candidates.update(int(key) for key in state["streams"])
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        listings = list(pool.map(lambda num: (num, objects(CHUNKS, f"{site}/{num}/")), sorted(candidates)))
-    active = []
-    latest_archive_start = datetime.fromisoformat(volumes[-1]["time"].replace("Z", "+00:00"))
-    for number, rows in listings:
-        rows = [row for row in rows if re.search(r"\d{8}-\d{6}-\d{3}-[SIE]$", row["key"])]
-        if rows:
-            rows.sort(key=lambda row: row["key"])
-            start_text = rows[0]["key"].rsplit("/", 1)[1][:15]
-            volume_start = datetime.strptime(start_text, "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
-            # Once a completed archive object exists, one download replaces
-            # potentially hundreds of chunk requests for that old volume.
-            if volume_start > latest_archive_start and volume_start >= now-timedelta(minutes=25):
-                active.append((number, rows))
-    active.sort(key=lambda entry: entry[1][0]["key"].rsplit("/", 1)[1])
     failures = 0
+    active = []
 
     def publish():
         data = manifest(list(frames.values()), now, site, palette)
@@ -284,6 +260,53 @@ def collect_site(store, now, site, palette, budget=45):
             frames[meta["id"]]["elevationDegrees"] = meta["nominalElevation"]
             frames[meta["id"]]["url"] = f"/api/prepared/{key}"
             publish()
+
+    # Publish the newest completed volume before optional stream discovery.
+    # Streaming failures cannot starve the reliable two-hour archive path.
+    newest = volumes[-1]
+    if newest["key"] not in state["archives"]:
+        try:
+            items, _ = consume(decode(fetch(ARCHIVE+newest["key"])), site)
+            if not items:
+                raise ValueError("No complete base reflectivity sweep in newest archive")
+            save(items)
+            state["archives"].append(newest["key"])
+            publish()
+        except Exception:
+            failures += 1
+            log.exception("Could not process newest completed radar volume")
+
+    try:
+        # A 24-byte range request supplies the volume sequence, avoiding an entire
+        # completed volume download merely to locate the current streaming directory.
+        head = fetch(ARCHIVE + volumes[-1]["key"], header=True)
+        if not head.startswith(b"AR2V") or head[20:24].decode() != site:
+            raise ValueError("Unexpected native volume header")
+        anchor = int(head[9:12])
+        candidates = {(anchor+i-1) % 999+1 for i in range(5)}
+        # Old incomplete stream entries are retried; closed streams are recovered
+        # through the completed-volume archive if a chunk was missing.
+        candidates.update(int(key) for key in state["streams"])
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            listings = list(pool.map(lambda num: (num, objects(CHUNKS, f"{site}/{num}/")), sorted(candidates)))
+        active = []
+        latest_archive_start = datetime.fromisoformat(volumes[-1]["time"].replace("Z", "+00:00"))
+        for number, rows in listings:
+            rows = [row for row in rows if re.search(r"\d{8}-\d{6}-\d{3}-[SIE]$", row["key"])]
+            if rows:
+                rows.sort(key=lambda row: row["key"])
+                start_text = rows[0]["key"].rsplit("/", 1)[1][:15]
+                volume_start = datetime.strptime(start_text, "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
+                # Once a completed archive object exists, one download replaces
+                # potentially hundreds of chunk requests for that old volume.
+                if volume_start > latest_archive_start and volume_start >= now-timedelta(minutes=25):
+                    active.append((number, rows))
+        active.sort(key=lambda entry: entry[1][0]["key"].rsplit("/", 1)[1])
+    
+    except Exception:
+        failures += 1
+        active = []
+        log.exception("Streaming discovery failed; continuing completed-volume archive recovery")
 
     # Process the newest volume first so initial history never delays live radar.
     for number, rows in reversed(active):
@@ -339,3 +362,4 @@ def collect_site(store, now, site, palette, budget=45):
     if not data["frames"]:
         raise ValueError("No complete native low-tilt scans prepared")
     return {"frames": len(data["frames"]), "historyPending": len(volumes)-len(state["archives"]), "errors": failures}
+

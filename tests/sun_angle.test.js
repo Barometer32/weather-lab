@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const label={},events={};let interval;
+const context={window:{},document:{getElementById:()=>label,addEventListener:(e,f)=>events[e]=f,hidden:false},Date,Math,setInterval:(f,ms)=>{interval=ms;}};
+vm.runInNewContext(fs.readFileSync('static/sun-angle.js','utf8'),context);
+const sun=context.window.WeatherSun.elevation;
+assert.ok(sun(new Date('2026-06-21T18:15:00Z'))>68&&sun(new Date('2026-06-21T18:15:00Z'))<69);
+assert.ok(sun(new Date('2026-12-21T18:15:00Z'))>21&&sun(new Date('2026-12-21T18:15:00Z'))<23);
+assert.ok(sun(new Date('2026-10-19T06:00:00Z'))<0);
+assert.ok(sun(new Date('2026-03-20T12:00:00Z'),0,0)>87);
+assert.equal(sun(new Date('2026-10-19T14:00:00-05:00')),sun(new Date('2026-10-19T19:00:00Z')));
+assert.ok(Number.isFinite(sun(new Date('2028-02-29T18:00:00Z'))));
+assert.match(label.textContent,/Hopkins sun elevation: -?\d+\.\d°/);
+assert.equal(interval,60000);events.visibilitychange();
+console.log('Sun elevation checks passed: seasons, night, equinox, time zones, leap year and minute refresh.');

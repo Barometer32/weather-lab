@@ -1,6 +1,6 @@
 """Private scheduled HTTP collector; Cloud Run IAM authenticates requests."""
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 import logging
@@ -83,14 +83,15 @@ def collect_product(store, product, now):
         boundaries.append(f"/api/prepared/{key}")
     source_boundaries = data["boundaries"]
     source_frames = data["frames"]
-    frames = [old[frame["time"]] for frame in source_frames if frame["time"] in old]
+    frames = [frame for frame in old.values()
+              if now-timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
     deadline = time.monotonic() + 150
     added = 0
 
     def publish():
         prepared = {**data, "frames": sorted(frames,key=lambda f:f["time"]), "boundaries": boundaries,
                     "boundarySources": dict(zip(source_boundaries,boundaries)),
-                    "checkedAt":weather.iso(now), "unavailableImages":len(source_frames)-len(frames)}
+                    "checkedAt":weather.iso(now), "unavailableImages":sum(f["time"] not in {x["time"] for x in frames} for f in source_frames)}
         store.write_json(f"live/satellite-{product}.json",prepared)
 
     for frame in reversed(source_frames):
@@ -116,7 +117,7 @@ def collect_product(store, product, now):
     if not frames:
         raise ValueError("No satellite frames prepared; previous manifest retained")
     publish()
-    return {"frames": len(frames), "unavailable": len(source_frames)-len(frames)}
+    return {"frames": len(frames), "unavailable": sum(f["time"] not in {x["time"] for x in frames} for f in source_frames)}
 
 
 def collect_satellite(store, now):

@@ -1,5 +1,5 @@
 """Read the public COD local GOES image loop; preserve RGB imagery unchanged."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 
 SECTOR = "S_Minnesota"
@@ -14,7 +14,7 @@ PRODUCTS = {
 def page_url(product):
     if product not in PRODUCTS:
         raise ValueError("Unknown satellite product")
-    return (f"https://weather.cod.edu/satrad/?parms=local-{SECTOR}-{product}-24-0-100-1"
+    return (f"https://weather.cod.edu/satrad/?parms=local-{SECTOR}-{product}-48-0-100-1"
             "&checked=counties-map")
 
 
@@ -30,7 +30,7 @@ def parse_loop(html, product, now=None):
             moment = datetime.strptime(stamp, "%Y%m%d.%H%M%S").replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-        if moment > now:
+        if not now-timedelta(hours=2) <= moment <= now:
             continue
         frames.append({"time": moment.isoformat().replace("+00:00", "Z"),
                        "url": prefix + stamp + ".jpg"})
@@ -44,8 +44,11 @@ def parse_loop(html, product, now=None):
         match = re.search(re.escape(prefix) + r"(?:\?v=\d+)?", html)
         if match:
             boundaries.append(match.group(0))
-    return {"product": product, **PRODUCTS[product], "frames": frames[-24:],
+    return {"product": product, **PRODUCTS[product], "frames": frames,
+            "windowStart": (now-timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+            "windowEnd": now.isoformat().replace("+00:00", "Z"),
             "products": [{"id": key, "label": value["label"]} for key, value in PRODUCTS.items()],
             "boundaries": boundaries, "width": 1600, "height": 900,
             "source": "NOAA GOES-East imagery via College of DuPage NEXLAB",
             "sourceUrl": page_url(product), "fetchedAt": now.isoformat().replace("+00:00", "Z")}
+

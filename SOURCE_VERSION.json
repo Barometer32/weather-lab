@@ -11,5 +11,16 @@
     59
   ],
   "stationLabelLayout": "fixed-quadrants",
-  "stationSpacing": "maximum-footprint-across-12-hours"
+  "stationSpacing": "maximum-footprint-across-12-hours",
+  "radarHistoryHours": 2,
+  "satelliteHistoryHours": 2,
+  "forecastCollectionMinutes": [
+    0,
+    30
+  ],
+  "sunElevationLocation": {
+    "name": "Hopkins, MN",
+    "latitude": 44.9244,
+    "longitude": -93.414
+  }
 }

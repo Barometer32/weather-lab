@@ -6,12 +6,13 @@
   <meta name="description" content="Individual Upper Midwest METAR weather and cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=metar-clouds-20261019">
+  <link rel="stylesheet" href="/static/style.css?v=background-2h-20261019">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/metar-model.js?v=stable-metar-clouds-20261019"></script>
   <script defer src="/static/cloud-views.js?v=stable-window45-metar-clouds-20261019"></script>
-  <script defer src="/static/app.js"></script>
+  <script defer src="/static/sun-angle.js?v=20261019"></script>
+  <script defer src="/static/app.js?v=background-2h-20261019"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -25,6 +26,7 @@
 <main>
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">
   <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">METAR plots</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><label for="metar-view">View <select id="metar-view"><option value="plots">METAR plots</option><option value="clouds">METAR cloud</option></select></label><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
+  <p id="hopkins-sun-angle" class="sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of the history slider.">Hopkins sun elevation: …</p>
   <div class="cloud-map-surface">
     <div id="metar-cloud-map" aria-label="Individual station weather with state and county boundaries"></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
@@ -66,7 +68,7 @@
   <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
-  <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Latest 24 images · drag the timeline to explore</p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
+  <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Past 2 hours · drag the timeline to explore</p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
   <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
   <div id="satellite-surface">
@@ -79,7 +81,7 @@
   </div>
   <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
   <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
-  <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-24-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
+  <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-48-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
 </section>
 
 

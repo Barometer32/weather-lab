@@ -431,7 +431,7 @@ def forecast_api():
     try:
         from nws_forecast import FORECAST_VERSION, current_periods
         now = utcnow()
-        data = prepared_snapshot("forecast", 900) or get_forecast(now)
+        data = prepared_snapshot("forecast", 2100) or get_forecast(now)
         if data.get("forecastVersion") != FORECAST_VERSION:
             return jsonify(error="The matching NWS webpage forecast is being prepared. Please refresh shortly."), 503
         periods = current_periods(data["periods"], now)
@@ -452,6 +452,9 @@ def satellite_api(product):
         data = prepared_snapshot("satellite-" + product, 900)
         if data:
             data.pop("boundarySources", None)
+            now = utcnow()
+            data["frames"] = [f for f in data["frames"] if now-timedelta(hours=2) <= datetime.fromisoformat(f["time"].replace("Z", "+00:00")) <= now]
+            data.update(windowStart=iso(now-timedelta(hours=2)), windowEnd=iso(now))
             return jsonify(data)
         html = cached("satellite-" + product, 120, lambda: download(page_url(product)).decode())
         return jsonify(parse_loop(html, product, utcnow()))

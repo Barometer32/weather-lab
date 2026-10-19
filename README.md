@@ -1,3 +1,15 @@
+## Current background update (2026-10-19)
+
+Run `bash update-weather.sh` from this branch in Cloud Shell for project `weather-orig-261019-183538`. It preserves the existing twelve-hour METAR history, updates both services, reasserts authenticated schedules, and runs a one-time image recovery job with the collector identity. Radar and satellite schedules are paused during recovery and resumed on exit. The script checks real image timestamps and prints diagnostics if history or freshness is incomplete.
+
+- KMPX checks every minute, publishes completed lowest-tilt scans, and uses completed-volume recovery if streaming discovery fails. The rolling window is two hours with no frame-count cap.
+- All three COD satellite products are collected every five minutes. A 48-frame upstream listing supplies every available image timestamped within the past two hours; there is no 24-frame output cap. Saved images are reused, and the public API rolls the window without contacting the source. The open satellite tab checks saved imagery every minute.
+- The NWS forecast collector runs at :00 and :30. The web freshness threshold is 35 minutes to allow the next half-hour collection to finish. Reading the prepared forecast does not request a new NWS forecast.
+- METAR collection stays at :02 using :45–:59 reports, with twelve hourly snapshots and the fixed cloud-circle station plots.
+- A small current Hopkins sun-elevation readout appears only on METAR, above its map. It uses NOAA GML solar equations, updates in the browser every minute, and stays independent of the historical slider. Degrees are measured above the geometric horizon; negative values mean below it. It does not make a network request.
+
+Source availability and image timestamps are authoritative. A requested two-hour window cannot fill a genuine source outage; the UI keeps missing data explicit. Scheduling is near real time, not an always-running process or a guarantee of an instantaneous upstream image.
+
 ## METAR cloud-circle restoration (October 19)
 
 The active update branch is `metar-cloud-history-20261019`, based on the original October 12 site. It restores the saved October 17 station-model renderer and collision-aware density: temperature and dew point on the left, reported sky-cover circle at the station, ceiling in hundreds of feet upper right, and blue wind speed lower right with the directional arrow outside the circle. The radar, satellite, and forecast application code remains from the original site.
@@ -44,7 +56,7 @@ The map retains its white background, state/county boundaries, no city labels, z
 
 ## Satellite
 
-The page reads the public College of DuPage NEXLAB loop for its `local-S_Minnesota` sector and prepares copies of the original GOES-East image bytes in private Cloud Storage. The web service serves the saved images; their colors and annotations are unchanged. Each view contains the latest available 24 images (typically about two hours at five-minute intervals). COD supplies the correctly aligned state and county overlays; city labels are omitted.
+The page reads the public College of DuPage NEXLAB loop for its `local-S_Minnesota` sector and prepares copies of the original GOES-East image bytes in private Cloud Storage. The web service serves the saved images; their colors and annotations are unchanged. Each view contains the available images in the past two hours. COD supplies the correctly aligned state and county overlays; city labels are omitted.
 
 The Leaflet viewer uses the source's **native image coordinates**, not a latitude/longitude radar reprojection. This preserves image/overlay alignment and provides pinch zoom, drag to pan, reset view, expand, and a manual slider. The original 1600×900 RGB image and its source annotation are retained. Phones use a taller central view, with the timestamp and Reset/Expand actions in a toolbar below the image; zoom out to see the full sector. Desktop retains a full-width 16:9 image. The surrounding viewer and controls are white. Replacing ground colors with white would alter the RGB product and is not done.
 
@@ -76,7 +88,7 @@ Manual timelines are half-width above 600px and full-width on phones.
 
 The collector reads the official MapClick JSON forecast (`FcstType=json`) for 44.9244, -93.4140, using the same source as the linked NWS webpage. The NWS API generates different narrative wording and can select different initial periods even with the same grid update time, so it is not used for this view. This corresponds to the user's [Hopkins forecast](https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&unit=0&lg=english&FcstType=text&TextType=1). NWS narrative wording is preserved. Each compact row shows the period name, high/low temperature and the complete NWS narrative. Weather icons, the repeated short summary, and separate wind/precipitation-chance footers are omitted to keep the display concise. Wind and precipitation wording supplied in the full narrative is preserved.
 
-NWS source issue time comes from the same MapClick response as its narrative and periods (`creationDate`, not the observation timestamp `creationDateLocal`). Completed periods disappear at both request and browser-render time; the first remaining period comes from the webpage feed. The private collector checks the forecast every five minutes; each successful collection replaces the saved MapClick snapshot, including when the issuance time is unchanged but the initial period has rolled over. The web service reads the saved snapshot. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed rows with a warning.
+NWS source issue time comes from the same MapClick response as its narrative and periods (`creationDate`, not the observation timestamp `creationDateLocal`). Completed periods disappear at both request and browser-render time; the first remaining period comes from the webpage feed. The private collector checks the forecast at :00 and :30; each successful collection replaces the saved MapClick snapshot, including when the issuance time is unchanged but the initial period has rolled over. The web service reads the saved snapshot. Opening the tab, Refresh, and a five-minute visible-tab refresh read the latest available NWS issuance. This does **not** force NWS to issue new forecasts hourly. Failed refreshes retain already displayed rows with a warning.
 
 The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Only lightweight feed/image collection is scheduled; no numerical weather model or AI computation runs. Observation selection, averaging and QA are preserved.
 
@@ -90,7 +102,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-511113
 ```
 
-The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast every five minutes; the Upper Midwest METAR job once hourly at :02. The shared job has no automatic retries. Deployment triggers one initial collection; subsequent scheduled pulls run at :02 after the hour. Both services can scale to zero. Prepared images are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the latest 24 frames. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.
+The script retires the old model job, KEVX radar job and separate observations job, removes KEVX manifests/checkpoints, builds the app, creates a private collector and data bucket, and configures four authenticated Scheduler jobs: KMPX radar every minute; all three original satellite products every five minutes; NWS forecast at :00 and :30; the Upper Midwest METAR job once hourly at :02. The shared job has no automatic retries. Deployment triggers one initial collection; subsequent scheduled pulls run at :02 after the hour. Both services can scale to zero. Prepared images are cleaned up after one day; manifests and map overlays are retained. The radar window stays two hours and satellite keeps the rolling two-hour window. Cloud changes take effect when the deployment script runs in authenticated Cloud Shell.
 
 ## Checks
 

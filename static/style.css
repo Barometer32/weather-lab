@@ -214,3 +214,5 @@ body.satellite-expanded { overflow: hidden; }
 .plot-ceiling { fill:#111; font-size:13px; font-weight:800; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
 
+
+.sun-angle { color:#52605c; font-size:.82rem; margin:-.4rem 0 .7rem; font-variant-numeric:tabular-nums; }
