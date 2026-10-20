@@ -30,13 +30,16 @@ class CurrentHomePageTests(unittest.TestCase):
         for tile in ['temperature','dewpoint','wind']:
             self.assertNotIn(f'id="{tile}"',current)
         self.assertNotIn('id="metar-view"',html)
-        self.assertIn('data-ceiling-unit="hundreds-ft"',html)
+        self.assertIn('data-cloud-height-palette="grayscale-5"',html)
         self.assertEqual(html.count('id="sun-angle"'), 1)
         self.assertEqual(current.count('class="hour-line"'), 12)
         self.assertIn('KFCM + KMSP + KMIC', current)
         self.assertIn('initial-current-data', html)
-        self.assertIn('27 = 2,700 ft',html)
-        self.assertIn('250 = 25,000 ft',html)
+        clouds=html.split('<section id="metar-clouds"')[1].split('</section>')[0]
+        self.assertIn('id="cloud-height-scale-title"',clouds)
+        self.assertEqual(clouds.count('class="cloud-height-swatch '),5)
+        self.assertGreater(clouds.index('id="cloud-height-scale-title"'),clouds.index('class="source"'))
+        self.assertIn('20,000 ft and higher',clouds)
         self.assertNotIn('metar-model.js',html)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
 

@@ -24,20 +24,24 @@ Original summary reference: `958541732691913175126f62202990f19521c5a2`.
 
 ## Clouds map
 
-The Clouds map shows only the lowest known **broken or overcast** cloud base at
-each actual airport location. Numbers are **hundreds of feet above ground**:
-27 = 2,700 ft, 250 = 25,000 ft, 3 = 300 ft. Clear, few, scattered, vertical
-visibility, missing cloud data and unknown ceiling heights have no map number.
-If a BKN/OVC layer has unknown height, another layer is not labeled as the
-lowest base. Tap a number for its station, exact base, actual report time and
-reported cloud layers.
+The Clouds map shows a small colored dot for each airport's lowest known
+**broken or overcast** cloud base. Five shades run from black (lowest), through dark gray, medium gray and light
+gray, to white (highest): ≤5,000 ft; >5,000 to <10,000 ft; 10,000 to <15,000 ft;
+15,000 to <20,000 ft; and ≥20,000 ft AGL. The color scale is at the bottom of
+the Clouds page. Map dots and scale swatches share CSS palette variables.
+Tap a dot for the exact base, band, station, actual report time and all layers.
+Clear/few/scattered, vertical visibility, unknown ceiling heights and missing
+cloud data have no dot. An unknown-height BKN/OVC layer prevents labeling a
+higher layer as the lowest base. These are custom display bands, not flight
+categories. The bands above 12,000 ft use actual reported cloud bases; they
+never infer high clouds from an automated station's CLR report.
 
 KFCM, KMIC and KMSP appear individually here. Every qualifying airport in view
 is drawn with no collision suppression, station priority or station-count cap.
 The station list includes all available reports, including those without a
 plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
 quality exclusions KCFE/KFCE and KSGS remain in effect. Zoom and pan reveal
-more of the collected region. A missing number does not establish clear skies.
+more of the collected region. A missing dot does not establish clear skies.
 
 Current and Clouds share one canonical archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
@@ -59,7 +63,11 @@ and its actual check time.
   minute. No map location dots or city labels.
 - Satellite: original COD true color, Day Cloud Phase and NT Microphysics,
   two-hour imagery window; collection every five minutes.
-- Forecast: official NWS point forecast for Hopkins; collection at :00 and :30.
+- Forecast: official NWS point forecast for Hopkins (44.9244°N, 93.414°W), read
+  directly from MapClick's JSON feed to match its point-forecast webpage;
+  collection at :00 and :30. This cadence can add about thirty minutes of lag
+  after a forecast changes; it does not guarantee simultaneous updates with
+  the NWS webpage or bypass upstream caching.
 
 No AI forecast or contour-map tabs are enabled. Schedules run with the site
 closed. Service identities, image-building and deployment are described in
@@ -76,7 +84,7 @@ supported; a viewport-filling overlay is used when unavailable, including on
 mobile browsers. Browser chrome can remain visible in this fallback. Close or
 Escape restores the page; map size is refreshed on exit and rotation without
 resetting the timeline or geographic view. Safe-area padding protects controls
-near a phone's home indicator. METAR ceiling numbers are 12 px.
+near a phone's home indicator. Cloud-height dots are 10 px, with a dark outline so white dots remain visible.
 
 ## Apply this update to J-Weather
 
