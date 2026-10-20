@@ -370,9 +370,20 @@ def get_forecast(now=None):
 
 @app.get("/")
 def index():
-    # The opening view is the individual METAR map; no metro average is
-    # calculated while rendering the page and no source fetch occurs here.
-    return render_template("index.html"), 200, {"Cache-Control": "no-store"}
+    # Restore the prepared three-airport summary in the first page response.
+    # Loading the home page never starts a source download or collection job.
+    try:
+        initial = observation_payload(saved_only=True)
+    except Exception:
+        app.logger.exception("Prepared Current summary unavailable at page load")
+        initial = None
+    return render_template("index.html", initial_observations=initial,
+                           observation_time=observation_time,
+                           observation_temperature=observation_temperature,
+                           observation_wind=observation_wind,
+                           observation_notice=observation_notice,
+                           observation_qa=observation_qa), 200, {"Cache-Control": "no-store"}
+
 
 
 def observation_time(stamp, full=False):

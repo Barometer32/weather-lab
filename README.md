@@ -1,3 +1,34 @@
+## J-Weather: Current and combined metro plot
+
+The first **Current** tab restores the original KFCM + KMIC + KMSP summary from
+commit `958541732691913175126f62202990f19521c5a2`, with its 12-hour table and
+basic QA indicators. The small Hopkins sun-elevation line updates each minute.
+The prepared summary is rendered into the first HTML response.
+
+The METAR map substitutes one **METRO** plot at the original fixed three-airport
+center for the three separate local plots. Temperature and dew point use equal
+averages in Celsius, preserving METAR T-remark precision before Fahrenheit
+conversion. Wind speed is averaged separately; direction is speed-weighted
+circular. All three stations must pass the original checks for a metro map
+average to appear. Missing values never borrow reports from another hour.
+KMSP supplies the actual cloud circle and ceiling; these are identified as KMSP
+observations in the popup and legend, not presented as spatial averages.
+All other stations retain their reports, glyphs and timeline spacing rules.
+
+This uses the existing canonical hourly archive, :45–:59 reports collected at
+:02. No new collection job or history download is needed. Apply to the existing
+J-Weather project (`j-weather-261020012817`) with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-current.sh -o /tmp/j-weather-current.sh && bash /tmp/j-weather-current.sh
+```
+
+The helper saves service settings, builds a versioned image, updates only the
+website service, and verifies Current and the public hourly METAR payload.
+A collector-only image need not be changed: each page reads the same saved
+source reports. The existing website address, domain mappings, schedules,
+radar, satellite, forecast and twelve-hour history remain in place.
+
 ## Current background update (2026-10-19)
 
 Run `bash update-weather.sh` from this branch in Cloud Shell for project `weather-orig-261019-183538`. It preserves the existing twelve-hour METAR history, updates both services, reasserts authenticated schedules, and runs a one-time image recovery job with the collector identity. Radar and satellite schedules are paused during recovery and resumed on exit. The script checks real image timestamps and prints diagnostics if history or freshness is incomplete.

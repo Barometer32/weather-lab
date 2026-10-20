@@ -172,8 +172,48 @@ def current(data, now):
     target = now.replace(minute=0, second=0, microsecond=0)
     rows = [row for row in rows if datetime.fromisoformat(row["time"].replace("Z", "+00:00")) < target]
     result = snapshot(rows, target, data["checkedAt"])
+    for frame in result["history"]:
+        frame["metro"] = metro_report(frame["stations"], target, frame["hour"])
+    result["metro"] = result["history"][-1]["metro"]
     result["historyPending"] = data.get("version") != 3
     return {**result, "stale": data.get("stale", False)}
+
+
+
+def metro_position():
+    # Restore the original three-airport circumcenter, fixed at every hour/zoom.
+    import numpy as np
+    points = np.array([[44.83, -93.45], [44.88, -93.22], [45.07, -93.35]])
+    scale = math.cos(math.radians(points[:, 0].mean()))
+    xy = np.column_stack((points[:, 1]*scale, points[:, 0]))
+    center = np.linalg.solve(2*(xy[1:]-xy[0]), (xy[1:]**2).sum(axis=1)-(xy[0]**2).sum())
+    return float(center[1]), float(center[0]/scale)
+
+
+def metro_report(rows, now, hour):
+    from app import STATIONS, hourly_snapshot
+    reports = [{**row, "icaoId": row["station"], "metarType": row["reportType"],
+                "obsTime": datetime.fromisoformat(row["time"].replace("Z", "+00:00")).timestamp()}
+               for row in rows if row["station"] in STATIONS]
+    data = hourly_snapshot(reports, datetime.fromisoformat(hour.replace("Z", "+00:00")), now)
+    available = data["qa"]["allStationsUsed"]
+    stamps = sorted(s["observedAt"] for s in data["stations"] if s["observedAt"])
+    lat, lon = metro_position()
+    # Cloud cover and a ceiling are observations at a point, not averaged
+    # numbers. Keep KMSP's actual cloud fields and clearly identify their source.
+    cloud = next((cloud_summary(row) for row in rows if row["station"] == "KMSP"), {}) if available else {}
+    return {"station": "METRO", "lat": lat, "lon": lon, "isMetro": True,
+            "available": available, "hour": hour,
+            "tempF": data["tempF"] if available else None,
+            "dewpointF": data["dewpointF"] if available else None,
+            "wind": data["wind"] if available else {"speedMph": None, "speedKnots": None, "direction": None},
+            "time": stamps[-1] if stamps else None,
+            "oldestObservedAt": stamps[0] if stamps else None,
+            "qa": data["qa"], "contributors": data["stations"],
+            "layers": cloud.get("layers", []), "cloudLayers": cloud.get("cloudLayers", []),
+            "skyCover": cloud.get("skyCover"), "ceiling": cloud.get("ceiling"),
+            "hasCeiling": cloud.get("hasCeiling", False),
+            "cloudSource": "KMSP" if cloud else None}
 
 
 def observation_reports(data):

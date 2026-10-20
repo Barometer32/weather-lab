@@ -6,7 +6,8 @@ window.WeatherCloudViews = (() => {
   const covers = {CLR:"Clear below sensor limit",SKC:"Sky clear",FEW:"Few (1–2 eighths)",SCT:"Scattered (3–4 eighths)",BKN:"Broken (5–7 eighths)",OVC:"Overcast (8 eighths)",VV:"Obscured sky",NSC:"No significant cloud",NCD:"No cloud detected",CAVOK:"CAVOK cloud criteria"};
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const excluded = new Set(["KCFE","KFCE","KSGS"]);
-  const preferred = ["KFCM","KMIC","KMSP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
+  const metroSites = new Set(["KFCM","KMIC","KMSP"]);
+  const preferred = ["METRO","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN","KSTP"];
   const model=window.WeatherStationModel;
   const plotScale=model.scale;
   const directions=["N","NE","E","SE","S","SW","W","NW"];
@@ -15,6 +16,10 @@ window.WeatherCloudViews = (() => {
   const windText=wind=>windMph(wind)==null?"—":windMph(wind)<.5?"Calm":`${wind.direction==null?(wind.variable?"Variable":"?"):directions[Math.round(wind.direction/45)%8]} ${rounded(windMph(wind))} mph`;
   const mode=()=>el("metar-view").value||"plots";
   const timeline=()=>cloudData.history;
+  const displayStations=frame=>frame.metro
+    ? [...frame.stations.filter(s=>!excluded.has(s.station)&&!metroSites.has(s.station)),frame.metro]
+    : frame.stations.filter(s=>!excluded.has(s.station));
+  const stationName=s=>s.isMetro?"Metro average · KFCM + KMIC + KMSP":s.station;
   const ceilingLayer=s=>(s.layers||[]).filter(l=>["BKN","OVC"].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0];
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
@@ -38,8 +43,7 @@ window.WeatherCloudViews = (() => {
     metarMap.on("moveend",renderMetars);density();
   }
   function resetMetarView() {
-    // The in-between desktop zoom keeps all three focus airports separated
-    // while showing more surroundings than the previous close metro view.
+    // Keep the existing metro extent and fractional zoom control.
     metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.5);
   }
   function inView(station) {
@@ -51,7 +55,7 @@ window.WeatherCloudViews = (() => {
     // Missing reports keep their space; nearby plots cannot take turns using
     // that slot as the slider moves. This never carries a report forward.
     const reserved=new Map();
-    for(const hour of timeline())for(const s of hour.stations){
+    for(const hour of timeline())for(const s of displayStations(hour)){
       if(excluded.has(s.station))continue;
       const f=model.footprint(s),old=reserved.get(s.station);
       reserved.set(s.station,{station:s.station,lat:s.lat,lon:s.lon,footprint:old?{
@@ -80,7 +84,7 @@ window.WeatherCloudViews = (() => {
     initMetars();markers.clearLayers();
     const hours=timeline();
     metarIndex=Math.max(0,Math.min(metarIndex,hours.length-1));
-    const selected=hours[metarIndex],stations=selected.stations.filter(s=>!excluded.has(s.station)),plots=mode()==="plots";
+    const selected=hours[metarIndex],stations=displayStations(selected),plots=mode()==="plots";
     const ceilings=plots?[]:stations.filter(ceilingLayer);
     const drawn=plots?plotStations(stations):ceilings.filter(inView);
     const slider=el("metar-cloud-timeline");
@@ -101,7 +105,14 @@ window.WeatherCloudViews = (() => {
       const description=plots?`${rounded(s.tempF)}°F / ${rounded(s.dewpointF)}°F · ${windText(s.wind)}`:layer?(s.hasCeiling?`${layer.cover==="VV"?"Indefinite ceiling":"Ceiling"}: ${heights(layer)}`:`${covers[layer.cover]||layer.cover} · No ceiling reported`):"Cloud information not reported";
       const glyph=plots?stationModel(s):`<span class="cloud-ceiling-number">${summary}</span>`;
       const icon=L.divIcon({className:plots?"weather-station":"cloud-station",html:glyph,iconSize:plots?model.iconSize:[24,24],iconAnchor:plots?model.iconAnchor:[12,12]});
-      const popup=node("div",null,"cloud-popup");popup.append(node("strong",s.station));
+      const popup=node("div",null,"cloud-popup");popup.append(node("strong",stationName(s)));
+      if(s.isMetro){
+        popup.append(node("p",s.available?"Temperature, dew point and wind: equal three-airport averages; wind direction is speed-weighted circular.":`Metro average unavailable: ${s.qa?.stationsUsed??0}/3 stations passed temperature, dew point and wind checks. No older reports substituted.`));
+        if(s.cloudSource)popup.append(node("p",`Cloud cover and ceiling: ${s.cloudSource} report (not averaged).`));
+        for(const contributor of s.contributors||[]){
+          popup.append(node("p",`${contributor.code}: ${contributor.observedAt?time.format(new Date(contributor.observedAt)):"routine report missing"}`));
+        }
+      }
       const stamp=plots?(s.weatherTime||s.time):s.time;
       popup.append(node("p",stamp?time.format(new Date(stamp)):"Report time unavailable"));
       if(plots){
@@ -117,8 +128,8 @@ window.WeatherCloudViews = (() => {
     // Off-screen sites remain searchable without constructing a
     // regional table every time the map moves. Populate it only when opened.
     if(el("metar-station-list").open)for(const s of listing){
-      if(query&&!s.station.includes(query))continue;
-      const row=node("tr"),cell=node("td"),button=node("button",s.station,"station-link");
+      if(query&&!stationName(s).toUpperCase().includes(query)&&!s.station.includes(query))continue;
+      const row=node("tr"),cell=node("td"),button=node("button",s.isMetro?"Metro average (KFCM + KMIC + KMSP)":s.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([s.lat,s.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
       const stamp=plots?(s.weatherTime||s.time):s.time;
       row.append(cell,node("td",stamp?time.format(new Date(stamp)):"Unavailable"),node("td",plots?`${rounded(s.tempF)} / ${rounded(s.dewpointF)} °F · ${windText(s.wind)} · ${model.cloudText(s)}`:s.layers.length?s.layers.map(l=>heights(l)).join(" · "):"Not reported"));

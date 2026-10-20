@@ -35,7 +35,7 @@ class HourlyMetarViewTests(unittest.TestCase):
         saved['liveReports']=other;saved['live']={'isLive':True,'stations':other}
         data=current(saved,NOW)
         self.assertEqual(len(data['history']),12)
-        self.assertNotIn('metro',data['history'][-1])
+        self.assertTrue(data['history'][-1]['metro']['available'])
         self.assertEqual({s['station'] for s in data['stations']},set(app.STATIONS))
         self.assertNotIn('live',data);self.assertNotIn('liveReports',data)
         self.assertTrue(all(s['reportType']=='METAR' for h in data['history'] for s in h['stations']))
@@ -76,7 +76,9 @@ class HourlyMetarViewTests(unittest.TestCase):
             page=client.get('/').get_data(as_text=True)
         upstream.assert_not_called()
         self.assertEqual({s['station'] for s in maps['stations']},set(app.STATIONS))
-        self.assertTrue(all('metro' not in h for h in maps['history']))
+        self.assertTrue(all('metro' in h for h in maps['history']))
+        self.assertTrue(maps['metro']['available'])
+        self.assertIn('tab-current',page)
         self.assertNotIn('tab-observations',page)
 
     def test_collector_never_downloads_madis_and_has_one_hourly_check(self):

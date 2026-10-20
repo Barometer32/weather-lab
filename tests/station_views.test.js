@@ -25,7 +25,7 @@ const stations=[
  ['KVAR',66,51,7,{cover:'FEW',baseFtAGL:3000}],
  ['KFLAG',67,52,65,{cover:'CLR',baseFtAGL:null}],
 ].map(([station,tempF,dewpointF,speedKnots,...layers],i)=>({station,tempF,dewpointF,wind:{speedKnots,direction:station==='KVAR'?null:90,variable:station==='KVAR'},layers,mapLayer:layers[0],hasCeiling:layers.some(l=>['BKN','OVC'].includes(l.cover)),time:'2026-10-12T00:53:00Z',lat:i+1,lon:0}));
-const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8,dewpointF:53.6,wind:{speedKnots:12,direction:350},time:'2026-10-12T00:53:00Z'};
+const metro={station:'METRO',lat:20,lon:0,isMetro:true,available:true,tempF:75.8,dewpointF:53.6,wind:{speedKnots:12,direction:350},time:'2026-10-12T00:53:00Z',layers:[],cloudSource:'KMSP',qa:{stationsUsed:3},contributors:[{code:'KFCM'},{code:'KMIC'},{code:'KMSP'}]};
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,11,14+i)).toISOString(),stations,metro})),live:{isLive:true,stations:stations.map(s=>({...s,tempF:99})),metro:{...metro,tempF:99}},checkedAt:'2026-10-12T02:02:00Z'};
 const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getZoom(){return 7;},getSize(){return{x:5000,y:5000};},latLngToContainerPoint([lat]){return{x:lat*80*zoomScale,y:lat*50*zoomScale};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
@@ -58,18 +58,19 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  assert.match(find('KFLAG'),/>75<\/text>/);
  assert.match(find('KCLR'),/>Calm<\/text>/);assert.ok(!find('KCLR').includes('wind-arrow'));
  assert.match(find('KVAR'),/>VRB<\/text>/);assert.ok(!find('KVAR').includes('wind-arrow'));
- assert.equal(find('METRO'),undefined);
- for(const id of ['KFCM','KMIC','KMSP','KSTP'])assert.ok(find(id),id+' has its own plot');
+ assert.ok(find('METRO'));
+ for(const id of ['KFCM','KMIC','KMSP'])assert.equal(find(id),undefined,id+' is combined');
+ assert.ok(find('KSTP'),'other airports keep their own plot');
  for(const id of ['KSGS','KCFE','KFCE'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&!s.icon.html.includes('<rect')&&s.icon.html.includes('class="plot-sky"')));
  assert.ok(shown.every(s=>!s.icon.html.includes('wind-full-barb')&&!s.icon.html.includes('wind-pennant')));
  assert.ok(!get('metar-cloud-time').textContent.includes('Live'));
  assert.ok(timer.delay>0);
  const denseCount=shown.length;
- assert.equal(denseCount,11); // Independent metro sites; 80×50 px separation fits.
+ assert.equal(denseCount,9); // Three source airports replaced by one metro plot.
  zoomScale=.5;get('metar-view').events.change();
  assert.ok(shown.length<denseCount);
- assert.ok(find('KFCM'));
+ assert.ok(find('METRO'));
  zoomScale=1;get('metar-view').events.change();assert.equal(shown.length,denseCount);
  get('metar-cloud-timeline').events.input({target:{value:'3'}});
  const hour=get('metar-cloud-time').textContent;
@@ -88,7 +89,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  // Direction reversal for all cardinal wind sources, including north.
  const directions=[0,90,180,270];
  const windSites=directions.map((direction,i)=>({...stations[0],station:'KW'+i,lat:i+1,wind:{speedKnots:10,direction}}));
- data={...data,history:data.history.map(h=>({...h,stations:windSites}))};
+ data={...data,history:data.history.map(h=>({...h,stations:windSites,metro:null}))};
  get('metar-view').value='plots';get('refresh-metar-clouds').events.click();await flush();
  directions.forEach((direction,i)=>assert.ok(find('KW'+i).includes('rotate('+((direction+180)%360)+')')));
  // Reserve the same station set across hours, even when a neighboring
@@ -126,15 +127,16 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  const center=mercator([44.925,-93.35]);
  map.latLngToContainerPoint=coords=>{const p=mercator(coords);return{x:500+p.x-center.x,y:300+p.y-center.y};};
  const focusSites=geographic.map(([station,lat,lon])=>({...stations[0],station,lat,lon}));
- data={...data,history:data.history.map(h=>({...h,stations:focusSites}))};
+ data={...data,history:data.history.map(h=>({...h,stations:focusSites,metro:{...metro,lat:44.9334,lon:-93.3399}}))};
  get('refresh-metar-clouds').events.click();await flush();
- for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),id+' fits at 8.7');
- assert.equal(find('KSTP'),undefined);
+ assert.ok(find('METRO'));
+ for(const id of ['KFCM','KMIC','KMSP'])assert.equal(find(id),undefined);
+ assert.ok(find('KSTP'),'nearby airport remains visible beside the combined plot');
  map.latLngToContainerPoint=project;
  // Cloud-height numbers use the lowest BKN/OVC, nearest thousand, min 1.
  const cases=[[0,'1'],[300,'1'],[999,'1'],[1000,'1'],[1500,'2'],[2200,'2'],[9000,'9'],[25000,'25']];
  const boundarySites=cases.map(([height],i)=>({...stations[0],station:'KB'+i,lat:i+1,layers:[{cover:'BKN',baseFtAGL:height}]}));
- data={...data,history:data.history.map(h=>({...h,stations:boundarySites}))};
+ data={...data,history:data.history.map(h=>({...h,stations:boundarySites,metro:null}))};
  get('metar-view').value='clouds';get('refresh-metar-clouds').events.click();await flush();
  cases.forEach(([,number],i)=>assert.ok(find('KB'+i).includes('>'+number+'</span>')));
  assert.equal(get('metar-cloud-rows').children.length,0);
@@ -146,6 +148,6 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'))?.icon.html;
  data={...data,checkedAt:'2026-10-12T03:02:00Z'};
  const count=timers.length;timer.callback();await flush();
  assert.equal(timers.length,count);
- console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, individual stations and denser non-overlapping plots, scheduled refresh and selection.');
+ console.log('Station-view checks passed: ceiling height rounding, hidden non-ceilings, default/reset view, lazy list, wind flow arrows, mph conversion, combined metro and unchanged surrounding non-overlapping plots, scheduled refresh and selection.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
 
