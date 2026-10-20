@@ -68,6 +68,10 @@ The helper saves existing settings, builds once, creates/updates the dedicated
 private worker and its Scheduler job, updates the existing website service,
 requests an initial collection and checks the published tab order/API. It
 does not wait for model downloads to finish; MODELS displays their progress.
+If an image build completed but deployment stopped, `WEATHER_MODELS_IMAGE`
+may specify that existing image when running the helper; the helper verifies
+it exists and skips the build. Gunicorn arguments use `--workers=1` and
+`--threads=1` as distinct list items so gcloud does not reject repeated `1`s.
 
 ## Air Quality
 

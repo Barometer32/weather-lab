@@ -32,7 +32,11 @@ elif name=='gcloud':
   else:print('metadata: {}')
  elif args[:3]==['scheduler','jobs','describe']:
   print('ENABLED' if '--format=value(state)' in args else '{}')
- elif args[:4]==['artifacts','docker','images','describe']:sys.exit(1)
+ elif args[:4]==['artifacts','docker','images','describe']:
+  sys.exit(0 if os.environ.get('MODEL_TEST_IMAGE') else 1)
+ elif args[:3]==['run','deploy','weather-models']:
+  values=next(arg for arg in args if arg.startswith('--args=')).split('=',1)[1].split(',')
+  if len(values)!=len(set(values)):print('Duplicate container arguments',file=sys.stderr);sys.exit(1)
  elif args[:2]==['builds','submit'] and os.environ.get('MODEL_TEST_FAIL_BUILD')=='1':sys.exit(1)
 '''
     for tool in ['gcloud','git','curl']:
@@ -40,6 +44,7 @@ elif name=='gcloud':
     logfile=tmp_path/'calls.jsonl'
     env={**os.environ,'PATH':str(binary)+os.pathsep+os.environ['PATH'],'HOME':str(home),'MODEL_TEST_LOG':str(logfile),
          **{'MODEL_TEST_'+k.upper():str(v) for k,v in options.items()}}
+    if 'image' in options:env['WEATHER_MODELS_IMAGE']=str(options['image'])
     result=subprocess.run(['bash',str(SCRIPT)],env=env,capture_output=True,text=True)
     return result,[json.loads(line) for line in logfile.read_text().splitlines()]
 
@@ -52,6 +57,9 @@ def test_first_install_private_worker_and_only_new_scheduler_job(tmp_path):
     deploy=next(c for c in gcloud if c[:3]==['run','deploy','weather-models'])
     assert '--no-allow-unauthenticated' in deploy and '--concurrency=1' in deploy and '--timeout=900' in deploy
     assert '--min-instances=0' in deploy and '--max-instances=1' in deploy
+    container_args=next(arg for arg in deploy if arg.startswith('--args=')).split('=',1)[1].split(',')
+    assert len(container_args)==len(set(container_args))
+    assert '--workers=1' in container_args and '--threads=1' in container_args
     jobs=[c for c in gcloud if c[:2]==['scheduler','jobs'] and c[2] in ['create','update','run']]
     assert all('weather-live-models' in c for c in jobs)
     assert '--schedule=35 * * * *' in jobs[0]
@@ -80,3 +88,13 @@ def test_permissions_error_does_not_fall_through_to_create(tmp_path):
     result,calls=run_helper(tmp_path,denied=1)
     assert result.returncode!=0 and 'PERMISSION_DENIED' in result.stderr
     assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
+
+
+def test_resume_reuses_successfully_built_image_without_new_build(tmp_path):
+    image='us-central1-docker.pkg.dev/j-weather-261020012817/weather-lab/app:models-b23bb8ee4131'
+    result,calls=run_helper(tmp_path,image=image)
+    assert result.returncode==0,result.stderr
+    assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
+    deploy=next(c for c in calls if c[:4]==['gcloud','run','deploy','weather-models'])
+    update=next(c for c in calls if c[:5]==['gcloud','run','services','update','weather-lab'])
+    assert '--image='+image in deploy and '--image='+image in update

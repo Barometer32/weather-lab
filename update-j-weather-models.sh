@@ -17,15 +17,18 @@ if [[ -n "$WEATHER_EXISTING_MODEL_SERVICE" ]]; then
 fi
 git clone --quiet --depth=1 --branch "$WEATHER_BRANCH" https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
-WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/weather-lab/app:models-${WEATHER_COMMIT:0:12}"
+WEATHER_IMAGE="${WEATHER_MODELS_IMAGE:-$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/weather-lab/app:models-${WEATHER_COMMIT:0:12}}"
 
 echo "Step 2/6: building the website and model reader."
-if ! gcloud artifacts docker images describe "$WEATHER_IMAGE" --project="$WEATHER_PROJECT" >/dev/null 2>&1; then
+if [[ -n "${WEATHER_MODELS_IMAGE:-}" ]]; then
+  echo "Reusing previously built image: $WEATHER_IMAGE"
+  gcloud artifacts docker images describe "$WEATHER_IMAGE" --project="$WEATHER_PROJECT" >/dev/null
+elif ! gcloud artifacts docker images describe "$WEATHER_IMAGE" --project="$WEATHER_PROJECT" >/dev/null 2>&1; then
   gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 fi
 
 echo "Step 3/6: deploying a separate private model worker."
-gcloud run deploy weather-models --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --no-allow-unauthenticated --service-account="weather-collector@$WEATHER_PROJECT.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_PROJECT-weather-data" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=1 --timeout=900 --command=gunicorn --args=--bind,0.0.0.0:8080,--workers,1,--threads,1,--timeout,900,collector:app --quiet
+gcloud run deploy weather-models --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --no-allow-unauthenticated --service-account="weather-collector@$WEATHER_PROJECT.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_PROJECT-weather-data" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=1 --timeout=900 --command=gunicorn --args='--bind=0.0.0.0:8080,--workers=1,--threads=1,--timeout=900,collector:app' --quiet
 gcloud run services add-iam-policy-binding weather-models --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --member="serviceAccount:$WEATHER_SCHEDULER" --role=roles/run.invoker --quiet >/dev/null
 WEATHER_MODEL_URL="$(gcloud run services describe weather-models --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 
