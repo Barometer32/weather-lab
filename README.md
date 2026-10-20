@@ -22,9 +22,9 @@ history in its initial HTML response.
 
 Original summary reference: `958541732691913175126f62202990f19521c5a2`.
 
-## METAR cloud map
+## Clouds map
 
-The METAR map shows only the lowest known **broken or overcast** cloud base at
+The Clouds map shows only the lowest known **broken or overcast** cloud base at
 each actual airport location. Numbers are **hundreds of feet above ground**:
 27 = 2,700 ft, 250 = 25,000 ft, 3 = 300 ft. Clear, few, scattered, vertical
 visibility, missing cloud data and unknown ceiling heights have no map number.
@@ -39,7 +39,7 @@ plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
 quality exclusions KCFE/KFCE and KSGS remain in effect. Zoom and pan reveal
 more of the collected region. A missing number does not establish clear skies.
 
-Current and METAR share one canonical archive: `live/metar-clouds.json` in the
+Current and Clouds share one canonical archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
 selects routine METARs closest to :53 within **:45–:59** in the preceding hour.
 SPECI and five-minute reports are excluded. The twelve-hour slider keeps real

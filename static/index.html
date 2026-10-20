@@ -10,7 +10,7 @@
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
-  <script defer src="/static/cloud-views.js?v=mobile-fullscreen-20261020"></script>
+  <script defer src="/static/cloud-views.js?v=clouds-title-20261020"></script>
   <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
   <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
   <script defer src="/static/app.js?v=mobile-fullscreen-20261020"></script>
@@ -19,7 +19,7 @@
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-current" aria-selected="true" aria-controls="current">Current</button>
-    <button role="tab" id="tab-metar-clouds" aria-selected="false" tabindex="-1" aria-controls="metar-clouds">METAR</button>
+    <button role="tab" id="tab-metar-clouds" aria-selected="false" tabindex="-1" aria-controls="metar-clouds">Clouds</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
@@ -42,13 +42,13 @@
 
 
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Cloud ceilings</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Clouds</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Individual airport broken and overcast cloud bases in hundreds of feet, with state and county boundaries"></div></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
-      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
+      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen cloud map">Full screen</button></div>
     </div>
   </div>
   <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly METARs…</p>
