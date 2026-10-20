@@ -6,7 +6,7 @@ function get(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,window:{WeatherFullscreen:{attach(){}},WeatherCurrentViews:{select(id){selected.push("current:"+id);}}},WeatherCloudViews:{select(id){selected.push(id);}},fetch(){sourceFetches++;throw Error('No non-METAR startup fetch');},setTimeout(){},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
 assert.equal(selected[0],'current');assert.equal(selected[1],'current:current');assert.equal(get('current').hidden,false);
-for(const id of ['metar-clouds','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
+for(const id of ['radar','metar-clouds','satellite','models','forecast','air-quality'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
 const frame=get('air-quality-map'),url='https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html';
 frame.setAttribute('data-src',url);

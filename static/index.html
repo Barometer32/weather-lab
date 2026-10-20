@@ -6,23 +6,25 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=air-quality-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=models-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/cloud-views.js?v=cloud-height-numbers-20261020"></script>
   <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
   <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
-  <script defer src="/static/app.js?v=air-quality-20261020"></script>
+  <script defer src="/static/model-views.js?v=models-20261020"></script>
+  <script defer src="/static/app.js?v=models-20261020"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
-    <button role="tab" id="tab-current" aria-selected="true" aria-controls="current">Current</button>
-    <button role="tab" id="tab-metar-clouds" aria-selected="false" tabindex="-1" aria-controls="metar-clouds">Clouds</button>
-    <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
-    <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
-    <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
+    <button role="tab" id="tab-current" aria-selected="true" aria-controls="current">CURRENT</button>
+    <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
+    <button role="tab" id="tab-metar-clouds" aria-selected="false" tabindex="-1" aria-controls="metar-clouds">CLOUDS</button>
+    <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
+    <button role="tab" id="tab-models" aria-selected="false" aria-controls="models" tabindex="-1">MODELS</button>
+    <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
     <button role="tab" id="tab-air-quality" aria-selected="false" aria-controls="air-quality" tabindex="-1">Air Quality</button>
   </nav>
 </header>
@@ -101,6 +103,14 @@
 </section>
 
 
+<section id="models" role="tabpanel" aria-labelledby="tab-models" hidden>
+  <div class="section-heading"><div><p class="eyebrow">HRRR + RRFS · KFCM + KMIC + KMSP</p><h1>Model blend</h1><p id="models-updated">Hourly guidance · forecast hours 02–17</p></div><button class="secondary" id="refresh-models">Refresh</button></div>
+  <p id="models-status" class="small-note" role="status" aria-live="polite">Waiting for prepared model guidance…</p>
+  <div class="table-wrap model-table" id="models-table" hidden tabindex="0" aria-label="Scroll horizontally for all sixteen forecast hours"><table><caption class="sr-only">HRRR and RRFS blend, three airports averaged, forecast hours two through seventeen</caption><thead><tr id="models-hours"></tr></thead><tbody id="models-rows"></tbody></table></div>
+  <p class="small-note">P01 is inches of liquid-equivalent precipitation during the hour ending at the column time: 3 PM means 2–3 PM. It is an hourly amount, including the water equivalent of frozen precipitation. Times are Central; F02–F17 are hours since the displayed model run, not hours from now.</p>
+  <details class="method"><summary>Model fields and averaging</summary><p>Each model supplies its nearest 3 km grid cell to each airport. Both models must supply all three airport points and the complete 16-hour period from the same initialization time before a new blend is published. Each airport has equal weight within its model; HRRR and RRFS each have 50% weight. Temperature and dew point use 2 m fields. Grid-relative 10 m winds are rotated to true east/north before vector averaging; WSP is the speed of the averaged vector in knots. Wind gusts are omitted.</p><p>CLD is derived from averaged instantaneous total cloud cover: CL, FW, SC, BK or OV; tap or hover for the percentage. CIG is the mean model ceiling in hundreds of feet above model terrain, so 27 = 2,700 ft. It is shown only when all six point forecasts contain a valid ceiling; a dash can mean no modeled ceiling or unavailable data. These are preliminary cloud diagnostics, not METAR cloud layers. P01 uses each model's native one-hour accumulation, not the since-run total. The compact table is experimental blended guidance, not an official NWS forecast.</p><p>A background worker checks once hourly at :35 for the latest complete common run. A run can take more than two hours to reach its final forecast hour; a previous complete blend remains visible while a new one is prepared. Refresh reads saved results and never starts another model download.</p></details>
+  <p class="source">NOAA model data: <a href="https://registry.opendata.aws/noaa-hrrr-pds/" target="_blank" rel="noopener">HRRR</a> · <a href="https://registry.opendata.aws/noaa-rrfs-ops/" target="_blank" rel="noopener">RRFS public feed</a>. <a href="https://nomads.ncep.noaa.gov/" target="_blank" rel="noopener">NCEP lists RRFS under parallel data</a> as checked October 20, 2026. This blend is calculated by J-Weather.</p>
+</section>
 <section id="air-quality" role="tabpanel" aria-labelledby="tab-air-quality" hidden>
   <div class="section-heading"><div><p class="eyebrow">MINNESOTA POLLUTION CONTROL AGENCY</p><h1>Air quality</h1></div><button class="secondary" id="refresh-air-quality">Refresh map</button></div>
   <iframe id="air-quality-map" title="MPCA current air quality conditions map" data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html" allowfullscreen></iframe>

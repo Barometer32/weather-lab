@@ -42,5 +42,15 @@
   ],
   "mobileTimeline": "bottom-toolbar-in-fullscreen",
   "ceilingDisplay": "plain-height-numbers",
-  "ceilingLabelFontPixels": 12
+  "ceilingLabelFontPixels": 12,
+  "tabOrder": ["current", "radar", "metar-clouds", "satellite", "models", "forecast", "air-quality"],
+  "models": {
+    "models": ["HRRR", "RRFS"],
+    "weights": [0.5, 0.5],
+    "forecastHours": [2, 17],
+    "stationWeights": "equal-KFCM-KMIC-KMSP",
+    "collectionMinute": 35,
+    "precipitation": "native-preceding-one-hour-liquid-equivalent",
+    "worker": "weather-models"
+  }
 }

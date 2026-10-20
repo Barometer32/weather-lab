@@ -22,6 +22,53 @@ history in its initial HTML response.
 
 Original summary reference: `958541732691913175126f62202990f19521c5a2`.
 
+## Models
+
+The MODELS tab is a compact horizontal F02–F17 forecast table: temperature and
+dew point (°F), true wind direction (degrees), vector-mean wind speed (knots),
+P01 (inches per preceding hour), CLD category and CIG (hundreds of feet AGL).
+Each model uses the nearest 3 km cell at KFCM, KMIC and KMSP, equally weighted;
+the two airport means are then blended 50% HRRR / 50% RRFS. Both models must
+have the same initialization time and every required point for all 16 hours.
+No observations or other models substitute for missing forecasts.
+
+P01 reads the native `(F-1)–F` one-hour APCP message; a 3 PM column means
+2–3 PM precipitation, including liquid-equivalent frozen precipitation.
+Since-initialization totals and precipitation rates are never used as P01.
+Grid-relative winds are rotated to true east/north before vector averaging.
+CLD comes from mean instantaneous total cloud percentage; CIG subtracts each
+model's own terrain from its cloud-ceiling HGT. It remains blank unless all
+six point forecasts have a finite ceiling. Missing cloud data are never zero.
+
+The separate private `weather-models` Cloud Run worker has one CPU, 1 GiB,
+one concurrent request, zero minimum instances and a 900-second request limit.
+`weather-live-models` invokes `/collect/models` hourly at :35 with no retries.
+It downloads only selected GRIB message ranges from NOAA's HRRR/RRFS public
+buckets, extracts the three points, and retains only compact JSON. No full
+atmospheric datasets, training, GPU, or paid API are involved. Model-file
+transfer and CPU time still contribute to the Google Cloud workload.
+The original radar/observation/satellite/forecast collector is unchanged.
+
+`live/models-status.json` reports probing, completed model-hour count (of 32),
+ready or error. Only a complete same-cycle table replaces `live/models.json`.
+`/api/models` and the Refresh button read saved JSON without downloading
+models. Missing/new-run errors retain the previous complete table with a
+warning; cycles older than six hours are marked stale. F02–F17 count from the
+displayed run time, not page-open time. Browser checks saved status every
+30 seconds while MODELS is visible. RRFS is listed in NCEP's parallel data
+section as checked October 20, 2026; its new NOAA public bucket is live.
+
+Install this update in the active J-Weather project:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-models.sh -o /tmp/j-weather-models.sh && bash /tmp/j-weather-models.sh
+```
+
+The helper saves existing settings, builds once, creates/updates the dedicated
+private worker and its Scheduler job, updates the existing website service,
+requests an initial collection and checks the published tab order/API. It
+does not wait for model downloads to finish; MODELS displays their progress.
+
 ## Air Quality
 
 The Air Quality tab embeds the standalone interactive map used on MPCA's

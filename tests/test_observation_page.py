@@ -17,7 +17,9 @@ class CurrentHomePageTests(unittest.TestCase):
         upstream.assert_not_called()
         average.assert_called_once_with(saved_only=True)
         tabs = re.findall(r'<button role="tab" id="tab-([^"]+)"', html)
-        self.assertEqual(tabs, ['current', 'metar-clouds', 'radar', 'satellite', 'forecast', 'air-quality'])
+        self.assertEqual(tabs, ['current', 'radar', 'metar-clouds', 'satellite', 'models', 'forecast', 'air-quality'])
+        self.assertIn('/static/model-views.js',html)
+        self.assertIn('P01 is inches of liquid-equivalent precipitation',html)
         air=html.split('<section id="air-quality"')[1].split('</section>')[0]
         self.assertIn('title="MPCA current air quality conditions map"',air)
         self.assertIn('data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"',air)
