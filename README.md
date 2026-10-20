@@ -24,24 +24,23 @@ Original summary reference: `958541732691913175126f62202990f19521c5a2`.
 
 ## Clouds map
 
-The Clouds map shows a small colored dot for each airport's lowest known
-**broken or overcast** cloud base. Five shades run from black (lowest), through dark gray, medium gray and light
-gray, to white (highest): ≤5,000 ft; >5,000 to <10,000 ft; 10,000 to <15,000 ft;
-15,000 to <20,000 ft; and ≥20,000 ft AGL. The color scale is at the bottom of
-the Clouds page. Map dots and scale swatches share CSS palette variables.
-Tap a dot for the exact base, band, station, actual report time and all layers.
+The Clouds map shows only the lowest known **broken or overcast** cloud base
+at each actual airport location. Compact 12 px numbers are hundreds of feet
+above ground: 27 = 2,700 ft, 250 = 25,000 ft, 3 = 300 ft. No color dots or
+height-band scale are used. Tap a number for its station, exact base, actual
+report time and all reported cloud layers.
+
 Clear/few/scattered, vertical visibility, unknown ceiling heights and missing
-cloud data have no dot. An unknown-height BKN/OVC layer prevents labeling a
-higher layer as the lowest base. These are custom display bands, not flight
-categories. The bands above 12,000 ft use actual reported cloud bases; they
-never infer high clouds from an automated station's CLR report.
+cloud data have no map number. An unknown-height BKN/OVC layer prevents
+labeling a higher layer as the lowest base. Higher bases use actual reports;
+no clouds are inferred above an automated station's reporting limit.
 
 KFCM, KMIC and KMSP appear individually here. Every qualifying airport in view
 is drawn with no collision suppression, station priority or station-count cap.
 The station list includes all available reports, including those without a
 plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
 quality exclusions KCFE/KFCE and KSGS remain in effect. Zoom and pan reveal
-more of the collected region. A missing dot does not establish clear skies.
+more of the collected region. A missing number does not establish clear skies.
 
 Current and Clouds share one canonical archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
@@ -84,7 +83,7 @@ supported; a viewport-filling overlay is used when unavailable, including on
 mobile browsers. Browser chrome can remain visible in this fallback. Close or
 Escape restores the page; map size is refreshed on exit and rotation without
 resetting the timeline or geographic view. Safe-area padding protects controls
-near a phone's home indicator. Cloud-height dots are 10 px, with a dark outline so white dots remain visible.
+near a phone's home indicator. Cloud-height numbers are 12 px, with a light halo for legibility.
 
 ## Apply this update to J-Weather
 

@@ -46,10 +46,8 @@ summary=json.loads((work/'current.json').read_text())
 metars=json.loads((work/'metar.json').read_text())
 if len(summary.get('history',[]))!=12 or len(metars.get('history',[]))!=12:
     raise SystemExit('The published response does not contain twelve hourly positions.')
-if 'data-cloud-height-palette="grayscale-5"' not in html or 'id="metar-view"' in html:
-    raise SystemExit('The five-shade cloud-height map is not published yet.')
-if 'id="cloud-height-scale-title"' not in html:
-    raise SystemExit('The cloud-height scale is missing from the published page.')
+if 'data-ceiling-unit="hundreds-ft"' not in html or 'id="metar-view"' in html:
+    raise SystemExit('The cloud-height number map is not published yet.')
 if 'class="satellite-sun"' not in html:
     raise SystemExit('The Sun angle line is not present on Satellite.')
 if 'map-fullscreen.js' not in html or 'id="metar-fullscreen"' not in html:

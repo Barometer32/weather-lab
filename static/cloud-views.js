@@ -6,14 +6,6 @@ window.WeatherCloudViews = (() => {
   const covers = {CLR:"Clear below sensor limit",SKC:"Sky clear",FEW:"Few clouds",SCT:"Scattered clouds",BKN:"Broken clouds",OVC:"Overcast",VV:"Obscured sky",NSC:"No significant cloud",NCD:"No cloud detected",CAVOK:"CAVOK cloud criteria"};
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const timeline=()=>cloudData.history;
-  const heightBands=[
-    {key:"low",name:"Low",range:"Up to 5,000 ft"},
-    {key:"low-mid",name:"Low–mid",range:"Above 5,000 to below 10,000 ft"},
-    {key:"mid",name:"Mid",range:"10,000 to below 15,000 ft"},
-    {key:"mid-high",name:"Mid–high",range:"15,000 to below 20,000 ft"},
-    {key:"high",name:"High",range:"20,000 ft and higher"}
-  ];
-  const heightBand=height=>heightBands[height<=5000?0:height<10000?1:height<15000?2:height<20000?3:4];
   const layers=station=>station.cloudLayers||station.layers||[];
   function ceilingLayer(station) {
     const ceilings=layers(station).filter(layer=>["BKN","OVC"].includes(layer.cover));
@@ -58,14 +50,13 @@ window.WeatherCloudViews = (() => {
     el("metar-cloud-time").textContent=`${time.format(new Date(selected.hour))} · hourly ${metarIndex+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-cloud-time").textContent);
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
-    // Every qualifying airport in view gets a colored dot; there is no collision
+    // Every qualifying airport in view gets a height number; there is no collision
     // suppression, station priority list, or limit on marker count.
     for(const station of drawn) {
-      const layer=ceilingLayer(station),band=heightBand(layer.baseFtAGL);
-      const icon=L.divIcon({className:"cloud-station",html:`<span class="cloud-height-dot cloud-height-${band.key}" data-height-band="${band.key}" aria-hidden="true"></span>`,iconSize:[24,24],iconAnchor:[12,12]});
+      const layer=ceilingLayer(station),number=String(Math.round(layer.baseFtAGL/100));
+      const icon=L.divIcon({className:"cloud-station",html:`<span class="cloud-ceiling-number">${number}</span>`,iconSize:[32,24],iconAnchor:[16,12]});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",station.station));
       popup.append(node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
-      popup.append(node("p",`${band.name} · ${band.range}`));
       popup.append(node("p",`Lowest broken/overcast base: ${layer.baseFtAGL.toLocaleString()} ft AGL`));
       for(const cloud of layers(station))popup.append(node("p",heights(cloud)));
       L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${heights(layer)}`,keyboard:true}).bindPopup(popup).addTo(markers);
@@ -80,7 +71,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",layer?heights(layer):"No known broken/overcast base · not plotted"));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} cloud-height dots visible · ${ceilings.length} known broken/overcast ceilings · ${stations.length} airport reports · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · :45–:59 METARs · updates at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} ceiling heights visible · ${ceilings.length} known broken/overcast ceilings · ${stations.length} airport reports · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · :45–:59 METARs · updates at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

@@ -6,11 +6,11 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=gray-cloud-heights-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=cloud-height-numbers-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
-  <script defer src="/static/cloud-views.js?v=gray-cloud-heights-20261020"></script>
+  <script defer src="/static/cloud-views.js?v=cloud-height-numbers-20261020"></script>
   <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
   <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
   <script defer src="/static/app.js?v=mobile-fullscreen-20261020"></script>
@@ -44,7 +44,7 @@
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
   <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Clouds</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Individual airport cloud-base height categories in five shades from black to white, with state and county boundaries"></div></div>
+    <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Individual airport broken and overcast cloud bases in hundreds of feet, with state and county boundaries"></div></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
@@ -52,20 +52,10 @@
     </div>
   </div>
   <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly METARs…</p>
-  <p id="metar-cloud-legend" class="small-note" data-cloud-height-palette="grayscale-5">Dots show the lowest broken or overcast cloud base above ground: black is lowest, followed by dark gray, medium gray, light gray and white for highest. Tap a dot for the exact height and actual report time; the five height ranges are shown at the bottom of this page. Clear, few or scattered clouds, vertical visibility and unknown ceiling heights have no dot. No dot does not establish clear skies. The 12-hour slider uses :45–:59 routine METARs collected hourly at :00.</p>
+  <p id="metar-cloud-legend" class="small-note" data-ceiling-unit="hundreds-ft">Numbers show the lowest broken or overcast cloud base in hundreds of feet above ground: 27 = 2,700 ft · 250 = 25,000 ft · 3 = 300 ft. Clear, few or scattered clouds, vertical visibility and unknown ceiling heights have no number. Tap a number for the exact height and actual report time. Every qualifying airport is plotted at its actual location, without a spacing filter. The 12-hour slider uses :45–:59 routine METARs collected hourly at :00.</p>
   <details id="metar-station-list" class="method"><summary>All reporting sites</summary><label for="metar-cloud-search">Find a station</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC, KSTP…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Station</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Coverage / bases (ft AGL)</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
   <details class="method"><summary>Compare METAR clouds with satellite</summary><p>CLR means an automated station detected no clouds at or below 12,000 ft. It does not prove clouds exist above that level or that they are thin. SKC means the observer reported a clear sky. NSC, NCD and CAVOK have different reporting criteria and are kept distinct. Only reported broken or overcast layers with known heights are plotted in cloud mode.</p><p>Cloud bases are above the airport ground level, not sea level, and do not measure cloud thickness or tops. Satellite usually shows the uppermost visible cloud layer, so opaque high clouds can hide lower layers. VV is vertical visibility into an obscured sky, not a measured cloud base. Hourly slider positions use one routine METAR per station per hour, closest to :53 within :45–:59, with SPECI excluded. The cloud map uses only the twelve routine hourly snapshots. Upper Midwest airport reports are collected once an hour at :00 from the NOAA archive for Current and METAR. Reports must be timestamped :45–:59 in the preceding hour; the report closest to :53 is selected for each station. Reports that reach NOAA after collection can be missing; no additional source requests run within the hour. SPECI and five-minute reports are excluded. Source delivery delays remain possible. Each view shows its actual report time when tapped. An 8:53 p.m. report is labeled 9 p.m. Missing hourly reports are left missing, with no older report carried forward. Some stations do not issue reports within this window and will not appear. The slider ends at the newest hourly snapshot and goes back twelve hourly positions. Tap a station for all layers and the actual report time.</p></details>
   <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a> · <a href="https://aviationweather.gov/help/data/" target="_blank" rel="noopener">Cloud reporting guide</a></p>
-  <div class="cloud-height-scale" role="group" aria-labelledby="cloud-height-scale-title">
-    <h2 id="cloud-height-scale-title">Cloud-base height <span>Feet above ground · lowest broken/overcast layer</span></h2>
-    <ul>
-      <li><span class="cloud-height-swatch cloud-height-low" aria-hidden="true"></span><span><strong>Low</strong><small>Up to 5,000 ft</small></span></li>
-      <li><span class="cloud-height-swatch cloud-height-low-mid" aria-hidden="true"></span><span><strong>Low–mid</strong><small>&gt;5,000–&lt;10,000 ft</small></span></li>
-      <li><span class="cloud-height-swatch cloud-height-mid" aria-hidden="true"></span><span><strong>Mid</strong><small>10,000–&lt;15,000 ft</small></span></li>
-      <li><span class="cloud-height-swatch cloud-height-mid-high" aria-hidden="true"></span><span><strong>Mid–high</strong><small>15,000–&lt;20,000 ft</small></span></li>
-      <li><span class="cloud-height-swatch cloud-height-high" aria-hidden="true"></span><span><strong>High</strong><small>20,000 ft and higher</small></span></li>
-    </ul>
-  </div>
 </section>
 
 

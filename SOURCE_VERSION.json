@@ -10,7 +10,7 @@
     45,
     59
   ],
-  "stationLabelLayout": "grayscale-height-dots",
+  "stationLabelLayout": "cloud-height-only",
   "stationSpacing": "all-qualifying-airports-no-thinning",
   "radarHistoryHours": 2,
   "satelliteHistoryHours": 2,
@@ -32,7 +32,7 @@
   ],
   "defaultTab": "current",
   "metarMapMode": "individual-broken-overcast-ceilings",
-  "ceilingHeightUnit": "feet-AGL",
+  "ceilingHeightUnit": "hundreds-of-feet-AGL",
   "sunElevationDisplay": "plain-text-Satellite-heading",
   "currentPresentation": "hourly-table",
   "mapFullscreen": [
@@ -41,36 +41,6 @@
     "satellite"
   ],
   "mobileTimeline": "bottom-toolbar-in-fullscreen",
-  "ceilingDisplay": "five-grayscale-height-bands",
-  "cloudHeightScaleLocation": "bottom-of-Clouds-page",
-  "cloudHeightBands": [
-    {
-      "label": "Low",
-      "maxInclusiveFt": 5000,
-      "color": "#000000"
-    },
-    {
-      "label": "Low\u2013mid",
-      "minExclusiveFt": 5000,
-      "maxExclusiveFt": 10000,
-      "color": "#404040"
-    },
-    {
-      "label": "Mid",
-      "minInclusiveFt": 10000,
-      "maxExclusiveFt": 15000,
-      "color": "#808080"
-    },
-    {
-      "label": "Mid\u2013high",
-      "minInclusiveFt": 15000,
-      "maxExclusiveFt": 20000,
-      "color": "#bfbfbf"
-    },
-    {
-      "label": "High",
-      "minInclusiveFt": 20000,
-      "color": "#ffffff"
-    }
-  ]
+  "ceilingDisplay": "plain-height-numbers",
+  "ceilingLabelFontPixels": 12
 }

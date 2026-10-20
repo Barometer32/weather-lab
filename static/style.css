@@ -220,18 +220,5 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
   :is(#radar-surface,#metar-surface,#satellite-surface):is(:fullscreen,.expanded) .viewer-frame-time { font-size:11px; }
 }
 
-/* One grayscale palette serves both station dots and the bottom-of-page scale. */
-.cloud-height-low { --cloud-height-color:#000000; }
-.cloud-height-low-mid { --cloud-height-color:#404040; }
-.cloud-height-mid { --cloud-height-color:#808080; }
-.cloud-height-mid-high { --cloud-height-color:#bfbfbf; }
-.cloud-height-high { --cloud-height-color:#ffffff; }
-.cloud-height-dot { display:block; width:10px; height:10px; margin:auto; border-radius:50%; background:var(--cloud-height-color); border:1px solid #333; box-shadow:0 0 0 1px #fff; }
-.cloud-height-scale { margin-top:24px; padding-top:18px; border-top:1px solid var(--border); }
-.cloud-height-scale h2 { font-size:16px; }
-.cloud-height-scale h2 span { display:block; margin-top:5px; font-size:12px; font-weight:400; color:var(--muted); }
-.cloud-height-scale ul { display:flex; flex-wrap:wrap; gap:16px 24px; list-style:none; padding:0; margin:16px 0 6px; }
-.cloud-height-scale li { display:flex; align-items:center; gap:9px; }
-.cloud-height-swatch { display:block; width:26px; height:18px; flex:0 0 26px; border:1px solid #333; border-radius:3px; background:var(--cloud-height-color); }
-.cloud-height-scale strong { display:block; font-size:13px; }
-.cloud-height-scale small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+/* Compact height numbers remain centered on the actual airport locations. */
+.cloud-ceiling-number { display:block; width:32px; text-align:center; font:600 12px/24px system-ui,sans-serif; color:#111; background:transparent; font-variant-numeric:tabular-nums; text-shadow:0 0 2px #fff,0 0 2px #fff; }
