@@ -21,8 +21,10 @@ class CurrentHomePageTests(unittest.TestCase):
         self.assertIn('id="tab-current" aria-selected="true"', html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>', html)
         current = html.split('<section id="current"')[1].split('</section>')[0]
-        self.assertIn('class="current-sun"',current)
-        self.assertIn('<span>Sun angle</span><strong id="sun-angle"', current)
+        self.assertNotIn('id="sun-angle"',current)
+        satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
+        self.assertIn('<p class="satellite-sun">Sun angle <strong id="sun-angle"',satellite)
+        self.assertNotIn('current-sun',html)
         self.assertNotIn('Hopkins',current)
         self.assertNotIn('class="metric',current)
         for tile in ['temperature','dewpoint','wind']:

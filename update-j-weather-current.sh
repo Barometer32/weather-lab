@@ -48,9 +48,9 @@ if len(summary.get('history',[]))!=12 or len(metars.get('history',[]))!=12:
     raise SystemExit('The published response does not contain twelve hourly positions.')
 if 'data-ceiling-unit="hundreds-ft"' not in html or 'id="metar-view"' in html:
     raise SystemExit('The cloud-height-only METAR page is not published yet.')
-if 'class="current-sun"' not in html:
-    raise SystemExit('The compact Sun angle block is not present.')
-print('Verified: Current hourly table and compact Sun angle block; cloud-only METAR map; 12 hourly positions.')
+if 'class="satellite-sun"' not in html:
+    raise SystemExit('The Sun angle line is not present on Satellite.')
+print('Verified: Current hourly table and Satellite Sun angle line; cloud-only METAR map; 12 hourly positions.')
 print(f'Current hour: {summary["current"]["hour"]}; {summary["current"]["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
 print('Populated regional hours:',sum(bool(h['stations']) for h in metars['history']),'/12')
 print('Shared METAR collection: :00 each hour; :45–:59 routine reports, preferring :53.')

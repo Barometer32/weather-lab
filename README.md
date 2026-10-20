@@ -13,10 +13,11 @@ indicator requires all three airports to pass basic temperature/dew-point/wind
 checks. Incomplete hourly rows use valid contributors and show amber QA dots.
 No previous report is carried forward into a missing hour.
 
-A compact **Sun angle** block above the hourly table shows the live angle, updated
+A plain **Sun angle** line at the top of **Satellite** shows the live angle, updated
 every minute and independently of hourly observation history. It uses the
 NOAA GML solar-position equations at 44.9244°N, 93.414°W; negative values mean
-below the geometric horizon. The Current page embeds prepared values and
+below the geometric horizon. Current contains the hourly table without metric
+tiles or a sun-angle block. The Current page embeds prepared values and
 history in its initial HTML response.
 
 Original summary reference: `958541732691913175126f62202990f19521c5a2`.

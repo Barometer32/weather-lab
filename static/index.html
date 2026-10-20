@@ -6,7 +6,7 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=compact-current-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=satellite-sun-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/cloud-views.js?v=ceiling-hundreds-20261020"></script>
@@ -29,7 +29,6 @@
   <div class="section-heading"><div><p class="eyebrow">KFCM + KMSP + KMIC</p><h1>Current conditions</h1><p id="updated">{{ observation_time(initial_observations.current.hour, True) ~ ' hourly observation' if initial_observations else 'Loading hourly observations…' }}</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
   {% set notice = observation_notice(initial_observations) if initial_observations else '' %}
   <p class="notice" id="observation-status" role="status"{% if not notice %} hidden{% endif %}>{{ notice }}</p>
-  <div class="current-sun" role="group" aria-label="Current sun angle"><span>Sun angle</span><strong id="sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of hourly history.">—</strong></div>
   <div class="history-heading"><h2>Last 12 hours</h2><span>Central time · °F · mph</span></div>
   <div class="table-wrap"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind</th></tr></thead><tbody id="history">
   {% if initial_observations %}{% for h in initial_observations.history %}
@@ -83,7 +82,7 @@
   <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
-  <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Past 2 hours · drag the timeline to explore</p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
+  <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Past 2 hours · drag the timeline to explore</p><p class="satellite-sun">Sun angle <strong id="sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of the satellite history slider.">—</strong></p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
   <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
   <div id="satellite-surface">

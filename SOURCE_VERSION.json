@@ -33,6 +33,6 @@
   "defaultTab": "current",
   "metarMapMode": "individual-broken-overcast-ceilings",
   "ceilingHeightUnit": "hundreds-of-feet-AGL",
-  "sunElevationDisplay": "compact-Current-block",
-  "currentPresentation": "hourly-table-and-live-sun-angle"
+  "sunElevationDisplay": "plain-text-Satellite-heading",
+  "currentPresentation": "hourly-table"
 }

@@ -215,7 +215,6 @@ body.satellite-expanded { overflow: hidden; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
 
 
-/* Compact live sun readout; hourly observations remain in the table. */
-.current-sun { display:inline-flex; align-items:center; gap:14px; padding:9px 13px; margin:0 0 24px; border:1px solid var(--border); border-radius:6px; }
-.current-sun span { font-size:14px; color:var(--muted); }
-.current-sun strong { font-size:22px; font-variant-numeric:tabular-nums; letter-spacing:-.3px; }
+/* Live solar elevation in the satellite heading, without a card or border. */
+.section-heading .satellite-sun { margin-top:8px; font-size:14px; }
+.satellite-sun strong { margin-left:5px; font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
