@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply Current/metro rendering to the existing J-Weather website.
+# Update Current, cloud-only METARs, and top-of-hour collection in J-Weather.
 set -euo pipefail
 WEATHER_PROJECT="j-weather-261020012817"
 WEATHER_REGION="us-central1"
@@ -7,23 +7,30 @@ WEATHER_BRANCH="metar-cloud-history-20261019"
 WEATHER_WORK="$(mktemp -d "$HOME/j-weather-current-update.XXXXXX")"
 trap 'echo "Update stopped at line $LINENO. Saved settings and output: $WEATHER_WORK" >&2' ERR
 
-echo "Step 1/4: checking J-Weather and saving website settings."
+echo "Step 1/5: checking J-Weather and saving website settings."
 gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=export >"$WEATHER_WORK/website-before.yaml"
 WEATHER_PREVIOUS_IMAGE="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(spec.template.spec.containers[0].image)')"
+gcloud scheduler jobs describe weather-live-metar-clouds --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/metar-schedule-before.json"
 printf '%s\n' "$WEATHER_PREVIOUS_IMAGE" >"$WEATHER_WORK/previous-image.txt"
 git clone --quiet --depth=1 --branch "$WEATHER_BRANCH" https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/weather-lab/app:current-${WEATHER_COMMIT:0:12}"
 
-echo "Step 2/4: building the Current and combined metro update."
+echo "Step 2/5: building the Current and cloud-ceiling update."
 if ! gcloud artifacts docker images describe "$WEATHER_IMAGE" --project="$WEATHER_PROJECT" >/dev/null 2>&1; then
   gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 fi
 
-echo "Step 3/4: deploying the website update."
+echo "Step 3/5: deploying the website update."
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 
-echo "Step 4/4: verifying Current and the twelve-hour METAR response."
+echo "Step 4/5: moving the shared hourly METAR collection to :00."
+gcloud scheduler jobs update http weather-live-metar-clouds --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --schedule='0 * * * *' --time-zone=Etc/UTC --max-retry-attempts=0 --quiet
+if [[ "$(gcloud scheduler jobs describe weather-live-metar-clouds --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='value(state)')" == "PAUSED" ]]; then
+  gcloud scheduler jobs resume weather-live-metar-clouds --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
+fi
+
+echo "Step 5/5: verifying Current and the twelve-hour METAR response."
 WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 curl --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/" -o "$WEATHER_WORK/page.html"
 curl --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/api/observations" -o "$WEATHER_WORK/current.json"
@@ -39,15 +46,13 @@ summary=json.loads((work/'current.json').read_text())
 metars=json.loads((work/'metar.json').read_text())
 if len(summary.get('history',[]))!=12 or len(metars.get('history',[]))!=12:
     raise SystemExit('The published response does not contain twelve hourly positions.')
-metro=metars.get('metro')
-if not metro or metro.get('station')!='METRO' or any('metro' not in h for h in metars['history']):
-    raise SystemExit('The combined metro plot is missing from the published response.')
-if any('cloudSource' not in h['metro'] for h in metars['history']):
-    raise SystemExit('The metro cloud-source metadata is missing.')
-print('Verified: Current tab, Hopkins sun-angle element, and 12 hourly METAR positions.')
-print(f'Metro hour: {metro["hour"]}; {metro["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
-if not metro['available']:
-    print('The newest metro average is incomplete; its popup identifies missing or invalid contributors.')
+if 'data-ceiling-unit="hundreds-ft"' not in html or 'id="metar-view"' in html:
+    raise SystemExit('The cloud-height-only METAR page is not published yet.')
+if 'class="metric-value" id="hopkins-sun-angle"' not in html:
+    raise SystemExit('The full-size Sun angle card is not present.')
+print('Verified: Current averages and full-size Sun angle card; cloud-only METAR map; 12 hourly positions.')
+print(f'Current hour: {summary["current"]["hour"]}; {summary["current"]["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
 print('Populated regional hours:',sum(bool(h['stations']) for h in metars['history']),'/12')
+print('Shared METAR collection: :00 each hour; :45–:59 routine reports, preferring :53.')
 PY
 printf '\nUpdate complete. Open your usual J-Weather address and refresh.\nService URL: %s\nSource: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_COMMIT" "$WEATHER_WORK"

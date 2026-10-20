@@ -16,7 +16,7 @@ window.WeatherSun = (() => {
   }
   function update(){
     const el=document.getElementById("hopkins-sun-angle");
-    if(el)el.textContent=`Hopkins sun elevation: ${elevation(new Date()).toFixed(1)}°`;
+    if(el)el.textContent=`${elevation(new Date()).toFixed(1)}°`;
   }
   update();
   setInterval(update,60000);

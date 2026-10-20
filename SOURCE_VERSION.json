@@ -1,17 +1,17 @@
 {
-  "variant": "j-weather-current-metro-average",
+  "variant": "j-weather-current-and-individual-ceilings",
   "baseCommit": "eb6871d2b467647d4b362e8c36e56fba8c629213",
   "stationModelCommit": "74d9e1e0d1e592cf63a428bb773bdcbf5608dae6",
   "branch": "metar-cloud-history-20261019",
   "projectId": "j-weather-261020012817",
-  "metarCollectionMinute": 2,
+  "metarCollectionMinute": 0,
   "historyHours": 12,
   "metarReportWindowMinutes": [
     45,
     59
   ],
   "stationLabelLayout": "fixed-quadrants",
-  "stationSpacing": "maximum-footprint-across-12-hours",
+  "stationSpacing": "all-qualifying-airports-no-thinning",
   "radarHistoryHours": 2,
   "satelliteHistoryHours": 2,
   "forecastCollectionMinutes": [
@@ -30,5 +30,8 @@
     "KMIC",
     "KMSP"
   ],
-  "defaultTab": "current"
+  "defaultTab": "current",
+  "metarMapMode": "individual-broken-overcast-ceilings",
+  "ceilingHeightUnit": "hundreds-of-feet-AGL",
+  "sunElevationDisplay": "full-size-Current-metric-card"
 }

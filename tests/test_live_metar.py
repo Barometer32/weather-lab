@@ -86,7 +86,7 @@ class HourlyMetarViewTests(unittest.TestCase):
         with patch('metar_clouds.collect',return_value=dict(snapshot([row()],NOW),observationReports=[])),patch('app.get_rapid_reports') as rapid:
             collector.collect_metar_clouds(store,NOW)
         rapid.assert_not_called()
-        self.assertIn("weather_schedule metar-clouds '2 * * * *'",Path('deploy.sh').read_text())
+        self.assertIn("weather_schedule metar-clouds '0 * * * *'",Path('deploy.sh').read_text())
 
     def test_large_metar_payload_compression_preserves_data_and_respects_negotiation(self):
         store=MemoryStore();rows=[row('K'+str(i).zfill(3)) for i in range(100)]

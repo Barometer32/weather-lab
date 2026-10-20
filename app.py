@@ -23,7 +23,7 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 app = Flask(__name__, static_folder="static", template_folder="static")
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
-OBSERVATION_CHECK_MINUTES = (2,)
+OBSERVATION_CHECK_MINUTES = (0,)
 IEM = "https://mesonet.agron.iastate.edu"
 # Reflectivity color stops sampled from the user's COD reference, starting at
 # 10 dBZ. Interpolation follows each 0.5 dBZ data code; no rain-rate conversion.
@@ -225,7 +225,7 @@ def observations(reports=None, now=None, rapid_reports=None):
         current.update(tempF=None, dewpointF=None, tempC=None, dewpointC=None,
                        wind={"speedMph": None, "speedKnots": None, "direction": None})
     return {"fetchedAt": iso(now), "current": current, "history": history,
-            "method": "Shared hourly METAR archive pull at :02; routine report nearest :53 within :45–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
+            "method": "Shared hourly METAR archive pull at :00; routine report nearest :53 within :45–:59, labeled with the following hour; T-remark precision preferred; Fahrenheit conversion after equal averaging.",
             "source": "NOAA Aviation Weather Center routine METARs"}
 
 
@@ -418,7 +418,7 @@ def observation_notice(data):
     current, warnings = data["current"], []
     if not current["available"]:
         reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
-        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :02; hourly history remains below.")
+        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :00; hourly history remains below.")
     if data.get("stale"):
         warnings.append("Background observation checks are delayed; check the displayed observation hour.")
     return " ".join(warnings)

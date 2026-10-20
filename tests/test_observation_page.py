@@ -21,12 +21,17 @@ class CurrentHomePageTests(unittest.TestCase):
         self.assertIn('id="tab-current" aria-selected="true"', html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>', html)
         current = html.split('<section id="current"')[1].split('</section>')[0]
-        self.assertIn('Hopkins sun elevation', current)
+        self.assertIn('<h2>Sun angle</h2><div class="metric-value" id="hopkins-sun-angle"', current)
+        self.assertIn('Hopkins · live',current)
+        self.assertNotIn('id="metar-view"',html)
+        self.assertIn('data-ceiling-unit="hundreds-ft"',html)
         self.assertEqual(html.count('id="hopkins-sun-angle"'), 1)
         self.assertEqual(current.count('class="hour-line"'), 12)
         self.assertIn('KFCM + KMSP + KMIC', current)
         self.assertIn('initial-current-data', html)
-        self.assertIn('cloud cover and ceiling come from KMSP', html)
+        self.assertIn('27 = 2,700 ft',html)
+        self.assertIn('250 = 25,000 ft',html)
+        self.assertNotIn('metar-model.js',html)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
 
     def test_default_page_survives_storage_outage_without_upstream_download(self):

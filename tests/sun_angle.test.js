@@ -10,6 +10,6 @@ assert.ok(sun(new Date('2026-10-19T06:00:00Z'))<0);
 assert.ok(sun(new Date('2026-03-20T12:00:00Z'),0,0)>87);
 assert.equal(sun(new Date('2026-10-19T14:00:00-05:00')),sun(new Date('2026-10-19T19:00:00Z')));
 assert.ok(Number.isFinite(sun(new Date('2028-02-29T18:00:00Z'))));
-assert.match(label.textContent,/Hopkins sun elevation: -?\d+\.\d°/);
+assert.match(label.textContent,/^-?\d+\.\d°$/);
 assert.equal(interval,60000);events.visibilitychange();
 console.log('Sun elevation checks passed: seasons, night, equinox, time zones, leap year and minute refresh.');

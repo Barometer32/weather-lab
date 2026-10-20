@@ -40,7 +40,11 @@ class WeatherTests(unittest.TestCase):
 
     def test_small_routine_timing_variation_is_allowed(self):
         rows = [report(offset=-8), report("KMSP", offset=-10), report("KMIC", offset=-11)]
-        self.assertEqual(hourly_snapshot(rows,HOUR,HOUR)["count"],2)
+        self.assertEqual(hourly_snapshot(rows,HOUR,HOUR)["count"],3)
+        for minute in [45,49,53,59]:
+            with self.subTest(minute=minute):
+                self.assertEqual(hourly_snapshot([report(offset=minute-60)],HOUR,HOUR)["count"],1)
+        self.assertEqual(hourly_snapshot([report(offset=-16)],HOUR,HOUR)["count"],0)
 
     def test_never_use_future_observation(self):
         x = hourly_snapshot([report()], HOUR, HOUR - timedelta(minutes=8))
@@ -195,3 +199,4 @@ class WeatherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

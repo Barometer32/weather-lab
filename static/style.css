@@ -168,7 +168,7 @@ body.satellite-expanded { overflow: hidden; }
 .cloud-station-label { font:600 11px/1.3 system-ui,sans-serif; color:#233b31; background:#ffffffe6; border-radius:3px; padding:2px 3px; }
 .cloud-station-label:empty { display:none; }
 .compact-clouds .cloud-station-label { display:none; }
-.cloud-ceiling-number { display:block; min-width:24px; text-align:center; font:700 14px/24px system-ui,sans-serif; color:#233b31; background:transparent; }
+.cloud-ceiling-number { display:block; width:40px; text-align:center; font:700 14px/24px system-ui,sans-serif; color:#111; background:transparent; text-shadow:0 0 2px #fff, 0 0 2px #fff; }
 .cloud-popup strong { font-size:16px; }
 .cloud-popup p { margin:6px 0; }
 .cloud-station-table { max-height:440px; margin-top:12px; }
@@ -215,7 +215,8 @@ body.satellite-expanded { overflow: hidden; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
 
 
-.sun-angle { color:#52605c; font-size:.82rem; margin:-.4rem 0 .7rem; font-variant-numeric:tabular-nums; }
-
-.current-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
-@media(max-width:700px) { .current-metrics { grid-template-columns:1fr; } }
+/* Current restores the original four metric cards, including live sun angle. */
+.current-metrics { grid-template-columns:1.2fr 1fr 1fr 1fr; }
+.metric-note { font-size:13px; color:var(--muted); margin:8px 0 0; }
+@media(max-width:1000px) { .current-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:450px) { .current-metrics { grid-template-columns:1fr; } }
