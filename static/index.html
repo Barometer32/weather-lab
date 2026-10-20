@@ -6,14 +6,14 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=cloud-height-numbers-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=air-quality-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/cloud-views.js?v=cloud-height-numbers-20261020"></script>
   <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
   <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
-  <script defer src="/static/app.js?v=mobile-fullscreen-20261020"></script>
+  <script defer src="/static/app.js?v=air-quality-20261020"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -23,6 +23,7 @@
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
+    <button role="tab" id="tab-air-quality" aria-selected="false" aria-controls="air-quality" tabindex="-1">Air Quality</button>
   </nav>
 </header>
 <main>
@@ -100,6 +101,11 @@
 </section>
 
 
+<section id="air-quality" role="tabpanel" aria-labelledby="tab-air-quality" hidden>
+  <div class="section-heading"><div><p class="eyebrow">MINNESOTA POLLUTION CONTROL AGENCY</p><h1>Air quality</h1></div><button class="secondary" id="refresh-air-quality">Refresh map</button></div>
+  <iframe id="air-quality-map" title="MPCA current air quality conditions map" data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html" allowfullscreen></iframe>
+  <p class="source">Live map from MPCA. Use its legend and station details to view reported conditions and times. <a href="https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions" target="_blank" rel="noopener">Open the MPCA page</a> · <a href="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html" target="_blank" rel="noopener">Open map directly if it does not display</a></p>
+</section>
 </main>
 <footer>WEATHER LAB · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
 </body></html>

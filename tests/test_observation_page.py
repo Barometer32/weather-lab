@@ -17,7 +17,11 @@ class CurrentHomePageTests(unittest.TestCase):
         upstream.assert_not_called()
         average.assert_called_once_with(saved_only=True)
         tabs = re.findall(r'<button role="tab" id="tab-([^"]+)"', html)
-        self.assertEqual(tabs, ['current', 'metar-clouds', 'radar', 'satellite', 'forecast'])
+        self.assertEqual(tabs, ['current', 'metar-clouds', 'radar', 'satellite', 'forecast', 'air-quality'])
+        air=html.split('<section id="air-quality"')[1].split('</section>')[0]
+        self.assertIn('title="MPCA current air quality conditions map"',air)
+        self.assertIn('data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"',air)
+        self.assertIn('Open map directly if it does not display',air)
         self.assertIn('id="tab-current" aria-selected="true"', html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>', html)
         current = html.split('<section id="current"')[1].split('</section>')[0]

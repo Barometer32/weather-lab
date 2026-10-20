@@ -54,10 +54,13 @@ if 'class="satellite-sun"' not in html:
     raise SystemExit('The Sun angle line is not present on Satellite.')
 if 'map-fullscreen.js' not in html or 'id="metar-fullscreen"' not in html:
     raise SystemExit('The shared map fullscreen controls are not published yet.')
+if 'id="tab-air-quality"' not in html or 'data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"' not in html:
+    raise SystemExit('The MPCA Air Quality tab is not published yet.')
 print('Verified: Current hourly table, Satellite Sun angle, and full-screen controls for all three maps; 12 hourly positions.')
 print(f'Current hour: {summary["current"]["hour"]}; {summary["current"]["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
 print('Populated regional hours:',sum(bool(h['stations']) for h in metars['history']),'/12')
 print('KDEH excluded from the Clouds map, station list, and all twelve hours.')
+print('Air Quality tab: official MPCA map embedded directly; no extra collector job.')
 print('Shared METAR collection: :00 each hour; :45–:59 routine reports, preferring :53.')
 PY
 printf '\nUpdate complete. Open your usual J-Weather address and refresh.\nService URL: %s\nSource: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_COMMIT" "$WEATHER_WORK"

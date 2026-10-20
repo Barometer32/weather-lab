@@ -22,6 +22,14 @@ history in its initial HTML response.
 
 Original summary reference: `958541732691913175126f62202990f19521c5a2`.
 
+## Air Quality
+
+The Air Quality tab embeds the standalone interactive map used on MPCA's
+[current conditions page](https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions).
+It loads directly from MPCA on the first tab selection, keeps its view across
+tab changes, and offers a manual refresh and direct source links. MPCA manages
+its data and layer refreshes; J-Weather adds no collection job, archive, or API key.
+
 ## Clouds map
 
 The Clouds map shows only the lowest known **broken or overcast** cloud base
