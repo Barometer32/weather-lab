@@ -34,5 +34,12 @@
   "metarMapMode": "individual-broken-overcast-ceilings",
   "ceilingHeightUnit": "hundreds-of-feet-AGL",
   "sunElevationDisplay": "plain-text-Satellite-heading",
-  "currentPresentation": "hourly-table"
+  "currentPresentation": "hourly-table",
+  "mapFullscreen": [
+    "radar",
+    "metar",
+    "satellite"
+  ],
+  "mobileTimeline": "bottom-toolbar-in-fullscreen",
+  "ceilingLabelFontPixels": 12
 }

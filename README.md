@@ -66,6 +66,18 @@ closed. Service identities, image-building and deployment are described in
 `launch-j-weather.sh` and `deploy.sh`; older restore helpers target historical
 projects and should not be used for this active project.
 
+## Mobile map viewers
+
+Radar, METAR and Satellite each have a **Full screen** button. The whole map
+surface expands, including the timestamp, timeline, reset (where available)
+and **Close** button. On phones and short landscape screens, the full-width
+slider stays on the bottom row. Native browser fullscreen is requested when
+supported; a viewport-filling overlay is used when unavailable, including on
+mobile browsers. Browser chrome can remain visible in this fallback. Close or
+Escape restores the page; map size is refreshed on exit and rotation without
+resetting the timeline or geographic view. Safe-area padding protects controls
+near a phone's home indicator. METAR ceiling numbers are 12 px.
+
 ## Apply this update to J-Weather
 
 In authenticated Cloud Shell:
@@ -92,4 +104,5 @@ node tests/current_views.test.js
 node tests/station_views.test.js
 node tests/weather_tabs.test.js
 node tests/sun_angle.test.js
+node tests/map_fullscreen.test.js
 ```

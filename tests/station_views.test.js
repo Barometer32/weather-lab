@@ -19,7 +19,8 @@ const stations=[
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,20,1+i)).toISOString(),stations,metro:row('METRO',[cloud('OVC',4000)])})),checkedAt:'2026-10-20T11:00:00Z'};
 const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getSize(){return {x:1000,y:700};},latLngToContainerPoint([lat]){return{x:lat*40,y:200};},invalidateSize(){}};
 const group={addTo(){return this;},clearLayers(){shown=[];}};
-const context={window:{},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Number,
+let fullscreenConfig;
+const context={window:{WeatherFullscreen:{attach(config){fullscreenConfig=config;}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Number,
  fetch:async url=>{reads++;assert.equal(url,'/api/metar-clouds');if(fail)throw Error('Data unavailable');return{ok:true,json:async()=>data};},clearTimeout(t){if(t)t.cancelled=true;},setTimeout(callback,delay){const t={callback,delay};timers.push(t);return t;},
  L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,
  marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options,popup:this.popup});return this;}})}};
@@ -29,6 +30,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
 const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
 (async()=>{
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
+ assert.equal(fullscreenConfig.surfaceId,'metar-surface');assert.equal(fullscreenConfig.buttonId,'metar-fullscreen');
  assert.equal(get('metar-cloud-timeline').max,'11');assert.equal(get('metar-cloud-timeline').value,'11');
  assert.equal(number('KAAA'),'27');assert.equal(number('KMIC'),'250');assert.equal(number('KFCM'),'3');assert.equal(number('KMSP'),'27');
  assert.equal(number('KLAY'),'50','lowest BKN at 5000 beats OVC at 10000 and ignores SCT');
@@ -50,7 +52,7 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  // A missing hour/site never borrows another report or synthetic metro data.
  data={...data,history:data.history.map((h,i)=>({...h,stations:i===0?[]:h.stations}))};
  get('refresh-metar-clouds').events.click();await flush();get('metar-cloud-timeline').events.input({target:{value:'0'}});assert.equal(shown.length,0);
- get('metar-cloud-timeline').events.input({target:{value:'3'}});const selected=get('metar-cloud-time').textContent.split(' · ')[0];
+ get('metar-cloud-timeline').events.input({target:{value:'3'}});fullscreenConfig.onResize();assert.equal(get('metar-cloud-timeline').value,'3','resizing fullscreen preserves history position');const selected=get('metar-cloud-time').textContent.split(' · ')[0];
  data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-20T13:00:00Z'})};
  get('refresh-metar-clouds').events.click();await flush();assert.equal(get('metar-cloud-timeline').value,'2');assert.equal(get('metar-cloud-time').textContent.split(' · ')[0],selected);
  get('metar-cloud-timeline').events.input({target:{value:'11'}});

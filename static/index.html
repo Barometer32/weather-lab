@@ -1,18 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>WEATHER LAB · Twin Cities</title>
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=satellite-sun-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=mobile-fullscreen-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
-  <script defer src="/static/cloud-views.js?v=ceiling-hundreds-20261020"></script>
+  <script defer src="/static/map-fullscreen.js?v=20261020"></script>
+  <script defer src="/static/cloud-views.js?v=mobile-fullscreen-20261020"></script>
   <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
   <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
-  <script defer src="/static/app.js?v=current-metro-20261020"></script>
+  <script defer src="/static/app.js?v=mobile-fullscreen-20261020"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -42,12 +43,12 @@
 
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>
   <div class="section-heading"><div><p class="eyebrow">AIRPORT OBSERVATIONS · UPPER MIDWEST</p><h1 id="metar-heading">Cloud ceilings</h1><p id="metar-timeline-description">Last 12 routine hourly snapshots</p></div><div class="metar-view-controls"><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
-  <div class="cloud-map-surface">
-    <div id="metar-cloud-map" aria-label="Individual airport broken and overcast cloud bases in hundreds of feet, with state and county boundaries"></div>
+  <div id="metar-surface" class="cloud-map-surface map-viewer">
+    <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Individual airport broken and overcast cloud bases in hundreds of feet, with state and county boundaries"></div></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
-      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button></div>
+      <div class="viewer-actions"><button class="secondary" id="metar-cloud-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
   <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly METARs…</p>
@@ -60,12 +61,12 @@
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
-  <div id="radar-surface">
-    <div id="radar-map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div></div>
+  <div id="radar-surface" class="map-viewer">
+    <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <div class="viewer-frame-time" id="radar-time">Loading radar…</div>
       <div class="timeline-control"><label class="sr-only" for="timeline">Manual radar timeline: drag to select a scan</label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
-      <div class="viewer-actions"><button id="fullscreen" class="secondary" aria-label="Expand radar">Expand</button></div>
+      <div class="viewer-actions"><button id="fullscreen" class="secondary" aria-label="Open full-screen radar">Full screen</button></div>
     </div>
   </div>
   <p id="map-note" class="small-note" role="status" hidden></p>
@@ -85,12 +86,12 @@
   <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Past 2 hours · drag the timeline to explore</p><p class="satellite-sun">Sun angle <strong id="sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of the satellite history slider.">—</strong></p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
   <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <p id="satellite-description" class="small-note">True color shows clouds and the ground in daylight. Use NT Microphysics after dark.</p>
-  <div id="satellite-surface">
-    <div id="satellite-map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
+  <div id="satellite-surface" class="map-viewer">
+    <div id="satellite-map-area" class="map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <div class="viewer-frame-time" id="satellite-time">Loading satellite…</div>
       <div class="timeline-control"><label class="sr-only" for="satellite-timeline">Manual satellite timeline: drag to select an image</label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
-      <div class="viewer-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Expand satellite">Expand</button></div>
+      <div class="viewer-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Open full-screen satellite">Full screen</button></div>
     </div>
   </div>
   <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>

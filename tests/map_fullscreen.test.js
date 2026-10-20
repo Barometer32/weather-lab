@@ -1,0 +1,30 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function classes(){const values=new Set();return{add(v){values.add(v);},remove(v){values.delete(v);},contains(v){return values.has(v);},toggle(v,on){if(on)values.add(v);else values.delete(v);}};}
+const nodes=new Map(),events={},windowEvents={},viewportEvents={},resizes={radar:0,metar:0,satellite:0};
+const get=id=>{if(!nodes.has(id))nodes.set(id,{id,classList:classes(),events:{},setAttribute(k,v){this[k]=v;},addEventListener(k,f){this.events[k]=f;},focus(){this.focused=true;}});return nodes.get(id);};
+const document={getElementById:get,fullscreenElement:null,body:{classList:classes()},addEventListener(k,f){events[k]=f;},async exitFullscreen(){this.fullscreenElement=null;events.fullscreenchange();}};
+const context={document,window:{requestAnimationFrame(f){f();},addEventListener(k,f){windowEvents[k]=f;},visualViewport:{addEventListener(k,f){viewportEvents[k]=f;}}}};
+vm.runInNewContext(fs.readFileSync('static/map-fullscreen.js','utf8'),context);
+for(const id of ['radar','metar','satellite'])context.window.WeatherFullscreen.attach({surfaceId:id,buttonId:id+'-button',label:id,onResize(){resizes[id]++;}});
+const click=id=>get(id+'-button').events.click();
+(async()=>{
+ for(const id of ['radar','metar','satellite'])assert.equal(get(id+'-button').textContent,'Full screen');
+ get('radar').requestFullscreen=async function(options){assert.equal(options.navigationUI,'hide');document.fullscreenElement=this;events.fullscreenchange();};
+ await click('radar');assert.equal(document.fullscreenElement,get('radar'));assert.equal(get('radar-button').textContent,'Close');
+ assert.equal(get('satellite-button').textContent,'Full screen','another viewer must not display Close');
+ assert.equal(get('radar-button')['aria-expanded'],'true');assert.ok(resizes.radar>0);
+ await click('radar');assert.equal(document.fullscreenElement,null);assert.equal(get('radar-button').textContent,'Full screen');
+ await click('metar');assert.ok(get('metar').classList.contains('expanded'),'missing native API fills viewport');
+ assert.ok(document.body.classList.contains('map-expanded'),'overlay prevents background scrolling');
+ const before=resizes.metar;windowEvents.resize();viewportEvents.resize();assert.equal(resizes.metar,before+2,'rotation and browser viewport changes resize active map');
+ let escaped=false;events.keydown({key:'Escape',preventDefault(){escaped=true;}});assert.ok(escaped);assert.ok(!get('metar').classList.contains('expanded'));assert.ok(get('metar-button').focused);
+ assert.ok(!document.body.classList.contains('map-expanded'));
+ get('satellite').requestFullscreen=async()=>{throw Error('Browser disallowed fullscreen');};
+ await click('satellite');assert.ok(get('satellite').classList.contains('expanded'),'rejected fullscreen also has fallback');
+ await click('metar');assert.ok(!get('satellite').classList.contains('expanded'),'only one overlay may be open');assert.ok(get('metar').classList.contains('expanded'));
+ await click('metar');assert.ok(!document.body.classList.contains('map-expanded'));
+ await click('radar');await click('satellite');assert.equal(document.fullscreenElement,null);assert.ok(get('satellite').classList.contains('expanded'));
+ await click('satellite');assert.equal(get('satellite-button').textContent,'Full screen');assert.equal(get('satellite-button')['aria-expanded'],'false');
+ console.log('Fullscreen checks passed: native entry/exit, unsupported/rejected mobile fallback, Close/Escape, one active overlay, resize/rotation, labels and scroll restoration.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

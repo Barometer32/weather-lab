@@ -122,6 +122,7 @@ window.WeatherCloudViews = (() => {
   el("metar-station-list").addEventListener("toggle",()=>{if(el("metar-station-list").open)renderMetars();});
   el("metar-cloud-reset").addEventListener("click",resetMetarView);
   el("metar-cloud-timeline").addEventListener("input",event=>{metarIndex=Number(event.target.value);renderMetars();});
+  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(metarMap){metarMap.invalidateSize({pan:false});renderMetars();}}});
   scheduleMetars();
   return {select};
 })();

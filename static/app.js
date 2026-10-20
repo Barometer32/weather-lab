@@ -289,32 +289,8 @@ for(const id of tabs) {
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-radar").addEventListener("click",loadRadar);
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
-$("fullscreen").addEventListener("click",async()=>{
-  const surface = $("radar-surface");
-  if (surface.classList.contains("expanded")) {
-    surface.classList.remove("expanded"); document.body.classList.remove("radar-expanded");
-  } else if (document.fullscreenElement) {
-    await document.exitFullscreen();
-  } else {
-    try { await surface.requestFullscreen(); }
-    catch (_) { surface.classList.add("expanded"); document.body.classList.add("radar-expanded"); }
-  }
-  $("fullscreen").textContent = document.fullscreenElement || surface.classList.contains("expanded") ? "Close" : "Expand";
-  $("fullscreen").setAttribute("aria-label", $("fullscreen").textContent === "Close" ? "Close expanded radar" : "Expand radar");
-  if(map) setTimeout(()=>map.invalidateSize(),0);
-});
-document.addEventListener("fullscreenchange",()=>{
-  $("fullscreen").textContent = document.fullscreenElement ? "Close" : "Expand";
-  $("fullscreen").setAttribute("aria-label", document.fullscreenElement ? "Close expanded radar" : "Expand radar");
-  if(map)map.invalidateSize();
-});
-document.addEventListener("keydown",event=>{
-  if (event.key === "Escape" && $("radar-surface").classList.contains("expanded")) {
-    $("radar-surface").classList.remove("expanded"); document.body.classList.remove("radar-expanded");
-    $("fullscreen").textContent = "Expand"; $("fullscreen").setAttribute("aria-label", "Expand radar");
-    if(map)map.invalidateSize();
-  }
-});
+window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
+window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});
 selectTab("current");
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
@@ -327,33 +303,6 @@ $("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
 $("satellite-product").addEventListener("change",()=>loadSatellite(true));
 $("satellite-timeline").addEventListener("input",event=>showSatelliteFrame(Number(event.target.value)));
 $("satellite-reset").addEventListener("click",fitSatelliteView);
-$("satellite-fullscreen").addEventListener("click",async()=>{
-  const surface = $("satellite-surface");
-  if (surface.classList.contains("expanded")) {
-    surface.classList.remove("expanded"); document.body.classList.remove("satellite-expanded");
-  } else if (document.fullscreenElement) {
-    await document.exitFullscreen();
-  } else {
-    try { await surface.requestFullscreen(); }
-    catch (_) { surface.classList.add("expanded"); document.body.classList.add("satellite-expanded"); }
-  }
-  $("satellite-fullscreen").textContent = document.fullscreenElement || surface.classList.contains("expanded") ? "Close" : "Expand";
-  $("satellite-fullscreen").setAttribute("aria-label", $("satellite-fullscreen").textContent === "Close" ? "Close expanded satellite" : "Expand satellite");
-  if(satelliteMap) setTimeout(()=>satelliteMap.invalidateSize(),0);
-});
-document.addEventListener("fullscreenchange",()=>{
-  if (!document.fullscreenElement && !$("satellite-surface").classList.contains("expanded")) {
-    $("satellite-fullscreen").textContent = "Expand"; $("satellite-fullscreen").setAttribute("aria-label","Expand satellite");
-  }
-  if(satelliteMap)satelliteMap.invalidateSize();
-});
-document.addEventListener("keydown",event=>{
-  if (event.key === "Escape" && $("satellite-surface").classList.contains("expanded")) {
-    $("satellite-surface").classList.remove("expanded"); document.body.classList.remove("satellite-expanded");
-    $("satellite-fullscreen").textContent = "Expand"; $("satellite-fullscreen").setAttribute("aria-label","Expand satellite");
-    if(satelliteMap)satelliteMap.invalidateSize();
-  }
-});
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
 
 document.addEventListener("visibilitychange",()=>{
