@@ -8,12 +8,12 @@ Active Google Cloud project: `j-weather-261020012817` (J-Weather), region
 Current restores the original KFCM + KMIC + KMSP summary, twelve-hour table and
 basic QA indicators. Temperature and dew point are equal averages in Celsius,
 using METAR T-remark precision before Fahrenheit conversion. Wind speed is a
-scalar average; direction uses speed-weighted circular averaging. Current
-values require all three airports to pass basic temperature/dew-point/wind QA.
-Incomplete historical rows use the valid contributors and show amber QA dots.
+scalar average; direction uses speed-weighted circular averaging. A green QA
+indicator requires all three airports to pass basic temperature/dew-point/wind
+checks. Incomplete hourly rows use valid contributors and show amber QA dots.
 No previous report is carried forward into a missing hour.
 
-The fourth full-size metric card shows the **live Hopkins Sun angle**, updated
+A compact **Sun angle** block above the hourly table shows the live angle, updated
 every minute and independently of hourly observation history. It uses the
 NOAA GML solar-position equations at 44.9244°N, 93.414°W; negative values mean
 below the geometric horizon. The Current page embeds prepared values and

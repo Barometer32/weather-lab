@@ -21,11 +21,15 @@ class CurrentHomePageTests(unittest.TestCase):
         self.assertIn('id="tab-current" aria-selected="true"', html)
         self.assertIn('<section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds" hidden>', html)
         current = html.split('<section id="current"')[1].split('</section>')[0]
-        self.assertIn('<h2>Sun angle</h2><div class="metric-value" id="hopkins-sun-angle"', current)
-        self.assertIn('Hopkins · live',current)
+        self.assertIn('class="current-sun"',current)
+        self.assertIn('<span>Sun angle</span><strong id="sun-angle"', current)
+        self.assertNotIn('Hopkins',current)
+        self.assertNotIn('class="metric',current)
+        for tile in ['temperature','dewpoint','wind']:
+            self.assertNotIn(f'id="{tile}"',current)
         self.assertNotIn('id="metar-view"',html)
         self.assertIn('data-ceiling-unit="hundreds-ft"',html)
-        self.assertEqual(html.count('id="hopkins-sun-angle"'), 1)
+        self.assertEqual(html.count('id="sun-angle"'), 1)
         self.assertEqual(current.count('class="hour-line"'), 12)
         self.assertIn('KFCM + KMSP + KMIC', current)
         self.assertIn('initial-current-data', html)

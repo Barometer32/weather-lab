@@ -40,7 +40,7 @@ import json,sys
 from pathlib import Path
 work=Path(sys.argv[1])
 html=(work/'page.html').read_text()
-if 'id="tab-current"' not in html or 'current-views.js' not in html or 'id="hopkins-sun-angle"' not in html:
+if 'id="tab-current"' not in html or 'current-views.js' not in html or 'id="sun-angle"' not in html:
     raise SystemExit('Current is not present in the published page yet.')
 summary=json.loads((work/'current.json').read_text())
 metars=json.loads((work/'metar.json').read_text())
@@ -48,9 +48,9 @@ if len(summary.get('history',[]))!=12 or len(metars.get('history',[]))!=12:
     raise SystemExit('The published response does not contain twelve hourly positions.')
 if 'data-ceiling-unit="hundreds-ft"' not in html or 'id="metar-view"' in html:
     raise SystemExit('The cloud-height-only METAR page is not published yet.')
-if 'class="metric-value" id="hopkins-sun-angle"' not in html:
-    raise SystemExit('The full-size Sun angle card is not present.')
-print('Verified: Current averages and full-size Sun angle card; cloud-only METAR map; 12 hourly positions.')
+if 'class="current-sun"' not in html:
+    raise SystemExit('The compact Sun angle block is not present.')
+print('Verified: Current hourly table and compact Sun angle block; cloud-only METAR map; 12 hourly positions.')
 print(f'Current hour: {summary["current"]["hour"]}; {summary["current"]["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
 print('Populated regional hours:',sum(bool(h['stations']) for h in metars['history']),'/12')
 print('Shared METAR collection: :00 each hour; :45–:59 routine reports, preferring :53.')

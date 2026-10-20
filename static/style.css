@@ -215,8 +215,7 @@ body.satellite-expanded { overflow: hidden; }
 .metar-plot .plot-wind-state { fill:#333; font-size:9px; font-weight:700; }
 
 
-/* Current restores the original four metric cards, including live sun angle. */
-.current-metrics { grid-template-columns:1.2fr 1fr 1fr 1fr; }
-.metric-note { font-size:13px; color:var(--muted); margin:8px 0 0; }
-@media(max-width:1000px) { .current-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:450px) { .current-metrics { grid-template-columns:1fr; } }
+/* Compact live sun readout; hourly observations remain in the table. */
+.current-sun { display:inline-flex; align-items:center; gap:14px; padding:9px 13px; margin:0 0 24px; border:1px solid var(--border); border-radius:6px; }
+.current-sun span { font-size:14px; color:var(--muted); }
+.current-sun strong { font-size:22px; font-variant-numeric:tabular-nums; letter-spacing:-.3px; }

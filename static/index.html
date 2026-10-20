@@ -6,12 +6,12 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=ceiling-hundreds-20261020">
+  <link rel="stylesheet" href="/static/style.css?v=compact-current-20261020">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/cloud-views.js?v=ceiling-hundreds-20261020"></script>
-  <script defer src="/static/sun-angle.js?v=sun-card-20261020"></script>
-  <script defer src="/static/current-views.js?v=hourly-zero-20261020"></script>
+  <script defer src="/static/sun-angle.js?v=compact-current-20261020"></script>
+  <script defer src="/static/current-views.js?v=compact-current-20261020"></script>
   <script defer src="/static/app.js?v=current-metro-20261020"></script>
 </head>
 <body>
@@ -29,12 +29,7 @@
   <div class="section-heading"><div><p class="eyebrow">KFCM + KMSP + KMIC</p><h1>Current conditions</h1><p id="updated">{{ observation_time(initial_observations.current.hour, True) ~ ' hourly observation' if initial_observations else 'Loading hourly observations…' }}</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
   {% set notice = observation_notice(initial_observations) if initial_observations else '' %}
   <p class="notice" id="observation-status" role="status"{% if not notice %} hidden{% endif %}>{{ notice }}</p>
-  <div class="metrics current-metrics">
-    <article class="metric featured"><h2>Temperature</h2><div class="metric-value" id="temperature">{{ observation_temperature(initial_observations.current.tempF) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Dew point</h2><div class="metric-value" id="dewpoint">{{ observation_temperature(initial_observations.current.dewpointF) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Wind</h2><div class="metric-value wind" id="wind">{{ observation_wind(initial_observations.current.wind) if initial_observations else '—' }}</div></article>
-    <article class="metric"><h2>Sun angle</h2><div class="metric-value" id="hopkins-sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of hourly history.">—</div><p class="metric-note">Hopkins · live</p></article>
-  </div>
+  <div class="current-sun" role="group" aria-label="Current sun angle"><span>Sun angle</span><strong id="sun-angle" title="Current elevation of the Sun’s centre above the geometric horizon. Negative means below the horizon. Independent of hourly history.">—</strong></div>
   <div class="history-heading"><h2>Last 12 hours</h2><span>Central time · °F · mph</span></div>
   <div class="table-wrap"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew</th><th scope="col">Wind</th></tr></thead><tbody id="history">
   {% if initial_observations %}{% for h in initial_observations.history %}

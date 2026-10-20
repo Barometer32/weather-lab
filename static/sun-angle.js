@@ -15,7 +15,7 @@ window.WeatherSun = (() => {
     return Math.asin(Math.max(-1,Math.min(1,Math.sin(lat)*Math.sin(decl)+Math.cos(lat)*Math.cos(decl)*Math.cos(ha))))/rad;
   }
   function update(){
-    const el=document.getElementById("hopkins-sun-angle");
+    const el=document.getElementById("sun-angle");
     if(el)el.textContent=`${elevation(new Date()).toFixed(1)}°`;
   }
   update();

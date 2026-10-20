@@ -31,9 +31,6 @@ function qualityDot(qa, stale = false) {
 function renderObservations(data) {
   const c = data.current;
   $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly observation`;
-  $("temperature").textContent = temp(c.tempF);
-  $("dewpoint").textContent = temp(c.dewpointF);
-  $("wind").textContent = wind(c.wind);
   const stale = Boolean(data.stale), warnings=[];
   if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Shared collection at :00; hourly history remains below.`);
   if(stale)warnings.push("Background observation checks are delayed; check the displayed observation hour.");

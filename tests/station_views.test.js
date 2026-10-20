@@ -9,6 +9,7 @@ const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z
 const cloud=(cover,baseFtAGL)=>({cover,baseFtAGL});
 const stations=[
  row('KAAA',[cloud('SCT',1000),cloud('OVC',25000),cloud('BKN',2700)]),
+ row('KLAY',[cloud('SCT',2000),cloud('BKN',5000),cloud('OVC',10000)],3),
  row('KCLR',[cloud('CLR',null)]),row('KSCT',[cloud('SCT',2500)]),row('KFEW',[cloud('FEW',500)]),
  row('KUNK',[cloud('BKN',null)]),row('KMIX',[cloud('BKN',null),cloud('OVC',9000)]),
  row('KVIS',[cloud('VV',300)]),row('KNIL',[]),
@@ -30,7 +31,8 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
  assert.equal(get('metar-cloud-timeline').max,'11');assert.equal(get('metar-cloud-timeline').value,'11');
  assert.equal(number('KAAA'),'27');assert.equal(number('KMIC'),'250');assert.equal(number('KFCM'),'3');assert.equal(number('KMSP'),'27');
- assert.equal(shown.length,4,'all close qualifying airports are drawn, no thinning');
+ assert.equal(number('KLAY'),'50','lowest BKN at 5000 beats OVC at 10000 and ignores SCT');
+ assert.equal(shown.length,5,'all close qualifying airports are drawn, no thinning');
  for(const id of ['KCLR','KSCT','KFEW','KUNK','KMIX','KVIS','KNIL','METRO','KOUT'])assert.equal(find(id),undefined,id+' has no number in view');
  assert.ok(shown.every(s=>s.icon.html.startsWith('<span')&&!/<svg|circle|wind/.test(s.icon.html)));
  assert.ok(shown.every(s=>s.icon.iconAnchor[0]===20));
