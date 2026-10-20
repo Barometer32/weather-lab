@@ -39,7 +39,7 @@ KFCM, KMIC and KMSP appear individually here. Every qualifying airport in view
 is drawn with no collision suppression, station priority or station-count cap.
 The station list includes all available reports, including those without a
 plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
-quality exclusions KCFE/KFCE and KSGS remain in effect. Zoom and pan reveal
+station exclusions KCFE/KFCE, KSGS and KDEH remain in effect. Zoom and pan reveal
 more of the collected region. A missing number does not establish clear skies.
 
 Current and Clouds share one canonical archive: `live/metar-clouds.json` in the

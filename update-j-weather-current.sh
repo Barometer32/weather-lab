@@ -46,6 +46,8 @@ summary=json.loads((work/'current.json').read_text())
 metars=json.loads((work/'metar.json').read_text())
 if len(summary.get('history',[]))!=12 or len(metars.get('history',[]))!=12:
     raise SystemExit('The published response does not contain twelve hourly positions.')
+if any(row.get('station')=='KDEH' for frame in metars['history'] for row in frame['stations']) or any(row.get('station')=='KDEH' for row in metars.get('stations',[])):
+    raise SystemExit('KDEH is still present in the published Clouds response.')
 if 'data-ceiling-unit="hundreds-ft"' not in html or 'id="metar-view"' in html:
     raise SystemExit('The cloud-height number map is not published yet.')
 if 'class="satellite-sun"' not in html:
@@ -55,6 +57,7 @@ if 'map-fullscreen.js' not in html or 'id="metar-fullscreen"' not in html:
 print('Verified: Current hourly table, Satellite Sun angle, and full-screen controls for all three maps; 12 hourly positions.')
 print(f'Current hour: {summary["current"]["hour"]}; {summary["current"]["qa"]["stationsUsed"]}/3 airport reports passed basic QA.')
 print('Populated regional hours:',sum(bool(h['stations']) for h in metars['history']),'/12')
+print('KDEH excluded from the Clouds map, station list, and all twelve hours.')
 print('Shared METAR collection: :00 each hour; :45–:59 routine reports, preferring :53.')
 PY
 printf '\nUpdate complete. Open your usual J-Weather address and refresh.\nService URL: %s\nSource: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_COMMIT" "$WEATHER_WORK"

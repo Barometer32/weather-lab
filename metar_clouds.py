@@ -10,8 +10,8 @@ SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
 # Original regional extent, shared by cloud ceilings and weather plots.
 BOUNDS = [[40, -100], [50, -85]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
-# User-excluded unreliable cloud station. Enforce on fresh and retained history.
-EXCLUDED_STATIONS = frozenset({"KCFE", "KFCE", "KSGS"})
+# User-requested cloud station exclusions, applied to fresh and retained history.
+EXCLUDED_STATIONS = frozenset({"KCFE", "KFCE", "KSGS", "KDEH"})
 
 
 def included_station(station):

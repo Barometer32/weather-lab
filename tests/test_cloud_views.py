@@ -122,20 +122,22 @@ class HourlyCloudTests(unittest.TestCase):
         self.assertTrue(row['hasCeiling'])
         self.assertEqual(row['mapLayer'],{'cover':'VV','baseFtAGL':300,'heightType':'verticalVisibility'})
 
-    def test_kcfe_excluded_from_new_reports_and_already_saved_history(self):
-        self.assertEqual([r['station'] for r in self.rows(self.report(station='KCFE'),self.report())],['KAAA'])
-        old=snapshot(self.rows(self.report(),self.report(67)),NOW)
-        for hour in old['history']:
-            hour['stations'].extend({**row,'station':'KCFE'} for row in list(hour['stations']))
-        filtered=current(old,NOW)
-        self.assertTrue(all(row['station']!='KCFE' for hour in filtered['history'] for row in hour['stations']))
-        urls=[]
-        def fetch(url):
-            urls.append(url)
-            return xml(self.report(station='KCFE'),self.report())
-        result=collect(fetch,NOW,old)
-        self.assertTrue(all('KCFE' not in url for url in urls))
-        self.assertEqual([row['station'] for row in result['stations']],['KAAA'])
+    def test_excluded_stations_removed_from_new_reports_and_saved_history(self):
+        for excluded in ('KCFE','KFCE','KSGS','KDEH'):
+            with self.subTest(station=excluded):
+                self.assertEqual([r['station'] for r in self.rows(self.report(station=excluded),self.report())],['KAAA'])
+                old=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
+                for hour in old['history']:
+                    hour['stations'].extend({**row,'station':excluded} for row in list(hour['stations']))
+                filtered=current(old,NOW)
+                self.assertEqual(len(filtered['history']),12)
+                self.assertTrue(all([row['station'] for row in hour['stations']]==['KAAA'] for hour in filtered['history']))
+                self.assertEqual([row['station'] for row in filtered['stations']],['KAAA'])
+                def fetch(url):
+                    return xml(self.report(station=excluded),self.report())
+                result=collect(fetch,NOW,old)
+                self.assertTrue(all(row['station']!=excluded for hour in result['history'] for row in hour['stations']))
+                self.assertEqual([row['station'] for row in result['stations']],['KAAA'])
 
     def test_public_api_filters_old_snapshot_and_derives_ceiling_without_recollection(self):
         layers=[{'cover':'SCT','baseFtAGL':2500,'heightType':'cloudBase'},
@@ -146,6 +148,7 @@ class HourlyCloudTests(unittest.TestCase):
         row['layers']=layers
         row.pop('mapLayer');row.pop('hasCeiling')
         old['history'][-1]['stations'].append({**row,'station':'KCFE'})
+        old['history'][-1]['stations'].append({**row,'station':'KDEH'})
         store=MemoryStore();store.write_json('live/metar-clouds.json',old)
         weather._cache.clear()
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
