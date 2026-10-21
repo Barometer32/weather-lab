@@ -8,10 +8,9 @@ const temperature=v=>Number.isFinite(v)?`${v.toFixed(1)}°F`:"—";
 function render(){
  if(!data)return;
  const c=data.current,latest=data.candidate,now=Date.now()+clockOffset;
- const stale=new Set(latest?.staleStations||[]);
- for(const station of latest?.stations||[])if(station.observedAt&&now-Date.parse(station.observedAt)>900000)stale.add(station.code);
+ const outOfSync=new Set(latest?.outOfSyncStations||[]);
  const delayed=data.collectorDelayed||(data.checkedAt&&now-Date.parse(data.checkedAt)>300000);
- const held=data.held||stale.size>0||delayed||readError;
+ const held=data.held;
  $("temperature").textContent=temperature(c?.tempF);$("dewpoint").textContent=temperature(c?.dewpointF);
  const wind=c?.wind;
  if(!Number.isFinite(wind?.speedMph))$("wind").textContent="—";
@@ -21,24 +20,24 @@ function render(){
    $("wind").textContent=`${direction} · ${wind.speedMph.toFixed(1)} mph`;
    $("wind").title=Number.isFinite(wind.direction)?`${wind.direction%360}° true`:"Variable wind direction";
  }
- $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}${held?" · held":""}`:"Waiting for a complete fresh three-airport average…";
+ $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}${held?" · held":""}`:"Waiting for a complete aligned three-airport average…";
  const reasons=[];
  if(latest?.missingStations?.length)reasons.push(`missing ${latest.missingStations.join(", ")}`);
- if(stale.size)reasons.push(`report over 15 minutes old: ${[...stale].join(", ")}`);
+ if(latest?.timeSpreadExceeded)reasons.push(`station reports span ${(latest.timestampSpreadSeconds/60).toFixed(1)} minutes; maximum is 15 minutes between newest and oldest`);
  if(latest?.invalidStations?.length)reasons.push(`basic quality check failed: ${latest.invalidStations.join(", ")}`);
  if(data.sourceFailures?.length)reasons.push(`source unavailable: ${data.sourceFailures.join("; ")}`);
  if(delayed)reasons.push("background checks are delayed");
  if(readError)reasons.push(readError);
  const status=$("observation-status");
- status.textContent=(held&&c?"Held — showing the last good complete three-station average. ":!c?"No complete fresh average yet. ":"All 3 airport reports passed basic checks. ")+reasons.join(" · ");
- status.className=held||!c?"notice":"small-note";
+ status.textContent=(held&&c?"Held — showing the last good complete three-station average. ":!c?"No complete aligned average yet. ":"All 3 airport reports passed basic checks. ")+reasons.join(" · ");
+ status.className=held||!c||reasons.length?"notice":"small-note";
  $("current-checked").textContent=data.checkedAt?`Last source check: ${time.format(new Date(data.checkedAt))} · checks every 2 minutes`:"Waiting for the first background source check.";
  const body=$("current-stations");body.replaceChildren();
  for(const s of latest?.stations||[]){
    const row=document.createElement("tr");
    const stamp=s.observedAt?time.format(new Date(s.observedAt)):"—";
    const raw=s.rawMetar||"";row.title=raw;
-   const label=latest.invalidStations?.includes(s.code)?"Failed QA":stale.has(s.code)?"Over 15 min old":s.available?"OK":"Missing";
+   const label=latest.invalidStations?.includes(s.code)?"Failed QA":outOfSync.has(s.code)?"Over 15 min behind newest":s.available?"OK":"Missing";
    for(const value of [s.code,stamp,Number.isFinite(s.tempC)?s.tempC.toFixed(0):"—",Number.isFinite(s.dewpointC)?s.dewpointC.toFixed(0):"—",label]){
      const td=document.createElement("td");td.textContent=value;row.append(td);
    }

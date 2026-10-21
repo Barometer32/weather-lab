@@ -60,13 +60,13 @@ satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
 if 'id="sun-angle"' not in current or 'sun-angle' in satellite or 'id="history"' in current:
     raise SystemExit('Current/Satellite layout has not updated.')
 data=json.loads((work/'current.json').read_text())
-if data.get('version')!='latest-three-airports-celsius-v1' or 'history' in data:
+if data.get('version')!='latest-three-airports-celsius-spread-v2' or 'history' in data:
     raise SystemExit('The live Current API is not published yet.')
 print('Verified: live Current, Sun on Current only, no Current history or Models tab.')
 if data.get('current'):
     print('Mean observation time:',data['current']['observedAt'],'Held:',data['held'])
 else:
-    print('First source check requested. Waiting for all three valid reports within 15 minutes.')
+    print('First source check requested. Waiting for all three valid reports timestamped within 15 minutes of each other.')
 PY
 
 echo "Step 5/6: removing the retired model job, worker and prepared model JSON."

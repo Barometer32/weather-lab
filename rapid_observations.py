@@ -7,7 +7,7 @@ MAX_SPREAD_SECONDS = 1800  # Warning threshold, not a reason to drop a contribut
 MAX_AGE_SECONDS = 3600  # Match the rolling source/collector retention window.
 
 
-def parse_reports(payload, stations, now):
+def parse_reports(payload, stations, now, max_age_seconds=3600):
     rows = csv.DictReader(StringIO(payload.decode("utf-8")))
     if not rows.fieldnames or not {"station", "valid", "metar"} <= set(rows.fieldnames):
         raise ValueError("Invalid recent ASOS response")
@@ -28,7 +28,7 @@ def parse_reports(payload, stations, now):
             observed = observed.replace(tzinfo=timezone.utc) if observed.tzinfo is None else observed.astimezone(timezone.utc)
         except (TypeError, ValueError):
             continue
-        if not 0 <= (now - observed).total_seconds() <= 3600:
+        if not 0 <= (now - observed).total_seconds() <= max_age_seconds:
             continue
         stamp = re.search(r"\b(\d{2})(\d{2})(\d{2})Z\b", body)
         if not stamp or tuple(map(int, stamp.groups())) != (observed.day, observed.hour, observed.minute):
@@ -80,7 +80,7 @@ def current_snapshot(reports, now):
     return result
 
 
-def recent_metars(reports, stations, now):
+def recent_metars(reports, stations, now, max_age_seconds=3600):
     """Reuse already-fetched AWC routine/SPECI reports when they arrive sooner."""
     stream = StringIO()
     writer = csv.writer(stream)
@@ -89,9 +89,9 @@ def recent_metars(reports, stations, now):
         stamp = report.get("obsTime")
         if not isinstance(stamp, (int, float)) or isinstance(stamp, bool):
             continue
-        if not now.timestamp() - 3600 <= stamp <= now.timestamp():
+        if not now.timestamp() - max_age_seconds <= stamp <= now.timestamp():
             continue
         writer.writerow([report.get("icaoId", ""), datetime.fromtimestamp(stamp, timezone.utc).isoformat(),
                          report.get("rawOb", "")])
-    return parse_reports(stream.getvalue().encode(), stations, now)
+    return parse_reports(stream.getvalue().encode(), stations, now, max_age_seconds=max_age_seconds)
 

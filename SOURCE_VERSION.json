@@ -53,7 +53,8 @@
     "air-quality"
   ],
   "currentCollectionMinutes": "*/2",
-  "currentMaxStationAgeMinutes": 15,
+  "currentMaxTimestampSpreadMinutes": 15,
+  "currentMaxStationAgeMinutes": null,
   "currentTemperatureSource": "main-Celsius-group-no-T-remark",
   "currentTimestamp": "equal-mean-of-three-UTC-report-times",
   "sunCalculation": "NOAA-Meeus-Julian-century-apparent"

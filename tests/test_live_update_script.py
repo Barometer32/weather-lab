@@ -22,7 +22,7 @@ if name=='git':
 elif name=='curl':
  target=pathlib.Path(args[args.index('-o')+1])
  if target.name=='page.html':target.write_text(''.join('<button role="tab" id="tab-'+t+'">' for t in ['current','radar','metar-clouds','satellite','forecast','air-quality'])+'<section id="current"><p id="sun-angle"></p></section><section id="satellite"></section>')
- else:target.write_text(json.dumps({'version':'latest-three-airports-celsius-v1','current':None}))
+ else:target.write_text(json.dumps({'version':'latest-three-airports-celsius-spread-v2','current':None}))
 elif name=='gcloud':
  if args[:3]==['run','services','list']:
   if os.environ.get('LIVE_TEST_DENIED')=='1':print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)

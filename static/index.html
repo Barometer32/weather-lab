@@ -6,14 +6,14 @@
   <meta name="description" content="Three-airport current conditions and Upper Midwest METAR cloud ceilings, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=live-current-v2">
+  <link rel="stylesheet" href="/static/style.css?v=live-current-spread-v3">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/cloud-views.js?v=cloud-height-numbers-20261020"></script>
-  <script defer src="/static/sun-angle.js?v=live-current-v2"></script>
-  <script defer src="/static/current-views.js?v=live-current-v2"></script>
-  <script defer src="/static/app.js?v=live-current-v2"></script>
+  <script defer src="/static/sun-angle.js?v=live-current-spread-v3"></script>
+  <script defer src="/static/current-views.js?v=live-current-spread-v3"></script>
+  <script defer src="/static/app.js?v=live-current-spread-v3"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -29,7 +29,7 @@
 <main>
 <section id="current" role="tabpanel" aria-labelledby="tab-current">
   {% set c = initial_observations.current if initial_observations else none %}
-  <div class="section-heading"><div><p class="eyebrow">KFCM + KMIC + KMSP</p><h1>Current conditions</h1><p id="updated">{{ 'Average observation time: ' ~ observation_time(c.observedAt, True) if c else 'Waiting for fresh airport reports…' }}</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
+  <div class="section-heading"><div><p class="eyebrow">KFCM + KMIC + KMSP</p><h1>Current conditions</h1><p id="updated">{{ 'Average observation time: ' ~ observation_time(c.observedAt, True) if c else 'Waiting for aligned airport reports…' }}</p></div><button class="secondary" id="refresh-observations">Refresh</button></div>
   <p id="observation-status" class="small-note" role="status" aria-live="polite">Checking the latest three-airport average…</p>
   <div class="current-live-summary">
     <div class="live-reading"><h2>Temperature</h2><p id="temperature">{{ '%.1f°F'|format(c.tempF) if c else '—' }}</p></div>
@@ -38,7 +38,7 @@
     <div class="live-reading"><h2>Sun angle</h2><p id="sun-angle" title="Current apparent elevation of the Sun’s centre, including standard atmospheric refraction, for Hopkins at 44.925°N, 93.463°W. Independent of METAR report time.">—</p><span class="small-note">Hopkins · now</span></div>
   </div>
   <p id="current-checked" class="small-note"></p>
-  <details class="method"><summary>Station reports and quality checks</summary><div class="table-wrap"><table><thead><tr><th scope="col">Station</th><th scope="col">Latest report</th><th scope="col">Temp °C</th><th scope="col">Dew °C</th><th scope="col">Status</th></tr></thead><tbody id="current-stations"></tbody></table></div><p>Each airport has equal weight. The latest routine, special or five-minute airport report contributes its main Celsius temperature/dewpoint group; the optional T remark (tenths of Celsius) and preconverted Fahrenheit values are ignored. The Celsius means are converted to Fahrenheit only afterward. Wind speed uses the mean speed; direction uses speed-weighted circular averaging. Variable winds remain variable.</p><p>The complete three-station average updates only when all three reports pass basic temperature/dewpoint/wind checks and are no more than 15 minutes old, with timestamps no more than 15 minutes apart. Otherwise the last good complete average and its original mean observation time are held, with a visible reason. A station is never silently dropped to create a two-station average. The displayed observation time is the arithmetic mean of the three actual UTC timestamps, including across midnight. This is a spatial average of the latest reports, not a smoothed time average.</p><p>Background collection checks all three stations every two minutes. Public feed delivery can be delayed even when the station reports every five minutes. Source checks and observation times are shown separately. The Sun updates every ten seconds using full Julian-century NOAA/Meeus equations and standard atmospheric refraction; it uses the current time rather than the METAR time. Sunrise/sunset refer to the upper edge of the solar disc, so the Sun’s centre need not be at 0° at those events.</p></details>
+  <details class="method"><summary>Station reports and quality checks</summary><div class="table-wrap"><table><thead><tr><th scope="col">Station</th><th scope="col">Latest report</th><th scope="col">Temp °C</th><th scope="col">Dew °C</th><th scope="col">Status</th></tr></thead><tbody id="current-stations"></tbody></table></div><p>Each airport has equal weight. The latest routine, special or five-minute airport report contributes its main Celsius temperature/dewpoint group; the optional T remark (tenths of Celsius) and preconverted Fahrenheit values are ignored. The Celsius means are converted to Fahrenheit only afterward. Wind speed uses the mean speed; direction uses speed-weighted circular averaging. Variable winds remain variable.</p><p>The complete three-station average updates only when all three reports pass basic temperature/dewpoint/wind checks and their timestamps are no more than 15 minutes apart (newest minus oldest). Report age relative to the current clock does not disqualify a station; older reports are accepted when aligned. Otherwise the last good complete average and its original mean observation time are held, with a visible reason. A station is never silently dropped to create a two-station average. The displayed observation time is the arithmetic mean of the three actual UTC timestamps, including across midnight. This is a spatial average of the latest reports, not a smoothed time average.</p><p>Background collection checks all three stations every two minutes. Public feed delivery can be delayed even when the station reports every five minutes. Source checks and observation times are shown separately. The Sun updates every ten seconds using full Julian-century NOAA/Meeus equations and standard atmospheric refraction; it uses the current time rather than the METAR time. Sunrise/sunset refer to the upper edge of the solar disc, so the Sun’s centre need not be at 0° at those events.</p></details>
   <p class="source">Airport reports: <a href="https://mesonet.agron.iastate.edu/request/download.phtml" target="_blank" rel="noopener">Iowa Environmental Mesonet ASOS/METAR archive</a> and <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a>. Sun: <a href="https://gml.noaa.gov/grad/solcalc/calcdetails.html" target="_blank" rel="noopener">NOAA calculation details</a> · <a href="https://www.timeanddate.com/sun/@5030670" target="_blank" rel="noopener">Hopkins reference</a>.</p>
 </section>
 <script id="initial-current-data" type="application/json">{{ initial_observations|tojson }}</script>

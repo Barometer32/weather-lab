@@ -22,8 +22,9 @@ UTC timestamps: 10:45, 10:40 and 10:30 becomes 10:38:20, including across
 hour/day boundaries. This is a spatial latest-report mean, not temporal smoothing.
 
 The complete average advances only when all three latest reports pass the
-existing physical-range/dewpoint/wind checks, are at most 15 minutes old,
-and span at most 15 minutes. Otherwise the last complete good average is
+existing physical-range/dewpoint/wind checks and their newest and oldest
+timestamps span at most 15 minutes, inclusive. There is no station-age cutoff
+against the current clock: even older aligned reports remain eligible. Otherwise the last complete good average is
 held with its unchanged observation time and an explicit warning. Missing
 stations never silently become a two-station average; a newly invalid report
 cannot fall back to an earlier good report to hide its failure. Details show
@@ -32,10 +33,13 @@ source check is reported separately from observation age.
 
 `live/current.json` atomically retains the latest reports and the last good
 complete average. `/api/observations` and initial page rendering only read
-this object and recheck ages against server UTC; they never fetch upstream.
+this object and recheck the timestamp spread; they never fetch upstream.
 The browser reads saved data every 30 seconds while Current is visible and
-rechecks visible age warnings every 10 seconds. A collector gap over five
-minutes also freezes the displayed complete average.
+rechecks the source-check status every 10 seconds. A collector gap over five
+minutes is flagged separately; it does not reject an aligned station set.
+Reports are retained without age expiry. Initial collection looks back up to
+24 hours; subsequent checks query one hour and merge each station's newest
+report with the saved reports. Existing v1 Current data is read compatibly.
 
 Sun angle appears only on Current, for 44.925°N, 93.463°W, matching the Hopkins
 reference page. The full NOAA/Meeus Julian-century equations replace the old
@@ -141,8 +145,8 @@ Current page and saved-data API. After verification it removes the retired
 model job, dedicated model service and two prepared model JSON objects. The
 Clouds history, bucket, radar/satellite/forecast/cloud schedules and website
 domain mappings remain in place. No archive reimport is needed. An initial
-check is requested; fresh reports from all three airports are still required
-before a first Current average can appear.
+check is requested; all three valid reports must be within 15 minutes of
+each other before a first Current average can appear.
 
 ## Local checks
 
