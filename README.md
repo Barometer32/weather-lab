@@ -8,14 +8,21 @@ Active Google Cloud project: `j-weather-261020012817` (J-Weather), region
 Current shows four compact readings: three-airport temperature, dewpoint and
 wind, plus the current Hopkins Sun angle. There is no Current history table.
 `weather-live-current` checks the latest KFCM, KMIC and KMSP airport reports
-once every two minutes. It queries the IEM airport METAR/5-minute archive and
-NOAA AWC in parallel, retaining only each station's newest raw report.
+once every two minutes. It queries direct NOAA MADIS five-minute ASOS, the IEM airport METAR/5-minute
+archive and NOAA AWC in parallel, retaining only each station's newest report.
+Direct NOAA ASOS bypasses the IEM archive sync. On a live check at 23:40 CDT
+on October 20 it provided 23:25 reports from all three airports, newer than
+the 22:53 routine reports. Delivery latency and availability can vary.
 These are airport observations, not non-airport mesonet stations. Public
 feeds have delivery delays; polling cannot make an unpublished report arrive.
 
-All three main Celsius temperature/dewpoint groups are weighted equally;
+All three whole-Celsius temperature/dewpoint values are weighted equally;
 optional T remarks (tenths of Celsius) and upstream Fahrenheit values are
-ignored. Celsius averages are not rounded before conversion to °F. Wind
+ignored for text METARs. The direct binary ASOS feed supplies Kelvin fields;
+these are decoded to Celsius and normalized to whole degrees to match the
+text-METAR body precision. Celsius averages are not rounded before conversion
+to °F. The display rounds temperature/dewpoint to whole °F and wind speed to
+whole mph, using eight compass directions (N, NE, E, SE, S, SW, W, NW). Wind
 speed is scalar-averaged; direction is speed-weighted circular, with variable
 winds shown as variable. Displayed observation time is the mean of the three
 UTC timestamps: 10:45, 10:40 and 10:30 becomes 10:38:20, including across

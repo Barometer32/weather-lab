@@ -19,8 +19,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  context.window.WeatherCurrentViews.select('current');await flush();
  assert.equal(reads.length,0,'saved seed paints without a startup source fetch');
- assert.equal(get('temperature').textContent,'53.6°F');assert.equal(get('dewpoint').textContent,'41.0°F');
- assert.equal(get('wind').textContent,'N · 11.5 mph');assert.equal(get('current-stations').children.length,3);
+ assert.equal(get('temperature').textContent,'54°F');assert.equal(get('dewpoint').textContent,'41°F');
+ assert.equal(get('wind').textContent,'N · 12 mph');assert.equal(get('current-stations').children.length,3);
  assert.match(get('updated').textContent,/10:55:00 PM CDT/);assert.doesNotMatch(get('updated').textContent,/held/);
  assert.ok(syncs.length===1);assert.deepEqual(intervals.map(i=>i.delay),[30000,10000]);
  clock+=30000;intervals[0].callback();await flush();assert.equal(reads.length,1);
@@ -32,9 +32,9 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
  assert.doesNotMatch(get('observation-status').textContent,/Held|15 minutes old/);
  assert.match(get('observation-status').textContent,/background checks are delayed/);
  assert.match(get('updated').textContent,/10:55:00 PM CDT/);assert.doesNotMatch(get('updated').textContent,/held/);
- assert.equal(get('temperature').textContent,'53.6°F');
+ assert.equal(get('temperature').textContent,'54°F');
  fail=true;get('refresh-observations').events.click();await flush();
- assert.equal(get('temperature').textContent,'53.6°F');assert.match(get('observation-status').textContent,/Network unavailable/);
+ assert.equal(get('temperature').textContent,'54°F');assert.match(get('observation-status').textContent,/Network unavailable/);
  assert.equal(get('refresh-observations').disabled,false);
  fail=false;data={...data,serverTime:new ClockDate().toISOString(),checkedAt:new ClockDate().toISOString(),held:true,candidate:{...data.candidate,invalidStations:['KMIC']}};
  get('refresh-observations').events.click();await flush();assert.match(get('observation-status').textContent,/quality check failed: KMIC/);
@@ -43,6 +43,10 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
  assert.match(get('updated').textContent,/10:55:00 PM CDT · held/);
  data={...data,current:null,held:false,candidate:{stations:[],missingStations:['KMIC'],outOfSyncStations:[],timeSpreadExceeded:false,invalidStations:[]}};
  get('refresh-observations').events.click();await flush();assert.equal(get('temperature').textContent,'—');assert.match(get('observation-status').textContent,/No complete aligned average.*KMIC/);
+ for(const [degrees,expected] of [[0,'N'],[45,'NE'],[90,'E'],[135,'SE'],[180,'S'],[202,'S'],[203,'SW'],[225,'SW'],[270,'W'],[315,'NW'],[359,'N']]){
+   data={...data,current:{...row,wind:{speedMph:5.4,direction:degrees}},held:false};
+   get('refresh-observations').events.click();await flush();assert.equal(get('wind').textContent,expected+' · 5 mph');
+ }
  assert.ok(reads.every(url=>url==='/api/observations'));
  console.log('Current checks passed: four readings, saved seed, 30-second reads, hidden tabs, relative timestamp hold, original timestamp and source failures.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

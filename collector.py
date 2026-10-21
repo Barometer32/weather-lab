@@ -155,7 +155,8 @@ def collect_observations(store, now):
 
 def collect_current(store, now):
     from live_current import collect
-    data = collect(store, now, weather.download)
+    from madis_observations import fetch_file
+    data = collect(store, now, weather.download, madis_download=fetch_file)
     return {"available": data["available"], "held": data["held"], "sourceFailures": data["sourceFailures"]}
 
 

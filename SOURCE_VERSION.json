@@ -55,7 +55,10 @@
   "currentCollectionMinutes": "*/2",
   "currentMaxTimestampSpreadMinutes": 15,
   "currentMaxStationAgeMinutes": null,
-  "currentTemperatureSource": "main-Celsius-group-no-T-remark",
+  "currentTemperatureSource": "whole-Celsius-METAR-body-or-decoded-direct-ASOS-no-T-remark",
+  "currentSources": ["NOAA MADIS five-minute ASOS", "IEM airport archive", "NOAA Aviation Weather Center"],
+  "currentDisplayDecimals": 0,
+  "currentWindCompassPoints": 8,
   "currentTimestamp": "equal-mean-of-three-UTC-report-times",
   "sunCalculation": "NOAA-Meeus-Julian-century-apparent"
 }

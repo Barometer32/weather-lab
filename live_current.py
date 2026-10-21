@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
+import math
 from urllib.parse import urlencode
 
 from rapid_observations import parse_reports, recent_metars
@@ -10,6 +11,23 @@ VERSION = "latest-three-airports-celsius-spread-v2"
 COMPATIBLE_VERSIONS = {VERSION, "latest-three-airports-celsius-v1"}
 MAX_SPREAD_SECONDS = 15*60
 UTC = timezone.utc
+
+
+def direct_asos(stations, now, download):
+    """Read public high-frequency airport ASOS directly, without an archive hop.
+
+    This is the binary ASOS feed, not a routine text METAR. Its Kelvin fields
+    are decoded by the MADIS reader, then normalized to whole Celsius degrees
+    to match the main text-METAR group used by the other sources.
+    """
+    from madis_observations import get_reports
+    rows = get_reports(stations, now, download)
+    for row in rows:
+        for field in ("temp", "dewp"):
+            if row.get(field) is not None:
+                row[field] = math.floor(row[field]+.5)
+        row["source"] = "NOAA MADIS five-minute ASOS"
+    return rows
 
 
 def latest_reports(rows, now):
@@ -32,7 +50,8 @@ def candidate(rows, now):
     by_station = {r["icaoId"]: r for r in rows}
     for station in result["stations"]:
         raw = by_station.get(station["code"], {})
-        station.update(tempC=raw.get("temp"), dewpointC=raw.get("dewp"))
+        station.update(tempC=raw.get("temp"), dewpointC=raw.get("dewp"),
+                       source=raw.get("source", "Airport METAR"))
     missing = [s for s in STATIONS if s not in {r["icaoId"] for r in rows}]
     spread = max(stamps)-min(stamps) if stamps else None
     out_of_sync = [r["icaoId"] for r in rows if max(stamps)-r["obsTime"] > MAX_SPREAD_SECONDS]
@@ -67,7 +86,7 @@ def present(saved, now):
             "sourceFailures": saved.get("sourceFailures", []), "maxSpreadSeconds": MAX_SPREAD_SECONDS}
 
 
-def collect(store, now, download):
+def collect(store, now, download, madis_download=None):
     from app import STATIONS, iso
     previous = store.read_json("live/current.json") or {}
     reports = list(previous.get("reports", [])) if previous.get("version") in COMPATIBLE_VERSIONS else []
@@ -78,17 +97,24 @@ def collect(store, now, download):
         ("data", "metar"), ("sts", (now-timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%MZ")),
         ("ets", now.strftime("%Y-%m-%dT%H:%MZ")), ("tz", "Etc/UTC"),
         ("format", "onlycomma"), ("report_type", "1,3,4")]
-    sources = {
+    text_sources = {
         "IEM airport METAR/5-minute archive": ("https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"+urlencode(params),
             lambda payload: parse_reports(payload, STATIONS, now, max_age_seconds=hours*3600)),
         "NOAA Aviation Weather Center": ("https://aviationweather.gov/api/data/metar?"+urlencode(
             {"ids": ",".join(STATIONS), "format": "json", "hours": hours}),
             lambda payload: recent_metars(json.loads(payload), STATIONS, now, max_age_seconds=hours*3600))}
+    sources = {"NOAA MADIS five-minute ASOS": lambda: direct_asos(STATIONS, now, madis_download or download)}
+    for name, (url, parse) in text_sources.items():
+        def read(u=url, p=parse, label=name):
+            return [{**row, "source": label} for row in p(download(u))]
+        sources[name] = read
     failures = []
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        tasks = {name: pool.submit(lambda u=url, p=parse: p(download(u))) for name, (url, parse) in sources.items()}
-        # Prefer AWC corrections when observation timestamps tie.
-        for name, task in tasks.items():
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        tasks = {name: pool.submit(read) for name, read in sources.items()}
+        # Direct NOAA beats an archive copy at the same timestamp; an AWC
+        # text correction wins a tie. A strictly newer timestamp always wins.
+        for name in ("IEM airport METAR/5-minute archive", "NOAA MADIS five-minute ASOS", "NOAA Aviation Weather Center"):
+            task = tasks[name]
             try:
                 fresh = task.result()
                 if not fresh:

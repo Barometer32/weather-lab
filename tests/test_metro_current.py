@@ -69,5 +69,5 @@ class MetroCurrentTests(unittest.TestCase):
         self.assertEqual(metro['tempF'],68.5)
         self.assertEqual(summary['current']['tempF'],68.0)
         self.assertEqual(metro['wind'],summary['current']['wind'])
-        self.assertIn('>68.0°F<',page)
+        self.assertIn('>68°F<',page)
         self.assertNotIn('history',summary)

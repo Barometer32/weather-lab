@@ -89,14 +89,14 @@ def test_sources_queried_once_together_retention_and_failures_never_fake_freshne
         calls.append(url)
         return json.dumps(reports(minutes=(0,0,0))).encode() if 'aviationweather' in url else csv_for(reports(minutes=(0,0,0)))
     first=live.collect(store,NOW,download)
-    assert len(calls)==2 and first['available'] and not first['held']
+    assert len(calls)==3 and first['available'] and not first['held']
     from urllib.parse import urlparse, parse_qs
     iem=next(url for url in calls if 'iastate' in url)
     assert parse_qs(urlparse(iem).query)['report_type']==['1,3,4']  # documented HFMETAR, routine, SPECI
     original=first['current']
     def fail(url):raise TimeoutError('unavailable')
     state=live.collect(store,NOW+timedelta(minutes=2),fail)
-    assert not state['held'] and state['current']==original and len(state['sourceFailures'])==2
+    assert not state['held'] and state['current']==original and len(state['sourceFailures'])==3
     state=live.collect(store,NOW+timedelta(minutes=4),lambda url:csv_for(reports(NOW+timedelta(minutes=4),minutes=(0,0,0))) if 'iastate' in url else fail(url))
     assert not state['held'] and state['current']['observedAt']==app.iso(NOW+timedelta(minutes=4))
 
@@ -108,7 +108,7 @@ def test_api_and_initial_html_are_saved_only_no_history_and_models_removed():
         client=app.app.test_client();data=client.get('/api/observations').json
         assert data['current']['available'] and 'history' not in data
         html=client.get('/').get_data(as_text=True)
-        assert '51.8°F' in html
+        assert '>52°F<' in html
         assert client.get('/api/models').status_code==404
         assert client.post('/collect/current').status_code==404
         upstream.assert_not_called()
@@ -162,3 +162,68 @@ def test_initial_backfill_accepts_older_reports_then_uses_small_query_window():
     assert second['current']==first['current'] and not second['held']
     awc=next(url for url in calls if 'aviationweather' in url)
     assert parse_qs(urlparse(awc).query)['hours']==['1']
+
+
+def test_direct_noaa_five_minute_data_beats_older_hourly_metars_and_rounds_celsius():
+    from test_madis_observations import fixture
+    from urllib.error import HTTPError
+    now=NOW.replace(hour=4,minute=5)
+    older=reports(now,minutes=(35,35,35))
+    calls=[]
+    with patch('test_madis_observations.NOW',NOW.replace(hour=3,minute=55)):
+        payload=fixture()
+    def download(url):
+        calls.append(url)
+        if 'madis-data' in url:
+            if '20261021_0400' in url:raise HTTPError(url,404,'hour not ready',{},None)
+            return payload
+        return json.dumps(older).encode() if 'aviationweather' in url else csv_for(older)
+    data=live.collect(MemoryStore(),now,download)
+    assert data['available'] and not data['held'] and data['sourceFailures']==[]
+    assert data['current']['observedAt']=='2026-10-21T03:48:20Z'
+    assert [s['tempC'] for s in data['current']['stations']]==[24,24,25]
+    assert all(s['source']=='NOAA MADIS five-minute ASOS' for s in data['current']['stations'])
+    assert all('station=' not in url for url in calls if 'madis-data' in url)
+    assert data['current']['tempF']==75.8
+
+
+def test_failed_noaa_qc_in_newer_rapid_report_holds_instead_of_hiding_it_with_hourly():
+    from test_madis_observations import fixture
+    now=NOW.replace(hour=4,minute=5)
+    older=reports(now,minutes=(35,35,35));store=MemoryStore()
+    doc=saved(older,now);store.write_json('live/current.json',doc)
+    with patch('test_madis_observations.NOW',NOW.replace(hour=3,minute=55)):
+        payload=fixture(qc_failure=True)
+    def download(url):
+        if 'madis-data' in url:return payload
+        return json.dumps(older).encode() if 'aviationweather' in url else csv_for(older)
+    data=live.collect(store,now,download)
+    assert data['held'] and data['current']==doc['lastGood']
+    assert data['candidate']['invalidStations']==[list(app.STATIONS)[1]]
+
+
+def test_newer_metar_wins_over_older_direct_asos_and_collector_uses_conditional_fetch():
+    store=MemoryStore();now=NOW.replace(hour=4,minute=5)
+    newer=reports(now,minutes=(12,12,12))
+    from test_madis_observations import fixture
+    with patch('test_madis_observations.NOW',NOW.replace(hour=3,minute=55)):
+        payload=fixture()
+    def text_download(url):return json.dumps(newer).encode() if 'aviationweather' in url else csv_for(newer)
+    with patch('madis_observations.fetch_file',return_value=payload) as binary,patch('app.download',side_effect=text_download):
+        result=collector.collect_current(store,now)
+    assert result['available'] and binary.call_count==2
+    state=store.read_json('live/current.json')
+    assert all(s['source']=='NOAA Aviation Weather Center' for s in state['lastGood']['stations'])
+    assert state['lastGood']['observedAt']=='2026-10-21T03:53:00Z'
+
+
+def test_direct_asos_wins_tied_archive_copy_and_sun_sublabel_is_removed():
+    rows=reports(minutes=(0,0,0));store=MemoryStore()
+    with patch('live_current.direct_asos',return_value=[{**r,'source':'NOAA MADIS five-minute ASOS'} for r in rows]):
+        data=live.collect(store,NOW,lambda url:b'[]' if 'aviationweather' in url else csv_for(rows))
+    assert all(s['source']=='NOAA MADIS five-minute ASOS' for s in data['current']['stations'])
+    app._cache.clear()
+    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW):
+        html=app.app.test_client().get('/').get_data(as_text=True)
+    assert 'Hopkins · now' not in html
+    assert '>52°F<' in html and 'id="sun-angle"' in html
