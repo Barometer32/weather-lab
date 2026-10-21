@@ -4,5 +4,4 @@ numpy==2.3.5
 Pillow==12.3.0
 google-cloud-storage==3.17.0
 MetPy==1.7.1
-eccodes==2.50.0
 

@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "models")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current")}
 
 
 def collect_radar_legacy(store, now):
@@ -149,8 +149,14 @@ def collect_metar_clouds(store, now):
 
 
 def collect_observations(store, now):
-    # Legacy/manual route shares the same collector, never a second source.
+    # Retained legacy manual route for hourly cloud snapshots.
     return collect_metar_clouds(store, now)
+
+
+def collect_current(store, now):
+    from live_current import collect
+    data = collect(store, now, weather.download)
+    return {"available": data["available"], "held": data["held"], "sourceFailures": data["sourceFailures"]}
 
 
 def collect_forecast(store, now):
@@ -159,11 +165,6 @@ def collect_forecast(store, now):
     data["checkedAt"] = weather.iso(now)
     store.write_json("live/forecast.json", data)
     return {"periods": len(data["periods"])}
-
-
-def collect_models(store, now):
-    from model_blend import collect as collect_blend
-    return collect_blend(store, now)
 
 
 @app.get("/healthz")
@@ -176,7 +177,7 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "observations": collect_observations, "forecast": collect_forecast, "metar-clouds": collect_metar_clouds,
-            "models": collect_models}
+            "current": collect_current}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = "metar-clouds" if kind == "observations" else kind

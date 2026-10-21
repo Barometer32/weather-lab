@@ -9,10 +9,6 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-.model-table th,.model-table td { padding:12px 14px; text-align:center; font-variant-numeric:tabular-nums; }
-.model-table th:first-child { position:sticky; left:0; text-align:left; z-index:1; background:#f4f7f5; }
-.model-table thead th { min-width:92px; }
-.model-table th small { display:block; margin-top:5px; font-size:11px; font-weight:400; color:var(--muted); }
 #air-quality-map { display:block; width:100%; height:clamp(560px,75dvh,860px); border:1px solid var(--border); border-radius:8px; background:white; }
 @media (max-width:600px) { #air-quality-map { height:75dvh; min-height:480px; } }
 header { background: white; border-bottom: 1px solid var(--border); }
@@ -209,8 +205,6 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 
 
 /* Live solar elevation in the satellite heading, without a card or border. */
-.section-heading .satellite-sun { margin-top:8px; font-size:14px; }
-.satellite-sun strong { margin-left:5px; font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
 
 /* The map and timeline share one full-screen surface on every device. */
 .map-area { position:relative; overflow:hidden; min-width:0; }
@@ -228,3 +222,10 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 
 /* Compact height numbers remain centered on the actual airport locations. */
 .cloud-ceiling-number { display:block; width:32px; text-align:center; font:600 12px/24px system-ui,sans-serif; color:#111; background:transparent; font-variant-numeric:tabular-nums; text-shadow:0 0 2px #fff,0 0 2px #fff; }
+
+.current-live-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; padding:20px 0 24px; border-bottom:1px solid var(--border); }
+.live-reading h2 { font-size:14px; font-weight:400; color:var(--muted); }
+.live-reading p { font-size:28px; font-weight:600; margin:8px 0 0; font-variant-numeric:tabular-nums; line-height:1.25; }
+.live-reading #wind { font-size:23px; }
+.current-live-summary .small-note { display:block; margin-top:6px; }
+@media(max-width:700px) { .current-live-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 14px; } }

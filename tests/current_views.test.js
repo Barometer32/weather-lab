@@ -2,42 +2,43 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function element(){return {textContent:'',children:[],events:{},hidden:false,disabled:false,
  append(...children){this.children.push(...children);},replaceChildren(){this.children=[];},
- setAttribute(k,v){this[k]=v;},addEventListener(k,f){this.events[k]=f;},
- querySelectorAll(){const result=[];const walk=n=>{if(n.className?.includes('qa-dot'))result.push(n);n.children?.forEach(walk);};this.children.forEach(walk);return result;}};}
-const elements=new Map(),get=id=>{assert.ok(!['temperature','dewpoint','wind'].includes(id),'Removed tile was accessed');if(!elements.has(id))elements.set(id,element());return elements.get(id);};
-let clock=Date.UTC(2026,9,20,12,0),timers=[],reads=[],fail=false;
+ addEventListener(k,f){this.events[k]=f;}};}
+const elements=new Map(),get=id=>{assert.notEqual(id,'history','Current must never render history');if(!elements.has(id))elements.set(id,element());return elements.get(id);};
+let clock=Date.UTC(2026,9,21,4,0),intervals=[],reads=[],fail=false,syncs=[];
 class ClockDate extends Date{constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
-const qa={allStationsUsed:true,stationsUsed:3,checks:{temperature:3,dewpoint:3,wind:3}};
-const row={hour:'2026-10-20T12:00:00Z',tempF:68.5,dewpointF:50.5,wind:{speedMph:11.5,direction:0},qa};
-let data={current:{...row,available:true},history:Array.from({length:12},(_,i)=>({...row,hour:new Date(Date.UTC(2026,9,20,12-i)).toISOString()})),checkedAt:'2026-10-20T11:00:00Z',stale:false};
+const stations=['KFCM','KMIC','KMSP'].map(code=>({code,observedAt:'2026-10-21T03:55:00Z',available:true,tempC:12,dewpointC:5}));
+const row={observedAt:'2026-10-21T03:55:00Z',tempF:53.6,dewpointF:41.0,wind:{speedMph:11.5,direction:0},stations};
+let data={current:row,candidate:{...row,missingStations:[],staleStations:[],invalidStations:[]},checkedAt:'2026-10-21T04:00:00Z',serverTime:'2026-10-21T04:00:00Z',sourceFailures:[],held:false};
 get('initial-current-data').textContent=JSON.stringify(data);
-const context={window:{},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,
- clearTimeout(id){if(id)id.cancelled=true;},setTimeout(callback,delay){const t={callback,delay};timers.push(t);return t;},
+const events={};
+const context={window:{WeatherSun:{sync:(...args)=>syncs.push(args)}},document:{getElementById:get,createElement:element,hidden:false,addEventListener:(e,f)=>events[e]=f},Intl,Date:ClockDate,Math,
+ setInterval(callback,delay){intervals.push({callback,delay});},
  fetch:async url=>{reads.push(url);if(fail)throw Error('Network unavailable');return {ok:true,json:async()=>data};}};
 vm.runInNewContext(fs.readFileSync('static/current-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  context.window.WeatherCurrentViews.select('current');await flush();
- assert.equal(reads.length,0,'prepared seed paints without a startup fetch');
- assert.equal(get('history').children[0].children[1].textContent,'69°F');assert.equal(get('history').children[0].children[3].textContent,'N 12 mph');
- assert.equal(get('history').children.length,12);assert.equal(get('observation-status').hidden,true);
- assert.equal(timers.at(-1).delay,30000,'scheduled read at :00:30');
- clock=Date.UTC(2026,9,20,12,0,30);timers.at(-1).callback();await flush();
- assert.equal(reads.length,1);assert.ok(timers.some(t=>t.delay===60000&&!t.cancelled));
- data={...data,checkedAt:'2026-10-20T12:00:00Z'};
- const retry=timers.findLast(t=>t.delay===60000&&!t.cancelled);retry.callback();await flush();
- assert.equal(reads.length,2);assert.ok(retry.cancelled,'successful prepared result ends retry');
- get('current').hidden=true;clock=Date.UTC(2026,9,20,13,0,30);
- timers.findLast(t=>t.delay>60000&&!t.cancelled).callback();await flush();assert.equal(reads.length,2,'hidden Current does not poll');
- get('current').hidden=false;context.window.WeatherCurrentViews.select('current');await flush();assert.equal(reads.length,3);
+ assert.equal(reads.length,0,'saved seed paints without a startup source fetch');
+ assert.equal(get('temperature').textContent,'53.6°F');assert.equal(get('dewpoint').textContent,'41.0°F');
+ assert.equal(get('wind').textContent,'N · 11.5 mph');assert.equal(get('current-stations').children.length,3);
+ assert.match(get('updated').textContent,/10:55:00 PM CDT/);assert.doesNotMatch(get('updated').textContent,/held/);
+ assert.ok(syncs.length===1);assert.deepEqual(intervals.map(i=>i.delay),[30000,10000]);
+ clock+=30000;intervals[0].callback();await flush();assert.equal(reads.length,1);
+ get('current').hidden=true;intervals[0].callback();await flush();assert.equal(reads.length,1,'hidden panel does not poll');
+ get('current').hidden=false;context.document.hidden=true;intervals[0].callback();await flush();assert.equal(reads.length,1,'hidden browser does not poll');
+ context.document.hidden=false;events.visibilitychange();await flush();assert.equal(reads.length,2);
+ // No new source check: locally flag an expired airport report, keeping values/time.
+ clock=Date.UTC(2026,9,21,4,11);intervals[1].callback();
+ assert.match(get('observation-status').textContent,/Held.*15 minutes.*KFCM/);
+ assert.match(get('updated').textContent,/10:55:00 PM CDT · held/);
+ assert.equal(get('temperature').textContent,'53.6°F');
  fail=true;get('refresh-observations').events.click();await flush();
- assert.equal(get('history').children[0].children[1].textContent,'69°F','failed refresh retains prior readings');
- assert.equal(get('history').querySelectorAll().length,12);assert.ok(get('history').querySelectorAll().every(d=>d.className==='qa-dot incomplete'));
- assert.match(get('observation-status').textContent,/Network unavailable/);assert.equal(get('refresh-observations').disabled,false);
- fail=false;data={...data,current:{...row,available:false,tempF:null,dewpointF:null,wind:{speedMph:null},missingStations:['KMIC']},stale:true};
- get('refresh-observations').events.click();await flush();assert.equal(get('history').children.length,12);
- assert.match(get('observation-status').textContent,/KMIC/);assert.match(get('observation-status').textContent,/:00/);
- assert.match(get('observation-status').textContent,/delayed/);
+ assert.equal(get('temperature').textContent,'53.6°F');assert.match(get('observation-status').textContent,/Network unavailable/);
+ assert.equal(get('refresh-observations').disabled,false);
+ fail=false;data={...data,serverTime:new ClockDate().toISOString(),checkedAt:new ClockDate().toISOString(),held:true,candidate:{...data.candidate,invalidStations:['KMIC']}};
+ get('refresh-observations').events.click();await flush();assert.match(get('observation-status').textContent,/quality check failed: KMIC/);
+ data={...data,current:null,held:false,candidate:{stations:[],missingStations:['KMIC'],staleStations:[],invalidStations:[]}};
+ get('refresh-observations').events.click();await flush();assert.equal(get('temperature').textContent,'—');assert.match(get('observation-status').textContent,/No complete fresh average.*KMIC/);
  assert.ok(reads.every(url=>url==='/api/observations'));
- console.log('Current view checks passed: prepared first render, 12-hour history, QA, :00:30 saved-data checks, hidden tab, and refresh failures.');
+ console.log('Current checks passed: four readings, saved seed, 30-second reads, hidden tabs, strict age hold, original timestamp and source failures.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

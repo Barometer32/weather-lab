@@ -5,7 +5,8 @@
   "branch": "metar-cloud-history-20261019",
   "projectId": "j-weather-261020012817",
   "metarCollectionMinute": 0,
-  "historyHours": 12,
+  "cloudHistoryHours": 12,
+  "currentHistoryHours": 0,
   "metarReportWindowMinutes": [
     45,
     59
@@ -20,8 +21,8 @@
   ],
   "sunElevationLocation": {
     "name": "Hopkins, MN",
-    "latitude": 44.9244,
-    "longitude": -93.414
+    "latitude": 44.925,
+    "longitude": -93.463
   },
   "currentSummaryCommit": "958541732691913175126f62202990f19521c5a2",
   "metroCloudSource": "KMSP",
@@ -33,8 +34,8 @@
   "defaultTab": "current",
   "metarMapMode": "individual-broken-overcast-ceilings",
   "ceilingHeightUnit": "hundreds-of-feet-AGL",
-  "sunElevationDisplay": "plain-text-Satellite-heading",
-  "currentPresentation": "hourly-table",
+  "sunElevationDisplay": "Current-only",
+  "currentPresentation": "latest-three-airport-summary",
   "mapFullscreen": [
     "radar",
     "metar",
@@ -43,14 +44,17 @@
   "mobileTimeline": "bottom-toolbar-in-fullscreen",
   "ceilingDisplay": "plain-height-numbers",
   "ceilingLabelFontPixels": 12,
-  "tabOrder": ["current", "radar", "metar-clouds", "satellite", "models", "forecast", "air-quality"],
-  "models": {
-    "models": ["HRRR", "RRFS"],
-    "weights": [0.5, 0.5],
-    "forecastHours": [2, 17],
-    "stationWeights": "equal-KFCM-KMIC-KMSP",
-    "collectionMinute": 35,
-    "precipitation": "native-preceding-one-hour-liquid-equivalent",
-    "worker": "weather-models"
-  }
+  "tabOrder": [
+    "current",
+    "radar",
+    "metar-clouds",
+    "satellite",
+    "forecast",
+    "air-quality"
+  ],
+  "currentCollectionMinutes": "*/2",
+  "currentMaxStationAgeMinutes": 15,
+  "currentTemperatureSource": "main-Celsius-group-no-T-remark",
+  "currentTimestamp": "equal-mean-of-three-UTC-report-times",
+  "sunCalculation": "NOAA-Meeus-Julian-century-apparent"
 }

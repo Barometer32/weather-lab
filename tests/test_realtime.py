@@ -116,10 +116,10 @@ class RealtimeTests(unittest.TestCase):
                   "temp":10,"dewp":5,"wspd":5,"wdir":90} for station in weather.STATIONS]
         self.store.write_json("live/observations.json",{"reports":reports,"checkedAt":weather.iso(NOW-timedelta(hours=2))})
         with patch("app.get_store",return_value=self.store), patch("app.utcnow",return_value=NOW):
-            response=weather.app.test_client().get("/api/observations")
-            self.assertTrue(response.json["stale"])
-            self.assertEqual(response.json["current"]["hour"],weather.iso(NOW))
-            self.assertFalse(response.json["current"]["qa"]["allStationsUsed"])
+            response=weather.observation_payload()
+            self.assertTrue(response["stale"])
+            self.assertEqual(response["current"]["hour"],weather.iso(NOW))
+            self.assertFalse(response["current"]["qa"]["allStationsUsed"])
 
     def test_prepared_asset_route_cannot_read_manifests_or_arbitrary_objects(self):
         key=f"radar/{weather.RENDER_VERSION}/{frame(0)['id']}.png"
@@ -133,3 +133,4 @@ class RealtimeTests(unittest.TestCase):
 
 
 if __name__ == "__main__": unittest.main()
+

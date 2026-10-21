@@ -77,7 +77,7 @@ class HourlyObservationTests(unittest.TestCase):
                 app._cache.clear();store=MemoryStore()
                 store.write_json('live/observations.json',dict(reports=reports(),checkedAt=app.iso(checked)))
                 with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=now),patch('app.download') as download:
-                    data=app.app.test_client().get('/api/observations').json
+                    data=app.observation_payload()
                 self.assertEqual(data['stale'],stale);download.assert_not_called()
 
     def test_deployment_has_one_shared_hourly_job_and_retires_separate_observations(self):

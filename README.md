@@ -5,73 +5,55 @@ Active Google Cloud project: `j-weather-261020012817` (J-Weather), region
 
 ## Current
 
-Current restores the original KFCM + KMIC + KMSP summary, twelve-hour table and
-basic QA indicators. Temperature and dew point are equal averages in Celsius,
-using METAR T-remark precision before Fahrenheit conversion. Wind speed is a
-scalar average; direction uses speed-weighted circular averaging. A green QA
-indicator requires all three airports to pass basic temperature/dew-point/wind
-checks. Incomplete hourly rows use valid contributors and show amber QA dots.
-No previous report is carried forward into a missing hour.
+Current shows four compact readings: three-airport temperature, dewpoint and
+wind, plus the current Hopkins Sun angle. There is no Current history table.
+`weather-live-current` checks the latest KFCM, KMIC and KMSP airport reports
+once every two minutes. It queries the IEM airport METAR/5-minute archive and
+NOAA AWC in parallel, retaining only each station's newest raw report.
+These are airport observations, not non-airport mesonet stations. Public
+feeds have delivery delays; polling cannot make an unpublished report arrive.
 
-A plain **Sun angle** line at the top of **Satellite** shows the live angle, updated
-every minute and independently of hourly observation history. It uses the
-NOAA GML solar-position equations at 44.9244°N, 93.414°W; negative values mean
-below the geometric horizon. Current contains the hourly table without metric
-tiles or a sun-angle block. The Current page embeds prepared values and
-history in its initial HTML response.
+All three main Celsius temperature/dewpoint groups are weighted equally;
+optional T remarks (tenths of Celsius) and upstream Fahrenheit values are
+ignored. Celsius averages are not rounded before conversion to °F. Wind
+speed is scalar-averaged; direction is speed-weighted circular, with variable
+winds shown as variable. Displayed observation time is the mean of the three
+UTC timestamps: 10:45, 10:40 and 10:30 becomes 10:38:20, including across
+hour/day boundaries. This is a spatial latest-report mean, not temporal smoothing.
 
-Original summary reference: `958541732691913175126f62202990f19521c5a2`.
+The complete average advances only when all three latest reports pass the
+existing physical-range/dewpoint/wind checks, are at most 15 minutes old,
+and span at most 15 minutes. Otherwise the last complete good average is
+held with its unchanged observation time and an explicit warning. Missing
+stations never silently become a two-station average; a newly invalid report
+cannot fall back to an earlier good report to hide its failure. Details show
+each latest station timestamp and its main Celsius values. A failed or missed
+source check is reported separately from observation age.
 
-## Models
+`live/current.json` atomically retains the latest reports and the last good
+complete average. `/api/observations` and initial page rendering only read
+this object and recheck ages against server UTC; they never fetch upstream.
+The browser reads saved data every 30 seconds while Current is visible and
+rechecks visible age warnings every 10 seconds. A collector gap over five
+minutes also freezes the displayed complete average.
 
-The MODELS tab is a compact horizontal F02–F17 forecast table: temperature and
-dew point (°F), true wind direction (degrees), vector-mean wind speed (knots),
-P01 (inches per preceding hour), CLD category and CIG (hundreds of feet AGL).
-Each model uses the nearest 3 km cell at KFCM, KMIC and KMSP, equally weighted;
-the two airport means are then blended 50% HRRR / 50% RRFS. Both models must
-have the same initialization time and every required point for all 16 hours.
-No observations or other models substitute for missing forecasts.
+Sun angle appears only on Current, for 44.925°N, 93.463°W, matching the Hopkins
+reference page. The full NOAA/Meeus Julian-century equations replace the old
+fractional-year fit. Display uses apparent solar-centre elevation with NOAA's
+standard refraction correction and refreshes every ten seconds. Server-time
+checks correct the browser clock offset. It is independent of METAR time and
+continues updating when observations are held. For 2026-10-21 04:01:54 UTC,
+NOAA's full calculator and this code give -47.60264°; the supplied Timeanddate
+screenshot gives -47.61° for that instant. Atmospheric conditions, coordinates,
+rounding and update timing can still produce small differences. No fixed
+angle offset is applied. Sunrise/sunset are upper-limb events, not a guarantee
+that solar-centre elevation equals 0°.
 
-P01 reads the native `(F-1)–F` one-hour APCP message; a 3 PM column means
-2–3 PM precipitation, including liquid-equivalent frozen precipitation.
-Since-initialization totals and precipitation rates are never used as P01.
-Grid-relative winds are rotated to true east/north before vector averaging.
-CLD comes from mean instantaneous total cloud percentage; CIG subtracts each
-model's own terrain from its cloud-ceiling HGT. It remains blank unless all
-six point forecasts have a finite ceiling. Missing cloud data are never zero.
-
-The separate private `weather-models` Cloud Run worker has one CPU, 1 GiB,
-one concurrent request, zero minimum instances and a 900-second request limit.
-`weather-live-models` invokes `/collect/models` hourly at :35 with no retries.
-It downloads only selected GRIB message ranges from NOAA's HRRR/RRFS public
-buckets, extracts the three points, and retains only compact JSON. No full
-atmospheric datasets, training, GPU, or paid API are involved. Model-file
-transfer and CPU time still contribute to the Google Cloud workload.
-The original radar/observation/satellite/forecast collector is unchanged.
-
-`live/models-status.json` reports probing, completed model-hour count (of 32),
-ready or error. Only a complete same-cycle table replaces `live/models.json`.
-`/api/models` and the Refresh button read saved JSON without downloading
-models. Missing/new-run errors retain the previous complete table with a
-warning; cycles older than six hours are marked stale. F02–F17 count from the
-displayed run time, not page-open time. Browser checks saved status every
-30 seconds while MODELS is visible. RRFS is listed in NCEP's parallel data
-section as checked October 20, 2026; its new NOAA public bucket is live.
-
-Install this update in the active J-Weather project:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-models.sh -o /tmp/j-weather-models.sh && bash /tmp/j-weather-models.sh
-```
-
-The helper saves existing settings, builds once, creates/updates the dedicated
-private worker and its Scheduler job, updates the existing website service,
-requests an initial collection and checks the published tab order/API. It
-does not wait for model downloads to finish; MODELS displays their progress.
-If an image build completed but deployment stopped, `WEATHER_MODELS_IMAGE`
-may specify that existing image when running the helper; the helper verifies
-it exists and skips the build. Gunicorn arguments use `--workers=1` and
-`--threads=1` as distinct list items so gcloud does not reject repeated `1`s.
+Models have been removed from the UI, API, collector, requirements and current
+source tree. The update helper pauses/deletes `weather-live-models`, deletes
+only the dedicated `weather-models` service, and removes its two prepared JSON
+objects. Shared registry images and the existing radar, satellite, Clouds,
+forecast and Air Quality views are retained.
 
 ## Air Quality
 
@@ -101,7 +83,7 @@ plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
 station exclusions KCFE/KFCE, KSGS and KDEH remain in effect. Zoom and pan reveal
 more of the collected region. A missing number does not establish clear skies.
 
-Current and Clouds share one canonical archive: `live/metar-clouds.json` in the
+Clouds uses the canonical hourly archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
 selects routine METARs closest to :53 within **:45–:59** in the preceding hour.
 SPECI and five-minute reports are excluded. The twelve-hour slider keeps real
@@ -149,16 +131,18 @@ near a phone's home indicator. Cloud-height numbers are 12 px, with a light halo
 In authenticated Cloud Shell:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-current.sh -o /tmp/j-weather-update.sh && bash /tmp/j-weather-update.sh
+curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-live.sh -o /tmp/j-weather-update.sh && bash /tmp/j-weather-update.sh
 ```
 
-The helper saves website settings and the existing METAR schedule, builds a
-versioned image, updates the existing `weather-lab` service, moves
-`weather-live-metar-clouds` to `0 * * * *`, and verifies the published page and
-twelve hourly positions. The collector already accepts any hourly trigger and
-reads the same stored reports, so its image does not need an update. Existing
-history, bucket, radar/satellite/forecast jobs and website domain mappings
-remain in place. No archive reimport is needed.
+The helper saves service settings and schedules, pauses model collection,
+builds a versioned image, and updates the collector and website. It creates or
+updates `weather-live-current` for two-minute checks and verifies the published
+Current page and saved-data API. After verification it removes the retired
+model job, dedicated model service and two prepared model JSON objects. The
+Clouds history, bucket, radar/satellite/forecast/cloud schedules and website
+domain mappings remain in place. No archive reimport is needed. An initial
+check is requested; fresh reports from all three airports are still required
+before a first Current average can appear.
 
 ## Local checks
 

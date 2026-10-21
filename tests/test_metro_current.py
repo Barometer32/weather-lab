@@ -46,18 +46,28 @@ class MetroCurrentTests(unittest.TestCase):
         self.assertFalse(result['metro']['available'])
         self.assertEqual(result['metro']['qa']['checks']['dewpoint'],2)
 
-    def test_api_and_current_page_use_same_saved_reports_without_collection(self):
+    def test_current_uses_separate_main_celsius_snapshot_clouds_keep_hourly_history(self):
+        import live_current
+        from rapid_observations import recent_metars
         app._cache.clear()
         saved=metar_clouds.snapshot(reports(),NOW)
         saved['observationReports']=metar_clouds.observation_reports(saved)
         store=MemoryStore();store.write_json('live/metar-clouds.json',saved)
+        raw=metar_clouds.observation_reports(saved)
+        for report in raw:
+            report['rawOb']=report['rawOb'].replace('20/10',f"{report['wdir']:03d}10KT 20/10")
+        raw=recent_metars(raw,app.STATIONS,NOW)
+        latest=live_current.candidate(raw,NOW)
+        store.write_json('live/current.json',dict(version=live_current.VERSION,reports=raw,lastGood=latest,
+            checkedAt=app.iso(NOW),sourceFailures=[],allSourcesFailed=False))
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as download:
             client=app.app.test_client()
             metro=client.get('/api/metar-clouds').json['metro']
             summary=client.get('/api/observations').json
             page=client.get('/').get_data(as_text=True)
         download.assert_not_called()
-        self.assertEqual(metro['tempF'],summary['current']['tempF'])
+        self.assertEqual(metro['tempF'],68.5)
+        self.assertEqual(summary['current']['tempF'],68.0)
         self.assertEqual(metro['wind'],summary['current']['wind'])
-        self.assertIn('>69°F<',page)
-        self.assertEqual(len(summary['history']),12)
+        self.assertIn('>68.0°F<',page)
+        self.assertNotIn('history',summary)

@@ -18,8 +18,8 @@ def parse_reports(payload, stations, now):
         if station not in stations:
             continue
         raw = row["metar"] or ""
-        # Ignore remarks, including Fahrenheit fields and higher precision T
-        # groups. Use the same main Celsius group for rapid/routine/SPECI reports.
+        # Ignore the optional T remark (tenths of Celsius). Use the same main
+        # Celsius group for rapid, routine and SPECI reports; no Fahrenheit input.
         body = raw.split(" RMK")[0]
         if not re.search(r"\b" + re.escape(station) + r"\b", body) or re.search(r"\bNIL\b", body):
             continue
@@ -94,3 +94,4 @@ def recent_metars(reports, stations, now):
         writer.writerow([report.get("icaoId", ""), datetime.fromtimestamp(stamp, timezone.utc).isoformat(),
                          report.get("rawOb", "")])
     return parse_reports(stream.getvalue().encode(), stations, now)
+

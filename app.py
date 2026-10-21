@@ -131,7 +131,7 @@ def wind_mean(reports):
         u, v = (sum(x[i] for x in vectors) for i in range(2))
         if math.hypot(u, v) > 0.01:
             direction = round(math.degrees(math.atan2(u, v)) % 360)
-    return {"speedMph": round(average(speeds) * 1.150779, 1) if speeds else None,
+    return {"speedMph": round(sum(speeds) / len(speeds) * 1.150779, 1) if speeds else None,
             "speedKnots": round(sum(speeds) / len(speeds), 1) if speeds else None,
             "variable": any(r.get("wdir") == "VRB" for r in reports),
             "direction": direction, "speedCount": len(speeds), "directionCount": len(vectors)}
@@ -373,7 +373,7 @@ def index():
     # Restore the prepared three-airport summary in the first page response.
     # Loading the home page never starts a source download or collection job.
     try:
-        initial = observation_payload(saved_only=True)
+        initial = live_current_payload()
     except Exception:
         app.logger.exception("Prepared Current summary unavailable at page load")
         initial = None
@@ -437,26 +437,11 @@ def observation_payload(saved_only=False):
     return result
 
 
-@app.get("/api/models")
-def models_api():
-    # Browsers only read prepared JSON; they never launch a model download.
-    from model_blend import VERSION
-    try:
-        store = get_store()
-        data = store.read_json("live/models.json") if store else None
-        status = store.read_json("live/models-status.json") if store else None
-        if status and status.get("state") in {"probing", "collecting"}:
-            started = datetime.fromisoformat(status["checkedAt"].replace("Z", "+00:00"))
-            if (utcnow()-started).total_seconds() > 1200:
-                status = {**status, "state": "error", "message": "The last model collection did not finish."}
-        if not data or data.get("modelVersion") != VERSION:
-            return jsonify(available=False, status=status or {"state": "waiting"}), 200, {"Cache-Control": "no-store"}
-        age = (utcnow()-datetime.fromisoformat(data["cycleTime"].replace("Z", "+00:00"))).total_seconds()
-        return jsonify({**data, "available": True, "stale": age > 6*3600 or (status or {}).get("state") == "error",
-                        "status": status or {"state": "ready"}}), 200, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.exception("Prepared model guidance unavailable")
-        return jsonify(error="Prepared model guidance is unavailable. Please try again shortly."), 503, {"Cache-Control": "no-store"}
+def live_current_payload():
+    from live_current import present
+    store = get_store()
+    saved = cached("prepared-current", 10, lambda: store.read_json("live/current.json")) if store else None
+    return present(saved, utcnow())
 
 
 @app.get("/api/forecast")
@@ -527,7 +512,7 @@ def health():
 @app.get("/api/observations")
 def observation_api():
     try:
-        result = observation_payload()
+        result = live_current_payload()
         return jsonify(result), 200, {"Cache-Control": "no-store"}
     except Exception:
         app.logger.exception("Observation feed failed")

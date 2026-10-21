@@ -1,97 +1,74 @@
 "use strict";
 window.WeatherCurrentViews = (() => {
-const $ = id => document.getElementById(id);
-const central = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
-const fullTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", month:"short", day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
-const fmt = v => v == null ? "—" : Math.round(v).toString();
-const temp = v => v == null ? "—" : `${fmt(v)}°F`;
-const directions = ["N","NE","E","SE","S","SW","W","NW"];
-function wind(w) {
-  if (w.speedMph == null) return "—";
-  if (w.speedMph < 0.5) return "Calm";
-  const dir = w.direction == null ? "Variable" : directions[Math.round(w.direction / 45) % 8];
-  return `${dir} ${fmt(w.speedMph)} mph`;
+const $=id=>document.getElementById(id);
+const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"});
+const fullTime=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"});
+let data=null,busy=false,initialized=false,readError=null,clockOffset=0;
+const temperature=v=>Number.isFinite(v)?`${v.toFixed(1)}°F`:"—";
+function render(){
+ if(!data)return;
+ const c=data.current,latest=data.candidate,now=Date.now()+clockOffset;
+ const stale=new Set(latest?.staleStations||[]);
+ for(const station of latest?.stations||[])if(station.observedAt&&now-Date.parse(station.observedAt)>900000)stale.add(station.code);
+ const delayed=data.collectorDelayed||(data.checkedAt&&now-Date.parse(data.checkedAt)>300000);
+ const held=data.held||stale.size>0||delayed||readError;
+ $("temperature").textContent=temperature(c?.tempF);$("dewpoint").textContent=temperature(c?.dewpointF);
+ const wind=c?.wind;
+ if(!Number.isFinite(wind?.speedMph))$("wind").textContent="—";
+ else if(wind.speedMph<.5)$("wind").textContent="Calm";
+ else {
+   const direction=Number.isFinite(wind.direction)?["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(wind.direction/22.5)%16]:"Variable";
+   $("wind").textContent=`${direction} · ${wind.speedMph.toFixed(1)} mph`;
+   $("wind").title=Number.isFinite(wind.direction)?`${wind.direction%360}° true`:"Variable wind direction";
+ }
+ $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}${held?" · held":""}`:"Waiting for a complete fresh three-airport average…";
+ const reasons=[];
+ if(latest?.missingStations?.length)reasons.push(`missing ${latest.missingStations.join(", ")}`);
+ if(stale.size)reasons.push(`report over 15 minutes old: ${[...stale].join(", ")}`);
+ if(latest?.invalidStations?.length)reasons.push(`basic quality check failed: ${latest.invalidStations.join(", ")}`);
+ if(data.sourceFailures?.length)reasons.push(`source unavailable: ${data.sourceFailures.join("; ")}`);
+ if(delayed)reasons.push("background checks are delayed");
+ if(readError)reasons.push(readError);
+ const status=$("observation-status");
+ status.textContent=(held&&c?"Held — showing the last good complete three-station average. ":!c?"No complete fresh average yet. ":"All 3 airport reports passed basic checks. ")+reasons.join(" · ");
+ status.className=held||!c?"notice":"small-note";
+ $("current-checked").textContent=data.checkedAt?`Last source check: ${time.format(new Date(data.checkedAt))} · checks every 2 minutes`:"Waiting for the first background source check.";
+ const body=$("current-stations");body.replaceChildren();
+ for(const s of latest?.stations||[]){
+   const row=document.createElement("tr");
+   const stamp=s.observedAt?time.format(new Date(s.observedAt)):"—";
+   const raw=s.rawMetar||"";row.title=raw;
+   const label=latest.invalidStations?.includes(s.code)?"Failed QA":stale.has(s.code)?"Over 15 min old":s.available?"OK":"Missing";
+   for(const value of [s.code,stamp,Number.isFinite(s.tempC)?s.tempC.toFixed(0):"—",Number.isFinite(s.dewpointC)?s.dewpointC.toFixed(0):"—",label]){
+     const td=document.createElement("td");td.textContent=value;row.append(td);
+   }
+   body.append(row);
+ }
 }
-async function api(url) {
-  const response = await fetch(url, {cache:"no-store"});
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Weather service unavailable.");
-  return data;
+async function load(){
+ if(busy)return;busy=true;$("refresh-observations").disabled=true;
+ const sent=Date.now();
+ try{
+   const response=await fetch("/api/observations",{cache:"no-store"}),result=await response.json();
+   if(!response.ok)throw Error(result.error||"Observation feed unavailable.");
+   data=result;readError=null;
+   if(Number.isFinite(Date.parse(data.serverTime))){clockOffset=Date.parse(data.serverTime)-(sent+Date.now())/2;window.WeatherSun?.sync(data.serverTime,sent);}
+   render();
+ }catch(error){readError=error.message;if(data)render();else{$("observation-status").textContent=error.message;$("observation-status").className="notice";}}
+ finally{busy=false;$("refresh-observations").disabled=false;}
 }
-function cell(row, text) { const td = document.createElement("td"); td.textContent = text; row.append(td); }
-function qualityDot(qa, stale = false) {
-  const dot = document.createElement("span");
-  dot.className = `qa-dot ${!stale && qa.allStationsUsed ? "passed" : "incomplete"}`;
-  const label = stale ? "Refresh failed; displayed readings may be stale" : qa.allStationsUsed
-    ? "Basic QA passed; all 3 stations used"
-    : `Basic QA incomplete; ${qa.stationsUsed}/3 stations passed. Temperature ${qa.checks.temperature}/3, dew point ${qa.checks.dewpoint}/3, wind ${qa.checks.wind}/3`;
-  dot.title = label; dot.setAttribute("role", "img"); dot.setAttribute("aria-label", label); dot.tabIndex = 0;
-  return dot;
+function select(id){
+ if(id!=="current")return;
+ if(!initialized){
+   initialized=true;
+   try{data=JSON.parse($("initial-current-data")?.textContent||"null");}catch(_){data=null;}
+   if(data){if(data.serverTime){clockOffset=Date.parse(data.serverTime)-Date.now();window.WeatherSun?.sync(data.serverTime);}render();}
+   if(!data?.checkedAt)load();
+ }else load();
 }
-function renderObservations(data) {
-  const c = data.current;
-  $("updated").textContent = `${fullTime.format(new Date(c.hour))} hourly observation`;
-  const stale = Boolean(data.stale), warnings=[];
-  if(!c.available)warnings.push(`Hourly average unavailable: ${c.missingStations?.length?`waiting for a routine report near :53 from ${c.missingStations.join(", ")}`:"all 3 routine reports must pass temperature, dew point and wind QA"}. Shared collection at :00; hourly history remains below.`);
-  if(stale)warnings.push("Background observation checks are delayed; check the displayed observation hour.");
-  const status = $("observation-status");status.hidden=warnings.length===0;status.textContent=warnings.join(" ");
-  $("history").replaceChildren();
-  for (const h of data.history) {
-    const row = document.createElement("tr");
-    const hourCell = document.createElement("td"), hourLine = document.createElement("span"), time = document.createElement("span");
-    hourLine.className = "hour-line"; time.textContent = central.format(new Date(h.hour));
-    hourLine.append(qualityDot(h.qa, stale), time); hourCell.append(hourLine); row.append(hourCell);
-    cell(row,temp(h.tempF)); cell(row,temp(h.dewpointF)); cell(row,wind(h.wind));
-    $("history").append(row);
-  }
-}
-let observationBusy = false;
-async function loadObservations() {
-  if (observationBusy) return;
-  observationBusy = true; $("refresh-observations").disabled = true;
-  try {
-    const data=await api("/api/observations");
-    renderObservations(data);
-    const now=new Date(),due=new Date(now);due.setUTCMinutes(0,0,0);
-    if(due>now)due.setUTCHours(due.getUTCHours()-1);
-    clearTimeout(observationRetry);
-    if(waitUntil>Date.now()&&new Date(data.checkedAt)<due)retryPrepared();else waitUntil=0;
-  } catch (error) {
-    for (const dot of $("history").querySelectorAll(".qa-dot")) {
-      dot.className = "qa-dot incomplete"; dot.title = "Refresh failed; displayed history may be stale";
-      dot.setAttribute("aria-label", dot.title);
-    }
-    $("observation-status").hidden = false;
-    $("observation-status").textContent = `${error.message} Any displayed readings are from the previous successful refresh.`;
-  retryPrepared();
-  } finally { observationBusy = false; $("refresh-observations").disabled = false; }
-}
-let observationTimer, observationRetry, waitUntil=0, initialized=false;
-function retryPrepared() {
-  clearTimeout(observationRetry);
-  if(waitUntil>Date.now())observationRetry=setTimeout(()=>{
-    if(!document.hidden&&!$("current").hidden)loadObservations();
-  },60000);
-}
-function scheduleObservations() {
-  clearTimeout(observationTimer);
-  const now=new Date(),hour=new Date(now);hour.setUTCMinutes(0,0,0);
-  const next=[0,1].map(offset=>new Date(hour.getTime()+offset*3600000+30000)).find(t=>t>now);
-  observationTimer=setTimeout(()=>{
-    if(!document.hidden&&!$("current").hidden){waitUntil=Date.now()+120000;loadObservations();}
-    scheduleObservations();
-  },next-now);
-}
-function select(id) {
-  if(id!=="current")return;
-  if(!initialized){
-    initialized=true;
-    let initial;
-    try{initial=JSON.parse($("initial-current-data")?.textContent||"null");}catch(_){initial=null;}
-    if(initial?.current)renderObservations(initial);else{waitUntil=Date.now()+120000;loadObservations();}
-  }else{waitUntil=Date.now()+120000;loadObservations();}
-  scheduleObservations();
-}
-$("refresh-observations").addEventListener("click",loadObservations);
+$("refresh-observations").addEventListener("click",load);
+setInterval(()=>{if(!document.hidden&&!$("current").hidden)load();},30000);
+setInterval(()=>{if(!document.hidden&&!$("current").hidden)render();},10000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("current").hidden)load();});
 return {select};
 })();
