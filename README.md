@@ -29,6 +29,14 @@ including across midnight. This is a spatial latest-report mean, not temporal
 smoothing. Missing or invalid latest reports cannot silently fall back to an
 older report to hide the problem.
 
+Reserved MADIS sensor-status codes (including 15) are accepted when the
+numeric measurement is present, the QC descriptor is V/S/G, and MADIS's QC
+results word is zero. Any nonzero QC/internal-consistency results still reject
+the value. Explicit sensor failures, unknown codes, missing values and physical
+range/dewpoint failures remain excluded. A reserved code alone does not prove
+a bad measurement. This covers KMSP's 2026-10-21 12:20 CDT wind: 190 degrees at
+5 knots with status 15 and clear QC results.
+
 `live/current.json` atomically retains the latest MADIS reports and last good
 complete MADIS average. A new product version rejects the old mixed-source
 cache and lastGood values. After deployment Current waits for its first

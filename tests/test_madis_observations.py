@@ -15,7 +15,7 @@ from rapid_observations import current_snapshot
 NOW=datetime(2026,10,11,23,55,tzinfo=timezone.utc)
 
 
-def fixture(qc_failure=False, invalid_unit=False, future=False):
+def fixture(qc_failure=False, invalid_unit=False, future=False, wind_status=0, wind_qc=0, wind_dd=b'V', wind_missing=False):
     stream=BytesIO()
     with netcdf_file(stream,'w') as dataset:
         dataset.createDimension('record',3);dataset.createDimension('idlen',6)
@@ -35,8 +35,10 @@ def fixture(qc_failure=False, invalid_unit=False, future=False):
                                   ('windSpeed',b'meter/sec',[2.572222]*3)]:
             field=dataset.createVariable(name,'f',('record',));field.units=b'Fahrenheit' if invalid_unit and name=='temperature' else unit
             field._FillValue=np.float32(3.4028235e38);field.missing_value=np.float32(-9999);field[:]=values
-            check=dataset.createVariable(name+'QCR','i',('record',));check[:]=[0,int(qc_failure and name=='temperature'),0]
-            status=dataset.createVariable(name+'Status','i',('record',));status[:]=[0,0,0]
+            check=dataset.createVariable(name+'QCR','i',('record',));check[:]=[0,wind_qc if name in ('windSpeed','windDir') else int(qc_failure and name=='temperature'),0]
+            status=dataset.createVariable(name+'Status','i',('record',));status[:]=[0,wind_status if name in ('windSpeed','windDir') else 0,0]
+            descriptor=dataset.createVariable(name+'DD','c',('record',));descriptor[:]=np.array([b'V',wind_dd,b'V'],dtype='S1')
+            if wind_missing and name=='windSpeed':field[1]=-9999
         dataset.flush();content=stream.getvalue()
     return gzip.compress(content)
 
@@ -92,4 +94,28 @@ class MadisTests(unittest.TestCase):
         madis._files.clear()
 
 
+    def test_reserved_wind_status_with_positive_madis_qc_keeps_numeric_wind(self):
+        for status in [1,4,11,13,14,15]:
+            with self.subTest(status=status):
+                rows=madis.parse_file(fixture(wind_status=status),app.STATIONS,NOW)
+                self.assertAlmostEqual(rows[1]['wspd'],5,places=4)
+                self.assertEqual(rows[1]['wdir'],10)
+                self.assertTrue(current_snapshot(rows,NOW)['available'])
+
+    def test_reserved_status_does_not_override_failed_or_unconfirmed_qc(self):
+        for options in [dict(wind_qc=1),dict(wind_dd=b'Q'),dict(wind_dd=b'B'),dict(wind_dd=b'X'),dict(wind_dd=b'Z'),dict(wind_missing=True)]:
+            with self.subTest(options=options):
+                rows=madis.parse_file(fixture(wind_status=15,**options),app.STATIONS,NOW)
+                self.assertIsNone(rows[1]['wspd'])
+                self.assertFalse(current_snapshot(rows,NOW)['available'])
+
+    def test_explicit_sensor_faults_and_unknown_codes_still_excluded(self):
+        for status in [2,3,5,6,7,8,9,10,12,99,-9999]:
+            with self.subTest(status=status):
+                rows=madis.parse_file(fixture(wind_status=status),app.STATIONS,NOW)
+                self.assertIsNone(rows[1]['wspd'])
+                self.assertFalse(current_snapshot(rows,NOW)['available'])
+
+
 if __name__=='__main__':unittest.main()
+

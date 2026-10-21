@@ -65,7 +65,16 @@ def parse_file(payload, stations, now):
                     return None
             status = variables.get(name + "Status")
             if status is not None and int(status[index]) not in (0, 16):
-                return None
+                # Reserved sensor-status codes do not establish a fault. Keep
+                # them only with affirmative MADIS QC (V/S/G) and a clear QC
+                # results word. Explicit sensor faults and missing/unknown
+                # codes remain excluded, even if a numeric value is present.
+                descriptor = variables.get(name + "DD")
+                qc_result = variables.get(name + "QCR")
+                passed = descriptor is not None and descriptor[index].tobytes().strip(b"\x00 ") in (b"V", b"S", b"G")
+                reserved = int(status[index]) in (1, 4, 11, 13, 14, 15)
+                if not (reserved and passed and qc_result is not None and int(qc_result[index]) == 0):
+                    return None
             return number
         for index, identifier in enumerate(variables["stationId"][:]):
             station = identifier.tobytes().decode("ascii").strip("\x00 ")
@@ -123,3 +132,4 @@ def get_reports(stations, now, download=None):
     if not rows and errors:
         raise errors[0]
     return rows
+
