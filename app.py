@@ -402,7 +402,7 @@ def observation_wind(wind):
     if speed < .5:
         return "Calm"
     heading = "Variable" if direction is None else ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[math.floor(direction/45+.5)%8]
-    return f"{heading} {math.floor(speed+.5)} mph"
+    return f"{heading} {math.floor(speed+.5)}"
 
 
 def observation_qa(qa, stale=False):

@@ -48,15 +48,14 @@ class MetroCurrentTests(unittest.TestCase):
 
     def test_current_uses_separate_main_celsius_snapshot_clouds_keep_hourly_history(self):
         import live_current
-        from rapid_observations import recent_metars
         app._cache.clear()
         saved=metar_clouds.snapshot(reports(),NOW)
         saved['observationReports']=metar_clouds.observation_reports(saved)
         store=MemoryStore();store.write_json('live/metar-clouds.json',saved)
         raw=metar_clouds.observation_reports(saved)
         for report in raw:
-            report['rawOb']=report['rawOb'].replace('20/10',f"{report['wdir']:03d}10KT 20/10")
-        raw=recent_metars(raw,app.STATIONS,NOW)
+            report.update(source=live_current.SOURCE_NAME,metarType='HFMETAR',
+                obsTime=(NOW.replace(minute=0)-timedelta(minutes=10)).timestamp(),temp=20,dewp=10)
         latest=live_current.candidate(raw,NOW)
         store.write_json('live/current.json',dict(version=live_current.VERSION,reports=raw,lastGood=latest,
             checkedAt=app.iso(NOW),sourceFailures=[],allSourcesFailed=False))

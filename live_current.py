@@ -1,14 +1,9 @@
-"""Latest airport METAR/5-minute Celsius groups with a durable three-site hold."""
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
-import json
+"""Direct MADIS five-minute airport observations with a durable three-site hold."""
+from datetime import datetime, timezone
 import math
-from urllib.parse import urlencode
 
-from rapid_observations import parse_reports, recent_metars
-
-VERSION = "latest-three-airports-celsius-spread-v2"
-COMPATIBLE_VERSIONS = {VERSION, "latest-three-airports-celsius-v1"}
+VERSION = "madis-five-minute-three-airports-v3"
+SOURCE_NAME = "NOAA MADIS five-minute ASOS"
 MAX_SPREAD_SECONDS = 15*60
 UTC = timezone.utc
 
@@ -18,7 +13,7 @@ def direct_asos(stations, now, download):
 
     This is the binary ASOS feed, not a routine text METAR. Its Kelvin fields
     are decoded by the MADIS reader, then normalized to whole Celsius degrees
-    to match the main text-METAR group used by the other sources.
+    before the three-airport spatial average is calculated.
     """
     from madis_observations import get_reports
     rows = get_reports(stations, now, download)
@@ -26,7 +21,7 @@ def direct_asos(stations, now, download):
         for field in ("temp", "dewp"):
             if row.get(field) is not None:
                 row[field] = math.floor(row[field]+.5)
-        row["source"] = "NOAA MADIS five-minute ASOS"
+        row["source"] = SOURCE_NAME
     return rows
 
 
@@ -35,7 +30,9 @@ def latest_reports(rows, now):
     latest = {}
     for row in rows:
         station, stamp = row.get("icaoId"), row.get("obsTime")
-        if station in STATIONS and valid_number(stamp, 0, now.timestamp()):
+        if (station in STATIONS and row.get("source") == SOURCE_NAME
+                and row.get("metarType") == "HFMETAR"
+                and valid_number(stamp, 0, now.timestamp()) and stamp % 300 == 0):
             if station not in latest or stamp >= latest[station]["obsTime"]:
                 latest[station] = row
     return [latest[s] for s in STATIONS if s in latest]
@@ -51,7 +48,7 @@ def candidate(rows, now):
     for station in result["stations"]:
         raw = by_station.get(station["code"], {})
         station.update(tempC=raw.get("temp"), dewpointC=raw.get("dewp"),
-                       source=raw.get("source", "Airport METAR"))
+                       source=raw.get("source"))
     missing = [s for s in STATIONS if s not in {r["icaoId"] for r in rows}]
     spread = max(stamps)-min(stamps) if stamps else None
     out_of_sync = [r["icaoId"] for r in rows if max(stamps)-r["obsTime"] > MAX_SPREAD_SECONDS]
@@ -72,7 +69,7 @@ def candidate(rows, now):
 def present(saved, now):
     """Station coherence uses report-to-report spread, never report age."""
     from app import iso
-    if not saved or saved.get("version") not in COMPATIBLE_VERSIONS:
+    if not saved or saved.get("version") != VERSION:
         return {"version": VERSION, "current": None, "held": False, "available": False,
                 "candidate": candidate([], now), "checkedAt": None, "serverTime": iso(now),
                 "sourceFailures": [], "collectorDelayed": True}
@@ -86,48 +83,29 @@ def present(saved, now):
             "sourceFailures": saved.get("sourceFailures", []), "maxSpreadSeconds": MAX_SPREAD_SECONDS}
 
 
-def collect(store, now, download, madis_download=None):
+def collect(store, now, download=None):
+    """Read only direct MADIS five-minute ASOS; no text-METAR fallback."""
     from app import STATIONS, iso
+    from madis_observations import fetch_file
     previous = store.read_json("live/current.json") or {}
-    reports = list(previous.get("reports", [])) if previous.get("version") in COMPATIBLE_VERSIONS else []
-    # First collection can recover older reports; later checks keep only a short
-    # query window, retaining each station's last report without expiring it.
-    hours = 1 if len(latest_reports(reports, now)) == len(STATIONS) else 24
-    params = [("station", s[1:]) for s in STATIONS] + [
-        ("data", "metar"), ("sts", (now-timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%MZ")),
-        ("ets", now.strftime("%Y-%m-%dT%H:%MZ")), ("tz", "Etc/UTC"),
-        ("format", "onlycomma"), ("report_type", "1,3,4")]
-    text_sources = {
-        "IEM airport METAR/5-minute archive": ("https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"+urlencode(params),
-            lambda payload: parse_reports(payload, STATIONS, now, max_age_seconds=hours*3600)),
-        "NOAA Aviation Weather Center": ("https://aviationweather.gov/api/data/metar?"+urlencode(
-            {"ids": ",".join(STATIONS), "format": "json", "hours": hours}),
-            lambda payload: recent_metars(json.loads(payload), STATIONS, now, max_age_seconds=hours*3600))}
-    sources = {"NOAA MADIS five-minute ASOS": lambda: direct_asos(STATIONS, now, madis_download or download)}
-    for name, (url, parse) in text_sources.items():
-        def read(u=url, p=parse, label=name):
-            return [{**row, "source": label} for row in p(download(u))]
-        sources[name] = read
+    # Earlier versions mixed feeds. Start clean rather than carrying any of
+    # those reports or their lastGood average into this MADIS-only product.
+    compatible = previous.get("version") == VERSION
+    reports = list(previous.get("reports", [])) if compatible else []
     failures = []
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        tasks = {name: pool.submit(read) for name, read in sources.items()}
-        # Direct NOAA beats an archive copy at the same timestamp; an AWC
-        # text correction wins a tie. A strictly newer timestamp always wins.
-        for name in ("IEM airport METAR/5-minute archive", "NOAA MADIS five-minute ASOS", "NOAA Aviation Weather Center"):
-            task = tasks[name]
-            try:
-                fresh = task.result()
-                if not fresh:
-                    raise ValueError("No recent airport reports in source response")
-                reports.extend(fresh)
-            except Exception:
-                failures.append(name)
+    try:
+        fresh = direct_asos(STATIONS, now, download or fetch_file)
+        if not latest_reports(fresh, now):
+            raise ValueError("No five-minute MADIS airport reports in response")
+        reports.extend(fresh)
+    except Exception:
+        failures.append(SOURCE_NAME)
     reports = latest_reports(reports, now)
     state = candidate(reports, now)
-    good = previous.get("lastGood") if previous.get("version") in COMPATIBLE_VERSIONS else None
+    good = previous.get("lastGood") if compatible else None
     if state["available"]:
         good = state
     data = {"version": VERSION, "reports": reports, "lastGood": good, "checkedAt": iso(now),
-            "sourceFailures": failures, "allSourcesFailed": len(failures) == len(sources)}
+            "sourceFailures": failures, "allSourcesFailed": bool(failures)}
     store.write_json("live/current.json", data)
     return present(data, now)

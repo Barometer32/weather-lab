@@ -55,10 +55,15 @@
   "currentCollectionMinutes": "*/2",
   "currentMaxTimestampSpreadMinutes": 15,
   "currentMaxStationAgeMinutes": null,
-  "currentTemperatureSource": "whole-Celsius-METAR-body-or-decoded-direct-ASOS-no-T-remark",
-  "currentSources": ["NOAA MADIS five-minute ASOS", "IEM airport archive", "NOAA Aviation Weather Center"],
+  "currentTemperatureSource": "whole-Celsius-decoded-direct-MADIS-ASOS-only",
+  "currentSources": [
+    "NOAA MADIS five-minute ASOS"
+  ],
   "currentDisplayDecimals": 0,
   "currentWindCompassPoints": 8,
   "currentTimestamp": "equal-mean-of-three-UTC-report-times",
-  "sunCalculation": "NOAA-Meeus-Julian-century-apparent"
+  "sunCalculation": "NOAA-Meeus-Julian-century-apparent",
+  "currentIntervalMinutes": 5,
+  "currentWindUnitSuffix": false,
+  "currentRoutineStatusLines": false
 }

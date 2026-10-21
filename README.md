@@ -8,45 +8,35 @@ Active Google Cloud project: `j-weather-261020012817` (J-Weather), region
 Current shows four compact readings: three-airport temperature, dewpoint and
 wind, plus the current Hopkins Sun angle. There is no Current history table.
 `weather-live-current` checks the latest KFCM, KMIC and KMSP airport reports
-once every two minutes. It queries direct NOAA MADIS five-minute ASOS, the IEM airport METAR/5-minute
-archive and NOAA AWC in parallel, retaining only each station's newest report.
-Direct NOAA ASOS bypasses the IEM archive sync. On a live check at 23:40 CDT
-on October 20 it provided 23:25 reports from all three airports, newer than
-the 22:53 routine reports. Delivery latency and availability can vary.
-These are airport observations, not non-airport mesonet stations. Public
-feeds have delivery delays; polling cannot make an unpublished report arrive.
+once every two minutes, using only direct NOAA MADIS five-minute ASOS. Only
+reports at :00, :05, :10, … :55 are eligible. IEM, AWC, routine text METAR and
+SPECI reports are excluded from Current. The Clouds map keeps its own hourly
+METAR collection.
 
-All three whole-Celsius temperature/dewpoint values are weighted equally;
-optional T remarks (tenths of Celsius) and upstream Fahrenheit values are
-ignored for text METARs. The direct binary ASOS feed supplies Kelvin fields;
-these are decoded to Celsius and normalized to whole degrees to match the
-text-METAR body precision. Celsius averages are not rounded before conversion
-to °F. The display rounds temperature/dewpoint to whole °F and wind speed to
-whole mph, using eight compass directions (N, NE, E, SE, S, SW, W, NW). Wind
-speed is scalar-averaged; direction is speed-weighted circular, with variable
-winds shown as variable. Displayed observation time is the mean of the three
-UTC timestamps: 10:45, 10:40 and 10:30 becomes 10:38:20, including across
-hour/day boundaries. This is a spatial latest-report mean, not temporal smoothing.
+MADIS Kelvin temperatures are decoded to whole Celsius degrees. All three
+Celsius values are averaged equally, then converted to Fahrenheit and displayed
+as whole degrees. Wind speed is scalar-averaged in mph and displays as `SW 5`,
+without a unit suffix; direction uses speed-weighted circular averaging and
+eight compass headings. Sun angle keeps its decimal precision.
 
-The complete average advances only when all three latest reports pass the
-existing physical-range/dewpoint/wind checks and their newest and oldest
-timestamps span at most 15 minutes, inclusive. There is no station-age cutoff
-against the current clock: even older aligned reports remain eligible. Otherwise the last complete good average is
-held with its unchanged observation time and an explicit warning. Missing
-stations never silently become a two-station average; a newly invalid report
-cannot fall back to an earlier good report to hide its failure. Details show
-each latest station timestamp and its main Celsius values. A failed or missed
-source check is reported separately from observation age.
+The complete MADIS average advances only when all three latest reports pass
+physical-range/dewpoint/wind checks and their timestamps span no more than
+15 minutes, inclusive. Otherwise the last qualifying average and its original
+mean observation time remain displayed. Report age relative to the current
+clock does not disqualify an aligned set; a two-station average is never used.
+Observation time is the arithmetic mean of the actual three UTC timestamps,
+including across midnight. This is a spatial latest-report mean, not temporal
+smoothing. Missing or invalid latest reports cannot silently fall back to an
+older report to hide the problem.
 
-`live/current.json` atomically retains the latest reports and the last good
-complete average. `/api/observations` and initial page rendering only read
-this object and recheck the timestamp spread; they never fetch upstream.
-The browser reads saved data every 30 seconds while Current is visible and
-rechecks the source-check status every 10 seconds. A collector gap over five
-minutes is flagged separately; it does not reject an aligned station set.
-Reports are retained without age expiry. Initial collection looks back up to
-24 hours; subsequent checks query one hour and merge each station's newest
-report with the saved reports. Existing v1 Current data is read compatibly.
+`live/current.json` atomically retains the latest MADIS reports and last good
+complete MADIS average. A new product version rejects the old mixed-source
+cache and lastGood values. After deployment Current waits for its first
+qualifying MADIS set, rather than displaying an old routine/SPECI average.
+The browser and initial page only read prepared data. Visible Current reads
+saved data every 30 seconds. The routine QA success line and source-check time
+are removed; the observation time remains unchanged during a hold. Station
+reports and QA details are available in the collapsed details section.
 
 Sun angle appears only on Current, for 44.925°N, 93.463°W, matching the Hopkins
 reference page. The full NOAA/Meeus Julian-century equations replace the old
