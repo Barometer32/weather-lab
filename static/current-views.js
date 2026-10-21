@@ -5,19 +5,20 @@ const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"num
 const fullTime=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"});
 let data=null,busy=false,initialized=false,readError=null;
 const temperature=v=>Number.isFinite(v)?`${Math.round(v)}°F`:"—";
+function windText(wind){
+ if(!Number.isFinite(wind?.speedMph))return "—";
+ if(wind.speedMph<.5)return "Calm";
+ const direction=Number.isFinite(wind.direction)?["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8]:"Variable";
+ return `${direction} ${Math.round(wind.speedMph)}`;
+}
 function render(){
  if(!data)return;
  const c=data.current,latest=data.candidate;
  const outOfSync=new Set(latest?.outOfSyncStations||[]);
  $("temperature").textContent=temperature(c?.tempF);$("dewpoint").textContent=temperature(c?.dewpointF);
  const wind=c?.wind;
- if(!Number.isFinite(wind?.speedMph))$("wind").textContent="—";
- else if(wind.speedMph<.5)$("wind").textContent="Calm";
- else {
-   const direction=Number.isFinite(wind.direction)?["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8]:"Variable";
-   $("wind").textContent=`${direction} ${Math.round(wind.speedMph)}`;
-   $("wind").title=Number.isFinite(wind.direction)?`${wind.direction%360}° true`:"Variable wind direction";
- }
+ $("wind").textContent=windText(wind);
+ $("wind").title=Number.isFinite(wind?.direction)?`${wind.direction%360}° true`:"";
  $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}`:"Waiting for a complete aligned three-airport average…";
  const status=$("observation-status");
  status.textContent=readError||(!c?"Waiting for a complete MADIS five-minute average…":"");
@@ -29,7 +30,7 @@ function render(){
    const stamp=s.observedAt?time.format(new Date(s.observedAt)):"—";
    const raw=s.rawMetar||"";row.title=[s.source,raw].filter(Boolean).join(" · ");
    const label=latest.invalidStations?.includes(s.code)?"Failed QA":outOfSync.has(s.code)?"Over 15 min behind newest":s.available?"OK":"Missing";
-   for(const value of [s.code,stamp,Number.isFinite(s.tempC)?s.tempC.toFixed(0):"—",Number.isFinite(s.dewpointC)?s.dewpointC.toFixed(0):"—",s.source||"—",label]){
+   for(const value of [s.code,stamp,Number.isFinite(s.tempC)?s.tempC.toFixed(0):"—",Number.isFinite(s.dewpointC)?s.dewpointC.toFixed(0):"—",windText(s.wind),s.source||"—",label]){
      const td=document.createElement("td");td.textContent=value;row.append(td);
    }
    body.append(row);

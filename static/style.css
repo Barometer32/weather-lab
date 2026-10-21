@@ -224,6 +224,7 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 .cloud-ceiling-number { display:block; width:32px; text-align:center; font:600 12px/24px system-ui,sans-serif; color:#111; background:transparent; font-variant-numeric:tabular-nums; text-shadow:0 0 2px #fff,0 0 2px #fff; }
 
 .current-live-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; padding:20px 0 24px; border-bottom:1px solid var(--border); }
+.live-reading { text-align:center; min-width:0; }
 .live-reading h2 { font-size:14px; font-weight:400; color:var(--muted); }
 .live-reading p { font-size:28px; font-weight:600; margin:8px 0 0; font-variant-numeric:tabular-nums; line-height:1.25; }
 .live-reading #wind { font-size:23px; }

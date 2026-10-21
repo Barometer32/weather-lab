@@ -153,3 +153,19 @@ def test_api_and_initial_html_read_only_madis_saved_data_and_clean_current_ui():
         assert 'aviationweather.gov/data/api/' not in current and 'mesonet.agron.iastate.edu' not in current
         assert client.get('/api/models').status_code==404
         upstream.assert_not_called();binary_fetch.assert_not_called()
+
+
+def test_airport_wind_details_use_each_stations_own_report_without_changing_mean():
+    rows=reports(minutes=(0,0,0))
+    rows[0].update(wspd=5,wdir=225)
+    rows[1].update(wspd=0,wdir=None)
+    rows[2].update(wspd=10,wdir='VRB')
+    result=live.candidate(rows,NOW)
+    assert result['available']
+    winds=[s['wind'] for s in result['stations']]
+    assert winds[0]['speedMph']==5.8 and winds[0]['direction']==225
+    assert winds[1]['speedMph']==0
+    assert winds[2]['speedMph']==11.5 and winds[2]['variable']
+    assert result['wind']['speedMph']==5.8
+    missing=live.candidate(rows[:1],NOW)['stations'][1]['wind']
+    assert missing['speedMph'] is None

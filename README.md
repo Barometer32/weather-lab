@@ -36,7 +36,10 @@ qualifying MADIS set, rather than displaying an old routine/SPECI average.
 The browser and initial page only read prepared data. Visible Current reads
 saved data every 30 seconds. The routine QA success line and source-check time
 are removed; the observation time remains unchanged during a hold. Station
-reports and QA details are available in the collapsed details section.
+reports and QA details are available in the collapsed details section. That
+table includes each airport's wind in the same compact `SW 5` format. The four
+summary readings and their headings are centered in each column, including
+the two-column mobile layout.
 
 Sun angle appears only on Current, for 44.925°N, 93.463°W, matching the Hopkins
 reference page. The full NOAA/Meeus Julian-century equations replace the old

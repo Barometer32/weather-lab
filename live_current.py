@@ -39,7 +39,7 @@ def latest_reports(rows, now):
 
 
 def candidate(rows, now):
-    from app import STATIONS, summarize, iso
+    from app import STATIONS, summarize, iso, wind_mean
     rows = latest_reports(rows, now)
     stamps = [r["obsTime"] for r in rows]
     averaged = datetime.fromtimestamp(sum(stamps)/len(stamps), UTC) if stamps else now
@@ -48,7 +48,7 @@ def candidate(rows, now):
     for station in result["stations"]:
         raw = by_station.get(station["code"], {})
         station.update(tempC=raw.get("temp"), dewpointC=raw.get("dewp"),
-                       source=raw.get("source"))
+                       source=raw.get("source"), wind=wind_mean([raw]))
     missing = [s for s in STATIONS if s not in {r["icaoId"] for r in rows}]
     spread = max(stamps)-min(stamps) if stamps else None
     out_of_sync = [r["icaoId"] for r in rows if max(stamps)-r["obsTime"] > MAX_SPREAD_SECONDS]

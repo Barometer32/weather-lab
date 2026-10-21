@@ -6,7 +6,7 @@ function element(){return {textContent:'',children:[],events:{},hidden:false,dis
 const elements=new Map(),get=id=>{assert.ok(!['history','current-checked'].includes(id),'Removed history/source-check UI was accessed');if(!elements.has(id))elements.set(id,element());return elements.get(id);};
 let clock=Date.UTC(2026,9,21,4,0),intervals=[],reads=[],fail=false,syncs=[];
 class ClockDate extends Date{constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
-const stations=['KFCM','KMIC','KMSP'].map(code=>({code,observedAt:'2026-10-21T03:55:00Z',available:true,tempC:12,dewpointC:5}));
+const stations=['KFCM','KMIC','KMSP'].map(code=>({code,observedAt:'2026-10-21T03:55:00Z',available:true,tempC:12,dewpointC:5,wind:[{speedMph:5.4,direction:225},{speedMph:0,direction:null},{speedMph:7.3,direction:null,variable:true}][['KFCM','KMIC','KMSP'].indexOf(code)]}));
 const row={observedAt:'2026-10-21T03:55:00Z',tempF:53.6,dewpointF:41.0,wind:{speedMph:11.5,direction:0},stations};
 let data={current:row,candidate:{...row,missingStations:[],outOfSyncStations:[],timeSpreadExceeded:false,invalidStations:[]},checkedAt:'2026-10-21T04:00:00Z',serverTime:'2026-10-21T04:00:00Z',sourceFailures:[],held:false};
 get('initial-current-data').textContent=JSON.stringify(data);
@@ -21,6 +21,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(reads.length,0,'saved seed paints without a startup source fetch');
  assert.equal(get('temperature').textContent,'54°F');assert.equal(get('dewpoint').textContent,'41°F');
  assert.equal(get('wind').textContent,'N 12');assert.equal(get('current-stations').children.length,3);
+ assert.deepEqual(get('current-stations').children.map(r=>r.children[4].textContent),['SW 5','Calm','Variable 7']);
  assert.match(get('updated').textContent,/10:55:00 PM CDT/);assert.doesNotMatch(get('updated').textContent,/held/);
  assert.ok(syncs.length===1);assert.deepEqual(intervals.map(i=>i.delay),[30000]);
  assert.equal(get('observation-status').hidden,true);
