@@ -26,7 +26,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-if '/static/cloud-views.js?v=airport-hourly-spacing-v3' not in html:
+if '/static/cloud-views.js?v=airport-hourly-spacing-v4' not in html:
     raise SystemExit('The compact-spacing page is not published yet.')
 print('Verified compact METAR spacing and fine zoom.')
 PY

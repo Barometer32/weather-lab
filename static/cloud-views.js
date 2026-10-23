@@ -25,7 +25,7 @@ window.WeatherCloudViews = (() => {
   }
   function initMetars() {
     if(metarMap)return;
-    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.05,zoomDelta:.05,wheelPxPerZoomLevel:480});
+    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.075,zoomDelta:.075,wheelPxPerZoomLevel:270});
     resetMetarView();
     for(const [kind,opacity] of [["uscounties",.2],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(metarMap);
     markers=L.layerGroup().addTo(metarMap);
