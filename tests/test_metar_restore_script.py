@@ -18,7 +18,7 @@ if name=='git':
  else:print('abc1234567890000000000000000000000000000')
 elif name=='curl':
  path=pathlib.Path(a[a.index('-o')+1])
- if path.name=='page.html':path.write_text((pathlib.Path(os.environ['RESTORE_ROOT'])/'static/index.html').read_text())
+ if path.name=='page.html':path.write_text(''.join('<button role="tab" id="tab-'+t+'">' for t in ['current','radar','metar-clouds','satellite','forecast','air-quality'])+'<script src="/static/metar-model.js?v=madis-metar-20261023"></script><h1 id="metar-heading">METAR</h1>')
  else:path.write_text(json.dumps({'madis':{'available':True},'history':[{'hour':str(i),'stations':[{'station':'KFCM'}],'madisCount':1} for i in range(12)]}))
 elif a[:2]==['projects','describe']:print('ACTIVE')
 elif a[:3]==['billing','projects','describe']:print('False' if os.environ.get('RESTORE_BILLING_OFF') else 'True')

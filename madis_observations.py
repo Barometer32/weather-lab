@@ -110,6 +110,7 @@ def parse_file(payload, stations, now):
                                    "heightType": "verticalVisibility" if cover == "VV" else "cloudBase"})
             layers.sort(key=lambda layer: (layer["baseFtAGL"] is None, layer["baseFtAGL"] or 0))
             rows.append({"icaoId": station, "obsTime": stamp, "metarType": "HFMETAR",
+                "name": variables["stationName"][index].tobytes().decode("ascii", errors="replace").strip("\x00 ") if "stationName" in variables else station,
                 "temp": temperature - 273.15 if temperature is not None else None,
                 "dewp": dewpoint - 273.15 if dewpoint is not None else None,
                 "wspd": speed / (1852 / 3600) if speed is not None else None,

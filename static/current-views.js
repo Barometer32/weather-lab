@@ -14,23 +14,23 @@ function windText(wind){
 function render(){
  if(!data)return;
  const c=data.current,latest=data.candidate;
- const outOfSync=new Set(latest?.outOfSyncStations||[]);
  $("temperature").textContent=temperature(c?.tempF);$("dewpoint").textContent=temperature(c?.dewpointF);
  const wind=c?.wind;
  $("wind").textContent=windText(wind);
  $("wind").title=Number.isFinite(wind?.direction)?`${wind.direction%360}° true`:"";
- $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}`:"Waiting for a complete aligned three-airport average…";
+ $("updated").textContent=c?`Average observation time: ${fullTime.format(new Date(c.observedAt))}`:"Waiting for a local MADIS average…";
+ $("station-summary").textContent=c?`${c.stationCount} contributing stations · ${latest?.stations?.length||0} local stations listed · within 10 miles`:`${latest?.stations?.length||0} local stations found · within 10 miles`;
  const status=$("observation-status");
- status.textContent=readError||(!c?"Waiting for a complete MADIS five-minute average…":"");
+ status.textContent=readError||(!c?"Waiting for at least three aligned usable stations per field…":data.held?"Showing the last complete average while local reports align.":"");
  status.hidden=!status.textContent;
  status.className="notice";
  const body=$("current-stations");body.replaceChildren();
  for(const s of latest?.stations||[]){
    const row=document.createElement("tr");
    const stamp=s.observedAt?time.format(new Date(s.observedAt)):"—";
-   const raw=s.rawMetar||"";row.title=[s.source,raw].filter(Boolean).join(" · ");
-   const label=latest.invalidStations?.includes(s.code)?"Failed QA":outOfSync.has(s.code)?"Over 15 min behind newest":s.available?"OK":"Missing";
-   for(const value of [s.code,stamp,Number.isFinite(s.tempC)?s.tempC.toFixed(0):"—",Number.isFinite(s.dewpointC)?s.dewpointC.toFixed(0):"—",windText(s.wind),s.source||"—",label]){
+   row.title=[s.station,s.source,s.name].filter(Boolean).join(" · ");
+   const label=s.included?(data.held?"Latest group; average held":(s.includedFields||[]).join(", ")):s.status||"Not included";
+   for(const value of [s.displayName||s.name||"Local station",s.network||"MADIS",Number.isFinite(s.distanceMiles)?s.distanceMiles.toFixed(1):"—",stamp,Number.isFinite(s.tempF)?Math.round(s.tempF)+"°":"—",Number.isFinite(s.dewpointF)?Math.round(s.dewpointF)+"°":"—",windText(s.wind),label]){
      const td=document.createElement("td");td.textContent=value;row.append(td);
    }
    body.append(row);

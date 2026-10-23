@@ -44,7 +44,7 @@ def fetch(url, previous=None):
         raise
 
 
-def parse_dataset(dataset, now):
+def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False):
     """Return local usable measurements without copying the national arrays."""
     v = dataset.variables
     required = {"stationId", "observationTime", "latitude", "longitude"}
@@ -80,8 +80,11 @@ def parse_dataset(dataset, now):
 
     lat, lon, stamp = v["latitude"][:], v["longitude"][:], v["observationTime"][:]
     target = now.replace(minute=0, second=0, microsecond=0)
-    indices = np.flatnonzero((lat >= 40) & (lat <= 50) & (lon >= -100) & (lon <= -85)
-                             & (stamp >= target.timestamp()-13*3600) & (stamp < target.timestamp()))
+    south, west, north, east = bounds or (40, -100, 50, -85)
+    start = window_start.timestamp() if window_start else target.timestamp()-13*3600
+    end = window_end.timestamp() if window_end else target.timestamp()
+    indices = np.flatnonzero((lat >= south) & (lat <= north) & (lon >= west) & (lon <= east)
+                             & (stamp >= start) & (stamp < end))
     rows = []
     for i in indices:
         station = text("stationId", i)
@@ -111,7 +114,7 @@ def parse_dataset(dataset, now):
                     height = None
                 layers.append({"cover": code, "baseFtAGL": height,
                                "heightType": "verticalVisibility" if code == "VV" else "cloudBase"})
-        if all(value is None for value in (temp, dew, speed)) and not layers:
+        if all(value is None for value in (temp, dew, speed)) and not layers and not include_invalid:
             continue
         from cloud_conditions import summarize
         provider, name = text("dataProvider", i), text("stationName", i)
@@ -129,7 +132,7 @@ def parse_dataset(dataset, now):
     return rows
 
 
-def parse_file(payload, now):
+def parse_file(payload, now, **selection):
     # National files expand to hundreds of MB. Stream to disk and memory-map
     # only the fields needed for local stations, rather than loading all data.
     with tempfile.TemporaryDirectory(prefix="j-weather-madis-") as work:
@@ -143,7 +146,7 @@ def parse_file(payload, now):
                 output.write(chunk)
         dataset = netcdf_file(path, mmap=True)
         try:
-            return parse_dataset(dataset, now)
+            return parse_dataset(dataset, now, **selection)
         except Exception as error:
             # An exception traceback would retain mapped variables while the
             # file closes. Drop that frame before releasing the memory map.

@@ -438,7 +438,7 @@ def observation_payload(saved_only=False):
 
 
 def live_current_payload():
-    from live_current import present
+    from local_current import present
     store = get_store()
     saved = cached("prepared-current", 10, lambda: store.read_json("live/current.json")) if store else None
     return present(saved, utcnow())

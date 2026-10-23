@@ -46,19 +46,17 @@ class MetroCurrentTests(unittest.TestCase):
         self.assertFalse(result['metro']['available'])
         self.assertEqual(result['metro']['qa']['checks']['dewpoint'],2)
 
-    def test_current_uses_separate_main_celsius_snapshot_clouds_keep_hourly_history(self):
-        import live_current
+    def test_local_current_average_is_separate_from_legacy_hourly_cloud_history(self):
+        import local_current
         app._cache.clear()
         saved=metar_clouds.snapshot(reports(),NOW)
-        saved['observationReports']=metar_clouds.observation_reports(saved)
         store=MemoryStore();store.write_json('live/metar-clouds.json',saved)
-        raw=metar_clouds.observation_reports(saved)
-        for report in raw:
-            report.update(source=live_current.SOURCE_NAME,metarType='HFMETAR',
-                obsTime=(NOW.replace(minute=0)-timedelta(minutes=10)).timestamp(),temp=20,dewp=10)
-        latest=live_current.candidate(raw,NOW)
-        store.write_json('live/current.json',dict(version=live_current.VERSION,reports=raw,lastGood=latest,
-            checkedAt=app.iso(NOW),sourceFailures=[],allSourcesFailed=False))
+        raw=[dict(station='LOCAL'+str(i),name='Local Test Site',lat=44.925,lon=-93.463,
+                  time=app.iso(NOW-timedelta(minutes=i*5)),tempF=68.,dewpointF=50.,
+                  wind={'speedMph':10.,'direction':225},network='Hennepin West') for i in range(3)]
+        latest=local_current.candidate(raw,NOW)
+        store.write_json('live/current.json',dict(version=local_current.VERSION,reports=raw,lastGood=latest,
+            checkedAt=app.iso(NOW),sourceFailures=[]))
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as download:
             client=app.app.test_client()
             metro=client.get('/api/metar-clouds').json['metro']
@@ -67,6 +65,8 @@ class MetroCurrentTests(unittest.TestCase):
         download.assert_not_called()
         self.assertEqual(metro['tempF'],68.5)
         self.assertEqual(summary['current']['tempF'],68.0)
-        self.assertEqual(metro['wind'],summary['current']['wind'])
+        self.assertAlmostEqual(summary['current']['wind']['direction'],225.)
+        self.assertEqual(summary['current']['wind']['speedMph'],10.)
         self.assertIn('>68°F<',page)
+        self.assertNotIn('tab-metar-clouds',page)
         self.assertNotIn('history',summary)

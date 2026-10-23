@@ -230,3 +230,9 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 .live-reading #wind { font-size:23px; }
 .current-live-summary .small-note { display:block; margin-top:6px; }
 @media(max-width:700px) { .current-live-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 14px; } }
+
+/* Readable city names and compact values for the local station average. */
+.local-station-table { max-height:32rem; overflow:auto; }
+.local-station-table th,.local-station-table td { text-align:center; white-space:nowrap; }
+.local-station-table th:first-child,.local-station-table td:first-child { text-align:left; }
+.local-station-table td:first-child { font-weight:600; }

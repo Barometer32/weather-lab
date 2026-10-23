@@ -131,26 +131,26 @@ def test_failed_noaa_qc_in_newer_report_holds_last_madis_average():
     assert state['candidate']['invalidStations']==[list(app.STATIONS)[1]]
 
 
-def test_collector_uses_conditional_madis_download_never_generic_weather_download():
-    store=MemoryStore();now=NOW.replace(hour=4,minute=5)
-    with patch('madis_observations.fetch_file',return_value=binary()) as madis,patch('app.download') as other:
-        result=collector.collect_current(store,now)
-    assert result['available'] and madis.call_count==2
+def test_collector_routes_current_to_the_local_madis_product():
+    store=MemoryStore()
+    with patch('local_current.collect',return_value={'available':True,'held':False,'sourceFailures':[]}) as local,patch('app.download') as other:
+        result=collector.collect_current(store,NOW)
+    assert result['available']
+    local.assert_called_once_with(store,NOW)
     other.assert_not_called()
 
 
-def test_api_and_initial_html_read_only_madis_saved_data_and_clean_current_ui():
+def test_api_does_not_reuse_the_retired_three_airport_average():
     store=MemoryStore();store.write_json('live/current.json',saved(reports(minutes=(0,0,0))))
     app._cache.clear()
-    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream,patch('madis_observations.fetch_file') as binary_fetch:
+    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream,patch('regional_madis.fetch') as binary_fetch:
         client=app.app.test_client();data=client.get('/api/observations').json
-        assert data['current']['available'] and 'history' not in data
+        assert data['current'] is None and 'history' not in data
+        assert data['version']=='madis-hopkins-ten-mile-v1'
         html=client.get('/').get_data(as_text=True)
         current=html.split('<section id="current"')[1].split('</section>')[0]
-        assert '>52°F<' in current and '>NW 6<' not in current  # 350 degrees is N.
-        assert '>N 6<' in current and 'id="sun-angle"' in current
+        assert 'id="sun-angle"' in current and 'id="local-station-details"' in current
         assert 'id="current-checked"' not in current and 'All 3 airport reports passed' not in current
-        assert 'aviationweather.gov/data/api/' not in current and 'mesonet.agron.iastate.edu' not in current
         assert client.get('/api/models').status_code==404
         upstream.assert_not_called();binary_fetch.assert_not_called()
 

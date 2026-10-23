@@ -154,7 +154,7 @@ def collect_observations(store, now):
 
 
 def collect_current(store, now):
-    from live_current import collect
+    from local_current import collect
     data = collect(store, now)
     return {"available": data["available"], "held": data["held"], "sourceFailures": data["sourceFailures"]}
 
@@ -184,8 +184,8 @@ def health():
 def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
-            "observations": collect_observations, "forecast": collect_forecast, "metar-clouds": collect_metar_clouds,
-            "current": collect_current, "madis-stations": collect_madis_stations}
+            "forecast": collect_forecast,
+            "current": collect_current}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = "metar-clouds" if kind == "observations" else kind
