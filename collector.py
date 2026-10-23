@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations")}
 
 
 def collect_radar_legacy(store, now):
@@ -159,6 +159,14 @@ def collect_current(store, now):
     return {"available": data["available"], "held": data["held"], "sourceFailures": data["sourceFailures"]}
 
 
+def collect_madis_stations(store, now):
+    from regional_madis import collect
+    data = collect(store, now)
+    latest = data["history"][-1]["stations"]
+    return {"stations": len(latest), "hennepin": sum(row["network"] == "Hennepin West" for row in latest),
+            "sourceErrors": data["errors"]}
+
+
 def collect_forecast(store, now):
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
@@ -177,7 +185,7 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "observations": collect_observations, "forecast": collect_forecast, "metar-clouds": collect_metar_clouds,
-            "current": collect_current}
+            "current": collect_current, "madis-stations": collect_madis_stations}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = "metar-clouds" if kind == "observations" else kind

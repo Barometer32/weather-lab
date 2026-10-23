@@ -481,6 +481,30 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
+@app.get("/api/station-plots")
+def station_plots_api():
+    from metar_clouds import current
+    from regional_madis import merge, KEY
+    try:
+        now = utcnow()
+        data = prepared_hourly_snapshot("metar-clouds")
+        if data is None:
+            return jsonify(error="Hourly airport reports are being prepared."), 503
+        store = get_store()
+        madis = cached("prepared-regional-madis", 10, lambda: store.read_json(KEY)) if store else None
+        result = merge(current(data, now), madis, now)
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
+    except Exception:
+        app.logger.exception("Prepared regional observations unavailable")
+        return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
+
+
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current

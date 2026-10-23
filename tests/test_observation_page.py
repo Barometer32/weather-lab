@@ -18,7 +18,7 @@ def test_current_summary_sun_and_other_tabs_without_history_or_models():
     for reading in ['temperature','dewpoint','wind']:assert f'id="{reading}"' in current
     assert 'KFCM + KMIC + KMSP' in current and 'initial-current-data' in html
     assert 'model-views.js' not in html
-    assert 'data-ceiling-unit="hundreds-ft"' in html and 'Last 12 routine hourly snapshots' in html
+    assert 'data-ceiling-unit="hundreds-ft"' in html and 'Last 12 hourly snapshots' in html
     assert 'map-fullscreen.js' in html and 'id="metar-fullscreen"' in html
     assert 'data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"' in html
     assert response.headers['Cache-Control']=='no-store'

@@ -19,7 +19,7 @@ if name=='git':
 elif name=='curl':
  path=pathlib.Path(a[a.index('-o')+1])
  if path.name=='page.html':path.write_text((pathlib.Path(os.environ['RESTORE_ROOT'])/'static/index.html').read_text())
- else:path.write_text(json.dumps({'history':[{'hour':str(i),'stations':[{'station':'KFCM'}]} for i in range(12)]}))
+ else:path.write_text(json.dumps({'madis':{'available':True},'history':[{'hour':str(i),'stations':[{'station':'KFCM'}],'madisCount':1} for i in range(12)]}))
 elif a[:2]==['projects','describe']:print('ACTIVE')
 elif a[:3]==['billing','projects','describe']:print('False' if os.environ.get('RESTORE_BILLING_OFF') else 'True')
 elif a[:3]==['run','services','describe']:
@@ -29,7 +29,7 @@ elif a[:3]==['scheduler','jobs','list']:
  if os.environ.get('RESTORE_DENIED'):print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)
  if '--format=json' in a:print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/weather-live-metar-clouds'}]))
  else:
-  for j in ['weather-live-current','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','unrelated-job','weather-live-models']:print(j+'\\tENABLED')
+  for j in ['weather-live-current','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-madis','unrelated-job','weather-live-models']:print(j+'\\tENABLED')
 elif a[:3]==['scheduler','jobs','describe']:print('ENABLED')
 elif a[:3]==['run','jobs','execute'] and os.environ.get('RESTORE_FAIL_HISTORY'):sys.exit(1)
 elif a[:4]==['artifacts','docker','images','describe']:sys.exit(0)
@@ -50,10 +50,10 @@ def test_restores_original_map_history_and_only_weather_jobs(tmp_path):
     assert '--schedule=0 * * * *' in job
     assert '--oidc-token-audience=https://weather.example.run.app' in job
     assert '--http-method=POST' in job
-    assert any(c[:5]==['gcloud','run','jobs','deploy','weather-metar-history'] and '--args=metar_history.py' in c for c in calls)
-    assert 'Verified full METAR page and all 12 hourly snapshots.' in result.stdout
+    assert any(c[:5]==['gcloud','run','jobs','deploy','weather-metar-history'] and any('regional_madis.main()' in arg for arg in c) for c in calls)
+    assert 'Verified full METAR + public MADIS page and all 12 hourly snapshots.' in result.stdout
     runs=[c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','run']]
-    assert runs==['weather-live-current','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds']
+    assert runs==['weather-live-current','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-madis']
     assert not any('delete' in c for c in calls)
 
 def test_failed_backfill_resumes_metar_schedule_without_claiming_success(tmp_path):

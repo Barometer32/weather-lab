@@ -5,11 +5,13 @@ function element(){return {value:'',children:[],events:{},hidden:false,disabled:
 const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
 let clock=Date.UTC(2026,9,20,12,0,0),shown=[],timers=[],lastView,mapOptions,fail=false,reads=0;
 class ClockDate extends Date{constructor(...a){super(...(a.length?a:[clock]));}static now(){return clock;}}
-const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z',layers,tempF:65,dewpointF:45,wind:{speedMph:12,direction:180},skyCover:{code:layers[0]?.cover||null,displayFraction:layers[0]?.cover==='CLR'?0:.75},ceiling:layers.filter(l=>['BKN','OVC'].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0]});
+const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z',layers,tempF:65,dewpointF:45,wind:{speedMph:12,direction:180},skyCover:{code:layers[0]?.cover||null,displayFraction:layers[0]?.cover==='CLR'?0:layers.length?.75:null},ceiling:layers.filter(l=>['BKN','OVC'].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0]});
 const cloud=(cover,baseFtAGL)=>({cover,baseFtAGL});
 const stations=[
  row('KAAA',[cloud('BKN',2700)],1),row('KCLR',[cloud('CLR',null)],4),
  row('KFCM',[cloud('BKN',300)],7),row('KMIC',[cloud('BKN',25000)],7.01),row('KMSP',[cloud('OVC',2700)],7.02),
+ {...row('HPN20',[],13),network:'Hennepin West',source:'NOAA MADIS',name:'Hopkins',firstSeenAt:'2026-10-20T12:10:00Z',initialBackfill:false},
+ {...row('C0001',[],13.01),network:'CWOP'},
  row('KUNK',[],10),row('KDEH',[cloud('OVC',300)],13),row('KOUT',[cloud('OVC',5000)],10000)
 ];
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,20,1+i)).toISOString(),stations,metro:row('METRO',[cloud('OVC',4000)])})),checkedAt:'2026-10-20T11:00:00Z'};
@@ -17,7 +19,7 @@ const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return
 const group={addTo(){return this;},clearLayers(){shown=[];}};
 let fullscreenConfig;
 const context={window:{WeatherFullscreen:{attach(config){fullscreenConfig=config;}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Date:ClockDate,Math,Number,
- fetch:async url=>{reads++;assert.equal(url,'/api/metar-clouds');if(fail)throw Error('Data unavailable');return{ok:true,json:async()=>data};},clearTimeout(t){if(t)t.cancelled=true;},setTimeout(callback,delay){const t={callback,delay};timers.push(t);return t;},
+ fetch:async url=>{reads++;assert.equal(url,'/api/station-plots');if(fail)throw Error('Data unavailable');return{ok:true,json:async()=>data};},setInterval(){},clearTimeout(t){if(t)t.cancelled=true;},setTimeout(callback,delay){const t={callback,delay};timers.push(t);return t;},
  L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,
  marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options,popup:this.popup});return this;}})}};
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);
@@ -32,8 +34,11 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assert.equal(number('KAAA'),'27');assert.equal(number('KFCM'),'03');
  assert.ok(find('KCLR'),'clear airports still have full temperature/wind plots');
  assert.ok(find('KUNK'),'missing clouds do not remove an otherwise available station');
- assert.equal(shown.length,4,'nearby plots are thinned using the original compact model footprint');
- for(const id of ['KMIC','KMSP','KDEH','METRO','KOUT'])assert.equal(find(id),undefined);
+ assert.ok(find('HPN20'),'Hennepin West uses the same original full station renderer');
+ assert.ok(find('HPN20').popup.children.some(n=>n.textContent.includes('First collected')));
+ assert.match(find('HPN20').icon.html,/plot-sky-unknown/);
+ assert.equal(shown.length,5,'nearby plots are thinned using the original compact model footprint');
+ for(const id of ['KMIC','KMSP','KDEH','METRO','KOUT','C0001'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
  assert.match(find('KAAA').icon.html,/class="plot-ceiling" x="55" y="16">27/);
  assert.match(find('KAAA').icon.html,/class="plot-speed" x="55" y="37">12/);
