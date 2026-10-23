@@ -215,7 +215,6 @@ async function loadSatellite(force = false) {
     $("satellite-status").textContent = "Loading local satellite imagery…";
     const data = await api(`/api/satellite/${product}`);
     if (request !== satelliteRequest) return;
-    $("satellite-description").textContent = data.description;
     $("satellite-source").href = data.sourceUrl;
     const boundaryKey = JSON.stringify(data.boundaries);
     if (boundaryKey !== satelliteBoundaryKey) {

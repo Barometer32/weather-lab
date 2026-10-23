@@ -88,7 +88,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)}`));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view${inView>drawn.length?` · ${inView-drawn.length} nearby plots hidden for spacing; zoom in`:""} · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection with two-minute retries${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view${inView>drawn.length?` · ${inView-drawn.length} nearby plots hidden for spacing; zoom in`:""} · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

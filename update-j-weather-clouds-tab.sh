@@ -30,7 +30,8 @@ import re
 if re.findall(r'<button role="tab" id="tab-([^\"]+)"',html)!=['metar-clouds','radar','clouds','satellite','forecast','air-quality']:
     raise SystemExit('The METAR and Clouds tabs are not published yet.')
 for asset in ['style.css','metar-model.js','cloud-height-views.js','app.js']:
-    if f'/static/{asset}?v=clouds-tab-v1' not in html:
+    version='clouds-tab-v2' if asset=='app.js' else 'clouds-tab-v1'
+    if f'/static/{asset}?v={version}' not in html:
         raise SystemExit(f'The Clouds update for {asset} is not published yet.')
 if 'data-ceiling-unit="thousands-ft"' not in html or 'id="clouds-timeline"' not in html:
     raise SystemExit('The cloud-height units or history slider are not published yet.')
