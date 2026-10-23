@@ -3,6 +3,7 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
+export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 WEATHER_IMAGE="${WEATHER_DEPLOY_IMAGE:-${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/weather-lab/app:latest}"
 WEATHER_WEB_SA="weather-web@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_BUILD_SA="weather-builder@${WEATHER_PROJECT}.iam.gserviceaccount.com"
@@ -11,7 +12,9 @@ WEATHER_SCHEDULER_SA="weather-scheduler@${WEATHER_PROJECT}.iam.gserviceaccount.c
 WEATHER_DATA_BUCKET="${WEATHER_PROJECT}-weather-data"
 
 gcloud config set project "$WEATHER_PROJECT"
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com
+if [[ "${WEATHER_APIS_VERIFIED:-false}" != true ]]; then
+  bash "$(dirname "${BASH_SOURCE[0]}")/ensure-weather-apis.sh" "$WEATHER_PROJECT"
+fi
 
 # Stop the retired model collector before building. Only Weather Lab's own job
 # names are touched; observations, radar and the replacement NWS forecast stay.

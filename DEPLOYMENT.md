@@ -13,7 +13,7 @@ bash /tmp/j-weather-airports.sh
 The helper also accepts an explicit existing project ID as its first argument.
 It never creates a new project or guesses a billing account. It restores a
 pending-deletion project when permitted, checks billing and read access, saves
-service/job listings, and rebuilds the app's registry, identities, storage and
+service/job listings, checks enabled APIs without re-enabling them, and rebuilds the app's registry, identities, storage and
 collector through `deploy.sh`. Web publication is deferred until a one-time
 Cloud Run job imports twelve populated airport frames and recovers the radar,
 satellite and forecast objects. Failure resumes paused managed schedules and
@@ -88,3 +88,14 @@ gcloud storage ls -l gs://j-weather-261020012817-weather-data/live/metar-clouds.
 Check actual station times and the twelve slider positions. Source availability
 and delivery latency determine the number of airports in each frame. Cloud
 changes occur only after running the helper, not when code is saved to GitHub.
+
+## API setup rate limits
+
+`ensure-weather-apis.sh` first lists enabled APIs and requests only missing
+services. The restore wrapper verifies once and passes that result to
+`deploy.sh`, avoiding a second batch-enable call. Service Usage requests use
+`--billing-project` set explicitly to the target project; the restore and its
+child processes also scope `CLOUDSDK_BILLING_QUOTA_PROJECT` to that project
+without changing the user's persistent quota-project setting. Genuine HTTP
+429 enablement failures receive bounded backoff and a fresh enabled-service
+check before each retry. Read or permission failures stop before any build.

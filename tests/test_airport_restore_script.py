@@ -17,7 +17,7 @@ with open(os.environ['AIRPORT_LOG'],'a') as f:f.write(json.dumps([name,*a])+'\\n
 if name=='git':
  if a[0]=='clone':
   dst=pathlib.Path(a[-1]);dst.mkdir(parents=True)
-  for file in ['deploy.sh','data-lifecycle.json']:shutil.copyfile(pathlib.Path(os.environ['AIRPORT_ROOT'])/file,dst/file)
+  for file in ['deploy.sh','ensure-weather-apis.sh','data-lifecycle.json']:shutil.copyfile(pathlib.Path(os.environ['AIRPORT_ROOT'])/file,dst/file)
  else:print('abc1234567890000000000000000000000000000')
 elif name=='curl':
  path=pathlib.Path(a[a.index('-o')+1])
@@ -27,6 +27,10 @@ elif name=='curl':
   path.write_text(json.dumps({'sourcePolicy':'airport-routine-only','stationPolicy':'all-airports-v1','history':[frame]*(1 if os.environ.get('AIRPORT_BAD_HISTORY') else 12)}))
 elif a[:2]==['projects','describe']:print('ACTIVE')
 elif a[:3]==['billing','projects','describe']:print('False' if os.environ.get('AIRPORT_BILLING_OFF') else 'True')
+elif a[:2]==['services','list']:
+ if os.environ.get('AIRPORT_API_DENIED'):print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)
+ print('run.googleapis.com\\ncloudbuild.googleapis.com\\nartifactregistry.googleapis.com\\ncloudscheduler.googleapis.com\\nstorage.googleapis.com\\niam.googleapis.com')
+elif a[:2]==['services','enable']:print('unexpected API mutation',file=sys.stderr);sys.exit(1)
 elif a[:3]==['run','services','list']:print('[]')
 elif a[:3]==['run','services','describe']:
  if a[3]=='weather-models':sys.exit(1)
@@ -70,6 +74,10 @@ def test_hourly_airport_cron_only_seed_before_publish_and_retired_rapid_jobs_rem
     assert any('metar_history.main(); refresh_media.main()' in arg for arg in bootstrap)
     assert not any('regional_madis.main()' in arg or 'local_current.py' in arg for arg in bootstrap)
     assert 'twelve routine hourly frames' in result.stdout
+    api_reads=[c for c in calls if c[:3]==['gcloud','services','list']]
+    assert len(api_reads)==1,'the wrapper verifies APIs once; deploy does not repeat API setup'
+    assert '--billing-project='+PROJECT in api_reads[0]
+    assert not any(c[:3]==['gcloud','services','enable'] for c in calls)
 
 
 def test_failed_import_never_publishes_new_web_or_deletes_rapid_jobs_and_resumes_paused_jobs(tmp_path):

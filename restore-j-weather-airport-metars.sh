@@ -3,6 +3,8 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:-j-weather-261020012817}"
 WEATHER_REGION=us-central1
+# Scope quota attribution only for this restore process and its children.
+export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 WEATHER_WORK="$(mktemp -d "$HOME/j-weather-airports.XXXXXX")"
 WEATHER_PAUSED=()
 weather_cleanup() {
@@ -27,10 +29,10 @@ if [[ "${WEATHER_BILLING,,}" != true ]]; then
   exit 1
 fi
 gcloud config set project "$WEATHER_PROJECT"
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com iam.googleapis.com --project="$WEATHER_PROJECT"
+git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
+bash "$WEATHER_WORK/source/ensure-weather-apis.sh" "$WEATHER_PROJECT"
 gcloud run services list --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/services-before.json"
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/jobs-before.json"
-git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/weather-lab/app:airports-${WEATHER_COMMIT:0:12}"
 WEATHER_BUCKET="$WEATHER_PROJECT-weather-data"
@@ -39,7 +41,7 @@ WEATHER_COLLECTOR_SA="weather-collector@$WEATHER_PROJECT.iam.gserviceaccount.com
 echo 'Step 2/5: rebuilding missing resources and deploying the collector.'
 (
   cd "$WEATHER_WORK/source"
-  WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true bash deploy.sh "$WEATHER_PROJECT"
+  WEATHER_APIS_VERIFIED=true WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true bash deploy.sh "$WEATHER_PROJECT"
 )
 # Pause the four managed jobs while the one-time imports publish their objects.
 for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds; do
