@@ -41,7 +41,7 @@ window.WeatherStationModel = (() => {
       const toward=(wind.direction+180)%360,path="M0 -8.5V-14";
       arrow=`<g class="wind-arrow" transform="translate(${cx} ${cy}) rotate(${toward})" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${path}" stroke="white" stroke-width="5"/><path d="M0 -18L-3.2 -12.8L3.2 -12.8Z" fill="white" stroke="white" stroke-width="1.6"/><path d="${path}" stroke="#111" stroke-width="2.3"/><path class="wind-arrowhead" d="M0 -18L-3.2 -12.8L3.2 -12.8Z" fill="#111"/></g>`;
     }else{
-      state=`<text class="plot-wind-state" x="${labels.speed+rounded(speed).length*8.3+4}" y="37">${speed==null?"?":speed<.5?"Calm":wind.variable?"VRB":"?"}</text>`;
+      if(speed==null||speed>=.5)state=`<text class="plot-wind-state" x="${labels.speed+rounded(speed).length*8.3+4}" y="37">${speed==null?"?":wind.variable?"VRB":"?"}</text>`;
       if(speed!=null&&speed<.5)arrow=`<circle class="calm-ring" cx="${cx}" cy="${cy}" r="9" fill="none" stroke="white" stroke-width="3.5"/><circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="#111" stroke-width="1.1"/>`;
     }
     return `<svg class="metar-plot" width="${width*scale}" height="${height*scale}" viewBox="0 0 ${width} ${height}" aria-hidden="true">${arrow}${skySymbol(station)}<text class="plot-temp" x="${labels.temp}" y="16" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="${labels.dew}" y="37" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="${labels.speed}" y="37">${rounded(speed)}</text>${state}${ceiling?`<text class="plot-ceiling" x="${labels.ceiling}" y="16">${ceiling}</text>`:""}</svg>`;
@@ -49,7 +49,7 @@ window.WeatherStationModel = (() => {
   function footprint(station){
     const labels=plotLayout(station);
     const speed=windMph(station.wind),wind=station.wind||{};
-    const state=speed==null?"?":speed<.5?"Calm":wind.direction==null?(wind.variable?"VRB":"?"):"";
+    const state=speed==null?"?":speed<.5?"":wind.direction==null?(wind.variable?"VRB":"?"):"";
     const windWidth=rounded(speed).length*9+(state?4+state.length*6:0);
     const right=Math.max(labels.speed+windWidth,labels.ceiling+ceilingText(station).length*9);
     const left=Math.min(labels.temp-rounded(station.tempF).length*9,labels.dew-rounded(station.dewpointF).length*9);

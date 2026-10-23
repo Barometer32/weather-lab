@@ -6,14 +6,15 @@
   <meta name="description" content="Routine hourly airport METAR plots with twelve hours of history, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=airport-hourly-all-v1">
+  <link rel="stylesheet" href="/static/style.css?v=weather-readability-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/metar-model.js?v=airport-hourly-all-v1"></script>
+  <script defer src="/static/metar-model.js?v=weather-readability-v1"></script>
   <script defer src="/static/cloud-views.js?v=airport-hourly-spacing-v5"></script>
-  <script defer src="/static/app.js?v=airport-hourly-all-v1"></script>
+  <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
+  <script defer src="/static/app.js?v=weather-readability-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -27,7 +28,7 @@
 </header>
 <main>
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT METARS · UPPER MIDWEST</p><h1 id="metar-heading">METAR</h1><p id="metar-timeline-description">Last 12 hourly snapshots · routine reports :45–:59 · :00 collection with two-minute retries</p></div><div class="metar-view-controls"><span class="small-note">Sun angle <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W; independent of the selected METAR hour.">—</strong></span><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow">AIRPORT METARS · UPPER MIDWEST</p><h1 id="metar-heading">METAR</h1><p id="metar-timeline-description">Last 12 hourly snapshots · routine reports :45–:59 · :00 collection with two-minute retries</p></div><div class="metar-view-controls"><span class="sun-angle-readout">Sun angle <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W; independent of the selected METAR hour.">—</strong></span><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Hourly airport temperature, dewpoint, wind, cloud cover and ceilings with state and county boundaries"></div></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
@@ -46,7 +47,7 @@
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1><p>Past 2 hours · continuous reflectivity colors · echoes from 10 dBZ</p></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface" class="map-viewer">
-    <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries"></div></div>
+    <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries and faint major roads"></div></div>
     <div class="radar-controls viewer-controls">
       <div class="viewer-frame-time" id="radar-time">Loading radar…</div>
       <div class="timeline-control"><label class="sr-only" for="timeline">Manual radar timeline: drag to select a scan</label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>
@@ -58,7 +59,7 @@
   <div class="legend" id="legend" aria-label="Radar echo strength legend"></div>
   <p class="small-note">Below 10 dBZ is hidden. Native radar cells are displayed without smoothing or blending. Colors show reflectivity; echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
   <details class="method"><summary>About this radar</summary><p>Native Level II lowest-tilt surveillance reflectivity is collected every minute for KMPX. Completed low-level scans are published from the real-time chunk feed without waiting for the full radar volume; supplemental low-level scans are included when produced. KMPX uses its 0.5° base tilt. Scan frequency is controlled by the radar operator and is not guaranteed. Incomplete sweeps are withheld, and the completed-volume archive fills the previous two hours. Every available completed scan within that rolling two-hour window is included, with no fixed frame-count limit. Super-resolution scans have 250-meter range gates and 0.5° azimuth spacing; the beam footprint widens with distance. Display pixels sample the nearest native gate without smoothing. The beam rises with distance and does not directly measure rainfall at the surface. Times are shown in Central time.</p></details>
-  <p class="source">Radar: NOAA/NWS Level II data via <a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NSF Unidata public archive and real-time feed</a>. Map boundaries: Iowa Environmental Mesonet.</p>
+  <p class="source">Radar: NOAA/NWS Level II data via <a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NSF Unidata public archive and real-time feed</a>. Map boundaries: Iowa Environmental Mesonet. Faint, label-free major roads: U.S. Census Bureau TIGERweb.</p>
 </section>
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
   <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE · HENNEPIN</p><h1>Your local forecast</h1><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>

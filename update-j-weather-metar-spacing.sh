@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish compact METAR spacing without changing the collector or schedules.
+# Publish website display updates without changing the collector or schedules.
 set -euo pipefail
 WEATHER_PROJECT="${1:-j-weather-261020012817}"
 WEATHER_REGION=us-central1
@@ -28,6 +28,12 @@ import sys
 html=Path(sys.argv[1]).read_text()
 if '/static/cloud-views.js?v=airport-hourly-spacing-v5' not in html:
     raise SystemExit('The compact-spacing page is not published yet.')
+for asset in ['style.css','metar-model.js','radar-roads.js','app.js']:
+    if f'/static/{asset}?v=weather-readability-v1' not in html:
+        raise SystemExit(f'The display update for {asset} is not published yet.')
+if 'class="sun-angle-readout"' not in html:
+    raise SystemExit('The larger sun-angle display is not published yet.')
 print('Verified compact METAR spacing and fine zoom.')
+print('Verified larger sun angle, calm-wind labels, and faint radar roads.')
 PY
 printf '\nUpdate complete. Refresh your usual J-Weather address.\nService URL: %s\nSaved settings: %s\n' "$WEATHER_WEB_URL" "$WEATHER_WORK"

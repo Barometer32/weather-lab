@@ -37,6 +37,10 @@ function initMap() {
   map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
+  window.WeatherRadarRoads.addTo(map,()=>{
+    $("map-note").hidden=false;
+    $("map-note").textContent="Some road lines could not load. Radar echoes remain available.";
+  });
   map.createPane("boundaries"); map.getPane("boundaries").style.zIndex = 410;
   map.getPane("boundaries").style.pointerEvents = "none";
   for (const [layer, opacity] of [["uscounties", 0.35], ["usstates", 0.8]]) {

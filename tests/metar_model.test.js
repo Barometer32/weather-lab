@@ -26,6 +26,12 @@ assert.equal(model.ceilingText({...station,ceiling:{baseFtAGL:12000}}),'120');
 assert.equal(model.ceilingText({...station,ceiling:{baseFtAGL:null}}),'?');
 assert.equal(model.ceilingText({...station,ceiling:{baseFtAGL:300,kind:'verticalVisibility'}}),'VV 03');
 assert.match(model.stationModel({...station,wind:{speedMph:0}}),/class="calm-ring"/);
+for(const speedMph of [0,.4]){
+ const calm=model.stationModel({...station,wind:{speedMph}});
+ assert.match(calm,/class="plot-speed"[^>]*>0<\/text>/);
+ assert.doesNotMatch(calm,/Calm|class="plot-wind-state"/);
+}
+assert.ok(model.footprint({...station,wind:{speedMph:0}}).right<=model.footprint(station).right);
 assert.ok(!model.stationModel({...station,wind:{speedMph:0}}).includes('class="wind-arrow"'));
 assert.match(model.stationModel({...station,wind:{speedMph:10,direction:null,variable:true}}),/>VRB<\/text>/);
 assert.match(svg,/class="plot-temp" x="\d+" y="16"/);

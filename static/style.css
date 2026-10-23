@@ -183,6 +183,8 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 
 /* METAR product switch and decluttered weather plots. */
 .metar-view-controls { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.sun-angle-readout { display:inline-flex; align-items:baseline; gap:6px; font-size:18px; color:var(--muted); white-space:nowrap; line-height:1.25; }
+.sun-angle-readout strong { font-size:26px; font-variant-numeric:tabular-nums; color:#182521; }
 .metar-view-controls label { display:flex; align-items:center; gap:8px; }
 #metar-view { min-height:44px; padding:8px 10px; background:#fff; border:1px solid var(--border); border-radius:6px; font:inherit; }
 .weather-station { background:transparent; border:0; }
