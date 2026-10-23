@@ -10,8 +10,7 @@ const cloud=(cover,baseFtAGL)=>({cover,baseFtAGL});
 const stations=[
  row('KAAA',[cloud('BKN',2700)],1),row('KCLR',[cloud('CLR',null)],4),
  row('KFCM',[cloud('BKN',300)],7),row('KMIC',[cloud('BKN',25000)],7.01),row('KMSP',[cloud('OVC',2700)],7.02),
- {...row('HPN20',[],13),network:'Hennepin West',source:'NOAA MADIS',name:'Hopkins',firstSeenAt:'2026-10-20T12:10:00Z',initialBackfill:false},
- {...row('C0001',[],13.01),network:'CWOP'},
+ row('KCFE',[],13.01),row('KFCE',[],13.02),row('KSGS',[],13.03),
  row('KUNK',[],10),row('KDEH',[cloud('OVC',300)],13),row('KOUT',[cloud('OVC',5000)],10000)
 ];
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,20,1+i)).toISOString(),stations,metro:row('METRO',[cloud('OVC',4000)])})),checkedAt:'2026-10-20T11:00:00Z'};
@@ -34,21 +33,19 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assert.equal(number('KAAA'),'27');assert.equal(number('KFCM'),'03');
  assert.ok(find('KCLR'),'clear airports still have full temperature/wind plots');
  assert.ok(find('KUNK'),'missing clouds do not remove an otherwise available station');
- assert.ok(find('HPN20'),'Hennepin West uses the same original full station renderer');
- assert.ok(find('HPN20').popup.children.some(n=>n.textContent.includes('First collected')));
- assert.match(find('HPN20').icon.html,/plot-sky-unknown/);
- assert.equal(shown.length,5,'nearby plots are thinned using the original compact model footprint');
- for(const id of ['KMIC','KMSP','KDEH','METRO','KOUT','C0001'])assert.equal(find(id),undefined);
+ for(const id of ['KMIC','KMSP','KCFE','KFCE','KSGS','KDEH'])assert.ok(find(id),'every close or formerly excluded airport is plotted: '+id);
+ assert.equal(shown.length,stations.length-1,'only an airport outside the map view is not drawn');
+ for(const id of ['METRO','KOUT'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
  assert.match(find('KAAA').icon.html,/class="plot-ceiling" x="55" y="16">27/);
  assert.match(find('KAAA').icon.html,/class="plot-speed" x="55" y="37">12/);
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
- assert.match(get('metar-cloud-status').textContent,/hidden for spacing/);
+ assert.doesNotMatch(get('metar-cloud-status').textContent,/hidden for spacing|MADIS|Hennepin/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);
  assert.ok(timers.some(t=>t.delay===30000),'saved data is checked at :00:30');
  assert.equal(get('metar-cloud-rows').children.length,0,'station list remains lazy');
  get('metar-station-list').open=true;get('metar-station-list').events.toggle();
- assert.equal(get('metar-cloud-rows').children.length,stations.length-1,'all reporting sites are searchable even without cloud numbers');
+ assert.equal(get('metar-cloud-rows').children.length,stations.length,'all reporting airports are searchable, even outside view');
  get('metar-cloud-search').value='KFCM';get('metar-cloud-search').events.input();assert.equal(get('metar-cloud-rows').children.length,1);
  get('metar-cloud-search').value='';
  // A large neighboring label in an earlier frame reserves the same spacing
@@ -73,5 +70,5 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  data={...data,checkedAt:'2026-10-20T12:00:00Z'};timers.findLast(t=>t.delay===60000&&!t.cancelled).callback();await flush();
  const before=shown.length;fail=true;get('refresh-metar-clouds').events.click();await flush();assert.equal(shown.length,before);assert.match(get('metar-cloud-status').textContent,/Previous reports retained/);
  get('metar-clouds').hidden=true;const readCount=reads;clock=Date.UTC(2026,9,20,13,0,30);timers.findLast(t=>t.delay>60000&&!t.cancelled).callback();await flush();assert.equal(reads,readCount);
- console.log('Full METAR viewer checks passed: compact original plots, clear/missing cloud stations, collision spacing stable across frames, exclusions, fullscreen, 12-hour selection, hourly checks, and failed refresh.');
+ console.log('Full METAR viewer checks passed: compact original plots, clear/missing cloud stations, all airports restored without collision thinning, fullscreen, 12-hour selection, hourly checks, and failed refresh.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

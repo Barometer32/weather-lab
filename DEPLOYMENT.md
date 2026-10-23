@@ -1,86 +1,90 @@
-# J-Weather deployment
+# J-Weather: hourly airport METAR map
 
-The current site uses project `j-weather-261020012817`, region `us-central1`, and
-branch `metar-cloud-history-20261019` in `Barometer32/weather-lab`.
-The public service is `weather-lab`; the private collector is `weather-collector`.
-
-## Update the local Current page
-
-Run in authenticated Google Cloud Shell, with this project's billing enabled:
+The active target is project `j-weather-261020012817`, region `us-central1`.
+Source lives on branch `metar-cloud-history-20261019` of `Barometer32/weather-lab`.
+Restore that repository and Google project, and link an active billing account,
+then run in authenticated Google Cloud Shell:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-local-current.sh -o /tmp/j-weather-local-current.sh
-bash /tmp/j-weather-local-current.sh
+curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/restore-j-weather-airport-metars.sh -o /tmp/j-weather-airports.sh
+bash /tmp/j-weather-airports.sh
 ```
 
-The helper saves service/job settings, builds a versioned image if needed,
-updates the collector, and runs one initial local observation collection. It
-publishes the website only after collection succeeds. It verifies the five tabs
-and the prepared local Current product before removing the named retired METAR
-collection schedules. Other weather schedules, imagery and forecasts remain in
-place. Collector memory is 2 GiB for the national MADIS file decoder. Cloud
-changes happen when this helper runs, not when source is saved to GitHub.
+The helper also accepts an explicit existing project ID as its first argument.
+It never creates a new project or guesses a billing account. It restores a
+pending-deletion project when permitted, checks billing and read access, saves
+service/job listings, and rebuilds the app's registry, identities, storage and
+collector through `deploy.sh`. Web publication is deferred until a one-time
+Cloud Run job imports twelve populated airport frames and recovers the radar,
+satellite and forecast objects. Failure resumes paused managed schedules and
+prints the saved working directory. Recovery of Google resources may still
+require propagation time after project restoration.
 
-The tabs are Current, Radar, Satellite, Forecast and Air Quality. The METAR map
-and its history are removed from the interface. Historical deployment helpers
-in this repository describe earlier layouts; use the local Current helper for
-this version.
+## Layout and sources
 
-## Local Current observations
+Tabs: **METAR, Radar, Satellite, Forecast, Air Quality**. METAR opens first.
+There is no Current page or browser Current polling. The original compact SVG
+station models, map boundaries, fine zoom steps and mobile fullscreen timeline
+are retained. Sun elevation remains current for Hopkins on the METAR page,
+independent of the selected history frame. Radar and satellite retain two-hour
+loops. NWS forecast and MPCA air quality retain their existing sources.
 
-`local_current.py` reads only public NOAA MADIS mesonet and high-frequency ASOS
-files. It conditionally checks the current and previous UTC-hour files every
-two minutes, so delayed delivery across the hour boundary can still arrive.
-Airport observations use five-minute timestamp marks. Other providers keep
-their actual timestamps; many local Hennepin West observations are five minutes
-apart, but CWOP and road stations can have different intervals. Five-minute
-observations do not guarantee five-minute delivery.
+The airport map includes all available eligible official routine METARs in the
+existing Upper Midwest extent: 40–50°N and 100–85°W. There is no station blacklist:
+KCFE, KFCE, KSGS and KDEH are eligible again when NOAA supplies reports. KFCM,
+KMIC and KMSP appear individually. No plots are removed to avoid label overlap;
+zoom in to separate neighboring station models. The searchable list includes
+all eligible airports for the selected hour, even outside the current view.
+Missing measurements do not remove otherwise usable station plots.
 
-Stations are discovered from source coordinates within ten statute miles of
-44.925°N, 93.463°W, the site's Hopkins reference point. This includes public
-Hennepin West, road, neighborhood and airport reports available through those
-files. Flying Cloud is within the radius; Crystal and MSP are outside it.
-Readable city/site names lead the station list; station IDs and original source
-names remain in row titles. The list includes network, distance, actual report
-time, values and which measurements are used or excluded.
+Only NOAA Aviation Weather Center airport METARs feed this map. There is no
+MADIS/mesonet merge, rapid airport feed or SPECI substitution. Select the routine
+METAR closest to :53 within **:45–:59 inclusive**, using corrected receipt times
+as tie breakers, and label it with the following hour. An 8:53 p.m. report is
+shown in the 9 p.m. frame. These are hourly-selected reports; airports whose
+routine report times fall outside that window are absent for that hour.
 
-Each station contributes its latest known report. Reports must be within 15
-minutes of the newest usable local report, inclusive. Clock age is not the
-coherence cutoff. MADIS QC failures, missing values and physical checks exclude
-individual fields rather than every measurement at a station. Invalid newer
-reports replace older valid reports, preventing silent fallback at that site.
-At least three stations per temperature, dewpoint and wind-speed field are
-required before publishing a new complete summary. Otherwise the previous
-complete summary and its observation timestamp remain displayed.
+## Collection and history
 
-Temperature, dewpoint and wind speed use equal station weighting for the fields
-supplied. Wind direction uses a speed-weighted circular mean. The summary time
-is the arithmetic mean of actual participating report timestamps. Display uses
-tenths of a Fahrenheit degree, whole mph and eight compass directions, such as
-`SW 5`, without a unit suffix. Sun elevation retains the existing independent
-Hopkins calculation. There is no Current history slider.
+`weather-live-metar-clouds` posts privately to `/collect/metar-clouds` at
+**`0 * * * *` UTC**, the same minute mark in Central time. Each scheduled run
+revisits the preceding two completed hours to recover delayed delivery and
+merges those reports with the durable twelve-frame archive. No earlier report
+is carried into a missing station-hour. Data delivered after the :00 collection
+can remain absent until the next hourly run. There are no additional scheduled
+observation checks between hours.
 
-Prepared state is stored at `live/current.json`, version
-`madis-hopkins-ten-mile-v1`. The public `/api/observations` and initial HTML only
-read prepared state; page views never download national MADIS files. The browser
-reads prepared Current data every two minutes while visible.
+`metar_history.py` imports the initial twelve hours immediately using explicit
+regional station batches from NOAA's station catalog. It splits capped queries
+instead of accepting truncated results, and validates every hourly frame before
+publishing the prepared object. Browser reads only use the prepared object;
+opening the page or refreshing it does not start upstream collection.
 
-## Background updates and checks
+Prepared data is `live/metar-clouds.json`, with `stationPolicy=all-airports-v1`.
+The map reads `/api/station-plots`, marked `sourcePolicy=airport-routine-only`.
+Historical Current modules and read APIs remain as compatibility code but are
+not part of the UI or collection schedule. Older deployment helpers describe
+previous layouts; use the airport helper for this layout.
 
-The local helper configures `weather-live-current` for `*/2 * * * *` in UTC,
-POSTing privately to `/collect/current` with the existing Scheduler identity.
-It removes only `weather-live-metar-clouds`, `weather-live-madis` and
-`weather-live-observations` when those retired jobs exist. The existing radar,
-satellite and forecast schedules are preserved.
+After successful verification, the restore helper removes the retired
+`weather-live-current`, `weather-live-madis` and `weather-live-observations`
+schedules. Active managed jobs are:
+
+| Job | Schedule UTC | Purpose |
+| --- | --- | --- |
+| weather-live-metar-clouds | `0 * * * *` | Official routine airport METARs |
+| weather-live-radar | `* * * * *` | Native KMPX reflectivity |
+| weather-live-satellite | `*/5 * * * *` | Three GOES products |
+| weather-live-forecast | `0,30 * * * *` | NWS point forecast |
+
+## Verify
 
 ```bash
 gcloud scheduler jobs list --project=j-weather-261020012817 --location=us-central1
 gcloud run services list --project=j-weather-261020012817 --region=us-central1
-gcloud storage ls -l gs://j-weather-261020012817-weather-data/live/current.json
+gcloud storage ls -l gs://j-weather-261020012817-weather-data/live/metar-clouds.json
 ```
 
-Check the page's average timestamp and individual station times after updating.
-Use the collector and `weather-current-start` job logs if the initial average
-cannot be prepared. Source publication delays can leave old observation times
-even when the collection jobs run successfully. Runtime, storage, build and
-traffic charges depend on actual usage; no GPU or numerical-model job is used.
+Check actual station times and the twelve slider positions. Source availability
+and delivery latency determine the number of airports in each frame. Cloud
+changes occur only after running the helper, not when code is saved to GitHub.

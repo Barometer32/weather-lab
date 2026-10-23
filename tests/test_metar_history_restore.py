@@ -131,7 +131,7 @@ def test_cap_at_one_station_is_not_published_as_complete():
         metar_history.fetch_history(download, NOW, limit=1, workers=1, pause=lambda _: None, interval=0)
 
 
-def test_hourly_updates_request_one_hour_and_preserve_imported_history():
+def test_hourly_updates_overlap_two_hours_and_preserve_imported_history():
     store = Store()
     metar_history.publish_history(archive(), store, NOW)
     next_time = NOW+timedelta(hours=1)
@@ -140,7 +140,7 @@ def test_hourly_updates_request_one_hour_and_preserve_imported_history():
         collector.collect_metar_clouds(store, next_time)
         collector.collect_metar_clouds(store, next_time)
     assert read.call_count == 1
-    assert read.call_args.kwargs == {"hours": 1}
+    assert read.call_args.kwargs == {"hours": 2}
     saved = store.read_json("live/metar-clouds.json")
     assert all(frame["stations"] for frame in saved["history"])
     assert saved["history"][-1]["hour"] == "2026-10-19T19:00:00Z"

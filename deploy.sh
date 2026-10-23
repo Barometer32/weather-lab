@@ -3,7 +3,7 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
-WEATHER_IMAGE="${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/weather-lab/app:latest"
+WEATHER_IMAGE="${WEATHER_DEPLOY_IMAGE:-${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/weather-lab/app:latest}"
 WEATHER_WEB_SA="weather-web@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_BUILD_SA="weather-builder@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_COLLECTOR_SA="weather-collector@${WEATHER_PROJECT}.iam.gserviceaccount.com"
@@ -22,7 +22,7 @@ fi
 if gcloud scheduler jobs describe weather-live-radar-KEVX --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-radar-KEVX --location="$WEATHER_REGION" --quiet
 fi
-# Current uses its own rapid airport check; Clouds keeps hourly collection.
+# Only the airport METAR map collects observations.
 if gcloud scheduler jobs describe weather-live-observations --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-observations --location="$WEATHER_REGION" --quiet
 fi
@@ -81,9 +81,12 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
 weather_schedule metar-clouds '0 * * * *' metar-clouds 300 0
-weather_schedule current '*/2 * * * *' current 120 0
 
+
+if [[ "${WEATHER_DEFER_WEB:-false}" != true ]]; then
 gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
+
+fi
 
 # Remove only the obsolete model output, then the empty forecast bucket.
 # Leave unrelated objects alone if this bucket has been used for anything else.
@@ -99,5 +102,7 @@ if gcloud storage buckets describe "gs://${WEATHER_OLD_BUCKET}" >/dev/null 2>&1;
   fi
 fi
 printf '%s\n' 'Background collection enabled. The first two-hour radar and satellite backfill can take a few minutes.'
-gcloud run services describe weather-lab --region="$WEATHER_REGION" --format='value(status.url)'
+if [[ "${WEATHER_DEFER_WEB:-false}" != true ]]; then
+  gcloud run services describe weather-lab --region="$WEATHER_REGION" --format='value(status.url)'
+fi
 

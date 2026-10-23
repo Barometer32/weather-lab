@@ -40,9 +40,9 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertNotIn('live',data);self.assertNotIn('liveReports',data)
         self.assertTrue(all(s['reportType']=='METAR' for h in data['history'] for s in h['stations']))
 
-    def test_retained_history_rejects_mislabeled_speci_and_excluded_station(self):
+    def test_retained_history_rejects_speci_but_restores_formerly_excluded_airports(self):
         saved=snapshot([row('KOK1'),row('KCFE'),row('KFCE'),row('KSGS'),row('KSTP'),row('KFAKE',rawOb='SPECI KFAKE 112353Z')],NOW)
-        self.assertEqual([s['station'] for s in saved['stations']],['KOK1','KSTP'])
+        self.assertEqual([s['station'] for s in saved['stations']],['KCFE','KFCE','KOK1','KSGS','KSTP'])
 
     def test_each_airport_keeps_its_own_temperature_and_no_average_is_published(self):
         rows=[row(s,temp=t,rawOb=f'{s} 112353Z') for s,t in [('KFCM',30),('KMIC',17),('KMSP',25),('KSTP',24)]]
@@ -78,7 +78,8 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertEqual({s['station'] for s in maps['stations']},set(app.STATIONS))
         self.assertTrue(all('metro' in h for h in maps['history']))
         self.assertTrue(maps['metro']['available'])
-        self.assertIn('tab-current',page)
+        self.assertNotIn('tab-current',page)
+        self.assertIn('tab-metar-clouds',page)
         self.assertNotIn('tab-observations',page)
 
     def test_collector_never_downloads_madis_and_has_one_hourly_check(self):

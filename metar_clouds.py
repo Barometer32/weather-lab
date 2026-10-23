@@ -10,8 +10,9 @@ SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
 # Original regional extent, shared by cloud ceilings and weather plots.
 BOUNDS = [[40, -100], [50, -85]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
-# User-requested cloud station exclusions, applied to fresh and retained history.
-EXCLUDED_STATIONS = frozenset({"KCFE", "KFCE", "KSGS", "KDEH"})
+# All valid airport IDs are eligible; no user-maintained blacklist.
+EXCLUDED_STATIONS = frozenset()
+STATION_POLICY = "all-airports-v1"
 
 
 def included_station(station):
@@ -159,7 +160,7 @@ def snapshot(rows, now, checked_at=None):
         stations = sorted((item[1] for (label, _), item in chosen.items() if label == hour),
                           key=lambda row: row["station"])
         history.append({"hour": hour, "stations": stations})
-    return {"version": 3, "coverage": "upper-midwest", "mode": "routine-hourly", "history": history, "stations": history[-1]["stations"],
+    return {"version": 3, "coverage": "upper-midwest", "mode": "routine-hourly", "stationPolicy": STATION_POLICY, "history": history, "stations": history[-1]["stations"],
             "bounds": BOUNDS, "heightUnit": "feet AGL", "checkedAt": checked_at or iso(now),
             "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
 
@@ -226,11 +227,11 @@ def observation_reports(data):
 
 
 def collect(download, now, previous=None):
-    """Download only the last completed hour, preserving twelve saved hours."""
+    """Refresh two completed hours for delayed delivery; retain twelve frames."""
     from metar_history import fetch_history
     previous = previous or {}
     target = now.replace(minute=0, second=0, microsecond=0)
-    archive = fetch_history(download, now, hours=1)
+    archive = fetch_history(download, now, hours=2)
     retained = [row for frame in previous.get("history", [])
                 for row in frame.get("stations", []) if in_region(row)]
     data = snapshot(retained+archive["reports"], target, iso(now))

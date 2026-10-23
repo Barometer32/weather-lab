@@ -19,7 +19,7 @@ if name=='git':
  else:print('abc1234567890000000000000000000000000000')
 elif name=='curl':
  path=pathlib.Path(a[a.index('-o')+1])
- if path.name=='page.html':path.write_text((pathlib.Path(os.environ['LOCAL_ROOT'])/'static/index.html').read_text())
+ if path.name=='page.html':path.write_text(''.join('<button role="tab" id="tab-'+t+'">' for t in ['current','radar','satellite','forecast','air-quality']))
  else:path.write_text(json.dumps({'version':'madis-hopkins-ten-mile-v1','current':None if os.environ.get('LOCAL_BAD_API') else {'stationCount':3,'observedAt':'2026-10-23T01:00:00Z'},'candidate':{'stations':[]}}))
 elif a[:2]==['projects','describe']:print('ACTIVE')
 elif a[:3]==['billing','projects','describe']:print('False' if os.environ.get('LOCAL_BILLING_OFF') else 'True')

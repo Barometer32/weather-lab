@@ -370,19 +370,8 @@ def get_forecast(now=None):
 
 @app.get("/")
 def index():
-    # Restore the prepared three-airport summary in the first page response.
-    # Loading the home page never starts a source download or collection job.
-    try:
-        initial = live_current_payload()
-    except Exception:
-        app.logger.exception("Prepared Current summary unavailable at page load")
-        initial = None
-    return render_template("index.html", initial_observations=initial,
-                           observation_time=observation_time,
-                           observation_temperature=observation_temperature,
-                           observation_wind=observation_wind,
-                           observation_notice=observation_notice,
-                           observation_qa=observation_qa), 200, {"Cache-Control": "no-store"}
+    # Home renders without touching any observation feed or prepared Current data.
+    return render_template("index.html"), 200, {"Cache-Control": "no-store"}
 
 
 
@@ -484,15 +473,19 @@ def satellite_api(product):
 @app.get("/api/station-plots")
 def station_plots_api():
     from metar_clouds import current
-    from regional_madis import merge, KEY
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("metar-clouds")
         if data is None:
             return jsonify(error="Hourly airport reports are being prepared."), 503
-        store = get_store()
-        madis = cached("prepared-regional-madis", 10, lambda: store.read_json(KEY)) if store else None
-        result = merge(current(data, now), madis, now)
+        result = current(data, now)
+        result["sourcePolicy"] = "airport-routine-only"
+        result["serverTime"] = iso(now)
+        # No mesonet merge or synthetic three-airport plot in this map.
+        result.pop("metro", None)
+        for frame in result["history"]:
+            frame.pop("metro", None)
+            frame["airportCount"] = len(frame["stations"])
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Vary"] = "Accept-Encoding"

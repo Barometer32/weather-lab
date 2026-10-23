@@ -67,6 +67,6 @@ class MetroCurrentTests(unittest.TestCase):
         self.assertEqual(summary['current']['tempF'],68.0)
         self.assertAlmostEqual(summary['current']['wind']['direction'],225.)
         self.assertEqual(summary['current']['wind']['speedMph'],10.)
-        self.assertIn('>68.0°F<',page)
-        self.assertNotIn('tab-metar-clouds',page)
+        self.assertNotIn('current-views.js',page)
+        self.assertIn('tab-metar-clouds',page)
         self.assertNotIn('history',summary)

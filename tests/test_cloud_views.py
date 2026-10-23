@@ -122,22 +122,17 @@ class HourlyCloudTests(unittest.TestCase):
         self.assertTrue(row['hasCeiling'])
         self.assertEqual(row['mapLayer'],{'cover':'VV','baseFtAGL':300,'heightType':'verticalVisibility'})
 
-    def test_excluded_stations_removed_from_new_reports_and_saved_history(self):
-        for excluded in ('KCFE','KFCE','KSGS','KDEH'):
-            with self.subTest(station=excluded):
-                self.assertEqual([r['station'] for r in self.rows(self.report(station=excluded),self.report())],['KAAA'])
+    def test_previously_excluded_airports_survive_new_reports_and_saved_history(self):
+        for restored in ('KCFE','KFCE','KSGS','KDEH'):
+            with self.subTest(station=restored):
+                self.assertEqual({r['station'] for r in self.rows(self.report(station=restored),self.report())},{restored,'KAAA'})
                 old=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
                 for hour in old['history']:
-                    hour['stations'].extend({**row,'station':excluded} for row in list(hour['stations']))
-                filtered=current(old,NOW)
-                self.assertEqual(len(filtered['history']),12)
-                self.assertTrue(all([row['station'] for row in hour['stations']]==['KAAA'] for hour in filtered['history']))
-                self.assertEqual([row['station'] for row in filtered['stations']],['KAAA'])
-                def fetch(url):
-                    return xml(self.report(station=excluded),self.report())
-                result=collect(fetch,NOW,old)
-                self.assertTrue(all(row['station']!=excluded for hour in result['history'] for row in hour['stations']))
-                self.assertEqual([row['station'] for row in result['stations']],['KAAA'])
+                    hour['stations'].extend({**row,'station':restored} for row in list(hour['stations']))
+                public=current(old,NOW)
+                self.assertTrue(all({r['station'] for r in h['stations']}=={restored,'KAAA'} for h in public['history']))
+                result=collect(lambda url:xml(self.report(station=restored),self.report()),NOW,old)
+                self.assertEqual({r['station'] for r in result['stations']},{restored,'KAAA'})
 
     def test_public_api_filters_old_snapshot_and_derives_ceiling_without_recollection(self):
         layers=[{'cover':'SCT','baseFtAGL':2500,'heightType':'cloudBase'},
@@ -154,7 +149,7 @@ class HourlyCloudTests(unittest.TestCase):
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
             response=weather.app.test_client().get('/api/metar-clouds')
         self.assertEqual(response.status_code,200)
-        self.assertEqual([r['station'] for r in response.json['stations']],['KAAA'])
+        self.assertEqual([r['station'] for r in response.json['stations']],['KAAA','KCFE','KDEH'])
         self.assertEqual(response.json['stations'][0]['mapLayer']['baseFtAGL'],6000)
         fetch.assert_not_called()
 
@@ -199,7 +194,7 @@ class HourlyCloudTests(unittest.TestCase):
         data=snapshot(self.rows(self.report(7),self.report(7,cloud='',raw='METAR KAAA',extra='<receipt_time>2026-10-10T01:55:00Z</receipt_time>')),NOW)
         self.assertEqual(data['stations'][0]['layers'],[])
 
-    def test_one_hour_archive_query_merges_saved_history(self):
+    def test_two_hour_overlap_recovers_delayed_reports_and_merges_saved_history(self):
         previous=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
         urls=[]
         def fetch(url):
@@ -207,7 +202,7 @@ class HourlyCloudTests(unittest.TestCase):
             return xml(metar(stamp=(NOW+timedelta(minutes=53)).isoformat()))
         data=collect(fetch,NOW+timedelta(hours=1),previous)
         self.assertEqual(len(urls),1)
-        self.assertIn('hours=1',urls[0])
+        self.assertIn('hours=2',urls[0])
         self.assertIn('ids=KAAA',urls[0])
         self.assertEqual(len(data['history']),12)
         self.assertTrue(all(h['stations'] for h in data['history']))

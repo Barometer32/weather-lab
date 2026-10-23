@@ -122,7 +122,7 @@ def test_api_and_initial_page_only_read_saved_local_state():
         client=app.app.test_client();response=client.get('/api/observations');page=client.get('/').get_data(as_text=True)
     assert response.status_code==200 and response.json['version']==local.VERSION
     assert response.json['current']['stationCount']==3
-    assert 'tab-metar-clouds' not in page and 'cloud-views.js' not in page
-    assert 'local-station-details' in page and '10-MILE RADIUS' in page
+    assert 'tab-metar-clouds' in page and 'cloud-views.js' in page
+    assert 'local-station-details' not in page and '10-MILE RADIUS' not in page
     assert 'id="sun-angle"' in page and 'id="history"' not in page
     source.assert_not_called();other.assert_not_called()

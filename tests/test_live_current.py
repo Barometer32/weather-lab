@@ -148,9 +148,8 @@ def test_api_does_not_reuse_the_retired_three_airport_average():
         assert data['current'] is None and 'history' not in data
         assert data['version']=='madis-hopkins-ten-mile-v1'
         html=client.get('/').get_data(as_text=True)
-        current=html.split('<section id="current"')[1].split('</section>')[0]
-        assert 'id="sun-angle"' in current and 'id="local-station-details"' in current
-        assert 'id="current-checked"' not in current and 'All 3 airport reports passed' not in current
+        assert 'tab-current' not in html and 'current-views.js' not in html
+        assert 'id="sun-angle"' in html and 'tab-metar-clouds' in html
         assert client.get('/api/models').status_code==404
         upstream.assert_not_called();binary_fetch.assert_not_called()
 

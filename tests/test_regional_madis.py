@@ -127,6 +127,8 @@ def test_public_endpoint_reads_only_saved_data_and_current_remains_independent()
     with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream,patch('regional_madis.fetch') as fetch:
         response=app.app.test_client().get('/api/station-plots')
     assert response.status_code==200
-    assert response.json['history'][-1]['hennepinCount']==1
+    assert response.json['history'][-1]['stations']==[]
+    assert response.json['sourcePolicy']=='airport-routine-only'
+    assert 'madis' not in response.json
     upstream.assert_not_called();fetch.assert_not_called()
     assert response.headers['Cache-Control']=='no-store'

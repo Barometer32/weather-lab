@@ -140,7 +140,8 @@ def collect_metar_clouds(store, now):
     previous = store.read_json("live/metar-clouds.json")
     target = weather.iso(now.replace(minute=0, second=0, microsecond=0))
     if (previous and previous.get("collectionMode") == "official-hourly-archive"
-            and previous.get("hourlyTarget") == target and previous.get("stations")):
+            and previous.get("hourlyTarget") == target and previous.get("stations")
+            and previous.get("stationPolicy") == "all-airports-v1"):
         return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
     data = collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
@@ -185,7 +186,7 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecast,
-            "current": collect_current}
+            "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = "metar-clouds" if kind == "observations" else kind

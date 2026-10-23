@@ -3,23 +3,22 @@ from unittest.mock import patch
 import app
 
 
-def test_current_summary_sun_and_other_tabs_without_history_or_models():
-    with patch('app.get_store',return_value=None),patch('app.download') as source:
+def test_airport_metar_map_replaces_current_and_keeps_other_tabs():
+    with patch('app.get_store') as store,patch('app.download') as source:
         response=app.app.test_client().get('/')
-    source.assert_not_called()
+    source.assert_not_called();store.assert_not_called()
     assert response.status_code==200
     html=response.get_data(as_text=True)
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['current','radar','satellite','forecast','air-quality']
-    current=html.split('<section id="current"')[1].split('</section>')[0]
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar-clouds','radar','satellite','forecast','air-quality']
+    metars=html.split('<section id="metar-clouds"')[1].split('</section>')[0]
     satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
-    assert 'id="sun-angle"' in current and 'sun-angle' not in satellite
+    assert 'id="sun-angle"' in metars and 'sun-angle' not in satellite
     assert html.count('id="sun-angle"')==1
-    assert 'id="history"' not in current and 'Last 12 hours' not in current
-    for reading in ['temperature','dewpoint','wind']:assert f'id="{reading}"' in current
-    assert '10-MILE RADIUS' in current and 'initial-current-data' in html
+    assert 'id="metar-cloud-timeline"' in metars and '12 hourly snapshots' in metars
+    assert 'current-views.js' not in html and 'tab-current' not in html and 'initial-current-data' not in html
     assert 'model-views.js' not in html
-    assert 'metar-clouds' not in html and 'cloud-views.js' not in html
-    assert 'map-fullscreen.js' in html and 'id="local-station-details" open' in html
+    assert 'metar-model.js' in html and 'cloud-views.js' in html and 'map-fullscreen.js' in html
+    assert ':45–:59' in metars and ':00' in metars and 'KCFE, KFCE, KSGS and KDEH' in metars
     assert 'data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"' in html
     assert response.headers['Cache-Control']=='no-store'
 

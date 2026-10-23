@@ -8,8 +8,6 @@ window.WeatherCloudViews = (() => {
   const timeline=()=>cloudData.history;
   const layers=station=>station.cloudLayers||station.layers||[];
   const model=window.WeatherStationModel;
-  const preferred=["KFCM","KMIC","KMSP","KSTP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN"];
-  const excluded=new Set(["KCFE","KFCE","KSGS","KDEH"]);
   const rounded=value=>value==null?"—":String(Math.round(value));
   const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
   function windText(wind) {
@@ -37,38 +35,21 @@ window.WeatherCloudViews = (() => {
     metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.5);
   }
   function plotStations(stations) {
-    // Reserve a station's largest footprint across the loop. Changes in wind
-    // or digit count must not make neighboring plots blink on and off.
-    const sites=new Map();
-    for(const hour of timeline())for(const station of hour.stations){
-      if(excluded.has(station.station))continue;
-      const footprint=model.footprint(station),old=sites.get(station.station);
-      sites.set(station.station,{station,footprint:old?{
-        left:Math.min(old.footprint.left,footprint.left),right:Math.max(old.footprint.right,footprint.right),
-        top:Math.min(old.footprint.top,footprint.top),bottom:Math.max(old.footprint.bottom,footprint.bottom)
-      }:footprint});
-    }
-    const priority=station=>{const rank=preferred.indexOf(station.station);return rank>=0?rank:preferred.length+(station.network==="Hennepin West"?0:station.network==="MnDOT"?1:2);};
-    const candidates=[...sites.values()].sort((a,b)=>priority(a.station)-priority(b.station)||a.station.station.localeCompare(b.station.station));
-    const size=metarMap.getSize(),boxes=[],accepted=new Set();
-    const inView=station=>{const p=metarMap.latLngToContainerPoint([station.lat,station.lon]);return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;};
-    for(const {station,footprint:f} of candidates){
-      if(!inView(station))continue;
+    // Plot every eligible airport in view. No blacklist or collision thinning.
+    const size=metarMap.getSize();
+    const drawn=stations.filter(station=>{
       const p=metarMap.latLngToContainerPoint([station.lat,station.lon]);
-      const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
-      if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
-      boxes.push(box);accepted.add(station.station);
-    }
-    return {drawn:stations.filter(station=>accepted.has(station.station)),inView:stations.filter(inView).length};
+      return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
+    });
+    return {drawn,inView:drawn.length};
   }
   function renderMetars() {
     if(!cloudData)return;
     initMetars();markers.clearLayers();
     const hours=timeline();
     metarIndex=Math.max(0,Math.min(metarIndex,hours.length-1));
-    // Use actual station rows, including KFCM/KMIC/KMSP separately. The
-    // synthetic metro average is reserved for the independent Current tab.
-    const selected=hours[metarIndex],stations=selected.stations.filter(station=>!excluded.has(station.station));
+    // Every airport stays at its own coordinates in every hourly frame.
+    const selected=hours[metarIndex],stations=selected.stations;
     const {drawn,inView}=plotStations(stations);
     const slider=el("metar-cloud-timeline");
     slider.max=String(hours.length-1);slider.value=String(metarIndex);slider.disabled=hours.length<2;
@@ -84,11 +65,11 @@ window.WeatherCloudViews = (() => {
       popup.append(node("p",`Temperature ${rounded(station.tempF)}°F · Dewpoint ${rounded(station.dewpointF)}°F`));
       popup.append(node("p",`Wind from ${windText(station.wind)}`),node("p",model.cloudText(station)));
       for(const cloud of layers(station))popup.append(node("p",heights(cloud)));
-      if(station.firstSeenAt&&!station.initialBackfill)popup.append(node("p",`First collected ${time.format(new Date(station.firstSeenAt))} · about ${Math.max(0,Math.round((Date.parse(station.firstSeenAt)-Date.parse(station.time))/60000))} min after observation (five-minute checks)`));
+
       if(station.rawOb)popup.append(node("p",station.rawOb));
       L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)} · ${model.cloudText(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
-    // Every eligible report stays searchable, including collision-hidden sites.
+    // The searchable list includes every eligible report in the regional frame.
     if(el("metar-station-list").open)for(const station of stations){
       if(query&&!`${station.station} ${station.name||""} ${station.network||""}`.toUpperCase().includes(query))continue;
       const row=node("tr"),cell=node("td"),button=node("button",station.station,"station-link");
@@ -96,7 +77,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)} · ${model.cloudText(station)}`));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} station plots visible${inView>drawn.length?` · ${inView-drawn.length} hidden for spacing (zoom in)`:""} · ${selected.airportCount??stations.length} airport METARs · ${selected.madisCount??0} MADIS · ${selected.hennepinCount??0} Hennepin West · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · hourly snapshots · airports at :00; MADIS checked every 5 min${cloudData.stale?" · Background updates delayed":""}${cloudData.madis?.delayed?" · MADIS collection delayed or not started":""}${cloudData.madis?.errors?.length?" · Some MADIS source files unavailable":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · collected at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {
@@ -112,6 +93,7 @@ window.WeatherCloudViews = (() => {
       const selected=cloudData?.history[metarIndex]?.hour;
       const followLatest=!cloudData||metarIndex===timeline().length-1;
       cloudData=data;
+      if(data.serverTime)window.WeatherSun?.sync(data.serverTime);
       const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
       metarIndex=restored>=0?restored:followLatest?timeline().length-1:0;
       renderMetars();
