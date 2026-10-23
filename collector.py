@@ -139,10 +139,19 @@ def collect_metar_clouds(store, now):
     from metar_clouds import collect
     previous = store.read_json("live/metar-clouds.json")
     target = weather.iso(now.replace(minute=0, second=0, microsecond=0))
-    if (previous and previous.get("collectionMode") == "official-hourly-archive"
-            and previous.get("hourlyTarget") == target and previous.get("stations")
-            and previous.get("stationPolicy") == "all-airports-v1"):
-        return {"stations": len(previous["stations"]), "status": "already prepared for this hour"}
+    ready = (previous and previous.get("collectionMode") == "official-hourly-archive"
+             and previous.get("hourlyTarget") == target and previous.get("stations")
+             and previous.get("stationPolicy") == "all-airports-v1")
+    if ready:
+        # Retry through :20 even after a partial batch arrives. Afterwards a
+        # populated hour is stable; an entirely missing hour keeps retrying.
+        slot = now.replace(minute=(now.minute//2)*2, second=0, microsecond=0)
+        try:
+            checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
+        except (KeyError, TypeError, ValueError):
+            checked = None
+        if now.minute > 20 or (checked is not None and checked >= slot):
+            return {"stations": len(previous["stations"]), "status": "already prepared for this check"}
     data = collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)

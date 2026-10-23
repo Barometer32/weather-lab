@@ -82,12 +82,12 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertIn('tab-metar-clouds',page)
         self.assertNotIn('tab-observations',page)
 
-    def test_collector_never_downloads_madis_and_has_one_hourly_check(self):
+    def test_collector_never_downloads_madis_and_has_two_minute_catchup_checks(self):
         store=MemoryStore()
         with patch('metar_clouds.collect',return_value=dict(snapshot([row()],NOW),observationReports=[])),patch('app.get_rapid_reports') as rapid:
             collector.collect_metar_clouds(store,NOW)
         rapid.assert_not_called()
-        self.assertIn("weather_schedule metar-clouds '0 * * * *'",Path('deploy.sh').read_text())
+        self.assertIn("weather_schedule metar-clouds '*/2 * * * *'",Path('deploy.sh').read_text())
 
     def test_large_metar_payload_compression_preserves_data_and_respects_negotiation(self):
         store=MemoryStore();rows=[row('K'+str(i).zfill(3)) for i in range(100)]

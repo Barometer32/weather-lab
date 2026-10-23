@@ -66,7 +66,7 @@ def test_hourly_airport_cron_only_seed_before_publish_and_retired_rapid_jobs_rem
     scheduled=[c for c in calls if c[:5] in (['gcloud','scheduler','jobs','update','http'],['gcloud','scheduler','jobs','create','http'])]
     assert {c[5] for c in scheduled}=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds'}
     metar=next(c for c in scheduled if c[5]=='weather-live-metar-clouds')
-    assert '--schedule=0 * * * *' in metar and '--max-retry-attempts=0' in metar
+    assert '--schedule=*/2 * * * *' in metar and '--max-retry-attempts=0' in metar
     assert '--http-method=POST' in metar and '--oidc-token-audience=https://weather.example.run.app' in metar
     removed=[c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','delete']]
     assert removed==['weather-live-current','weather-live-madis','weather-live-observations']

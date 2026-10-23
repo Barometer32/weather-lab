@@ -46,13 +46,23 @@ routine report times fall outside that window are absent for that hour.
 
 ## Collection and history
 
-`weather-live-metar-clouds` posts privately to `/collect/metar-clouds` at
-**`0 * * * *` UTC**, the same minute mark in Central time. Each scheduled run
-revisits the preceding two completed hours to recover delayed delivery and
-merges those reports with the durable twelve-frame archive. No earlier report
-is carried into a missing station-hour. Data delivered after the :00 collection
-can remain absent until the next hourly run. There are no additional scheduled
-observation checks between hours.
+`weather-live-metar-clouds` is invoked every two minutes, including **:00**.
+Reports still use one official routine :45–:59 METAR per airport per hourly
+frame; this does not switch the observation source to rapid reports.
+
+During :00–:20 inclusive, the collector revisits the preceding two completed
+hours every two minutes, even after a partial batch arrives, merging late
+reports with the durable twelve-frame archive. Duplicate invocations within the
+same two-minute slot reuse a successful prepared result. After :20 a populated
+hour is reused, avoiding more NOAA downloads until the next hour. If the entire
+new hour is still absent, two-minute retries continue beyond :20. Source errors
+or empty new-hour batches retain the previous prepared data.
+
+When automatically following the latest hour, the browser selects the newest
+populated frame while a newer frame is empty, labels the actual displayed time,
+and indicates which hour is pending. It advances automatically when that new
+hour arrives. Manual selections of older history are preserved. No earlier
+report is relabeled as a newer observation.
 
 `metar_history.py` imports the initial twelve hours immediately using explicit
 regional station batches from NOAA's station catalog. It splits capped queries
@@ -72,7 +82,7 @@ schedules. Active managed jobs are:
 
 | Job | Schedule UTC | Purpose |
 | --- | --- | --- |
-| weather-live-metar-clouds | `0 * * * *` | Official routine airport METARs |
+| weather-live-metar-clouds | `*/2 * * * *` | Hourly routine METARs with catch-up retries |
 | weather-live-radar | `* * * * *` | Native KMPX reflectivity |
 | weather-live-satellite | `*/5 * * * *` | Three GOES products |
 | weather-live-forecast | `0,30 * * * *` | NWS point forecast |
@@ -99,3 +109,16 @@ child processes also scope `CLOUDSDK_BILLING_QUOTA_PROJECT` to that project
 without changing the user's persistent quota-project setting. Genuine HTTP
 429 enablement failures receive bounded backoff and a fresh enabled-service
 check before each retry. Read or permission failures stop before any build.
+
+## Update an already running site for retry behavior
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Barometer32/weather-lab/metar-cloud-history-20261019/update-j-weather-metar-retries.sh -o /tmp/j-weather-metar-retries.sh
+bash /tmp/j-weather-metar-retries.sh
+```
+
+This smaller update saves the running service/job settings, builds a versioned
+image, changes only the two app images and METAR schedule, and requests an
+immediate collection. It does not enable APIs, recreate cloud resources, or
+repeat the full twelve-hour and imagery backfill. Scheduler submission alone
+does not prove that NOAA reports are available; check actual timestamps.

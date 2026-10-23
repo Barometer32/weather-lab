@@ -42,6 +42,15 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
  assert.doesNotMatch(get('metar-cloud-status').textContent,/hidden for spacing|MADIS|Hennepin/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);
+ // Automatic following must not switch to a blank new hour or stop following
+ // when the newest available frame is temporarily one position behind.
+ const complete=data;
+ data={...complete,history:complete.history.map((h,i)=>({...h,stations:i===11?[]:h.stations}))};
+ get('refresh-metar-clouds').events.click();await flush();
+ assert.equal(get('metar-cloud-timeline').value,'10');
+ assert.ok(shown.length>0);assert.match(get('metar-cloud-status').textContent,/Waiting for.*showing the latest available hour/);
+ data=complete;get('refresh-metar-clouds').events.click();await flush();
+ assert.equal(get('metar-cloud-timeline').value,'11','advances automatically when the pending hour arrives');
  assert.ok(timers.some(t=>t.delay===30000),'saved data is checked at :00:30');
  assert.equal(get('metar-cloud-rows').children.length,0,'station list remains lazy');
  get('metar-station-list').open=true;get('metar-station-list').events.toggle();

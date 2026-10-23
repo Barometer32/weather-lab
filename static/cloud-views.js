@@ -4,7 +4,7 @@ window.WeatherCloudViews = (() => {
   const el = id => document.getElementById(id);
   const time = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   const covers = {CLR:"Clear below sensor limit",SKC:"Sky clear",FEW:"Few clouds",SCT:"Scattered clouds",BKN:"Broken clouds",OVC:"Overcast",VV:"Obscured sky",NSC:"No significant cloud",NCD:"No cloud detected",CAVOK:"CAVOK cloud criteria"};
-  let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
+  let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0, followLatest = true;
   const timeline=()=>cloudData.history;
   const layers=station=>station.cloudLayers||station.layers||[];
   const model=window.WeatherStationModel;
@@ -47,6 +47,10 @@ window.WeatherCloudViews = (() => {
     if(!cloudData)return;
     initMetars();markers.clearLayers();
     const hours=timeline();
+    if(followLatest){
+      const available=hours.findLastIndex(hour=>hour.stations.length>0);
+      metarIndex=available>=0?available:hours.length-1;
+    }
     metarIndex=Math.max(0,Math.min(metarIndex,hours.length-1));
     // Every airport stays at its own coordinates in every hourly frame.
     const selected=hours[metarIndex],stations=selected.stations;
@@ -77,7 +81,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)} · ${model.cloudText(station)}`));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · collected at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection with two-minute retries${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {
@@ -91,7 +95,6 @@ window.WeatherCloudViews = (() => {
     try {
       const data=await read("/api/station-plots");
       const selected=cloudData?.history[metarIndex]?.hour;
-      const followLatest=!cloudData||metarIndex===timeline().length-1;
       cloudData=data;
       if(data.serverTime)window.WeatherSun?.sync(data.serverTime);
       const restored=!followLatest&&selected?data.history.findIndex(h=>h.hour===selected):-1;
@@ -130,7 +133,7 @@ window.WeatherCloudViews = (() => {
   el("metar-cloud-search").addEventListener("input",renderMetars);
   el("metar-station-list").addEventListener("toggle",()=>{if(el("metar-station-list").open)renderMetars();});
   el("metar-cloud-reset").addEventListener("click",resetMetarView);
-  el("metar-cloud-timeline").addEventListener("input",event=>{metarIndex=Number(event.target.value);renderMetars();});
+  el("metar-cloud-timeline").addEventListener("input",event=>{metarIndex=Number(event.target.value);followLatest=metarIndex===timeline().length-1;renderMetars();});
   window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(metarMap){metarMap.invalidateSize({pan:false});renderMetars();}}});
   scheduleMetars();
   return {select};

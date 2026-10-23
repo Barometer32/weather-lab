@@ -83,7 +83,7 @@ weather_schedule() {
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
-weather_schedule metar-clouds '0 * * * *' metar-clouds 300 0
+weather_schedule metar-clouds '*/2 * * * *' metar-clouds 300 0
 
 
 if [[ "${WEATHER_DEFER_WEB:-false}" != true ]]; then
