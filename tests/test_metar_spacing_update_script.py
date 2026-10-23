@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 PROJECT='j-weather-261020012817'
 
 
-def run_update(tmp_path, **options):
+def run_update(tmp_path, script='update-j-weather-metar-spacing.sh', **options):
     binpath=tmp_path/'bin';binpath.mkdir();home=tmp_path/'home';home.mkdir()
     stub='''#!/usr/bin/env python3
 import json,os,pathlib,sys
@@ -29,7 +29,7 @@ elif a[:2]==['builds','submit'] and os.environ.get('RETRY_BUILD_FAIL'):sys.exit(
         p=binpath/name;p.write_text(stub);p.chmod(0o755)
     log=tmp_path/'calls'
     env={**os.environ,'PATH':str(binpath)+os.pathsep+os.environ['PATH'],'HOME':str(home),'RETRY_LOG':str(log),'RETRY_ROOT':str(ROOT),**{'RETRY_'+k.upper():str(v) for k,v in options.items()}}
-    result=subprocess.run(['bash',str(ROOT/'update-j-weather-metar-spacing.sh')],env=env,capture_output=True,text=True)
+    result=subprocess.run(['bash',str(ROOT/script)],env=env,capture_output=True,text=True)
     return result,[json.loads(line) for line in log.read_text().splitlines()]
 
 
@@ -59,3 +59,11 @@ def test_rerun_reuses_versioned_image(tmp_path):
     result,calls=run_update(tmp_path,reuse=1)
     assert result.returncode==0,result.stderr
     assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
+
+
+def test_clouds_tab_update_changes_only_the_web_image(tmp_path):
+    result,calls=run_update(tmp_path,script='update-j-weather-clouds-tab.sh')
+    assert result.returncode==0,result.stderr
+    assert [c[4] for c in calls if c[:4]==['gcloud','run','services','update']]==['weather-lab']
+    assert not any('weather-collector' in c or c[:2]==['gcloud','scheduler'] or c[:3]==['gcloud','services','enable'] for c in calls)
+    assert 'separate Clouds tab with 12-hour history' in result.stdout

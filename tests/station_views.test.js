@@ -26,12 +26,11 @@ vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
-const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/text>/)?.[1];
 (async()=>{
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
  assert.equal(fullscreenConfig.surfaceId,'metar-surface');assert.equal(fullscreenConfig.buttonId,'metar-fullscreen');
  assert.equal(get('metar-cloud-timeline').max,'11');assert.equal(get('metar-cloud-timeline').value,'11');
- assert.equal(number('KAAA'),'27');assert.equal(number('KFCM'),'03');
+ assert.ok(shown.every(s=>!s.icon.html.includes('plot-ceiling')&&!s.icon.html.includes('plot-sky')),'cloud data has its own tab');
  assert.ok(find('KCLR'),'clear airports still have full temperature/wind plots');
  assert.ok(find('KUNK'),'missing clouds do not remove an otherwise available station');
  assert.ok(find('KCFE'),'formerly excluded airports remain eligible');
@@ -55,9 +54,9 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assertSpacing();zoomed=false;mapEvents.moveend();
  for(const id of ['METRO','KOUT'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
- assert.match(find('KAAA').icon.html,/class="plot-ceiling" x="55" y="16">27/);
- assert.match(find('KAAA').icon.html,/class="plot-speed" x="55" y="37">12/);
+ assert.match(find('KAAA').icon.html,/class="plot-speed" x="36" y="28.5" text-anchor="middle">12/);
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
+ assert.doesNotMatch(find('KAAA').title,/cloud|BKN|OVC|ft/i);
  assert.match(get('metar-cloud-status').textContent,/5 nearby plots hidden for spacing; zoom in/);
  assert.doesNotMatch(get('metar-cloud-status').textContent,/MADIS|Hennepin/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.25);assert.equal(mapOptions.zoomDelta,.25);assert.equal(mapOptions.wheelPxPerZoomLevel,90);

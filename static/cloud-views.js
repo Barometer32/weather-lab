@@ -3,26 +3,20 @@
 window.WeatherCloudViews = (() => {
   const el = id => document.getElementById(id);
   const time = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  const covers = {CLR:"Clear below sensor limit",SKC:"Sky clear",FEW:"Few clouds",SCT:"Scattered clouds",BKN:"Broken clouds",OVC:"Overcast",VV:"Obscured sky",NSC:"No significant cloud",NCD:"No cloud detected",CAVOK:"CAVOK cloud criteria"};
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0, followLatest = true;
   const timeline=()=>cloudData.history;
-  const layers=station=>station.cloudLayers||station.layers||[];
   const model=window.WeatherStationModel;
   const rounded=value=>value==null?"—":String(Math.round(value));
   const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
   function windText(wind) {
     const speed=windMph(wind);
     if(speed==null)return "—";
-    if(speed<.5)return "Calm";
+    if(speed<.5)return "0 mph";
     const direction=wind.direction==null?(wind.variable?"VRB":"?"):["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8];
     return `${direction} ${rounded(speed)} mph`;
   }
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
-  function heights(layer) {
-    const base=layer.baseFtAGL;
-    return `${covers[layer.cover]||layer.cover} · ${base==null?"height unknown":`${base.toLocaleString()} ft ${layer.cover==="VV"?"vertical visibility":"AGL"}`}`;
-  }
   function initMetars() {
     if(metarMap)return;
     metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.25,zoomDelta:.25,wheelPxPerZoomLevel:90});
@@ -36,7 +30,7 @@ window.WeatherCloudViews = (() => {
   }
   function plotStations(stations) {
     // Reserve each model's largest footprint over the loop, so changing
-    // digits/cloud heights never changes neighboring station visibility.
+    // digits never change neighboring station visibility.
     const sites=new Map(),gap=2;
     for(const hour of timeline())for(const station of hour.stations){
       const footprint=model.footprint(station),old=sites.get(station.station);
@@ -83,18 +77,15 @@ window.WeatherCloudViews = (() => {
       popup.append(node("p",`${station.network||"Airport METAR"} · ${station.source||"NOAA Aviation Weather Center"}`));
       popup.append(node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       popup.append(node("p",`Temperature ${rounded(station.tempF)}°F · Dewpoint ${rounded(station.dewpointF)}°F`));
-      popup.append(node("p",`Wind from ${windText(station.wind)}`),node("p",model.cloudText(station)));
-      for(const cloud of layers(station))popup.append(node("p",heights(cloud)));
-
-      if(station.rawOb)popup.append(node("p",station.rawOb));
-      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)} · ${model.cloudText(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      popup.append(node("p",`Wind ${windText(station.wind)}`));
+      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
     // The searchable list includes every eligible report in the regional frame.
     if(el("metar-station-list").open)for(const station of stations){
       if(query&&!`${station.station} ${station.name||""} ${station.network||""}`.toUpperCase().includes(query))continue;
       const row=node("tr"),cell=node("td"),button=node("button",station.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([station.lat,station.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
-      row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)} · ${model.cloudText(station)}`));
+      row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)}`));
       el("metar-cloud-rows").append(row);
     }
     el("metar-cloud-status").textContent=`${drawn.length} airport plots in view${inView>drawn.length?` · ${inView-drawn.length} nearby plots hidden for spacing; zoom in`:""} · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection with two-minute retries${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;

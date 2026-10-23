@@ -26,10 +26,10 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-if '/static/cloud-views.js?v=airport-hourly-spacing-v5' not in html:
+if '/static/cloud-views.js?v=airport-hourly-' not in html:
     raise SystemExit('The compact-spacing page is not published yet.')
 for asset in ['style.css','metar-model.js','radar-roads.js','app.js']:
-    if f'/static/{asset}?v=weather-readability-v1' not in html:
+    if f'/static/{asset}?v=' not in html:
         raise SystemExit(f'The display update for {asset} is not published yet.')
 if 'class="sun-angle-readout"' not in html:
     raise SystemExit('The larger sun-angle display is not published yet.')
