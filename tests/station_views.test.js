@@ -60,7 +60,7 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
  assert.match(get('metar-cloud-status').textContent,/5 nearby plots hidden for spacing; zoom in/);
  assert.doesNotMatch(get('metar-cloud-status').textContent,/MADIS|Hennepin/);
- assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.075);assert.equal(mapOptions.zoomDelta,.075);assert.equal(mapOptions.wheelPxPerZoomLevel,270);
+ assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.25);assert.equal(mapOptions.zoomDelta,.25);assert.equal(mapOptions.wheelPxPerZoomLevel,90);
  // Automatic following must not switch to a blank new hour or stop following
  // when the newest available frame is temporarily one position behind.
  const complete=data;
