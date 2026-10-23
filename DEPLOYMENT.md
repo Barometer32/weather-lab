@@ -56,14 +56,14 @@ complete summary and its observation timestamp remain displayed.
 Temperature, dewpoint and wind speed use equal station weighting for the fields
 supplied. Wind direction uses a speed-weighted circular mean. The summary time
 is the arithmetic mean of actual participating report timestamps. Display uses
-whole Fahrenheit degrees, whole mph and eight compass directions, such as
+tenths of a Fahrenheit degree, whole mph and eight compass directions, such as
 `SW 5`, without a unit suffix. Sun elevation retains the existing independent
 Hopkins calculation. There is no Current history slider.
 
 Prepared state is stored at `live/current.json`, version
 `madis-hopkins-ten-mile-v1`. The public `/api/observations` and initial HTML only
 read prepared state; page views never download national MADIS files. The browser
-reads prepared Current data every 30 seconds while visible.
+reads prepared Current data every two minutes while visible.
 
 ## Background updates and checks
 

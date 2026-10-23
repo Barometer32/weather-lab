@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"});
 const fullTime=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit",timeZoneName:"short"});
 let data=null,busy=false,initialized=false,readError=null;
-const temperature=v=>Number.isFinite(v)?`${Math.round(v)}°F`:"—";
+const temperature=v=>Number.isFinite(v)?`${(Math.round(v*10)/10).toFixed(1)}°F`:"—";
 function windText(wind){
  if(!Number.isFinite(wind?.speedMph))return "—";
  if(wind.speedMph<.5)return "Calm";
@@ -30,7 +30,7 @@ function render(){
    const stamp=s.observedAt?time.format(new Date(s.observedAt)):"—";
    row.title=[s.station,s.source,s.name].filter(Boolean).join(" · ");
    const label=s.included?(data.held?"Latest group; average held":(s.includedFields||[]).join(", ")):s.status||"Not included";
-   for(const value of [s.displayName||s.name||"Local station",s.network||"MADIS",Number.isFinite(s.distanceMiles)?s.distanceMiles.toFixed(1):"—",stamp,Number.isFinite(s.tempF)?Math.round(s.tempF)+"°":"—",Number.isFinite(s.dewpointF)?Math.round(s.dewpointF)+"°":"—",windText(s.wind),label]){
+   for(const value of [s.displayName||s.name||"Local station",s.network||"MADIS",Number.isFinite(s.distanceMiles)?s.distanceMiles.toFixed(1):"—",stamp,temperature(s.tempF).replace("°F","°"),temperature(s.dewpointF).replace("°F","°"),windText(s.wind),label]){
      const td=document.createElement("td");td.textContent=value;row.append(td);
    }
    body.append(row);
@@ -58,7 +58,7 @@ function select(id){
  }else load();
 }
 $("refresh-observations").addEventListener("click",load);
-setInterval(()=>{if(!document.hidden&&!$("current").hidden)load();},30000);
+setInterval(()=>{if(!document.hidden&&!$("current").hidden)load();},120000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("current").hidden)load();});
 return {select};
 })();

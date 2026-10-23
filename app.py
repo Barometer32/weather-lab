@@ -392,7 +392,7 @@ def observation_time(stamp, full=False):
 
 
 def observation_temperature(value):
-    return f"{math.floor(value+.5)}°F" if value is not None else "—"
+    return f"{math.floor(value*10+.5)/10:.1f}°F" if value is not None else "—"
 
 
 def observation_wind(wind):
