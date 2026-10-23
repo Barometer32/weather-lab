@@ -25,7 +25,7 @@ window.WeatherCloudViews = (() => {
   }
   function initMetars() {
     if(metarMap)return;
-    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1});
+    metarMap=L.map("metar-cloud-map",{minZoom:5,maxZoom:13,zoomSnap:.05,zoomDelta:.05,wheelPxPerZoomLevel:480});
     resetMetarView();
     for(const [kind,opacity] of [["uscounties",.2],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(metarMap);
     markers=L.layerGroup().addTo(metarMap);
@@ -35,13 +35,29 @@ window.WeatherCloudViews = (() => {
     metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.5);
   }
   function plotStations(stations) {
-    // Plot every eligible airport in view. No blacklist or collision thinning.
-    const size=metarMap.getSize();
-    const drawn=stations.filter(station=>{
-      const p=metarMap.latLngToContainerPoint([station.lat,station.lon]);
-      return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
-    });
-    return {drawn,inView:drawn.length};
+    // Reserve each model's largest footprint over the loop, so changing
+    // digits/cloud heights never changes neighboring station visibility.
+    const sites=new Map(),gap=2;
+    for(const hour of timeline())for(const station of hour.stations){
+      const footprint=model.footprint(station),old=sites.get(station.station);
+      sites.set(station.station,{station,footprint:old?{
+        left:Math.min(old.footprint.left,footprint.left),right:Math.max(old.footprint.right,footprint.right),
+        top:Math.min(old.footprint.top,footprint.top),bottom:Math.max(old.footprint.bottom,footprint.bottom)
+      }:footprint});
+    }
+    const preferred=["KFCM","KMIC","KMSP","KSTP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN"];
+    const priority=station=>{const rank=preferred.indexOf(station.station);return rank<0?preferred.length:rank;};
+    const candidates=[...sites.values()].sort((a,b)=>priority(a.station)-priority(b.station)||a.station.station.localeCompare(b.station.station));
+    const size=metarMap.getSize(),boxes=[],accepted=new Set();
+    const point=station=>metarMap.latLngToContainerPoint([station.lat,station.lon]);
+    const inView=station=>{const p=point(station);return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;};
+    for(const {station,footprint:f} of candidates){
+      if(!inView(station))continue;
+      const p=point(station),box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
+      if(boxes.some(b=>box.left<b.right+gap&&box.right>b.left-gap&&box.top<b.bottom+gap&&box.bottom>b.top-gap))continue;
+      boxes.push(box);accepted.add(station.station);
+    }
+    return {drawn:stations.filter(station=>accepted.has(station.station)),inView:stations.filter(inView).length};
   }
   function renderMetars() {
     if(!cloudData)return;
@@ -81,7 +97,7 @@ window.WeatherCloudViews = (() => {
       row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${station.network||"Airport METAR"} · ${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)} · ${model.cloudText(station)}`));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection with two-minute retries${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} airport plots in view${inView>drawn.length?` · ${inView-drawn.length} nearby plots hidden for spacing; zoom in`:""} · ${stations.length} airport METARs in this hour · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · routine reports :45–:59 · :00 collection with two-minute retries${!hours.at(-1).stations.length?` · Waiting for ${time.format(new Date(hours.at(-1).hour))} reports${stations.length?"; showing the latest available hour":""}`:""}${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {

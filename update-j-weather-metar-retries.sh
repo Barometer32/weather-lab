@@ -37,7 +37,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-if '/static/cloud-views.js?v=airport-hourly-retries-v2' not in html:
+if '/static/cloud-views.js?v=airport-hourly-' not in html or 'two-minute retries' not in html:
     raise SystemExit('The retry-aware page is not published yet.')
 print('Verified retry-aware METAR page.')
 PY
