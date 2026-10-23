@@ -1,5 +1,5 @@
 "use strict";
-// Individual routine METAR ceilings, with no full station models or thinning.
+// Original compact hourly airport station models; all source reads stay in the collector.
 window.WeatherCloudViews = (() => {
   const el = id => document.getElementById(id);
   const time = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
@@ -7,12 +7,17 @@ window.WeatherCloudViews = (() => {
   let metarMap, markers, cloudData, metarBusy = false, metarIndex = 0;
   const timeline=()=>cloudData.history;
   const layers=station=>station.cloudLayers||station.layers||[];
-  function ceilingLayer(station) {
-    const ceilings=layers(station).filter(layer=>["BKN","OVC"].includes(layer.cover));
-    // An unknown base could be the lowest layer; do not label a higher one
-    // as the lowest ceiling. VV is not a broken/overcast cloud-base report.
-    if(ceilings.some(layer=>!Number.isFinite(layer.baseFtAGL)||layer.baseFtAGL<0))return null;
-    return ceilings.sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0]||null;
+  const model=window.WeatherStationModel;
+  const preferred=["KFCM","KMIC","KMSP","KSTP","KMKT","KRWF","KSTC","KAXN","KDLH","KRST","KBRD","KFAR","KABR","KFSD","KDSM","KLSE","KEAU","KMCW","KMSN"];
+  const excluded=new Set(["KCFE","KFCE","KSGS","KDEH"]);
+  const rounded=value=>value==null?"—":String(Math.round(value));
+  const windMph=wind=>wind?.speedMph??(wind?.speedKnots==null?null:wind.speedKnots*1.150779);
+  function windText(wind) {
+    const speed=windMph(wind);
+    if(speed==null)return "—";
+    if(speed<.5)return "Calm";
+    const direction=wind.direction==null?(wind.variable?"VRB":"?"):["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8];
+    return `${direction} ${rounded(speed)} mph`;
   }
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
@@ -31,9 +36,30 @@ window.WeatherCloudViews = (() => {
   function resetMetarView() {
     metarMap?.setView([44.925,-93.35],metarMap.getSize().x<600?9:8.5);
   }
-  function inView(station) {
-    const p=metarMap.latLngToContainerPoint([station.lat,station.lon]),size=metarMap.getSize();
-    return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
+  function plotStations(stations) {
+    // Reserve a station's largest footprint across the loop. Changes in wind
+    // or digit count must not make neighboring plots blink on and off.
+    const sites=new Map();
+    for(const hour of timeline())for(const station of hour.stations){
+      if(excluded.has(station.station))continue;
+      const footprint=model.footprint(station),old=sites.get(station.station);
+      sites.set(station.station,{station,footprint:old?{
+        left:Math.min(old.footprint.left,footprint.left),right:Math.max(old.footprint.right,footprint.right),
+        top:Math.min(old.footprint.top,footprint.top),bottom:Math.max(old.footprint.bottom,footprint.bottom)
+      }:footprint});
+    }
+    const priority=id=>{const rank=preferred.indexOf(id);return rank<0?preferred.length:rank;};
+    const candidates=[...sites.values()].sort((a,b)=>priority(a.station.station)-priority(b.station.station)||a.station.station.localeCompare(b.station.station));
+    const size=metarMap.getSize(),boxes=[],accepted=new Set();
+    const inView=station=>{const p=metarMap.latLngToContainerPoint([station.lat,station.lon]);return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;};
+    for(const {station,footprint:f} of candidates){
+      if(!inView(station))continue;
+      const p=metarMap.latLngToContainerPoint([station.lat,station.lon]);
+      const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
+      if(boxes.some(b=>box.left<b.right&&box.right>b.left&&box.top<b.bottom&&box.bottom>b.top))continue;
+      boxes.push(box);accepted.add(station.station);
+    }
+    return {drawn:stations.filter(station=>accepted.has(station.station)),inView:stations.filter(inView).length};
   }
   function renderMetars() {
     if(!cloudData)return;
@@ -42,36 +68,33 @@ window.WeatherCloudViews = (() => {
     metarIndex=Math.max(0,Math.min(metarIndex,hours.length-1));
     // Use actual airport rows, including KFCM/KMIC/KMSP separately. The
     // synthetic metro average is reserved for the independent Current tab.
-    const selected=hours[metarIndex],stations=selected.stations;
-    const ceilings=stations.filter(ceilingLayer),drawn=ceilings.filter(inView);
+    const selected=hours[metarIndex],stations=selected.stations.filter(station=>!excluded.has(station.station));
+    const {drawn,inView}=plotStations(stations);
     const slider=el("metar-cloud-timeline");
     slider.max=String(hours.length-1);slider.value=String(metarIndex);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*metarIndex/(hours.length-1):0}%`);
     el("metar-cloud-time").textContent=`${time.format(new Date(selected.hour))} · hourly ${metarIndex+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-cloud-time").textContent);
     const query=el("metar-cloud-search").value.trim().toUpperCase();el("metar-cloud-rows").replaceChildren();
-    // Every qualifying airport in view gets a height number; there is no collision
-    // suppression, station priority list, or limit on marker count.
     for(const station of drawn) {
-      const layer=ceilingLayer(station),number=String(Math.round(layer.baseFtAGL/100));
-      const icon=L.divIcon({className:"cloud-station",html:`<span class="cloud-ceiling-number">${number}</span>`,iconSize:[32,24],iconAnchor:[16,12]});
+      const icon=L.divIcon({className:"weather-station",html:model.stationModel(station),iconSize:model.iconSize,iconAnchor:model.iconAnchor});
       const popup=node("div",null,"cloud-popup");popup.append(node("strong",station.station));
       popup.append(node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
-      popup.append(node("p",`Lowest broken/overcast base: ${layer.baseFtAGL.toLocaleString()} ft AGL`));
+      popup.append(node("p",`Temperature ${rounded(station.tempF)}°F · Dewpoint ${rounded(station.dewpointF)}°F`));
+      popup.append(node("p",`Wind from ${windText(station.wind)}`),node("p",model.cloudText(station)));
       for(const cloud of layers(station))popup.append(node("p",heights(cloud)));
-      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${heights(layer)}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      if(station.rawOb)popup.append(node("p",station.rawOb));
+      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)} · ${model.cloudText(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
-    // Keep every reporting site searchable, including sites with nothing
-    // drawn. Exact cloud heights remain in the table; no temperature/wind plots.
+    // Every eligible report stays searchable, including collision-hidden sites.
     if(el("metar-station-list").open)for(const station of stations){
       if(query&&!station.station.includes(query))continue;
       const row=node("tr"),cell=node("td"),button=node("button",station.station,"station-link");
       button.addEventListener("click",()=>{metarMap.setView([station.lat,station.lon],10);el("metar-cloud-map").scrollIntoView({behavior:"smooth",block:"center"});});cell.append(button);
-      const layer=ceilingLayer(station);
-      row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",layer?heights(layer):"No known broken/overcast base · not plotted"));
+      row.append(cell,node("td",station.time?time.format(new Date(station.time)):"Unavailable"),node("td",`${rounded(station.tempF)} / ${rounded(station.dewpointF)} °F · ${windText(station.wind)} · ${model.cloudText(station)}`));
       el("metar-cloud-rows").append(row);
     }
-    el("metar-cloud-status").textContent=`${drawn.length} ceiling heights visible · ${ceilings.length} known broken/overcast ceilings · ${stations.length} airport reports · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · :45–:59 METARs · updates at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
+    el("metar-cloud-status").textContent=`${drawn.length} station plots visible${inView>drawn.length?` · ${inView-drawn.length} hidden for spacing (zoom in)`:""} · ${stations.length} airport reports · ${hours.filter(hour=>hour.stations.length).length}/12 hours with reports · :45–:59 METARs · updates at :00${cloudData.stale?" · Background updates delayed":""}${cloudData.historyPending?" · Hourly history is being prepared":""}`;
   }
   let metarRetry, scheduledWaitUntil=0;
   function retryPreparedMetars() {
@@ -122,7 +145,7 @@ window.WeatherCloudViews = (() => {
   el("metar-station-list").addEventListener("toggle",()=>{if(el("metar-station-list").open)renderMetars();});
   el("metar-cloud-reset").addEventListener("click",resetMetarView);
   el("metar-cloud-timeline").addEventListener("input",event=>{metarIndex=Number(event.target.value);renderMetars();});
-  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"cloud map",onResize:()=>{if(metarMap){metarMap.invalidateSize({pan:false});renderMetars();}}});
+  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(metarMap){metarMap.invalidateSize({pan:false});renderMetars();}}});
   scheduleMetars();
   return {select};
 })();

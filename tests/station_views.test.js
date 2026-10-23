@@ -1,20 +1,16 @@
 'use strict';
-// Exercise the actual cloud-only viewer with DOM and Leaflet adapters.
+// Exercise full station plots, including frame-stable spacing and saved-data reads.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function element(){return {value:'',children:[],events:{},hidden:false,disabled:false,textContent:'',style:{setProperty(){}},setAttribute(k,v){this[k]=v;},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;},scrollIntoView(){}};}
-const elements=new Map(),get=id=>{assert.notEqual(id,'metar-view','Retired plot selector must not be accessed');if(!elements.has(id))elements.set(id,element());return elements.get(id);};
+const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
 let clock=Date.UTC(2026,9,20,12,0,0),shown=[],timers=[],lastView,mapOptions,fail=false,reads=0;
 class ClockDate extends Date{constructor(...a){super(...(a.length?a:[clock]));}static now(){return clock;}}
-const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z',layers});
+const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z',layers,tempF:65,dewpointF:45,wind:{speedMph:12,direction:180},skyCover:{code:layers[0]?.cover||null,displayFraction:layers[0]?.cover==='CLR'?0:.75},ceiling:layers.filter(l=>['BKN','OVC'].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0]});
 const cloud=(cover,baseFtAGL)=>({cover,baseFtAGL});
 const stations=[
- row('KAAA',[cloud('SCT',1000),cloud('OVC',25000),cloud('BKN',2700)]),
- row('KLAY',[cloud('SCT',2000),cloud('BKN',5000),cloud('OVC',10000)],3),
- row('KCLR',[cloud('CLR',null)]),row('KSCT',[cloud('SCT',2500)]),row('KFEW',[cloud('FEW',500)]),
- row('KUNK',[cloud('BKN',null)]),row('KMIX',[cloud('BKN',null),cloud('OVC',9000)]),
- row('KVIS',[cloud('VV',300)]),row('KNIL',[]),
- row('KFCM',[cloud('BKN',300)],2),row('KMIC',[cloud('BKN',25000)],2.01),row('KMSP',[cloud('OVC',2700)],2.02),
- row('KOUT',[cloud('OVC',5000)],10000)
+ row('KAAA',[cloud('BKN',2700)],1),row('KCLR',[cloud('CLR',null)],4),
+ row('KFCM',[cloud('BKN',300)],7),row('KMIC',[cloud('BKN',25000)],7.01),row('KMSP',[cloud('OVC',2700)],7.02),
+ row('KUNK',[],10),row('KDEH',[cloud('OVC',300)],13),row('KOUT',[cloud('OVC',5000)],10000)
 ];
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,20,1+i)).toISOString(),stations,metro:row('METRO',[cloud('OVC',4000)])})),checkedAt:'2026-10-20T11:00:00Z'};
 const map={setView(center,zoom){lastView={center,zoom};return this;},on(){return this;},getSize(){return {x:1000,y:700};},latLngToContainerPoint([lat]){return{x:lat*40,y:200};},invalidateSize(){}};
@@ -24,32 +20,42 @@ const context={window:{WeatherFullscreen:{attach(config){fullscreenConfig=config
  fetch:async url=>{reads++;assert.equal(url,'/api/metar-clouds');if(fail)throw Error('Data unavailable');return{ok:true,json:async()=>data};},clearTimeout(t){if(t)t.cancelled=true;},setTimeout(callback,delay){const t={callback,delay};timers.push(t);return t;},
  L:{map:(_id,options)=>{mapOptions=options;return map;},tileLayer:()=>({addTo(){}}),layerGroup:()=>group,divIcon:x=>x,
  marker:(position,options)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...options,popup:this.popup});return this;}})}};
+vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);
 vm.runInNewContext(fs.readFileSync('static/cloud-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
-const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
+const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/text>/)?.[1];
 (async()=>{
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
  assert.equal(fullscreenConfig.surfaceId,'metar-surface');assert.equal(fullscreenConfig.buttonId,'metar-fullscreen');
  assert.equal(get('metar-cloud-timeline').max,'11');assert.equal(get('metar-cloud-timeline').value,'11');
- assert.equal(number('KAAA'),'27');assert.equal(number('KMIC'),'250');assert.equal(number('KFCM'),'3');assert.equal(number('KMSP'),'27');
- assert.equal(number('KLAY'),'50','lowest BKN at 5000 beats OVC at 10000 and ignores SCT');
- assert.ok(find('KLAY').popup.children.some(n=>n.textContent.includes('5,000 ft AGL')),'popup retains exact height');
- assert.equal(shown.length,5,'all close qualifying airports are drawn, no thinning');
- for(const id of ['KCLR','KSCT','KFEW','KUNK','KMIX','KVIS','KNIL','METRO','KOUT'])assert.equal(find(id),undefined,id+' has no number in view');
- assert.ok(shown.every(s=>s.icon.html.startsWith('<span')&&!/<svg|circle|wind/.test(s.icon.html)));
- assert.ok(shown.every(s=>s.icon.iconAnchor[0]===16));
- assert.equal(find('KAAA').position[0],1,'labels stay centered on actual airports');
+ assert.equal(number('KAAA'),'27');assert.equal(number('KFCM'),'03');
+ assert.ok(find('KCLR'),'clear airports still have full temperature/wind plots');
+ assert.ok(find('KUNK'),'missing clouds do not remove an otherwise available station');
+ assert.equal(shown.length,4,'nearby plots are thinned using the original compact model footprint');
+ for(const id of ['KMIC','KMSP','KDEH','METRO','KOUT'])assert.equal(find(id),undefined);
+ assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
+ assert.match(find('KAAA').icon.html,/class="plot-ceiling" x="55" y="16">27/);
+ assert.match(find('KAAA').icon.html,/class="plot-speed" x="55" y="37">12/);
+ assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
+ assert.match(get('metar-cloud-status').textContent,/hidden for spacing/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.1);assert.equal(mapOptions.zoomDelta,.1);
  assert.ok(timers.some(t=>t.delay===30000),'saved data is checked at :00:30');
  assert.equal(get('metar-cloud-rows').children.length,0,'station list remains lazy');
  get('metar-station-list').open=true;get('metar-station-list').events.toggle();
- assert.equal(get('metar-cloud-rows').children.length,stations.length,'all reporting sites are searchable even without cloud numbers');
+ assert.equal(get('metar-cloud-rows').children.length,stations.length-1,'all reporting sites are searchable even without cloud numbers');
  get('metar-cloud-search').value='KFCM';get('metar-cloud-search').events.input();assert.equal(get('metar-cloud-rows').children.length,1);
  get('metar-cloud-search').value='';
- const cases=[[0,'0'],[300,'3'],[999,'10'],[2700,'27'],[5000,'50'],[10000,'100'],[15000,'150'],[25000,'250'],[60000,'600']];
- data={...data,history:data.history.map(h=>({...h,stations:cases.map(([height],i)=>row('KB'+i,[cloud('BKN',height)],i+1))}))};
- get('refresh-metar-clouds').events.click();await flush();cases.forEach(([,value],i)=>assert.equal(number('KB'+i),value));
+ // A large neighboring label in an earlier frame reserves the same spacing
+ // on every frame, preventing thinning changes as numbers change.
+ const beforeIds=shown.map(s=>s.title.split(' · ')[0]).sort();
+ data={...data,history:data.history.map((h,i)=>({...h,stations:h.stations.map(s=>({...s,tempF:i===0?-100:s.tempF,wind:{...s.wind,direction:i*30}}))}))};
+ get('refresh-metar-clouds').events.click();await flush();
+ get('metar-cloud-timeline').events.input({target:{value:'0'}});
+ const firstIds=shown.map(s=>s.title.split(' · ')[0]).sort();
+ get('metar-cloud-timeline').events.input({target:{value:'11'}});
+ assert.deepEqual(shown.map(s=>s.title.split(' · ')[0]).sort(),firstIds,'station spacing remains stable across history');
+ assert.ok(firstIds.includes('KFCM'));
  // A missing hour/site never borrows another report or synthetic metro data.
  data={...data,history:data.history.map((h,i)=>({...h,stations:i===0?[]:h.stations}))};
  get('refresh-metar-clouds').events.click();await flush();get('metar-cloud-timeline').events.input({target:{value:'0'}});assert.equal(shown.length,0);
@@ -62,5 +68,5 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  data={...data,checkedAt:'2026-10-20T12:00:00Z'};timers.findLast(t=>t.delay===60000&&!t.cancelled).callback();await flush();
  const before=shown.length;fail=true;get('refresh-metar-clouds').events.click();await flush();assert.equal(shown.length,before);assert.match(get('metar-cloud-status').textContent,/Previous reports retained/);
  get('metar-clouds').hidden=true;const readCount=reads;clock=Date.UTC(2026,9,20,13,0,30);timers.findLast(t=>t.delay>60000&&!t.cancelled).callback();await flush();assert.equal(reads,readCount);
- console.log('Cloud-only viewer checks passed: compact cloud-height numbers in hundreds of feet, all close individual sites, no station-model glyphs, unknown/VV suppression, 12-hour selection, :00:30 checks, and failed refresh.');
+ console.log('Full METAR viewer checks passed: compact original plots, clear/missing cloud stations, collision spacing stable across frames, exclusions, fullscreen, 12-hour selection, hourly checks, and failed refresh.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
