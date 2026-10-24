@@ -51,15 +51,22 @@ window.WeatherStationModel = (() => {
     const right=56.5+textWidth(label,label.length>2);
     return {left:(left-cx-3)*scale,right:(right-cx+3)*scale,top:-18*scale,bottom:19*scale};
   }
+  function cloudPlotLabel(station){
+    const height=cloudHeightText(station);
+    if(height)return height;
+    // Do not imply a known absence of ceiling when cloud data/base is missing.
+    if(!skyCode(station)||["BKN","OVC"].includes(skyCode(station))||cloudLayers(station).some(layer=>["BKN","OVC"].includes(layer.cover)))return "?";
+    return "";
+  }
   function cloudStationModel(station){
-    const label=cloudHeightText(station);
-    return `<svg class="metar-plot cloud-plot" width="${48*scale}" height="${34*scale}" viewBox="0 0 48 34" aria-hidden="true">${skySymbol(station,12,19)}${label?`<text class="plot-ceiling" x="21" y="15" text-anchor="start">${label}</text>`:""}</svg>`;
+    const label=cloudPlotLabel(station);
+    return `<svg class="metar-plot cloud-plot" width="${32*scale}" height="${24*scale}" viewBox="0 0 32 24" aria-hidden="true">${label?`<text class="${label==="?"?"plot-cloud-unknown":"plot-ceiling"}" x="16" y="12" text-anchor="middle" dominant-baseline="central">${label}</text>`:'<circle class="cloud-dot" cx="16" cy="12" r="2.2" fill="#111"/>'}</svg>`;
   }
   function cloudFootprint(station){
-    const label=cloudHeightText(station);
-    return {left:-6.5*scale,right:(label?11+textWidth(label):6.5)*scale,top:(label?-18.5:-6.5)*scale,bottom:6.5*scale};
+    const label=cloudPlotLabel(station),half=label?textWidth(label)/2+2.5:3;
+    return {left:-half*scale,right:half*scale,top:(label?-9:-3)*scale,bottom:(label?9:3)*scale};
   }
-  return {stationModel,cloudStationModel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
-    cloudIconSize:[48*scale,34*scale],cloudIconAnchor:[12*scale,19*scale],
+  return {stationModel,cloudStationModel,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+    cloudIconSize:[32*scale,24*scale],cloudIconAnchor:[16*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

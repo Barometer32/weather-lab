@@ -81,16 +81,13 @@ The METAR map shows only temperature, dewpoint, a compact downwind vector at
 the airport and blue wind speed in mph at lower right. Its frame-stable spacing
 filter avoids overlapping weather plots; zooming reveals nearby airports.
 
-The separate CLOUDS tab includes clear, scattered and unknown cloud reports.
-KFCM, KMIC and KMSP have priority. Other sites fill available space with a
-small gap between complete circle/height plots, with no station-count cap.
-The widest label across twelve hours reserves stable spacing. Zooming in
-reveals nearby airports, including St. Paul sites; none are excluded permanently. Its
-circle represents reported cloud cover, with the lowest known BKN/OVC base
-upper right in thousands of feet (rounded, with 1 for at or below 1,000 feet).
-There is no height for clear, FEW/SCT, VV or an unknown ceiling base. Tap a
-station for its exact base in feet above ground, report time and all layers.
-Both maps use the same twelve hourly frames and matching zoom controls.
+The separate CLOUDS tab draws every available airport at its exact location,
+without thinning. No BKN/OVC layer is a tiny solid dot. A known lowest BKN/OVC
+base replaces the dot with a centered number in thousands of feet (rounded,
+with a minimum of 1); 1,000 feet is 1 and 25,000 feet is 25. Unknown cloud cover
+or an unknown BKN/OVC base is a question mark. Nothing is offset from the actual
+station coordinates. Tap a site for its exact base and report time. Both maps
+share twelve hourly frames and matching zoom controls.
 
 METAR uses the canonical hourly archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
@@ -181,8 +178,8 @@ or creation stop before the build.
 
 Run `update-weather-lab-plots.sh weather-lab-261024-133205` in Cloud Shell.
 The six tabs are METAR, RADAR, CLOUDS, SATELLITE, FORECAST and AIR Q.
-METAR has weather-only plots and CLOUDS has prioritized, spaced cloud circles with
-lowest BKN/OVC heights upper right. Each map has its own twelve-hour slider.
+METAR has weather-only plots and CLOUDS has centered BKN/OVC heights or dots at
+every available airport. Each map has its own twelve-hour slider.
 All eligible airports, including KCFE/KFCE, KSGS and KDEH, remain available.
 
 The helper saves website settings, builds into its current image repository,

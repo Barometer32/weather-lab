@@ -53,10 +53,10 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=cloud-spacing-v1','cloud-views.js?v=split-clouds-v1','cloud-height-views.js?v=cloud-spacing-v1','app.js?v=split-clouds-v1']:
+for asset in ['metar-model.js?v=cloud-dots-v1','cloud-views.js?v=split-clouds-v1','cloud-height-views.js?v=cloud-dots-v1','app.js?v=split-clouds-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 if 'id="tab-clouds"' not in html or 'id="clouds-timeline"' not in html or 'id="metar-cloud-timeline"' not in html:
     raise SystemExit('The separate METAR and Clouds pages are not published yet.')
-print('Verified compact weather-only METARs, prioritized nonoverlapping cloud circles and both 12-hour sliders.')
+print('Verified compact weather-only METARs, all-airport centered cloud heights and dots and both 12-hour sliders.')
 PY
 printf '\nPlot update complete.\nWebsite: https://weather-lab.cloud.run\nProject: %s\nDirect URL: %s\nSaved settings: %s\n' "$WEATHER_PROJECT" "$WEATHER_WEB_URL" "$WEATHER_WORK"

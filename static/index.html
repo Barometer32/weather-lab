@@ -11,9 +11,9 @@
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/metar-model.js?v=cloud-spacing-v1"></script>
+  <script defer src="/static/metar-model.js?v=cloud-dots-v1"></script>
   <script defer src="/static/cloud-views.js?v=split-clouds-v1"></script>
-  <script defer src="/static/cloud-height-views.js?v=cloud-spacing-v1"></script>
+  <script defer src="/static/cloud-height-views.js?v=cloud-dots-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-v3"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/app.js?v=split-clouds-v1"></script>
@@ -75,7 +75,7 @@
 <section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>
   <div class="section-heading"><div><p class="eyebrow">AIRPORT CLOUDS · UPPER MIDWEST</p><h1>Clouds</h1></div><button class="secondary" id="refresh-clouds">Refresh</button></div>
   <div id="clouds-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="cloud-height-map" aria-label="All available airport cloud-cover circles and lowest BKN/OVC heights with state and county boundaries"></div></div>
+    <div class="map-area"><div id="cloud-height-map" aria-label="All available airport cloud heights or dots centered at actual station locations with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="clouds-time" aria-live="polite">Loading hourly cloud reports…</span>
       <div class="timeline-control"><label class="sr-only" for="clouds-timeline">Cloud history: drag to select a time</label><input id="clouds-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Cloud timeline: last 12 routine hourly snapshots" disabled></div>
@@ -84,7 +84,7 @@
   </div>
   <div class="page-notes" hidden>
     <p id="clouds-status" class="small-note" role="status">Loading airport cloud reports…</p>
-    <p class="small-note" data-ceiling-unit="thousands-ft">Every available airport remains eligible at its actual location. KFCM, KMIC and KMSP have priority. A small gap keeps circles and ceiling numbers from overlapping; zooming in reveals more nearby airports. Spacing stays stable across the twelve-hour loop. The circle shows reported cloud cover: hollow for clear, partial fill for FEW/SCT/BKN, filled for OVC, X for obscured sky, and ? for unreported cover. The lowest known BKN/OVC layer is upper right in thousands of feet above airport ground level, rounded to the nearest thousand with a minimum of 1. Clear, FEW, SCT, VV and unknown ceiling bases have no height number. Tap a station for exact feet and all reported layers.</p>
+    <p class="small-note" data-ceiling-unit="thousands-ft">Every available airport is plotted at its exact location. A small dot means no BKN/OVC layer was reported. Otherwise the dot is replaced by the lowest known BKN/OVC height in thousands of feet above ground, rounded to the nearest thousand with a minimum of 1. 1,000 feet or lower → 1; 25,000 feet → 25. A question mark indicates unreported cloud cover or an unknown BKN/OVC base. Tap any site for the actual report and exact height.</p>
     <details id="clouds-station-list" class="method"><summary>All reporting airports</summary><label for="clouds-search">Find an airport</label><input type="search" id="clouds-search" placeholder="KMSP, KFCM, KMIC, KDEH…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Airport</th><th scope="col">Reported</th><th scope="col">Lowest BKN/OVC height</th></tr></thead><tbody id="clouds-rows"></tbody></table></div></details>
   </div>
 </section>
