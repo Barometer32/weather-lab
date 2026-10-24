@@ -2,23 +2,24 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from hashlib import sha256
 import json
 import math
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw
 
 UTC = timezone.utc
-VERSION = 'mn-region-v1'
-# Moorhead/Bemidji/Hibbing south to the Iowa border, including western Wisconsin.
-BOUNDS = [-97.35, 43.15, -91.0, 47.65]
+VERSION = 'mn-region-v2'
+LEGACY_VERSION = 'mn-region-v1'
+# Entire Minnesota, including the Northwest Angle and the Arrowhead.
+BOUNDS = [-97.65, 43.2, -89.1, 49.65]
 CONTOURS = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0'
-MONITORS = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/Air%20Now%20Current%20Monitor%20Data%20Public/FeatureServer/0'
 BASE = 'https://utility.arcgis.com/usrsvcs/servers/6907e02ec8474c6580e269c2b3f68d81/rest/services/base/aqi_base_bg_light/MapServer'
 OVERLAY = 'https://utility.arcgis.com/usrsvcs/servers/b4b392805417402d8d0510c586b89d87/rest/services/base/aqi_basemap/MapServer'
 COLORS = {1:'#00e400', 2:'#ffff00', 3:'#ff7e00', 4:'#ff0000', 5:'#8f3f97', 6:'#7e0023'}
-CITIES = ['Albert Lea','Alexandria','Bemidji','Brainerd','Duluth','Hibbing','Mankato','Marshall','Worthington','Ortonville','Hinckley','Two Harbors','Moorhead','Minneapolis','Rochester']
+CITIES = ['Albert Lea','Alexandria','Bemidji','Brainerd','Duluth','Hibbing','Mankato','Marshall','Worthington','Ortonville','Hinckley','Two Harbors','Moorhead','Minneapolis','Rochester','East Grand Forks','Ely','International Falls','Roseau','Thief River Falls','Grand Marais']
 
 
 def iso(value):
@@ -79,7 +80,7 @@ def overlay_styles():
                     haloColor=[255,255,255,255],haloSize=1.2,font=dict(family='Arial',size=10,weight='bold')))]))
     # First dynamic layer is drawn on top. Keep county/state outlines visible.
     return [cities,polygon(101,1,[180,180,180,255],1.5),polygon(1,1,[255,255,255,240],7),
-            polygon(4,4,[214,214,214,255],.8),dict(id=18,source=dict(type='mapLayer',mapLayerId=18)),
+            polygon(4,4,[214,214,214,255],.8),dict(id=18,source=dict(type='mapLayer',mapLayerId=18),drawingInfo=dict(transparency=0,showLabels=False,renderer=dict(type='simple',symbol=dict(type='esriSFS',style='esriSFSSolid',color=[166,187,194,255],outline=dict(type='esriSLS',style='esriSLSNull'))))),
             polygon(20,20,[160,160,160,255],1)]
 
 
@@ -107,13 +108,7 @@ def xy(point):
     return ((point[0]-XMIN)/(XMAX-XMIN)*WIDTH,(YMAX-point[1])/(YMAX-YMIN)*HEIGHT)
 
 
-def category(value):
-    for maximum,code in [(50,1),(100,2),(150,3),(200,4),(300,5),(5000,6)]:
-        if value<=maximum:return code
-    return 6
-
-
-def render(contours,monitors,base,overlay):
+def render(contours,base,overlay):
     image=base.copy()
     for feature in contours:
         color=COLORS.get(feature.get('attributes',{}).get('gridcode'))
@@ -127,66 +122,74 @@ def render(contours,monitors,base,overlay):
             mask=ImageChops.logical_xor(mask,part)
         image.paste(color,(0,0,WIDTH,HEIGHT),mask.convert('L'))
     image=Image.alpha_composite(image,overlay)
-    draw=ImageDraw.Draw(image);font=ImageFont.load_default(size=18)
-    count=0;times=[]
-    for feature in monitors:
-        attrs=feature.get('attributes',{});value=attrs.get('OZONEPM_AQI_SORT');point=feature.get('geometry',{})
-        if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<0 or value>5000:continue
-        if not all(isinstance(point.get(k),(int,float)) and math.isfinite(point[k]) for k in ['x','y']):continue
-        x,y=xy([point['x'],point['y']])
-        if not 0<=x<=WIDTH or not 0<=y<=HEIGHT:continue
-        fill=COLORS[category(value)];draw.ellipse((x-14,y-14,x+14,y+14),fill=fill,outline='#111',width=1)
-        draw.text((x,y),str(round(value)),font=font,fill='white' if value>200 else 'black',anchor='mm')
-        count+=1
-        if isinstance(attrs.get('ValidTime'),(int,float)):times.append(attrs['ValidTime']/1000)
-    if not count:raise ValueError('No usable AirNow monitors in this region')
     output=BytesIO();image.convert('RGB').save(output,format='PNG',optimize=True)
-    return output.getvalue(),count,times
+    return output.getvalue()
 
 
 def recent_frames(data,now):
-    cutoff=now.replace(minute=0,second=0,microsecond=0)-timedelta(hours=11)
+    # Normalize the first archive's capture-time labels without losing its maps.
+    # The twelve-hour window is anchored to the latest *source* hour, so normal
+    # upstream latency does not shorten an otherwise complete twelve-hour loop.
     result={}
-    for frame in (data or {}).get('frames',[]):
+    for original in (data or {}).get('frames',[]):
         try:
-            captured=moment(frame['time']);slot=captured.replace(minute=0,second=0,microsecond=0)
-            if cutoff<=captured<=now and frame.get('version')==VERSION:result[iso(slot)]=frame
+            frame=dict(original)
+            if frame.get('version') not in (LEGACY_VERSION,VERSION):continue
+            source=moment(frame['sourceTime'])
+            captured=moment(frame.get('capturedAt') or frame['time'])
+            if source>now or captured>now or captured<now-timedelta(days=1):continue
+            frame.update(time=iso(source),sourceTime=iso(source),capturedAt=iso(captured))
+            slot=iso(source.replace(minute=0,second=0,microsecond=0))
+            previous=result.get(slot)
+            if previous is None or moment(previous['capturedAt'])<=captured:result[slot]=frame
         except (KeyError,TypeError,ValueError):continue
-    return sorted(result.values(),key=lambda f:f['time'])
+    if not result:return []
+    latest=max(moment(f['time']) for f in result.values()).replace(minute=0,second=0,microsecond=0)
+    cutoff=latest-timedelta(hours=11)
+    return sorted((f for f in result.values() if moment(f['time'])>=cutoff),key=lambda f:f['time'])
 
 
 def collect(store,now,fetch=None):
     now=now.astimezone(UTC);fetch=fetch or download
     previous=store.read_json('live/air-quality.json') or {}
     frames=recent_frames(previous,now)
-    slot=now.replace(minute=0,second=0,microsecond=0)
-    if any(moment(f['time']).replace(minute=0,second=0,microsecond=0)==slot for f in frames):
-        return {'frames':len(frames),'status':'already captured this hour'}
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        jobs=[pool.submit(query,CONTOURS,'gridcode,Unixtime,Timestamp',fetch),
-              pool.submit(query,MONITORS,'AQSID,SiteName,OZONEPM_AQI_SORT,ValidTime',fetch,'OZONEPM_AQI_SORT >= 0'),
-              pool.submit(basemap,store,'base',fetch),pool.submit(basemap,store,'overlay',fetch)]
-        contours,monitors,base,overlay=[job.result() for job in jobs]
+    # Check the feeds even when this clock hour already has an archived map:
+    # AirNow may publish a new source hour between the half-hour checks.
+    contours=query(CONTOURS,'gridcode,Unixtime,Timestamp',fetch)
     stamps=[f.get('attributes',{}).get('Timestamp') for f in contours if f.get('attributes',{}).get('gridcode') in COLORS and f.get('geometry',{}).get('rings')]
     stamps=[v/1000 for v in stamps if isinstance(v,(int,float)) and math.isfinite(v)]
     if not stamps:raise ValueError('AirNow contours are unavailable; previous snapshot retained')
-    png,count,monitor_times=render(contours,monitors,base,overlay)
-    key=f'air-quality/{VERSION}/{now.strftime("%Y%m%d%H%M%S")}.png'
-    frame=dict(version=VERSION,time=iso(now),url='/api/prepared/'+key,
-               sourceTime=iso(datetime.fromtimestamp(max(stamps),UTC)),monitors=count,
-               monitorOldest=iso(datetime.fromtimestamp(min(monitor_times),UTC)) if monitor_times else None,
-               monitorNewest=iso(datetime.fromtimestamp(max(monitor_times),UTC)) if monitor_times else None)
-    store.write(key,png,'image/png')
-    frames.append(frame)
-    store.write_json('live/air-quality.json',dict(version=VERSION,checkedAt=iso(now),bounds=BOUNDS,
-        width=WIDTH,height=HEIGHT,frames=frames[-12:],source='EPA AirNow public feeds used by MPCA',captureMinute=5))
-    return {'frames':len(frames[-12:]),'monitors':count,'sourceTime':frame['sourceTime']}
+    source=datetime.fromtimestamp(max(stamps),UTC)
+    if source>now:raise ValueError('AirNow source time is in the future')
+    slot=source.replace(minute=0,second=0,microsecond=0)
+    contours=[f for f in contours if isinstance(f.get('attributes',{}).get('Timestamp'),(int,float)) and
+              datetime.fromtimestamp(f['attributes']['Timestamp']/1000,UTC).replace(minute=0,second=0,microsecond=0)==slot]
+    canonical=lambda rows:sorted(json.dumps(f,sort_keys=True,separators=(',',':')) for f in rows)
+    digest=sha256(json.dumps(canonical(contours),separators=(',',':')).encode()).hexdigest()
+    existing=next((f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)==slot),None)
+    unchanged=existing and existing.get('version')==VERSION and existing.get('dataHash')==digest
+    if not unchanged:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            b=pool.submit(basemap,store,'base',fetch);o=pool.submit(basemap,store,'overlay',fetch)
+            base,overlay=b.result(),o.result()
+        png=render(contours,base,overlay)
+        # Content-derived keys remain immutable even when a source-hour map is
+        # corrected later; its slider position remains the same source hour.
+        key=f'air-quality/{VERSION}/{source.strftime("%Y%m%d%H%M%S")}-{digest[:16]}.png'
+        frame=dict(version=VERSION,time=iso(source),sourceTime=iso(source),capturedAt=iso(now),
+                   url='/api/prepared/'+key,dataHash=digest,style='contours-only')
+        store.write(key,png,'image/png')
+        frames=[f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)!=slot]+[frame]
+    frames=recent_frames({'frames':frames},now)
+    store.write_json('live/air-quality.json',dict(version=VERSION,timeBasis='source',checkedAt=iso(now),bounds=BOUNDS,
+        width=WIDTH,height=HEIGHT,frames=frames,source='EPA AirNow combined AQI contours used by MPCA',checkMinutes=[0,30]))
+    return {'frames':len(frames),'sourceTime':iso(source),'status':'source hour already saved' if unchanged else 'source hour saved'}
 
 
 def public_manifest(data,now):
     frames=recent_frames(data,now)
     if not frames:raise ValueError('No recent Air Q snapshots have been captured yet')
-    return {**data,'frames':frames,'historyPending':len(frames)<12}
+    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':[0,30]}
 
 
 def main():

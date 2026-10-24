@@ -238,12 +238,21 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 .local-station-table td:first-child { font-weight:600; }
 
 /* Fixed regional Air Q graphic with just its history slider. */
-.airq-viewer { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:white; }
+.airq-viewer { max-width:1100px; margin-inline:auto; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:white; }
 #air-quality-map { display:block; width:100%; height:auto; max-height:78dvh; object-fit:contain; }
 #air-quality-map[hidden] { display:none; }
 .airq-controls { display:grid; grid-template-columns:minmax(0,1fr) 2fr; grid-template-areas:"time timeline"; align-items:center; gap:12px; }
 .airq-controls .timeline-control { width:100%; }
-.airq-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin:12px 0; font-size:12px; }
-.airq-legend span { display:inline-flex; align-items:center; gap:5px; }
-.airq-legend i { width:12px; height:12px; border:1px solid #777; }
-@media(max-width:600px) { .airq-controls { grid-template-columns:1fr; grid-template-areas:"time" "timeline"; } }
+/* A compact side key never covers Minnesota; mobile places it below. */
+.airq-map-stage { display:grid; grid-template-columns:minmax(0,1fr) 240px; align-items:center; }
+.airq-legend { display:flex; flex-direction:column; gap:18px; width:240px; padding:18px; background:white; color:#333; font-size:14px; }
+.airq-legend strong { font-size:15px; }
+.airq-legend span { display:flex; align-items:center; gap:10px; }
+.airq-legend i { flex:0 0 26px; height:26px; }
+@media(max-width:600px) {
+  .airq-controls { grid-template-columns:1fr; grid-template-areas:"time" "timeline"; }
+  .airq-map-stage { grid-template-columns:1fr; }
+  .airq-legend { position:static; width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; padding:12px; font-size:11px; }
+  .airq-legend strong { grid-column:1/-1; }
+  .airq-legend i { flex-basis:14px; height:14px; }
+}

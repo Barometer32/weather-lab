@@ -16,12 +16,12 @@ window.WeatherAirQuality = (() => {
     try{
       const image=await imageReady(frame.url);if(request!==serial)return;
       index=next;el("air-quality-map").src=image.src;el("air-quality-map").hidden=false;
-      el("air-quality-map").alt=`Regional air quality captured ${time.format(new Date(frame.time))}`;
-      el("airq-time").textContent=`${time.format(new Date(frame.time))} · ${index+1}/${frames.length}`;
+      el("air-quality-map").alt=`Minnesota air quality as of ${time.format(new Date((frame.sourceTime||frame.time)))}`;
+      el("airq-time").textContent=`Data as of ${time.format(new Date((frame.sourceTime||frame.time)))} · ${index+1}/${frames.length}`;
       const slider=el("airq-timeline");slider.max=String(frames.length-1);slider.value=String(index);slider.disabled=frames.length<2;
       slider.setAttribute("aria-valuetext",el("airq-time").textContent);
       slider.style.setProperty("--progress",`${frames.length>1?100*index/(frames.length-1):0}%`);
-      el("airq-status").textContent=`${frames.length}/12 hourly snapshots${frames.length<12?" · History is building":""} · AirNow data as of ${time.format(new Date(frame.sourceTime))}${data.stale?" · Background capture delayed":""}`;
+      el("airq-status").textContent=`${frames.length}/12 data hours saved${frames.length<12?" · History is building":""}${data.stale?" · Background checks delayed":""}${frame.version==="mn-region-v1"?" · Earlier saved map style":""}`;
     }catch(error){if(request===serial)el("airq-status").textContent="This Air Q snapshot could not load. The previous image is retained.";}
   }
   async function load(){
@@ -30,8 +30,8 @@ window.WeatherAirQuality = (() => {
       const response=await fetch("/api/air-quality",{cache:"no-store"}),next=await response.json();
       if(!response.ok)throw Error(next.error||"Air Q history unavailable");
       if(!next.frames?.length)throw Error("Air Q history is building; no snapshots are ready yet.");
-      const selected=data?.frames[index]?.time;data=next;
-      const restored=!followLatest&&selected?data.frames.findIndex(f=>f.time===selected):-1;
+      const selected=data?.frames[index]?.sourceTime||data?.frames[index]?.time;data=next;
+      const restored=!followLatest&&selected?data.frames.findIndex(f=>(f.sourceTime||f.time)===selected):-1;
       await showFrame(restored>=0?restored:followLatest?data.frames.length-1:0);
       const keep=new Set(data.frames.map(f=>f.url));for(const url of images.keys())if(!keep.has(url))images.delete(url);
     }catch(error){el("airq-status").textContent=error.message+(data?" Previous snapshots retained; check the displayed time.":"");}

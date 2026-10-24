@@ -11,10 +11,11 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  assert.equal(reads,0);get('air-quality').hidden=false;context.window.WeatherAirQuality.select('air-quality');await flush();
  assert.equal(get('air-quality-map').src,frame(1).url);assert.equal(get('air-quality-map').hidden,false);
- assert.equal(get('airq-timeline').disabled,true);assert.match(get('airq-status').textContent,/1\/12.*History is building.*data as of/);
+ assert.match(get('airq-time').textContent,/Data as of Oct 23, 7:00 PM/,'slider uses source hour, not 8:05 PM acquisition time');
+ assert.equal(get('airq-timeline').disabled,true);assert.match(get('airq-status').textContent,/1\/12.*History is building/);
  data={...data,frames:[frame(1),frame(2)]};polls[0]();await flush();assert.equal(get('airq-timeline').value,'1');assert.equal(get('airq-timeline').disabled,false);
  get('airq-timeline').events.input({target:{value:'0'}});await flush();assert.equal(get('air-quality-map').src,frame(1).url);const selected=get('airq-time').textContent;
- data={...data,frames:[frame(1),frame(2),frame(3)]};polls[0]();await flush();assert.equal(get('airq-time').textContent.split(' · ')[0],selected.split(' · ')[0],'refresh preserves selected capture');
+ data={...data,frames:[{...frame(1),time:'2026-10-24T01:35:00Z'},frame(2),frame(3)]};polls[0]();await flush();assert.equal(get('airq-time').textContent.split(' · ')[0],selected.split(' · ')[0],'refresh preserves selected capture');
  get('airq-timeline').events.input({target:{value:'2'}});await flush();assert.equal(get('air-quality-map').src,frame(3).url);
  const previous=get('air-quality-map').src;fail=true;polls[0]();await flush();assert.equal(get('air-quality-map').src,previous);assert.match(get('airq-status').textContent,/Previous snapshots retained/);
  fail=false;data={...data,frames:[...data.frames,{...frame(4),url:'/bad.png'}]};polls[0]();await flush();assert.equal(get('air-quality-map').src,previous);assert.match(get('airq-status').textContent,/previous image is retained/);

@@ -17,7 +17,7 @@ if name=='git':
 elif name=='curl':
  p=pathlib.Path(a[a.index('-o')+1])
  if p.name=='page.html':p.write_text((pathlib.Path(os.environ['AIRQ_ROOT'])/'static/index.html').read_text())
- else:p.write_text(json.dumps({'version':'mn-region-v1','frames':[{'time':'2026-10-24T00:05:00Z'}]}))
+ else:p.write_text(json.dumps({'version':'mn-region-v2','timeBasis':'source','frames':[{'time':'2026-10-23T23:00:00Z','sourceTime':'2026-10-23T23:00:00Z'}]}))
 elif a[:3]==['run','services','describe']:
  if os.environ.get('AIRQ_DENIED'):sys.exit(1)
  print('collector@example.iam.gserviceaccount.com' if '--format=value(spec.template.spec.serviceAccountName)' in a else 'https://weather.example.run.app')
@@ -40,10 +40,10 @@ def test_captures_before_publishing_and_adds_only_hourly_airq_schedule(tmp_path)
     web=next(i for i,c in enumerate(calls) if c[:5]==['gcloud','run','services','update','weather-lab'])
     assert seed<web
     jobs=[c for c in calls if c[:4] in [['gcloud','scheduler','jobs','create'],['gcloud','scheduler','jobs','update']]]
-    assert len(jobs)==1 and jobs[0][5]=='weather-live-air-quality' and '--schedule=5 * * * *' in jobs[0]
+    assert len(jobs)==1 and jobs[0][5]=='weather-live-air-quality' and '--schedule=0,30 * * * *' in jobs[0]
     assert '--oidc-token-audience=https://weather.example.run.app' in jobs[0]
     assert not any(c[:3]==['gcloud','services','enable'] or 'delete' in c for c in calls)
-    assert 'Verified 1/12 saved Air Q snapshots.' in result.stdout
+    assert 'Verified 1/12 saved Air Q data hours.' in result.stdout
 
 
 def test_seed_failure_keeps_old_website_and_schedules(tmp_path):

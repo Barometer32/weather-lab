@@ -6,7 +6,7 @@
   <meta name="description" content="Routine hourly airport METAR plots with twelve hours of history, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=airq-v1">
+  <link rel="stylesheet" href="/static/style.css?v=airq-v2">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
@@ -14,7 +14,7 @@
   <script defer src="/static/metar-model.js?v=airq-v1"></script>
   <script defer src="/static/cloud-views.js?v=airport-hourly-clouds-v7"></script>
   <script defer src="/static/cloud-height-views.js?v=clouds-tab-v1"></script>
-  <script defer src="/static/air-quality-views.js?v=airq-v1"></script>
+  <script defer src="/static/air-quality-views.js?v=airq-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/app.js?v=airq-v1"></script>
 </head>
@@ -65,7 +65,7 @@
   <p class="source">Radar: NOAA/NWS Level II data via <a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NSF Unidata public archive and real-time feed</a>. Map boundaries: Iowa Environmental Mesonet. Faint, label-free major roads: U.S. Census Bureau TIGERweb.</p>
 </section>
 <section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT CLOUD HEIGHTS · UPPER MIDWEST</p><h1>Clouds</h1><p>Last 12 hourly snapshots · lowest broken or overcast layer</p></div><button class="secondary" id="refresh-clouds">Refresh</button></div>
+  <div class="section-heading"><div><p class="eyebrow">AIRPORT CLOUD HEIGHTS · UPPER MIDWEST</p><h1>Clouds</h1></div><button class="secondary" id="refresh-clouds">Refresh</button></div>
   <div id="clouds-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="cloud-height-map" aria-label="Airport cloud heights in thousands of feet with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
@@ -106,15 +106,17 @@
 <section id="air-quality" role="tabpanel" aria-labelledby="tab-air-quality" hidden>
   <div class="section-heading"><div><p class="eyebrow">MINNESOTA POLLUTION CONTROL AGENCY</p><h1>Air quality</h1></div><button class="secondary" id="refresh-air-quality">Refresh map</button></div>
   <div class="airq-viewer">
-    <img id="air-quality-map" alt="Fixed regional air quality map" width="1100" height="1111" hidden>
+    <div class="airq-map-stage">
+      <img id="air-quality-map" alt="Fixed Minnesota air quality map" width="1100" height="1206" hidden>
+      <div class="airq-legend" aria-label="AQI categories"><strong>Air Quality Index</strong><span><i style="background:#7e0023"></i>Hazardous</span><span><i style="background:#8f3f97"></i>Very unhealthy</span><span><i style="background:#ff0000"></i>Unhealthy</span><span><i style="background:#ff7e00"></i>Unhealthy for sensitive groups</span><span><i style="background:#ffff00"></i>Moderate</span><span><i style="background:#00e400"></i>Good</span></div>
+    </div>
     <div class="radar-controls airq-controls">
       <span class="viewer-frame-time" id="airq-time" aria-live="polite">Loading Air Q snapshots…</span>
-      <div class="timeline-control"><label class="sr-only" for="airq-timeline">Air quality history</label><input id="airq-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Air Q history: up to twelve hourly snapshots" disabled></div>
+      <div class="timeline-control"><label class="sr-only" for="airq-timeline">Air quality history</label><input id="airq-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Air Q history: last twelve source data hours" disabled></div>
     </div>
   </div>
-  <p id="airq-status" class="small-note" role="status">Hourly snapshots will appear as they are captured.</p>
-  <div class="airq-legend" aria-label="AQI categories"><span><i style="background:#00e400"></i>Good</span><span><i style="background:#ffff00"></i>Moderate</span><span><i style="background:#ff7e00"></i>Unhealthy for sensitive groups</span><span><i style="background:#ff0000"></i>Unhealthy</span><span><i style="background:#8f3f97"></i>Very unhealthy</span><span><i style="background:#7e0023"></i>Hazardous</span></div>
-  <p class="source">EPA AirNow contours and monitor readings used by MPCA. Fixed coverage matches the selected Minnesota/western Wisconsin region. Captured hourly at :05; the slider shows capture times, with the source data time below. <a href="https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions" target="_blank" rel="noopener">MPCA source map</a></p>
+  <p id="airq-status" class="small-note" role="status">Source-hour maps will appear as they become available.</p>
+  <p class="source">EPA AirNow AQI contours used by MPCA. Fixed coverage of all Minnesota. Checks at :00 and :30; the slider uses the source data hour. Repeated checks of the same hour do not add history frames. <a href="https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions" target="_blank" rel="noopener">MPCA source map</a></p>
 </section>
 </main>
 <footer>WEATHER LAB · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
