@@ -12,7 +12,7 @@ from PIL import Image
 
 import app as weather
 from realtime import get_store
-from satellite import PRODUCTS, page_url, parse_loop
+from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
 locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality")}
@@ -64,9 +64,11 @@ def collect_radar_site(store, now, site):
 
 
 def collect_product(store, product, now):
-    data = parse_loop(weather.download(page_url(product)).decode(), product, now)
+    # Keep an older source pool so a missing/corrupt image can be replaced by
+    # the next real available image, including during a cold backfill.
+    data = parse_loop(weather.download(page_url(product)).decode(), product, now, frame_limit=FRAME_COUNT*2)
     previous = store.read_json(f"live/satellite-{product}.json") or {}
-    old = {f["time"]: f for f in previous.get("frames", [])}
+    old = {f["time"]: f for f in latest_frames(previous.get("frames", []),now)}
     old_boundaries = previous.get("boundarySources", {})
     boundaries = []
     for url in data["boundaries"]:
@@ -83,19 +85,23 @@ def collect_product(store, product, now):
         boundaries.append(f"/api/prepared/{key}")
     source_boundaries = data["boundaries"]
     source_frames = data["frames"]
-    frames = [frame for frame in old.values()
-              if now-timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
+    target_frames=source_frames[-FRAME_COUNT:]
+    frames=dict(old)
     deadline = time.monotonic() + 150
     added = 0
 
     def publish():
-        prepared = {**data, "frames": sorted(frames,key=lambda f:f["time"]), "boundaries": boundaries,
-                    "boundarySources": dict(zip(source_boundaries,boundaries)),
-                    "checkedAt":weather.iso(now), "unavailableImages":sum(f["time"] not in {x["time"] for x in frames} for f in source_frames)}
+        selected=latest_frames(frames.values(),now)
+        available={frame['time'] for frame in selected}
+        prepared = {**data, **frame_window(selected,now), "frames":selected, "boundaries":boundaries,
+                    "boundarySources":dict(zip(source_boundaries,boundaries)),
+                    "checkedAt":weather.iso(now), "unavailableImages":sum(f['time'] not in available for f in target_frames)}
         store.write_json(f"live/satellite-{product}.json",prepared)
 
     for frame in reversed(source_frames):
-        if frame["time"] in old:
+        selected=latest_frames(frames.values(),now)
+        if len(selected)==FRAME_COUNT and frame["time"]<selected[0]["time"]:break
+        if frame["time"] in frames:
             continue
         if time.monotonic() >= deadline:
             break
@@ -108,7 +114,7 @@ def collect_product(store, product, now):
             stamp = datetime.fromisoformat(frame["time"].replace("Z", "+00:00")).strftime("%Y%m%d%H%M%S")
             key = f"satellite/{product}/{stamp}.jpg"
             store.write(key, image, "image/jpeg")
-            frames.append({"time": frame["time"], "url": f"/api/prepared/{key}"})
+            frames[frame["time"]]={"time":frame["time"],"url":f"/api/prepared/{key}"}
             added += 1
             if added == 1 or added % 4 == 0:
                 publish()
@@ -117,7 +123,8 @@ def collect_product(store, product, now):
     if not frames:
         raise ValueError("No satellite frames prepared; previous manifest retained")
     publish()
-    return {"frames": len(frames), "unavailable": sum(f["time"] not in {x["time"] for x in frames} for f in source_frames)}
+    selected=latest_frames(frames.values(),now)
+    return {"frames":len(selected),"unavailable":sum(f["time"] not in {x["time"] for x in selected} for f in target_frames)}
 
 
 def collect_satellite(store, now):

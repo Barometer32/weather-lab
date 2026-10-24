@@ -114,7 +114,7 @@ if gcloud storage buckets describe "gs://${WEATHER_OLD_BUCKET}" >/dev/null 2>&1;
     printf '%s\n' 'The retired forecast bucket is not empty; remaining objects were retained. No model collection jobs remain.'
   fi
 fi
-printf '%s\n' 'Background collection enabled. The first two-hour radar and satellite backfill can take a few minutes.'
+printf '%s\n' 'Background collection enabled. The first two-hour radar and latest-24 satellite backfills can take a few minutes.'
 if [[ "${WEATHER_DEFER_WEB:-false}" != true ]]; then
   gcloud run services describe weather-lab --region="$WEATHER_REGION" --format='value(status.url)'
 fi

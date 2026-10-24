@@ -198,3 +198,23 @@ settings and failed builds stop before website deployment. Collector settings,
 schedules and saved weather data are retained. Both maps reserve each site's
 widest label over the twelve-hour loop to keep neighboring labels separate
 without shifting station visibility as values change.
+
+## Satellite image count
+
+Satellite history now keeps the latest 24 distinct available source images per
+product, independent of a two-hour wall-clock cutoff. Source delays therefore
+do not shorten an already prepared loop as the clock advances. The collector
+checks a pool of up to 48 recent source images to backfill a corrupt or missing
+image with the next real available image, retaining at most 24 in the manifest.
+Existing images and map overlays are reused, and original JPEG bytes are
+preserved. Future timestamps and images older than the one-day storage lifetime
+are excluded. If fewer than 24 real images are available, only those actual
+images are shown. Radar keeps its existing two-hour policy.
+
+`update-weather-lab-satellite.sh PROJECT_ID` builds once, publishes the collector,
+prepares all three satellite products in a private one-time job, then publishes
+the website and verifies each image count and source times. Only the satellite
+schedule is paused briefly during preparation; its original state is restored
+on success or failure. The five-minute schedule and other collectors stay the
+same. This update also includes the thicker METAR arrow with a shorter tail and
+the latest compact value positions.

@@ -260,7 +260,7 @@ async function loadSatellite(force = false) {
     const first = new Date(satelliteFrames[0].time), last = new Date(satelliteFrames.at(-1).time), age = (Date.now() - last.getTime()) / 60000;
     const unavailable = failures + (data.unavailableImages || 0);
     const gaps = satelliteFrames.some((f,i) => i && new Date(f.time) - new Date(satelliteFrames[i-1].time) > 15 * 60000);
-    $("satellite-status").textContent = `${data.label} · Past 2 hours · ${satelliteFrames.length} images · ${central.format(first)} to ${central.format(last)}${unavailable ? ` · ${unavailable} images unavailable` : ""}${gaps ? " · Some images are missing" : ""}${age > 20 ? ` · Latest image is ${Math.round(age)} minutes old` : ""}${data.stale ? " · Background updates delayed" : ""}`;
+    $("satellite-status").textContent = `${data.label} · Latest ${satelliteFrames.length}/24 images · ${central.format(first)} to ${central.format(last)}${unavailable ? ` · ${unavailable} images unavailable` : ""}${gaps ? " · Some images are missing" : ""}${age > 20 ? ` · Latest image is ${Math.round(age)} minutes old` : ""}${data.stale ? " · Background updates delayed" : ""}`;
   } catch (error) {
     if (request !== satelliteRequest) return;
     $("satellite-status").textContent = error.message;

@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import re
 
+FRAME_COUNT = 24
 SECTOR = "S_Minnesota"
 BASE = f"https://weather.cod.edu/wxdata/satellite/local/{SECTOR}"
 PRODUCTS = {
@@ -18,7 +19,27 @@ def page_url(product):
             "&checked=counties-map")
 
 
-def parse_loop(html, product, now=None):
+def latest_frames(frames, now, limit=FRAME_COUNT):
+    """Return the latest unique source times, independent of a two-hour cutoff."""
+    eligible={}
+    for original in frames:
+        try:
+            moment=datetime.fromisoformat(original['time'].replace('Z','+00:00'))
+            if moment.tzinfo is None or not now-timedelta(days=1)<=moment<=now:continue
+            stamp=moment.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
+            eligible[stamp]={**original,'time':stamp}
+        except (KeyError,TypeError,ValueError):continue
+    return [eligible[stamp] for stamp in sorted(eligible)[-limit:]]
+
+
+def frame_window(frames, now):
+    return dict(frameLimit=FRAME_COUNT,historyPolicy='latest-24-images',
+                historyPending=max(0,FRAME_COUNT-len(frames)),
+                windowStart=frames[0]['time'] if frames else now.isoformat().replace('+00:00','Z'),
+                windowEnd=frames[-1]['time'] if frames else now.isoformat().replace('+00:00','Z'))
+
+
+def parse_loop(html, product, now=None, frame_limit=FRAME_COUNT):
     if product not in PRODUCTS:
         raise ValueError("Unknown satellite product")
     now = now or datetime.now(timezone.utc)
@@ -30,10 +51,9 @@ def parse_loop(html, product, now=None):
             moment = datetime.strptime(stamp, "%Y%m%d.%H%M%S").replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-        if not now-timedelta(hours=2) <= moment <= now:
-            continue
         frames.append({"time": moment.isoformat().replace("+00:00", "Z"),
                        "url": prefix + stamp + ".jpg"})
+    frames=latest_frames(frames,now,frame_limit)
     if not frames:
         raise ValueError("No satellite images are currently available")
     # All imagery and map overlays share the source's native 1600 x 900 grid.
@@ -45,8 +65,7 @@ def parse_loop(html, product, now=None):
         if match:
             boundaries.append(match.group(0))
     return {"product": product, **PRODUCTS[product], "frames": frames,
-            "windowStart": (now-timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
-            "windowEnd": now.isoformat().replace("+00:00", "Z"),
+            **frame_window(latest_frames(frames,now),now),
             "products": [{"id": key, "label": value["label"]} for key, value in PRODUCTS.items()],
             "boundaries": boundaries, "width": 1600, "height": 900,
             "source": "NOAA GOES-East imagery via College of DuPage NEXLAB",

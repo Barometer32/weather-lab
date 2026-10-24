@@ -8,13 +8,16 @@ from test_realtime import MemoryStore
 NOW=datetime(2026,10,19,19,tzinfo=timezone.utc)
 
 
-def test_satellite_window_keeps_every_available_frame_over_two_hours_not_24_slots():
+def test_satellite_uses_latest_24_frames_even_when_source_runs_behind_clock():
     prefix=BASE+'/truecolor/S_Minnesota.truecolor.'
-    html=' '.join(prefix+(NOW-timedelta(minutes=i)).strftime('%Y%m%d.%H%M%S')+'.jpg' for i in range(-2,125,2))
-    data=parse_loop(html,'truecolor',NOW)
-    assert len(data['frames'])==61
-    assert data['frames'][0]['time']==weather.iso(NOW-timedelta(hours=2))
-    assert data['frames'][-1]['time']==weather.iso(NOW)
+    html=' '.join(prefix+(NOW-timedelta(minutes=i)).strftime('%Y%m%d.%H%M%S')+'.jpg' for i in [-5,*range(10,210,5)])
+    data=parse_loop(html+' '+html,'truecolor',NOW)
+    assert len(data['frames'])==24
+    assert data['frames'][0]['time']==weather.iso(NOW-timedelta(minutes=125))
+    assert data['frames'][-1]['time']==weather.iso(NOW-timedelta(minutes=10))
+    assert data['windowStart']==data['frames'][0]['time']
+    assert data['windowEnd']==data['frames'][-1]['time']
+    assert data['historyPolicy']=='latest-24-images'
 
 
 def test_stream_discovery_failure_still_publishes_latest_and_recovers_old_archive():
@@ -47,12 +50,14 @@ def test_forecast_remains_fresh_between_half_hour_collection_times():
         assert weather.prepared_snapshot('forecast',2100)['stale'] is True
 
 
-def test_satellite_public_snapshot_rolls_two_hour_window_without_source_requests():
+def test_satellite_public_snapshot_keeps_24_saved_images_as_clock_advances():
     store=MemoryStore()
-    store.write_json('live/satellite-truecolor.json',{'checkedAt':weather.iso(NOW),'frames':[{'time':weather.iso(NOW-timedelta(minutes=n))} for n in [125,115,5]]})
+    store.write_json('live/satellite-truecolor.json',{'checkedAt':weather.iso(NOW),'frames':[{'time':weather.iso(NOW-timedelta(minutes=n))} for n in range(15,155,5)]})
     weather._cache.clear()
-    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as source:
+    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW+timedelta(minutes=15)),patch('app.download') as source:
         data=weather.app.test_client().get('/api/satellite/truecolor').json
-    assert len(data['frames'])==2
-    assert data['windowStart']==weather.iso(NOW-timedelta(hours=2))
+    assert len(data['frames'])==24
+    assert data['windowStart']==weather.iso(NOW-timedelta(minutes=130))
+    assert data['windowEnd']==weather.iso(NOW-timedelta(minutes=15))
+    assert data['frameLimit']==24 and data['historyPending']==0
     source.assert_not_called()

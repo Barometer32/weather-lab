@@ -452,7 +452,7 @@ def forecast_api():
 
 @app.get("/api/satellite/<product>")
 def satellite_api(product):
-    from satellite import PRODUCTS, page_url, parse_loop
+    from satellite import PRODUCTS, page_url, parse_loop, latest_frames, frame_window
     if product not in PRODUCTS:
         return jsonify(error="Unknown satellite product."), 404
     try:
@@ -460,8 +460,8 @@ def satellite_api(product):
         if data:
             data.pop("boundarySources", None)
             now = utcnow()
-            data["frames"] = [f for f in data["frames"] if now-timedelta(hours=2) <= datetime.fromisoformat(f["time"].replace("Z", "+00:00")) <= now]
-            data.update(windowStart=iso(now-timedelta(hours=2)), windowEnd=iso(now))
+            data["frames"] = latest_frames(data["frames"],now)
+            data.update(frame_window(data["frames"],now))
             return jsonify(data)
         html = cached("satellite-" + product, 120, lambda: download(page_url(product)).decode())
         return jsonify(parse_loop(html, product, utcnow()))

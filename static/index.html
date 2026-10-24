@@ -11,12 +11,12 @@
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/metar-model.js?v=compact-vector-v2"></script>
+  <script defer src="/static/metar-model.js?v=compact-vector-v3"></script>
   <script defer src="/static/cloud-views.js?v=airport-hourly-clouds-v7"></script>
   <script defer src="/static/cloud-height-views.js?v=clouds-dense-v2"></script>
   <script defer src="/static/air-quality-views.js?v=airq-v3"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
-  <script defer src="/static/app.js?v=airq-v1"></script>
+  <script defer src="/static/app.js?v=satellite-24-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -103,7 +103,7 @@
     <div id="satellite-map-area" class="map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <div class="viewer-frame-time" id="satellite-time">Loading satellite…</div>
-      <div class="timeline-control"><label class="sr-only" for="satellite-timeline">Manual satellite timeline: drag to select an image</label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual satellite image timeline" disabled></div>
+      <div class="timeline-control"><label class="sr-only" for="satellite-timeline">Manual satellite timeline: drag to select an image</label><input id="satellite-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Satellite timeline: latest 24 images" disabled></div>
       <div class="viewer-actions"><button id="satellite-reset" class="secondary">Reset view</button><button id="satellite-fullscreen" class="secondary" aria-label="Open full-screen satellite">Full screen</button></div>
     </div>
   </div>
