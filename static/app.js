@@ -271,10 +271,6 @@ async function loadSatellite(force = false) {
   }
 }
 
-function loadAirQuality(force = false) {
-  const frame = $("air-quality-map");
-  if (force || !frame.getAttribute("src")) frame.setAttribute("src", frame.getAttribute("data-src"));
-}
 const tabs = ["metar-clouds","radar","clouds","satellite","forecast","air-quality"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
@@ -282,7 +278,7 @@ function selectTab(id) {
   window.WeatherCloudHeights?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
-  if(id === "air-quality") loadAirQuality();
+  window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
 for(const id of tabs) {
@@ -295,7 +291,6 @@ for(const id of tabs) {
   });
 }
 $("refresh-forecast").addEventListener("click",loadForecast);
-$("refresh-air-quality").addEventListener("click",()=>loadAirQuality(true));
 $("refresh-radar").addEventListener("click",loadRadar);
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
@@ -317,6 +312,7 @@ setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},6
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
     if (!$("metar-clouds").hidden) window.WeatherCloudViews?.select("metar-clouds");
+    if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("clouds").hidden) window.WeatherCloudHeights?.select("clouds");
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();

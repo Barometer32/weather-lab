@@ -556,6 +556,21 @@ def radar_api():
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/air-quality")
+def air_quality_history():
+    from air_quality import public_manifest
+    try:
+        data = prepared_snapshot("air-quality", 7200)
+        if data is None:
+            raise ValueError("No prepared Air Q data")
+        return jsonify(public_manifest(data, utcnow())), 200, {"Cache-Control":"no-store"}
+    except ValueError:
+        return jsonify(error="Air Q history is being prepared. Please refresh shortly."), 503, {"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("Air Q history read failed")
+        return jsonify(error="Air Q history is temporarily unavailable."), 502, {"Cache-Control":"no-store"}
+
+
 @app.get("/api/radar/<scan_id>/metadata")
 def radar_metadata(scan_id):
     try:
@@ -600,7 +615,8 @@ def prepared_asset(key):
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
-               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key))
+               or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
+               or re.fullmatch(r"air-quality/mn-region-v1/\d{14}\.png", key))
     if not allowed:
         return jsonify(error="Unknown image"), 404
     try:

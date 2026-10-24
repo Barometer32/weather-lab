@@ -14,14 +14,16 @@ def test_airport_metar_map_replaces_current_and_keeps_other_tabs():
     satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
     assert 'id="sun-angle"' in metars and 'sun-angle' not in satellite
     assert html.count('id="sun-angle"')==1
-    assert 'id="metar-cloud-timeline"' in metars and '12 hourly snapshots' in metars
+    assert 'id="metar-cloud-timeline"' in metars
     assert 'current-views.js' not in html and 'tab-current' not in html and 'initial-current-data' not in html
     assert 'model-views.js' not in html
     assert 'metar-model.js' in html and 'cloud-views.js' in html and 'map-fullscreen.js' in html
     assert ':45–:59' in metars and ':00' in metars and 'KCFE, KFCE, KSGS and KDEH' in metars
     assert 'id="clouds-timeline"' in html and 'data-ceiling-unit="thousands-ft"' in html
     assert 'cloud-height-views.js' in html
-    assert 'data-src="https://gis-ext-aqi.pca.mn.gov/aqi/aqi-current-conditions.html"' in html
+    assert '>AIR Q</button>' in html and 'id="airq-timeline"' in html
+    assert 'id="metar-timeline-description"' not in html
+    assert '<iframe id="air-quality-map"' not in html
     assert response.headers['Cache-Control']=='no-store'
 
 

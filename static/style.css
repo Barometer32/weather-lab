@@ -9,8 +9,6 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-#air-quality-map { display:block; width:100%; height:clamp(560px,75dvh,860px); border:1px solid var(--border); border-radius:8px; background:white; }
-@media (max-width:600px) { #air-quality-map { height:75dvh; min-height:480px; } }
 header { background: white; border-bottom: 1px solid var(--border); }
 .header-inner { max-width: 1280px; padding: 28px 32px 22px; margin: auto; display: flex; align-items: center; justify-content: space-between; }
 .brand { color: #182521; text-decoration: none; font-size: 30px; font-weight: 700; letter-spacing: -.8px; }
@@ -238,3 +236,14 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 .local-station-table th,.local-station-table td { text-align:center; white-space:nowrap; }
 .local-station-table th:first-child,.local-station-table td:first-child { text-align:left; }
 .local-station-table td:first-child { font-weight:600; }
+
+/* Fixed regional Air Q graphic with just its history slider. */
+.airq-viewer { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:white; }
+#air-quality-map { display:block; width:100%; height:auto; max-height:78dvh; object-fit:contain; }
+#air-quality-map[hidden] { display:none; }
+.airq-controls { display:grid; grid-template-columns:minmax(0,1fr) 2fr; grid-template-areas:"time timeline"; align-items:center; gap:12px; }
+.airq-controls .timeline-control { width:100%; }
+.airq-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin:12px 0; font-size:12px; }
+.airq-legend span { display:inline-flex; align-items:center; gap:5px; }
+.airq-legend i { width:12px; height:12px; border:1px solid #777; }
+@media(max-width:600px) { .airq-controls { grid-template-columns:1fr; grid-template-areas:"time" "timeline"; } }

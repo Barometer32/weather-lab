@@ -64,7 +64,7 @@ def test_hourly_airport_cron_only_seed_before_publish_and_retired_rapid_jobs_rem
     retired=next(i for i,c in enumerate(calls) if c[:5]==['gcloud','scheduler','jobs','delete','weather-live-current'])
     assert seed<web<verify<retired
     scheduled=[c for c in calls if c[:5] in (['gcloud','scheduler','jobs','update','http'],['gcloud','scheduler','jobs','create','http'])]
-    assert {c[5] for c in scheduled}=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds'}
+    assert {c[5] for c in scheduled}=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality'}
     metar=next(c for c in scheduled if c[5]=='weather-live-metar-clouds')
     assert '--schedule=*/2 * * * *' in metar and '--max-retry-attempts=0' in metar
     assert '--http-method=POST' in metar and '--oidc-token-audience=https://weather.example.run.app' in metar
@@ -86,7 +86,7 @@ def test_failed_import_never_publishes_new_web_or_deletes_rapid_jobs_and_resumes
     assert not any(c[:4]==['gcloud','run','deploy','weather-lab'] for c in calls)
     assert not any(c[:5]==['gcloud','scheduler','jobs','delete','weather-live-current'] for c in calls)
     resumed={c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','resume']}
-    assert resumed=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds'}
+    assert resumed=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality'}
 
 
 def test_incomplete_history_keeps_rapid_jobs_until_verification_succeeds(tmp_path):

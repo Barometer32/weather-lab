@@ -43,15 +43,15 @@ echo 'Step 2/5: rebuilding missing resources and deploying the collector.'
   cd "$WEATHER_WORK/source"
   WEATHER_APIS_VERIFIED=true WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true bash deploy.sh "$WEATHER_PROJECT"
 )
-# Pause the four managed jobs while the one-time imports publish their objects.
-for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds; do
+# Pause the managed jobs while the one-time imports publish their objects.
+for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality; do
   gcloud scheduler jobs pause "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
   WEATHER_PAUSED+=("$WEATHER_JOB")
 done
 
 echo 'Step 3/5: downloading twelve hourly airport frames and recovering imagery.'
 # No MADIS, mesonet or Current collection is imported.
-gcloud run jobs deploy weather-airports-restore --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args='^|^-c|import metar_history; import refresh_media; metar_history.main(); refresh_media.main()' --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=1800s --quiet
+gcloud run jobs deploy weather-airports-restore --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args='^|^-c|import metar_history; import refresh_media; metar_history.main(); refresh_media.main(); import air_quality; air_quality.main()' --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=1800s --quiet
 if ! gcloud run jobs execute weather-airports-restore --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --wait; then
   gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="weather-airports-restore"' --project="$WEATHER_PROJECT" --freshness=45m --limit=30 --format='value(textPayload,jsonPayload.message)'
   exit 1
