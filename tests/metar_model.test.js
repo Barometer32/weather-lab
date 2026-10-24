@@ -37,7 +37,7 @@ for(let direction=0;direction<360;direction+=5){
  assert.ok(result.includes(`rotate(${(direction+180)%360})`));
  assert.deepEqual(anchors(result),fixed,'wind rotation never moves a value');
  const a=(direction+180)*Math.PI/180;
- for(const [x,y] of [[0,-8.5],[4.5,-2.5],[1.7,5],[-1.7,5],[-4.5,-2.5]]){
+ for(const [x,y] of [[0,-8.5],[5.2,-2.5],[1.45,5],[-1.45,5],[-5.2,-2.5]]){
   const arrowX=46+x*Math.cos(a)-y*Math.sin(a),arrowY=30+x*Math.sin(a)+y*Math.cos(a);
   assert.ok(arrowX-.8>34.5,'vector clears temperature and dewpoint');
   assert.ok(arrowX+.8<54.5||arrowY+.8<35.5,'vector clears the lower-right speed text');

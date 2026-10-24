@@ -53,7 +53,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=compact-vector-v3','cloud-height-views.js?v=clouds-dense-v2']:
+for asset in ['metar-model.js?v=compact-vector-v4','cloud-height-views.js?v=clouds-dense-v2']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 print('Verified compact METAR vectors and denser nonoverlapping cloud labels.')
 PY

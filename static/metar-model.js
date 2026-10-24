@@ -19,7 +19,7 @@ window.WeatherStationModel = (() => {
     let vector="",state="";
     if(speed!=null&&speed>=.5&&wind.direction!=null){
       // METAR directions name where wind comes FROM. The arrow points downwind.
-      const rotation=(wind.direction+180)%360,shape='M0 -8.5L4.5 -2.5H1.7V5H-1.7V-2.5H-4.5Z';
+      const rotation=(wind.direction+180)%360,shape='M0 -8.5L5.2 -2.5H1.45V5H-1.45V-2.5H-5.2Z';
       vector=`<g class="wind-vector" transform="translate(${cx} ${cy}) rotate(${rotation})" fill="#111" stroke-linejoin="round"><path class="wind-vector-solid" d="${shape}" stroke="white" stroke-width="1.6" paint-order="stroke fill"/></g>`;
     }else if(speed==null||speed>=.5){
       state=`<text class="plot-wind-state" x="${cx}" y="34" text-anchor="middle">${speed==null?"?":wind.variable?"VRB":"?"}</text>`;
