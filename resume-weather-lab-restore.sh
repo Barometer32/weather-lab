@@ -93,7 +93,7 @@ import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);page=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
 tabs=re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)
-layouts=[['metar-clouds','radar','satellite','forecast','air-quality'],['metar-clouds','radar','clouds','satellite','forecast','air-quality']]
+layouts=[['metar-clouds','radar','satellite','forecast','air-quality'],['metar-clouds','radar','clouds','satellite','forecast','air-quality'],['observations','radar','clouds','satellite','forecast','air-quality']]
 if tabs not in layouts or 'metar-model.js?v=' not in page or ('clouds' in tabs and 'cloud-height-views.js?v=' not in page):
     raise SystemExit('The saved weather layout was not verified.')
 frames=data.get('history',[])

@@ -1,9 +1,18 @@
-# J-Weather
+# Weather Lab
 
-Active Google Cloud project: `j-weather-261020012817` (J-Weather), region
-`us-central1`. Repository branch: `metar-cloud-history-20261019`.
+Active Google Cloud project: `weather-lab-261024-133205`, region `us-central1`.
+Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
 
-## Current
+Current tabs: OBSERVATIONS, RADAR, CLOUDS, SATELLITE, FORECAST and AIR Q.
+OBSERVATIONS lists only public Hennepin West stations in Hennepin County for choosing a future
+average; it does not calculate an average yet. Run
+`bash update-weather-observations.sh weather-lab-261024-133205` to publish this
+configuration. The Hennepin observation station selection section below has
+the current data, timing and deployment details. CLOUDS retains its 12-hour
+airport history. Older scripts and implementation notes below are historical
+and may target retired projects; use the current update command above.
+
+## Legacy Current implementation (historical)
 
 Current shows four compact readings: three-airport temperature, dewpoint and
 wind, plus the current Hopkins Sun angle. There is no Current history table.
@@ -221,3 +230,12 @@ so resuming a history import preserves any newer display changes. The website
 is refreshed only after the import succeeds; its saved layout and twelve
 populated hourly airport frames are then verified. Failure reports retain full execution, task and audit
 JSON, including protoPayload. Saved settings are printed on exit.
+
+
+## Hennepin observation station selection
+
+`update-weather-observations.sh weather-lab-261024-133205` replaces the METAR tab with OBSERVATIONS. It lists only Hennepin West records available through public NOAA MADIS inside the actual U.S. Census Hennepin County boundary (GEOID 27053). Other mesonets, community stations, road stations and airport ASOS are excluded from this inventory. City/site names, station IDs, networks, Fahrenheit temperature/dewpoint, wind, actual observation time and age remain visible. Search helps select stations for a future average. No average or automatic station cohort is computed. There is no observation history slider. The Hopkins sun angle remains on Observations; CLOUDS retains all-airport exact-location slightly smaller dots/heights and twelve routine hourly frames.
+
+Collection checks the current and previous UTC hourly MADIS files every two minutes with conditional HTTP requests. Five-minute report cadence does not imply five-minute delivery latency. Records are not forced onto the top of the hour. Previously discovered sites retain their last actual observation for up to 24 hours, with the original timestamp; missing/QC-rejected measurements show as unknown instead of hiding the entire site. Public availability is not a complete registry of all installed stations. County geometry is bundled in `static/hennepin-county.geojson`, fetched 2026-10-24 from U.S. Census TIGERweb State_County/MapServer/1 with `GEOID='27053'`, WGS84 coordinates, five decimal places. No county lookup is needed at runtime.
+
+The update builds one image, saves both service settings and scheduler definitions, updates the collector and website, adds only `weather-live-observation-stations` at `*/2 * * * *`, and verifies the public station inventory. Existing airport collection continues for CLOUDS. Radar, satellite, forecast and Air Q schedules are preserved. Public page requests read the prepared inventory; they do not download NOAA files. The endpoint is `/api/observation-stations`, and the private collection route is `/collect/observation-stations`.

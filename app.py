@@ -536,6 +536,19 @@ def observation_api():
         return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/observation-stations")
+def observation_stations_api():
+    from observation_stations import KEY, present
+    try:
+        store = get_store()
+        saved = cached("prepared-observation-stations",10,lambda:store.read_json(KEY)) if store else None
+        result = present(saved,utcnow())
+        return jsonify(result),200,{"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("Prepared observation station list unavailable")
+        return jsonify(error="Observations unavailable. Previous readings are retained."),502,{"Cache-Control":"no-store"}
+
+
 @app.get("/api/radar")
 def radar_api():
     try:

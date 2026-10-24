@@ -27,7 +27,7 @@ assert.equal(model.cloudHeightText({...station,cloudLayers:[],layers:[{cover:'OV
 assert.equal(model.cloudHeightText({...station,cloudLayers:[{cover:'BKN',baseFtAGL:12000}]}),'12');
 for(const code of ['CLR','SKC','NSC','NCD','CAVOK','FEW','SCT','VV']){
  const dot=model.cloudStationModel({...station,skyCover:{code},layers:code==='VV'?[{cover:code,baseFtAGL:300}]:[{cover:code,baseFtAGL:1000}]});
- assert.match(dot,/class="cloud-dot" cx="16" cy="12"/);
+ assert.match(dot,/class="cloud-dot" cx="16" cy="12" r="1.9"/);
  assert.doesNotMatch(dot,/plot-sky|plot-ceiling/);
 }
 const unknown=model.cloudStationModel({...station,skyCover:null,layers:[]});

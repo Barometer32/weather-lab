@@ -44,7 +44,7 @@ def fetch(url, previous=None):
         raise
 
 
-def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False):
+def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
     """Return local usable measurements without copying the national arrays."""
     v = dataset.variables
     required = {"stationId", "observationTime", "latitude", "longitude"}
@@ -88,7 +88,7 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
     rows = []
     for i in indices:
         station = text("stationId", i)
-        if not station or station in ("KCFE", "KFCE", "KSGS", "KDEH"):
+        if not station or station in excluded_stations:
             continue
         observed = datetime.fromtimestamp(float(stamp[i]), UTC)
         # Public1 is the access boundary. Also reject explicit all-data

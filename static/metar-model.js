@@ -60,7 +60,7 @@ window.WeatherStationModel = (() => {
   }
   function cloudStationModel(station){
     const label=cloudPlotLabel(station);
-    return `<svg class="metar-plot cloud-plot" width="${32*scale}" height="${24*scale}" viewBox="0 0 32 24" aria-hidden="true">${label?`<text class="${label==="?"?"plot-cloud-unknown":"plot-ceiling"}" x="16" y="12" text-anchor="middle" dominant-baseline="central">${label}</text>`:'<circle class="cloud-dot" cx="16" cy="12" r="2.2" fill="#111"/>'}</svg>`;
+    return `<svg class="metar-plot cloud-plot" width="${32*scale}" height="${24*scale}" viewBox="0 0 32 24" aria-hidden="true">${label?`<text class="${label==="?"?"plot-cloud-unknown":"plot-ceiling"}" x="16" y="12" text-anchor="middle" dominant-baseline="central">${label}</text>`:'<circle class="cloud-dot" cx="16" cy="12" r="1.9" fill="#111"/>'}</svg>`;
   }
   function cloudFootprint(station){
     const label=cloudPlotLabel(station),half=label?textWidth(label)/2+2.5:3;
