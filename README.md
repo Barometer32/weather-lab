@@ -4,6 +4,7 @@ Active Google Cloud project: `weather-lab-261024-133205`, region `us-central1`.
 Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
 
 Current tabs: OBSERVATIONS, RADAR, CLOUDS, SATELLITE, FORECAST and AIR Q.
+Full restore in the same project: `bash restore-weather-lab-latest.sh weather-lab-261024-133205`. This undeletes the project when needed, links the only open billing account if billing is disabled (or accepts a chosen account ID as argument two), rebuilds missing weather resources, imports the latest observation list and twelve airport cloud frames, restores imagery and all six schedules, and checks the existing custom address. A closed billing account must first be reopened in the console. No replacement project is created. Lost Air Q source-hour snapshots accumulate again rather than being fabricated.
 OBSERVATIONS lists only public Hennepin West stations in Hennepin County for choosing a future
 average; it does not calculate an average yet. Run
 `bash update-weather-observations.sh weather-lab-261024-133205` to publish this
