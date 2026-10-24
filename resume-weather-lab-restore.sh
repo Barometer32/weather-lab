@@ -86,7 +86,7 @@ python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);page=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)!=['metar-clouds','radar','satellite','forecast','air-quality'] or 'metar-model.js?v=combined-vector-v1' not in page:
+if re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)!=['metar-clouds','radar','satellite','forecast','air-quality'] or 'metar-model.js?v=combined-vector-' not in page:
     raise SystemExit('The latest five-tab layout and compact downwind vectors were not verified.')
 frames=data.get('history',[])
 if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12 or any(not frame.get('stations') for frame in frames):

@@ -48,7 +48,7 @@ for(let direction=0;direction<360;direction+=5){
  assert.ok(result.includes(`rotate(${rotation})`));
  assert.deepEqual(anchors(result),anchors(svg),'rotating wind never moves temperature, dewpoint, ceiling or speed');
  const a=rotation*Math.PI/180;
- for(const [x,y] of [[0,-11.5],[3.8,-7.6],[1.1,-4.5],[-1.1,-4.5],[-3.8,-7.6]]){
+ for(const [x,y] of [[0,-13],[4.5,-8.5],[1.3,-4],[-1.3,-4],[-4.5,-8.5]]){
   const arrowX=43+x*Math.cos(a)-y*Math.sin(a);
   assert.ok(arrowX-.8>29&&arrowX+.8<57,'arrow and halo clear all four text columns');
  }

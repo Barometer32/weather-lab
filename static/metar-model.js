@@ -21,14 +21,14 @@ window.WeatherStationModel = (() => {
     return ["VV","OVC","BKN","SCT","FEW","CLR","SKC","NSC","NCD","CAVOK"].find(code=>codes.includes(code))||null;
   }
   function skySymbol(station){
-    const code=skyCode(station),r=5.25;
+    const code=skyCode(station),r=4.6;
     const fraction={CLR:0,SKC:0,NSC:0,NCD:0,CAVOK:0,FEW:.25,SCT:.5,BKN:.75,OVC:1}[code];
     let fill="";
     if(fraction===1)fill=`<circle class="sky-fill" cx="${cx}" cy="${cy}" r="${r}" fill="#111"/>`;
     else if(fraction>0){
       const a=2*Math.PI*fraction,x=cx+r*Math.sin(a),y=cy-r*Math.cos(a);
       fill=`<path class="sky-fill" d="M${cx} ${cy}L${cx} ${cy-r}A${r} ${r} 0 ${fraction>.5?1:0} 1 ${x} ${y}Z" fill="#111"/>`;
-    }else if(code==="VV")fill=`<path class="sky-obscured" d="M${cx-3} ${cy-3}l6 6m-6 0l6 -6" fill="none" stroke="#111" stroke-width="1.4"/>`;
+    }else if(code==="VV")fill=`<path class="sky-obscured" d="M${cx-2.6} ${cy-2.6}l5.2 5.2m-5.2 0l5.2 -5.2" fill="none" stroke="#111" stroke-width="1.4"/>`;
     else if(fraction==null)fill=`<text class="plot-sky-unknown" x="${cx}" y="${cy+3}" text-anchor="middle">?</text>`;
     return `<g class="plot-sky"><circle cx="${cx}" cy="${cy}" r="${r+1}" fill="white"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>${fill}<circle class="sky-outline" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#111" stroke-width="1.4"/></g>`;
   }
@@ -36,7 +36,7 @@ window.WeatherStationModel = (() => {
     if(speed==null||speed<.5||!Number.isFinite(wind.direction))return "";
     // METAR bearings name the wind source; the arrow points where air is going.
     const rotation=((wind.direction+180)%360+360)%360;
-    const shape="M0 -11.5L3.8 -7.6H1.1V-4.5H-1.1V-7.6H-3.8Z";
+    const shape="M0 -13L4.5 -8.5H1.3V-4H-1.3V-8.5H-4.5Z";
     return `<g class="wind-vector" transform="translate(${cx} ${cy}) rotate(${rotation})"><path class="wind-vector-solid" d="${shape}" fill="#111" stroke="white" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke fill"/></g>`;
   }
   function stationModel(station){
