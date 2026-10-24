@@ -27,13 +27,13 @@ from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
 import re
-if re.findall(r'<button role="tab" id="tab-([^\"]+)"',html)!=['metar-clouds','radar','satellite','forecast','air-quality']:
-    raise SystemExit('The combined METAR tabs are not published yet.')
+if re.findall(r'<button role="tab" id="tab-([^\"]+)"',html)!=['metar-clouds','radar','clouds','satellite','forecast','air-quality']:
+    raise SystemExit('The METAR and Clouds tabs are not published yet.')
 for asset in ['style.css','metar-model.js','cloud-views.js','app.js']:
     if f'/static/{asset}?v=' not in html:
         raise SystemExit(f'The Clouds update for {asset} is not published yet.')
 if 'data-ceiling-unit="thousands-ft"' not in html or 'id="metar-cloud-timeline"' not in html:
     raise SystemExit('The cloud-height units or history slider are not published yet.')
-print('Verified combined METAR station plots with 12-hour history.')
+print('Verified separate METAR and Clouds station plots with 12-hour history.')
 PY
 printf '\nUpdate complete. Refresh your usual J-Weather address.\nService URL: %s\nSaved settings: %s\n' "$WEATHER_WEB_URL" "$WEATHER_WORK"

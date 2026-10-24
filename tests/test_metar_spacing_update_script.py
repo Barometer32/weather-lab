@@ -66,4 +66,4 @@ def test_clouds_tab_update_changes_only_the_web_image(tmp_path):
     assert result.returncode==0,result.stderr
     assert [c[4] for c in calls if c[:4]==['gcloud','run','services','update']]==['weather-lab']
     assert not any('weather-collector' in c or c[:2]==['gcloud','scheduler'] or c[:3]==['gcloud','services','enable'] for c in calls)
-    assert 'combined METAR station plots with 12-hour history' in result.stdout
+    assert 'separate METAR and Clouds station plots with 12-hour history' in result.stdout

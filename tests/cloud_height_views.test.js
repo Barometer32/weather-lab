@@ -18,7 +18,7 @@ vm.runInNewContext(fs.readFileSync('static/cloud-height-views.js','utf8'),contex
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
 const ids=()=>shown.map(s=>s.title.split(' · ')[0]).sort();
-const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
+const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/text>/)?.[1];
 (async()=>{
  assert.equal(reads,0,'Clouds is lazy and never downloads separate upstream observations');
  get('clouds').hidden=false;context.window.WeatherCloudHeights.select('clouds');await flush();
@@ -26,15 +26,15 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  assert.equal(options.zoomSnap,.25);assert.equal(options.zoomDelta,.25);assert.equal(options.wheelPxPerZoomLevel,90);
  assert.equal(get('clouds-timeline').max,'11');assert.equal(get('clouds-timeline').value,'11');
  assert.equal(number('KAAA'),'3');assert.equal(number('KFCM'),'1');assert.equal(number('KDEH'),'1','formerly excluded site is eligible');
- for(const id of ['KDENSEA','KDENSEB','KDENSEC','KDENSED'])assert.ok(find(id),'small labels can fit tighter horizontal/vertical spacing: '+id);
- const cloudBoxes=shown.map(marker=>{const id=marker.title.split(' · ')[0],p=map.latLngToContainerPoint(marker.position);const rows=data.history.flatMap(h=>h.stations.filter(s=>s.station===id));const half=Math.max(...rows.map(s=>context.window.WeatherStationModel.cloudFootprint(s).right));return {left:p.x-half,right:p.x+half,top:p.y-7,bottom:p.y+7};});
- for(let i=0;i<cloudBoxes.length;i++)for(let j=0;j<i;j++){const a=cloudBoxes[i],b=cloudBoxes[j];assert.ok(a.right+.75<=b.left||b.right+.75<=a.left||a.bottom+.75<=b.top||b.bottom+.75<=a.top,'cloud labels never overlap');}
- assert.ok(find('KNEAR'),'24-pixel spacing fits small height numbers more densely than a full METAR plot');
- for(const id of ['KCLR','KSCT','KVV','KUNK','KOUT','KMIC','KMSP'])assert.equal(find(id),undefined);
- assert.match(get('clouds-status').textContent,/3 nearby heights hidden for spacing/);
- assert.equal(find('KAAA').position[0],1,'height remains at the airport, without jitter');
- assert.ok(shown.every(s=>!s.icon.html.includes('plot-temp')&&!s.icon.html.includes('<svg')),'cloud map has height numbers only');
- assert.equal(find('KOTHER'),undefined,'a wider earlier height reserves space even when the current height is one digit');
+ assert.deepEqual(ids(),stations.filter(s=>s.station!=='KOUT').map(s=>s.station).sort(),'every in-view airport is plotted without thinning, including colocated sites');
+ for(const id of ['KCLR','KSCT','KVV','KUNK']){
+  assert.ok(find(id),'clear, scattered, obscured and unknown-ceiling sites remain plotted: '+id);
+  assert.equal(number(id),undefined,'no BKN/OVC height is invented: '+id);
+ }
+ assert.equal(find('KOUT'),undefined);
+ assert.equal(find('KAAA').position[0],1,'cloud circle remains at the airport, without jitter');
+ assert.ok(shown.every(s=>s.icon.html.includes('plot-sky')&&!s.icon.html.includes('plot-temp')&&!s.icon.html.includes('wind-vector')),'cloud map has coverage circles and optional ceiling only');
+ assert.ok(find('KOTHER'),'all neighboring airports remain eligible across history');
  const first=ids();get('clouds-timeline').events.input({target:{value:'0'}});
  assert.equal(number('KAAA'),'25');assert.deepEqual(ids(),first,'larger historical numbers never switch neighboring visibility');
  get('clouds-timeline').events.input({target:{value:'11'}});
@@ -50,5 +50,5 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  polls[0]();await flush();assert.equal(get('clouds-timeline').value,'2','refresh preserves selected historical hour');assert.equal(get('clouds-time').textContent.split(' · ')[0],selected.split(' · ')[0]);
  const saved=ids();fail=true;get('refresh-clouds').events.click();await flush();assert.deepEqual(ids(),saved);assert.match(get('clouds-status').textContent,/Previous reports retained/);
  get('clouds').hidden=true;const before=reads;polls[0]();await flush();assert.equal(reads,before,'hidden Clouds does not poll');
- console.log('Clouds viewer checks passed: compact spacing, matched zoom, BKN/OVC-only thousands, all-site list, stable 12-hour loop, catch-up and failed-refresh retention.');
+ console.log('Clouds viewer checks passed: all-site coverage circles, matched zoom, BKN/OVC-only thousands, all-site list, stable 12-hour loop, catch-up and failed-refresh retention.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -7,6 +7,7 @@ import subprocess
 ROOT=Path(__file__).resolve().parents[1]
 PROJECT='weather-lab-261024-133205'
 IMAGE=f'us-central1-docker.pkg.dev/{PROJECT}/weather-lab/app:airports-b282a16b56c6'
+WEB_IMAGE=f'us-central1-docker.pkg.dev/{PROJECT}/weather-lab/app:plots-newer'
 
 
 def run_resume(tmp_path, **options):
@@ -27,6 +28,7 @@ elif a[:3]==['run','services','describe']:
  if a[3]=='weather-collector':
   if os.environ.get('RESUME_DENIED'):print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)
   print(json.dumps({'spec':{'template':{'spec':{'serviceAccountName':'weather-collector@'+p+'.iam.gserviceaccount.com','containers':[{'image':'bad.example/app:tag' if os.environ.get('RESUME_BAD_IMAGE') else 'us-central1-docker.pkg.dev/'+p+'/weather-lab/app:airports-b282a16b56c6','env':[{'name':'WEATHER_DATA_BUCKET','value':'wrong-bucket' if os.environ.get('RESUME_BAD_BUCKET') else p+'-weather-data'}]}]}}}}))
+ elif '--format=json' in a:print(json.dumps({'spec':{'template':{'spec':{'containers':[{'image':'bad.example/app:tag' if os.environ.get('RESUME_BAD_WEB_IMAGE') else 'us-central1-docker.pkg.dev/'+p+'/weather-lab/app:plots-newer'}]}}}}))
  elif '--format=value(status.url)' in a:print('https://weather.example.run.app')
  else:print('metadata: {}')
 elif a[:3]==['scheduler','jobs','list']:
@@ -52,7 +54,7 @@ def test_resume_reuses_collector_image_and_fresh_job_before_publishing(tmp_path)
     assert any('Recovery container started' in arg and 'metar_history.main(); refresh_media.main(); air_quality.main()' in arg for arg in deploy)
     seed=next(i for i,c in enumerate(calls) if c[:4]==['gcloud','run','jobs','execute'])
     web=next(i for i,c in enumerate(calls) if c[:4]==['gcloud','run','services','update'])
-    assert seed<web and calls[web][4]=='weather-lab' and '--image='+IMAGE in calls[web]
+    assert seed<web and calls[web][4]=='weather-lab' and '--image='+WEB_IMAGE in calls[web]
     assert any(c[:4]==['gcloud','run','services','update-traffic'] and '--to-latest' in c for c in calls)
     assert not any(c[:2]==['gcloud','builds'] or c[:3]==['gcloud','services','enable'] or c[:3]==['gcloud','projects','create'] or 'delete' in c or 'link' in c for c in calls)
     pauses=[c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','pause']]
@@ -71,7 +73,7 @@ def test_failed_job_prints_full_diagnostics_and_preserves_web(tmp_path):
 
 
 def test_bad_prerequisites_stop_before_pausing_or_deploying(tmp_path):
-    for kind in ['billing_off','bad_image','bad_bucket','denied']:
+    for kind in ['billing_off','bad_image','bad_web_image','bad_bucket','denied']:
         directory=tmp_path/kind;directory.mkdir()
         result,calls=run_resume(directory,**{kind:1});assert result.returncode!=0
         assert not any(c[:4] in [['gcloud','run','jobs','deploy'],['gcloud','run','services','update'],['gcloud','scheduler','jobs','pause']] for c in calls)

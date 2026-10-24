@@ -42,21 +42,21 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:plots-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/3: building the combined station plots and updating only the website.'
+echo 'Step 2/3: building the separate METAR and cloud plots and updating only the website.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 WEATHER_WEB_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 
-echo 'Step 3/3: verifying the combined METAR plots and tabs.'
+echo 'Step 3/3: verifying the separate METAR and Clouds tabs.'
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_WEB_URL/" -o "$WEATHER_WORK/page.html"
 python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=combined-vector-v2','cloud-views.js?v=combined-station-v1','app.js?v=combined-station-v1']:
+for asset in ['metar-model.js?v=split-clouds-v1','cloud-views.js?v=split-clouds-v1','cloud-height-views.js?v=split-clouds-v1','app.js?v=split-clouds-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
-if 'id="tab-clouds"' in html or 'cloud-height-views.js' in html or 'id="metar-cloud-timeline"' not in html:
-    raise SystemExit('The combined METAR page is not published yet.')
-print('Verified combined cloud-cover station circles, compact downwind vectors and 12-hour METAR history.')
+if 'id="tab-clouds"' not in html or 'id="clouds-timeline"' not in html or 'id="metar-cloud-timeline"' not in html:
+    raise SystemExit('The separate METAR and Clouds pages is not published yet.')
+print('Verified compact weather-only METARs, all-airport cloud circles and both 12-hour sliders.')
 PY
 printf '\nPlot update complete.\nWebsite: https://weather-lab.cloud.run\nProject: %s\nDirect URL: %s\nSaved settings: %s\n' "$WEATHER_PROJECT" "$WEATHER_WEB_URL" "$WEATHER_WORK"

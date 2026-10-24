@@ -25,6 +25,7 @@ echo 'Step 1/4: checking the existing project, built image and collection settin
 [[ "$(gcloud billing projects describe "$WEATHER_PROJECT" --format='value(billingEnabled)' | tr '[:upper:]' '[:lower:]')" == true ]] || { echo 'Link active billing first.' >&2; exit 1; }
 gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/collector-before.json"
 gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=export >"$WEATHER_WORK/website-before.yaml"
+gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/website-before.json"
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/jobs-before.json"
 python3 - "$WEATHER_WORK" "$WEATHER_PROJECT" "$WEATHER_REGION" <<'PY'
 import json,sys
@@ -38,7 +39,11 @@ if not image_path.startswith(f'{region}-docker.pkg.dev/{project}/') or not image
     raise SystemExit('Unexpected collector image; no recovery job or website update started.')
 if account!=f'weather-collector@{project}.iam.gserviceaccount.com' or bucket!=f'{project}-weather-data':
     raise SystemExit('Unexpected collector identity or bucket; stopping to preserve existing settings.')
-for filename,value in [('image.txt',image),('account.txt',account),('bucket.txt',bucket)]:
+web_image=json.loads((work/'website-before.json').read_text())['spec']['template']['spec']['containers'][0]['image']
+web_path=web_image.split('@',1)[0].split(':',1)[0]
+if not web_path.startswith(f'{region}-docker.pkg.dev/{project}/') or not web_path.endswith('/app'):
+    raise SystemExit('Unexpected website image; stopping to preserve existing settings.')
+for filename,value in [('web-image.txt',web_image),('image.txt',image),('account.txt',account),('bucket.txt',bucket)]:
     (work/filename).write_text(value+'\n')
 managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality'}
 with (work/'pause-jobs.txt').open('w') as output:
@@ -47,6 +52,7 @@ with (work/'pause-jobs.txt').open('w') as output:
         if name in managed and job.get('state')=='ENABLED':print(name,file=output)
 PY
 WEATHER_IMAGE="$(cat "$WEATHER_WORK/image.txt")"
+WEATHER_WEB_IMAGE="$(cat "$WEATHER_WORK/web-image.txt")"
 WEATHER_COLLECTOR_SA="$(cat "$WEATHER_WORK/account.txt")"
 WEATHER_BUCKET="$(cat "$WEATHER_WORK/bucket.txt")"
 printf 'Reusing built image: %s\n' "$WEATHER_IMAGE"
@@ -77,7 +83,7 @@ if ! gcloud run jobs execute "$WEATHER_JOB" --project="$WEATHER_PROJECT" --regio
 fi
 
 echo 'Step 3/4: publishing the already-built website and verifying the data.'
-gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --update-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --quiet
+gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_WEB_IMAGE" --update-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/" -o "$WEATHER_WORK/page.html"
@@ -86,8 +92,10 @@ python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);page=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)!=['metar-clouds','radar','satellite','forecast','air-quality'] or 'metar-model.js?v=combined-vector-' not in page:
-    raise SystemExit('The latest five-tab layout and compact downwind vectors were not verified.')
+tabs=re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)
+layouts=[['metar-clouds','radar','satellite','forecast','air-quality'],['metar-clouds','radar','clouds','satellite','forecast','air-quality']]
+if tabs not in layouts or 'metar-model.js?v=' not in page or ('clouds' in tabs and 'cloud-height-views.js?v=' not in page):
+    raise SystemExit('The saved weather layout was not verified.')
 frames=data.get('history',[])
 if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12 or any(not frame.get('stations') for frame in frames):
     raise SystemExit('Twelve populated airport-only frames were not verified.')
@@ -95,7 +103,7 @@ for frame in frames:
     if any(row.get('reportType')!='METAR' or not 45<=int(row['time'][14:16])<=59 for row in frame['stations']):
         raise SystemExit('An ineligible report reached the map.')
     print(frame['hour'],len(frame['stations']),'airport METARs')
-print('Verified latest compact station plots and twelve hourly airport frames.')
+print('Verified saved website layout and twelve hourly airport frames.')
 PY
 
 echo 'Step 4/4: restoring the previously enabled background schedules.'

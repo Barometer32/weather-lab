@@ -20,27 +20,14 @@ window.WeatherCloudHeights = (() => {
     return layers.some(l=>["BKN","OVC"].includes(l.cover))?"BKN/OVC height unavailable":layers.length?"No reported BKN/OVC layer":"Cloud report unavailable";
   }
   function visibleSites(stations){
-    // Reserve each airport's widest height over all frames, so labels do not
-    // change neighboring visibility when the history slider moves.
-    const sites=new Map(),size=map.getSize(),accepted=new Set(),boxes=[],gap=.75;
-    for(const hour of data.history)for(const station of hour.stations){
-      const label=model.cloudHeightText(station);if(!label)continue;
-      const old=sites.get(station.station);
-      sites.set(station.station,{station,half:Math.max(old?.half||0,model.cloudFootprint(station).right)});
-    }
-    const priority=["KFCM","KMIC","KMSP"];
-    const rank=s=>priority.includes(s.station)?priority.indexOf(s.station):priority.length;
-    const candidates=[...sites.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
-    const inView=station=>{const p=map.latLngToContainerPoint([station.lat,station.lon]);return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;};
-    for(const {station,half} of candidates){
-      if(!inView(station))continue;
+    // Every available airport is plotted at its real position, including clear,
+    // scattered and unknown reports. No ceiling-only filter or thinning.
+    const size=map.getSize();
+    const drawn=stations.filter(station=>{
       const p=map.latLngToContainerPoint([station.lat,station.lon]);
-      const box={left:p.x-half,right:p.x+half,top:p.y-7,bottom:p.y+7};
-      if(boxes.some(b=>box.left<b.right+gap&&box.right>b.left-gap&&box.top<b.bottom+gap&&box.bottom>b.top-gap))continue;
-      boxes.push(box);accepted.add(station.station);
-    }
-    return {drawn:stations.filter(s=>model.cloudHeightText(s)&&accepted.has(s.station)),
-      inView:stations.filter(s=>model.cloudHeightText(s)&&inView(s)).length};
+      return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
+    });
+    return {drawn};
   }
   function render(){
     if(!data)return;
@@ -49,23 +36,20 @@ window.WeatherCloudHeights = (() => {
     if(followLatest){const available=hours.findLastIndex(h=>h.stations.length);index=available<0?hours.length-1:available;}
     index=Math.max(0,Math.min(index,hours.length-1));
     const frame=hours[index],stations=frame.stations;
-    const {drawn,inView}=visibleSites(stations);
+    const {drawn}=visibleSites(stations);
     const eligible=stations.filter(s=>model.cloudHeightText(s)).length;
     for(const station of drawn){
-      const label=model.cloudHeightText(station);
-      if(!label)continue;
-      // Only a tiny label-sized gap is reserved, for denser plots than METAR.
       const popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"),node("p",`Lowest BKN/OVC: ${description(station)}`));
+      popup.append(node("strong",station.station),node("p",`Cloud cover: ${model.skyCode(station)||"not reported"}`),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"),node("p",`Lowest BKN/OVC: ${description(station)}`));
       for(const layer of model.cloudLayers(station))popup.append(node("p",`${layer.cover}: ${layer.baseFtAGL==null?"height unknown":layer.baseFtAGL.toLocaleString()+" ft AGL"}`));
-      const icon=L.divIcon({className:"weather-station",html:`<span class="cloud-ceiling-number">${label}</span>`,iconSize:[32,24],iconAnchor:[16,12]});
-      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${description(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      const icon=L.divIcon({className:"weather-station",html:model.cloudStationModel(station),iconSize:model.cloudIconSize,iconAnchor:model.cloudIconAnchor});
+      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${model.skyCode(station)||"cloud cover not reported"} · ${description(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
     const slider=el("clouds-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("clouds-time").textContent=`${time.format(new Date(frame.hour))} · hourly ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("clouds-time").textContent);
-    el("clouds-status").textContent=`${drawn.length} cloud heights in view${inView>drawn.length?` · ${inView-drawn.length} nearby heights hidden for spacing; zoom in`:""} · ${eligible} airports with BKN/OVC heights / ${stations.length} airport reports · ${hours.filter(h=>h.stations.length).length}/12 hours with reports${!hours.at(-1).stations.length?" · Waiting for the newest hour; showing the latest available reports":""}${data.stale?" · Background updates delayed":""}`;
+    el("clouds-status").textContent=`${drawn.length} airport cloud plots in view · ${eligible} airports with BKN/OVC heights / ${stations.length} airport reports · ${hours.filter(h=>h.stations.length).length}/12 hours with reports${!hours.at(-1).stations.length?" · Waiting for the newest hour; showing the latest available reports":""}${data.stale?" · Background updates delayed":""}`;
     el("clouds-rows").replaceChildren();
     if(el("clouds-station-list").open){
       const query=el("clouds-search").value.trim().toUpperCase();

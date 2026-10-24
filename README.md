@@ -77,16 +77,17 @@ the source timestamp rather than download time. Repeated checks reuse the same
 hour; corrections replace its image. Previously archived styles remain until
 they age out. Upstream failures retain the last available map.
 
-The METAR station model combines red temperature and green dewpoint on the
-left, a cloud-cover circle and compact downwind arrow at the airport, blue
-wind speed in mph at lower right and the lowest BKN/OVC base at upper right.
-Heights are rounded to thousands of feet (at or below 1,000 feet is 1).
-No number is shown for FEW/SCT/clear, obscured sky (VV), or unknown ceiling
-bases. An unknown-height BKN/OVC layer prevents claiming another layer is lowest.
-Tap a station to see the exact cloud base in feet above ground level.
-The separate Clouds tab has been removed. All eligible airports, including
-KCFE/KFCE, KSGS and KDEH, are available; compact spacing prevents overlaps,
-and zooming reveals more airports. No clouds are inferred above reporting limits.
+The METAR map shows only temperature, dewpoint, a compact downwind vector at
+the airport and blue wind speed in mph at lower right. Its frame-stable spacing
+filter avoids overlapping weather plots; zooming reveals nearby airports.
+
+The separate CLOUDS tab draws every available airport at its actual location,
+without thinning, including clear, scattered and unknown cloud reports. Its
+circle represents reported cloud cover, with the lowest known BKN/OVC base
+upper right in thousands of feet (rounded, with 1 for at or below 1,000 feet).
+There is no height for clear, FEW/SCT, VV or an unknown ceiling base. Tap a
+station for its exact base in feet above ground, report time and all layers.
+Both maps use the same twelve hourly frames and matching zoom controls.
 
 METAR uses the canonical hourly archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
@@ -173,19 +174,13 @@ the same project; no new project or billing account is created. The default
 repository remains `weather-lab` for other deployments. Failed repository reads
 or creation stop before the build.
 
-## Combined METAR display update
+## METAR and Clouds display update
 
 Run `update-weather-lab-plots.sh weather-lab-261024-133205` in Cloud Shell.
-The five tabs are METAR, RADAR, SATELLITE, FORECAST and AIR Q. Cloud information
-is combined into the main twelve-hour METAR map; the separate Clouds tab is
-removed. A station circle shows reported sky cover, with a compact solid arrow
-pointing where the wind is going. Temperature and dewpoint
-sit close to the circle on the left, wind speed in mph is lower right, and the lowest BKN/OVC
-base is upper right, rounded to thousands of feet (at or below 1,000 feet is 1).
-Clear reports have hollow circles, obscured sky has an X, and missing cloud
-reports have a question mark. No ceiling number is invented for missing bases.
-Tap a station to see the exact base in feet. The map reserves the largest
-station footprint across the loop to avoid overlaps as values change.
+The six tabs are METAR, RADAR, CLOUDS, SATELLITE, FORECAST and AIR Q.
+METAR has weather-only plots and CLOUDS has all-airport cloud circles with
+lowest BKN/OVC heights upper right. Each map has its own twelve-hour slider.
+All eligible airports, including KCFE/KFCE, KSGS and KDEH, remain available.
 
 The helper saves website settings, builds into its current image repository,
 and updates only `weather-lab`. Collector settings, schedules and saved weather
@@ -221,7 +216,8 @@ schedule settings, and runs the history import in a newly named job. This tests
 whether a fresh job can run; it does not establish the cause of an earlier
 FAILED_PRECONDITION. No image build, API enablement or billing change is made.
 Only previously enabled managed schedules are paused and resumed. Existing
-paused and unrelated jobs retain their state. The website image is updated only
-after the import succeeds; the latest layout and twelve populated hourly airport
-frames are then verified. Failure reports retain full execution, task and audit
+paused and unrelated jobs retain their state. The current website image is retained separately from the collector image,
+so resuming a history import preserves any newer display changes. The website
+is refreshed only after the import succeeds; its saved layout and twelve
+populated hourly airport frames are then verified. Failure reports retain full execution, task and audit
 JSON, including protoPayload. Saved settings are printed on exit.
