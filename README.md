@@ -78,7 +78,8 @@ hour; corrections replace its image. Previously archived styles remain until
 they age out. Upstream failures retain the last available map.
 
 The METAR plot uses red temperature and green dewpoint at the left, a compact
-arrow centered on the station pointing downwind, and blue wind speed (mph)
+solid arrow with a short tail centered on the station pointing downwind,
+with temperature/dewpoint pulled inward and blue wind speed (mph)
 at the lower right. Calm winds show 0; variable winds show VRB without an arrow.
 
 ## Clouds map
@@ -185,3 +186,14 @@ job use that repository. Existing project resources and weather data remain in
 the same project; no new project or billing account is created. The default
 repository remains `weather-lab` for other deployments. Failed repository reads
 or creation stop before the build.
+
+## Compact plot display update
+
+Run `update-weather-lab-plots.sh` in Cloud Shell to update the compact METAR
+vectors and the denser Clouds labels. It verifies which of the two recovery
+projects owns `weather-lab.cloud.run`, builds into that website's current image
+repository, and updates only `weather-lab`. Ambiguous ownership, unreadable
+settings and failed builds stop before website deployment. Collector settings,
+schedules and saved weather data are retained. Both maps reserve each site's
+widest label over the twelve-hour loop to keep neighboring labels separate
+without shifting station visibility as values change.

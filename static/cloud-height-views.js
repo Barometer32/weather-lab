@@ -22,11 +22,11 @@ window.WeatherCloudHeights = (() => {
   function visibleSites(stations){
     // Reserve each airport's widest height over all frames, so labels do not
     // change neighboring visibility when the history slider moves.
-    const sites=new Map(),size=map.getSize(),accepted=new Set(),boxes=[];
+    const sites=new Map(),size=map.getSize(),accepted=new Set(),boxes=[],gap=.75;
     for(const hour of data.history)for(const station of hour.stations){
       const label=model.cloudHeightText(station);if(!label)continue;
       const old=sites.get(station.station);
-      sites.set(station.station,{station,half:Math.max(old?.half||0,label.length*3.6+2)});
+      sites.set(station.station,{station,half:Math.max(old?.half||0,model.cloudFootprint(station).right)});
     }
     const priority=["KFCM","KMIC","KMSP"];
     const rank=s=>priority.includes(s.station)?priority.indexOf(s.station):priority.length;
@@ -35,8 +35,8 @@ window.WeatherCloudHeights = (() => {
     for(const {station,half} of candidates){
       if(!inView(station))continue;
       const p=map.latLngToContainerPoint([station.lat,station.lon]);
-      const box={left:p.x-half,right:p.x+half,top:p.y-8,bottom:p.y+8};
-      if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
+      const box={left:p.x-half,right:p.x+half,top:p.y-7,bottom:p.y+7};
+      if(boxes.some(b=>box.left<b.right+gap&&box.right>b.left-gap&&box.top<b.bottom+gap&&box.bottom>b.top-gap))continue;
       boxes.push(box);accepted.add(station.station);
     }
     return {drawn:stations.filter(s=>model.cloudHeightText(s)&&accepted.has(s.station)),

@@ -6,8 +6,10 @@ get('clouds').hidden=true;
 let shown=[],options,fullscreen,reads=0,fail=false,zoomed=false;const events={},polls=[];
 const station=(id,cover,height,lat)=>({station:id,lat,lon:0,time:'2026-10-23T11:53:00Z',layers:cover?[{cover,baseFtAGL:height}]:[]});
 const stations=[station('KAAA','BKN',2700,1),station('KNEAR','OVC',12000,1.6),station('KFCM','BKN',300,7),station('KMIC','OVC',25000,7.01),station('KMSP','BKN',2700,7.02),station('KCLR','CLR',null,4),station('KSCT','SCT',5000,5),station('KVV','VV',500,6),station('KUNK','BKN',null,10),station('KDEH','BKN',500,13),station('KOUT','OVC',25000,10000),station('KOLD','BKN',1000,10),station('KOTHER','OVC',12000,10.45)];
+stations.push(station('KDENSEA','OVC',12000,4),station('KDENSEB','OVC',25000,4.475));
+stations.push(station('KDENSEC','OVC',25000,5),{...station('KDENSED','OVC',25000,5),lon:.375});
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,23,1+i)).toISOString(),stations:stations.map(s=>['KAAA','KOLD'].includes(s.station)&&i===0?{...s,layers:[{cover:'BKN',baseFtAGL:25000}]}:s)}))};
-const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,callback){events[name]=callback;return this;},latLngToContainerPoint([lat]){return{x:zoomed?(lat-7)*12000+280:lat*40,y:200};},invalidateSize(){}};
+const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,callback){events[name]=callback;return this;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-7)*12000+280:lat*40,y:200+lon*40};},invalidateSize(){}};
 const context={window:{WeatherFullscreen:{attach(config){fullscreen=config;}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Date,Math,Number,
  fetch:async url=>{reads++;assert.equal(url,'/api/station-plots');if(fail)throw Error('Unavailable');return{ok:true,json:async()=>data};},setTimeout(){},setInterval(callback){polls.push(callback);},
  L:{map:(_id,config)=>{options=config;return map;},tileLayer:()=>({addTo(){}}),divIcon:x=>x,layerGroup:()=>({addTo(){return this;},clearLayers(){shown=[];}}),marker:(position,config)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,...config,popup:this.popup});return this;}})}};
@@ -24,6 +26,9 @@ const number=id=>find(id)?.icon.html.match(/>(\d+)<\/span>/)?.[1];
  assert.equal(options.zoomSnap,.25);assert.equal(options.zoomDelta,.25);assert.equal(options.wheelPxPerZoomLevel,90);
  assert.equal(get('clouds-timeline').max,'11');assert.equal(get('clouds-timeline').value,'11');
  assert.equal(number('KAAA'),'3');assert.equal(number('KFCM'),'1');assert.equal(number('KDEH'),'1','formerly excluded site is eligible');
+ for(const id of ['KDENSEA','KDENSEB','KDENSEC','KDENSED'])assert.ok(find(id),'small labels can fit tighter horizontal/vertical spacing: '+id);
+ const cloudBoxes=shown.map(marker=>{const id=marker.title.split(' · ')[0],p=map.latLngToContainerPoint(marker.position);const rows=data.history.flatMap(h=>h.stations.filter(s=>s.station===id));const half=Math.max(...rows.map(s=>context.window.WeatherStationModel.cloudFootprint(s).right));return {left:p.x-half,right:p.x+half,top:p.y-7,bottom:p.y+7};});
+ for(let i=0;i<cloudBoxes.length;i++)for(let j=0;j<i;j++){const a=cloudBoxes[i],b=cloudBoxes[j];assert.ok(a.right+.75<=b.left||b.right+.75<=a.left||a.bottom+.75<=b.top||b.bottom+.75<=a.top,'cloud labels never overlap');}
  assert.ok(find('KNEAR'),'24-pixel spacing fits small height numbers more densely than a full METAR plot');
  for(const id of ['KCLR','KSCT','KVV','KUNK','KOUT','KMIC','KMSP'])assert.equal(find(id),undefined);
  assert.match(get('clouds-status').textContent,/3 nearby heights hidden for spacing/);

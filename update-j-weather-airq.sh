@@ -50,7 +50,7 @@ python3 - "$WEATHER_WORK" <<'PY'
 from pathlib import Path
 import json,sys
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();data=json.loads((work/'airq.json').read_text())
-if '>AIR Q</button>' not in html or '/static/air-quality-views.js?v=airq-v3' not in html or '/static/metar-model.js?v=wind-vector-v1' not in html or 'id="metar-timeline-description"' in html:
+if '>AIR Q</button>' not in html or '/static/air-quality-views.js?v=airq-v3' not in html or '/static/metar-model.js?v=compact-vector-v2' not in html or 'id="metar-timeline-description"' in html:
     raise SystemExit('The AIR Q page or METAR heading cleanup is not published yet.')
 if not data.get('frames') or data.get('version')!='mn-region-v2' or data.get('timeBasis')!='source':
     raise SystemExit('No statewide Air Q map is ready yet.')

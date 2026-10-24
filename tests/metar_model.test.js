@@ -8,9 +8,10 @@ const svg=model.stationModel(station);
 assert.match(svg,/rotate\(270\)/); // An easterly wind blows west, so the vector points left.
 assert.match(svg,/class="plot-temp"[^>]*>46<\/text>/);
 assert.match(svg,/class="plot-dew"[^>]*>41<\/text>/);
-assert.match(svg,/class="plot-speed" x="57" y="53" text-anchor="start">20<\/text>/);
+assert.match(svg,/class="plot-speed" x="57" y="49" text-anchor="start">20<\/text>/);
 assert.doesNotMatch(svg,/plot-sky|plot-ceiling|BKN|2700/,'weather plot has no cloud symbol, coverage or height');
 assert.match(svg,/class="wind-vector"/);
+assert.match(svg,/class="wind-vector-solid"/);
 assert.doesNotMatch(svg,/wind-speed-circle|wind-barb|wind-flag/);
 assert.equal(model.cloudHeightText(station),'3');
 for(const [ft,label] of [[0,'1'],[100,'1'],[999,'1'],[1000,'1'],[1499,'1'],[1500,'2'],[12000,'12'],[25000,'25']]){
@@ -36,10 +37,10 @@ for(let direction=0;direction<360;direction+=5){
  assert.ok(result.includes(`rotate(${(direction+180)%360})`));
  assert.deepEqual(anchors(result),fixed,'wind rotation never moves a value');
  const a=(direction+180)*Math.PI/180;
- for(const [x,y] of [[0,-12],[0,12],[-4.5,-6.5],[4.5,-6.5]]){
+ for(const [x,y] of [[0,-9],[3.5,-3],[1.1,8],[-1.1,8],[-3.5,-3]]){
   const arrowX=46+x*Math.cos(a)-y*Math.sin(a),arrowY=30+x*Math.sin(a)+y*Math.cos(a);
-  assert.ok(arrowX-1.8>14.5,'vector clears temperature and dewpoint');
-  assert.ok(arrowX+1.8<55.5||arrowY+1.8<41.5,'vector clears the lower-right speed text');
+  assert.ok(arrowX-.8>31.5,'vector clears temperature and dewpoint');
+  assert.ok(arrowX+.8<55.5||arrowY+.8<34.5,'vector clears the lower-right speed text');
  }
 
 }
