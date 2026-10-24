@@ -56,7 +56,8 @@ window.WeatherStationModel = (() => {
     return `<svg class="metar-plot cloud-plot" width="${48*scale}" height="${34*scale}" viewBox="0 0 48 34" aria-hidden="true">${skySymbol(station,12,19)}${label?`<text class="plot-ceiling" x="21" y="15" text-anchor="start">${label}</text>`:""}</svg>`;
   }
   function cloudFootprint(station){
-    return {left:-7*scale,right:(12+textWidth(cloudHeightText(station)))*scale,top:-19*scale,bottom:7*scale};
+    const label=cloudHeightText(station);
+    return {left:-6.5*scale,right:(label?11+textWidth(label):6.5)*scale,top:(label?-18.5:-6.5)*scale,bottom:6.5*scale};
   }
   return {stationModel,cloudStationModel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[48*scale,34*scale],cloudIconAnchor:[12*scale,19*scale],

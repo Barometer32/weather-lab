@@ -20,14 +20,33 @@ window.WeatherCloudHeights = (() => {
     return layers.some(l=>["BKN","OVC"].includes(l.cover))?"BKN/OVC height unavailable":layers.length?"No reported BKN/OVC layer":"Cloud report unavailable";
   }
   function visibleSites(stations){
-    // Every available airport is plotted at its real position, including clear,
-    // scattered and unknown reports. No ceiling-only filter or thinning.
-    const size=map.getSize();
-    const drawn=stations.filter(station=>{
+    // Reserve the circle and widest ceiling across the loop. Labels changing
+    // with the selected hour must not make neighboring sites flicker on/off.
+    const sites=new Map(),boxes=[],accepted=new Set(),size=map.getSize(),gap=1.5;
+    for(const hour of data.history)for(const station of hour.stations){
+      const f=model.cloudFootprint(station),old=sites.get(station.station);
+      sites.set(station.station,{station,footprint:old?{
+        left:Math.min(old.footprint.left,f.left),right:Math.max(old.footprint.right,f.right),
+        top:Math.min(old.footprint.top,f.top),bottom:Math.max(old.footprint.bottom,f.bottom)
+      }:f});
+    }
+    const preferred=["KFCM","KMIC","KMSP"];
+    const priority=s=>{const rank=preferred.indexOf(s.station);return rank<0?preferred.length:rank;};
+    const area=f=>(f.right-f.left)*(f.bottom-f.top);
+    // Small footprints fill remaining gaps without a fixed station-count cap.
+    const candidates=[...sites.values()].sort((a,b)=>priority(a.station)-priority(b.station)||area(a.footprint)-area(b.footprint)||a.station.station.localeCompare(b.station.station));
+    const inView=station=>{
       const p=map.latLngToContainerPoint([station.lat,station.lon]);
       return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
-    });
-    return {drawn};
+    };
+    for(const {station,footprint:f} of candidates){
+      if(!inView(station))continue;
+      const p=map.latLngToContainerPoint([station.lat,station.lon]);
+      const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
+      if(boxes.some(b=>box.left<b.right+gap&&box.right>b.left-gap&&box.top<b.bottom+gap&&box.bottom>b.top-gap))continue;
+      accepted.add(station.station);boxes.push(box);
+    }
+    return {drawn:stations.filter(s=>accepted.has(s.station)),inView:stations.filter(inView).length};
   }
   function render(){
     if(!data)return;
@@ -36,7 +55,7 @@ window.WeatherCloudHeights = (() => {
     if(followLatest){const available=hours.findLastIndex(h=>h.stations.length);index=available<0?hours.length-1:available;}
     index=Math.max(0,Math.min(index,hours.length-1));
     const frame=hours[index],stations=frame.stations;
-    const {drawn}=visibleSites(stations);
+    const {drawn,inView}=visibleSites(stations);
     const eligible=stations.filter(s=>model.cloudHeightText(s)).length;
     for(const station of drawn){
       const popup=node("div");popup.className="cloud-popup";
@@ -49,7 +68,7 @@ window.WeatherCloudHeights = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("clouds-time").textContent=`${time.format(new Date(frame.hour))} · hourly ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("clouds-time").textContent);
-    el("clouds-status").textContent=`${drawn.length} airport cloud plots in view · ${eligible} airports with BKN/OVC heights / ${stations.length} airport reports · ${hours.filter(h=>h.stations.length).length}/12 hours with reports${!hours.at(-1).stations.length?" · Waiting for the newest hour; showing the latest available reports":""}${data.stale?" · Background updates delayed":""}`;
+    el("clouds-status").textContent=`${drawn.length} airport cloud plots in view${inView>drawn.length?` · ${inView-drawn.length} nearby plots hidden for spacing; zoom in`:""} · ${eligible} airports with BKN/OVC heights / ${stations.length} airport reports · ${hours.filter(h=>h.stations.length).length}/12 hours with reports${!hours.at(-1).stations.length?" · Waiting for the newest hour; showing the latest available reports":""}${data.stale?" · Background updates delayed":""}`;
     el("clouds-rows").replaceChildren();
     if(el("clouds-station-list").open){
       const query=el("clouds-search").value.trim().toUpperCase();

@@ -5,7 +5,7 @@ const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,element()
 get('clouds').hidden=true;
 let shown=[],options,fullscreen,reads=0,fail=false,zoomed=false;const events={},polls=[];
 const station=(id,cover,height,lat)=>({station:id,lat,lon:0,time:'2026-10-23T11:53:00Z',layers:cover?[{cover,baseFtAGL:height}]:[]});
-const stations=[station('KAAA','BKN',2700,1),station('KNEAR','OVC',12000,1.6),station('KFCM','BKN',300,7),station('KMIC','OVC',25000,7.01),station('KMSP','BKN',2700,7.02),station('KCLR','CLR',null,4),station('KSCT','SCT',5000,5),station('KVV','VV',500,6),station('KUNK','BKN',null,10),station('KDEH','BKN',500,13),station('KOUT','OVC',25000,10000),station('KOLD','BKN',1000,10),station('KOTHER','OVC',12000,10.45)];
+const stations=[station('KAAA','BKN',2700,1),station('KNEAR','OVC',12000,1.6),station('KFCM','BKN',300,7),{...station('KMIC','OVC',25000,7.01),lon:2},{...station('KMSP','BKN',2700,7.02),lon:4},{...station('KSTP','BKN',1000,7.025),lon:4},station('KCLR','CLR',null,4),station('KSCT','SCT',5000,5),station('KVV','VV',500,6),station('KUNK','BKN',null,10),station('KDEH','BKN',500,13),station('KOUT','OVC',25000,10000),station('KOLD','BKN',1000,10),station('KOTHER','OVC',12000,10.45)];
 stations.push(station('KDENSEA','OVC',12000,4),station('KDENSEB','OVC',25000,4.475));
 stations.push(station('KDENSEC','OVC',25000,5),{...station('KDENSED','OVC',25000,5),lon:.375});
 let data={history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,23,1+i)).toISOString(),stations:stations.map(s=>['KAAA','KOLD'].includes(s.station)&&i===0?{...s,layers:[{cover:'BKN',baseFtAGL:25000}]}:s)}))};
@@ -26,7 +26,21 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  assert.equal(options.zoomSnap,.25);assert.equal(options.zoomDelta,.25);assert.equal(options.wheelPxPerZoomLevel,90);
  assert.equal(get('clouds-timeline').max,'11');assert.equal(get('clouds-timeline').value,'11');
  assert.equal(number('KAAA'),'3');assert.equal(number('KFCM'),'1');assert.equal(number('KDEH'),'1','formerly excluded site is eligible');
- assert.deepEqual(ids(),stations.filter(s=>s.station!=='KOUT').map(s=>s.station).sort(),'every in-view airport is plotted without thinning, including colocated sites');
+ for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),'preferred metro airport retained: '+id);
+ assert.equal(find('KSTP'),undefined,'nearby St. Paul site yields to the preferred airport at this zoom');
+ assert.equal(find('KNEAR'),undefined,'a wider historical label reserves space beside KAAA');
+ const assertSpacing=()=>{
+  const boxes=shown.map(marker=>{
+   const id=marker.title.split(' · ')[0],p=map.latLngToContainerPoint(marker.position);
+   const footprints=data.history.flatMap(h=>h.stations.filter(s=>s.station===id)).map(context.window.WeatherStationModel.cloudFootprint);
+   return {left:p.x+Math.min(...footprints.map(f=>f.left)),right:p.x+Math.max(...footprints.map(f=>f.right)),top:p.y+Math.min(...footprints.map(f=>f.top)),bottom:p.y+Math.max(...footprints.map(f=>f.bottom))};
+  });
+  for(let i=0;i<boxes.length;i++)for(let j=0;j<i;j++){
+   const a=boxes[i],b=boxes[j];
+   assert.ok(a.right+1.5<=b.left||b.right+1.5<=a.left||a.bottom+1.5<=b.top||b.bottom+1.5<=a.top,'complete cloud circles/heights never overlap');
+  }
+ };
+ assertSpacing();
  for(const id of ['KCLR','KSCT','KVV','KUNK']){
   assert.ok(find(id),'clear, scattered, obscured and unknown-ceiling sites remain plotted: '+id);
   assert.equal(number(id),undefined,'no BKN/OVC height is invented: '+id);
@@ -38,7 +52,7 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  const first=ids();get('clouds-timeline').events.input({target:{value:'0'}});
  assert.equal(number('KAAA'),'25');assert.deepEqual(ids(),first,'larger historical numbers never switch neighboring visibility');
  get('clouds-timeline').events.input({target:{value:'11'}});
- zoomed=true;events.moveend();assert.equal(number('KMIC'),'25');assert.equal(number('KMSP'),'3','closer zoom reveals neighboring heights');zoomed=false;events.moveend();
+ zoomed=true;events.moveend();assert.equal(number('KMIC'),'25');assert.equal(number('KMSP'),'3');assert.ok(find('KSTP'),'closer zoom reveals St. Paul without a permanent station exclusion');assertSpacing();zoomed=false;events.moveend();
  get('clouds-station-list').open=true;get('clouds-station-list').events.toggle();
  assert.equal(get('clouds-rows').children.length,stations.length,'list includes every airport, even clear, unknown or hidden sites');
  get('clouds-search').value='KMIC';get('clouds-search').events.input();assert.equal(get('clouds-rows').children.length,1);get('clouds-search').value='';
@@ -50,5 +64,5 @@ const number=id=>find(id)?.icon.html.match(/class="plot-ceiling"[^>]*>(\d+)<\/te
  polls[0]();await flush();assert.equal(get('clouds-timeline').value,'2','refresh preserves selected historical hour');assert.equal(get('clouds-time').textContent.split(' · ')[0],selected.split(' · ')[0]);
  const saved=ids();fail=true;get('refresh-clouds').events.click();await flush();assert.deepEqual(ids(),saved);assert.match(get('clouds-status').textContent,/Previous reports retained/);
  get('clouds').hidden=true;const before=reads;polls[0]();await flush();assert.equal(reads,before,'hidden Clouds does not poll');
- console.log('Clouds viewer checks passed: all-site coverage circles, matched zoom, BKN/OVC-only thousands, all-site list, stable 12-hour loop, catch-up and failed-refresh retention.');
+ console.log('Clouds viewer checks passed: priority metro sites, nonoverlapping coverage circles, matched zoom, BKN/OVC-only thousands, all-site list, stable 12-hour loop, catch-up and failed-refresh retention.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

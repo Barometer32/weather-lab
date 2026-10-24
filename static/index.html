@@ -11,9 +11,9 @@
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/metar-model.js?v=split-clouds-v1"></script>
+  <script defer src="/static/metar-model.js?v=cloud-spacing-v1"></script>
   <script defer src="/static/cloud-views.js?v=split-clouds-v1"></script>
-  <script defer src="/static/cloud-height-views.js?v=split-clouds-v1"></script>
+  <script defer src="/static/cloud-height-views.js?v=cloud-spacing-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-v3"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/app.js?v=split-clouds-v1"></script>
@@ -84,7 +84,7 @@
   </div>
   <div class="page-notes" hidden>
     <p id="clouds-status" class="small-note" role="status">Loading airport cloud reports…</p>
-    <p class="small-note" data-ceiling-unit="thousands-ft">Every available airport is plotted at its actual location, without thinning. The circle shows reported cloud cover: hollow for clear, partial fill for FEW/SCT/BKN, filled for OVC, X for obscured sky, and ? for unreported cover. The lowest known BKN/OVC layer is upper right in thousands of feet above airport ground level, rounded to the nearest thousand with a minimum of 1. Clear, FEW, SCT, VV and unknown ceiling bases have no height number. Tap a station for exact feet and all reported layers.</p>
+    <p class="small-note" data-ceiling-unit="thousands-ft">Every available airport remains eligible at its actual location. KFCM, KMIC and KMSP have priority. A small gap keeps circles and ceiling numbers from overlapping; zooming in reveals more nearby airports. Spacing stays stable across the twelve-hour loop. The circle shows reported cloud cover: hollow for clear, partial fill for FEW/SCT/BKN, filled for OVC, X for obscured sky, and ? for unreported cover. The lowest known BKN/OVC layer is upper right in thousands of feet above airport ground level, rounded to the nearest thousand with a minimum of 1. Clear, FEW, SCT, VV and unknown ceiling bases have no height number. Tap a station for exact feet and all reported layers.</p>
     <details id="clouds-station-list" class="method"><summary>All reporting airports</summary><label for="clouds-search">Find an airport</label><input type="search" id="clouds-search" placeholder="KMSP, KFCM, KMIC, KDEH…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Airport</th><th scope="col">Reported</th><th scope="col">Lowest BKN/OVC height</th></tr></thead><tbody id="clouds-rows"></tbody></table></div></details>
   </div>
 </section>
