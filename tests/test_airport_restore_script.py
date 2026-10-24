@@ -44,6 +44,10 @@ elif a[:3]==['scheduler','jobs','describe']:
 elif a[:3]==['storage','buckets','describe'] and a[3].endswith('-forecast'):sys.exit(1)
 elif a[:3]==['storage','objects','describe']:sys.exit(1)
 elif a[:3]==['run','jobs','describe']:sys.exit(1)
+elif a[:3]==['artifacts','repositories','list']:
+ if os.environ.get('AIRPORT_REGISTRY_DENIED'):print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)
+ print('projects/'+project+'/locations/us-central1/repositories/'+os.environ.get('WEATHER_ARTIFACT_REPOSITORY','weather-lab') if os.environ.get('AIRPORT_EXISTING_REPOSITORY') else '')
+elif a[:3]==['artifacts','repositories','create'] and os.environ.get('AIRPORT_FAIL_REPOSITORY'):sys.exit(1)
 elif a[:2]==['builds','submit'] and os.environ.get('AIRPORT_FAIL_BUILD'):sys.exit(1)
 elif a[:3]==['run','jobs','execute'] and os.environ.get('AIRPORT_FAIL_SEED'):sys.exit(1)
 '''
@@ -51,6 +55,7 @@ elif a[:3]==['run','jobs','execute'] and os.environ.get('AIRPORT_FAIL_SEED'):sys
         p=binary/name;p.write_text(stub);p.chmod(0o755)
     log=tmp_path/'calls.jsonl'
     env={**os.environ,'PATH':str(binary)+os.pathsep+os.environ['PATH'],'HOME':str(home),'AIRPORT_ROOT':str(ROOT),'AIRPORT_LOG':str(log),**{'AIRPORT_'+k.upper():str(v) for k,v in options.items()}}
+    if options.get('repository'):env['WEATHER_ARTIFACT_REPOSITORY']=options['repository']
     result=subprocess.run(['bash',str(ROOT/'restore-j-weather-airport-metars.sh')],env=env,capture_output=True,text=True)
     return result,[json.loads(line) for line in log.read_text().splitlines()]
 
@@ -105,3 +110,33 @@ def test_build_failure_does_not_deploy_services(tmp_path):
     result,calls=run_restore(tmp_path,fail_build=1)
     assert result.returncode!=0
     assert not any(c[:3]==['gcloud','run','deploy'] for c in calls)
+
+
+def test_fresh_registry_is_used_by_build_both_services_and_history_job(tmp_path):
+    repo='j-weather-recovery-20261024'
+    result,calls=run_restore(tmp_path,repository=repo)
+    assert result.returncode==0,result.stderr
+    created=[c for c in calls if c[:4]==['gcloud','artifacts','repositories','create']]
+    assert len(created)==1 and created[0][4]==repo
+    build=next(c for c in calls if c[:3]==['gcloud','builds','submit'])
+    def flag(command,name):
+        return command[command.index(name)+1] if name in command else next(v.split('=',1)[1] for v in command if v.startswith(name+'='))
+    image=flag(build,'--tag')
+    assert f'/{repo}/app:airports-' in image
+    for target in ['weather-lab','weather-collector','weather-airports-restore']:
+        deploy=next(c for c in calls if c[:3]==['gcloud','run','deploy'] and c[3]==target or c[:4]==['gcloud','run','jobs','deploy'] and c[4]==target)
+        assert flag(deploy,'--image')==image
+
+
+def test_registry_read_create_failure_stops_before_build_and_deployment(tmp_path):
+    for kind in ['registry_denied','fail_repository']:
+        folder=tmp_path/kind;folder.mkdir()
+        result,calls=run_restore(folder,repository='j-weather-recovery',**{kind:1})
+        assert result.returncode!=0
+        assert not any(c[:3]==['gcloud','builds','submit'] or c[:3]==['gcloud','run','deploy'] for c in calls)
+
+
+def test_existing_selected_repository_is_reused_without_creation(tmp_path):
+    result,calls=run_restore(tmp_path,repository='j-weather-recovery',existing_repository=1)
+    assert result.returncode==0,result.stderr
+    assert not any(c[:4]==['gcloud','artifacts','repositories','create'] for c in calls)

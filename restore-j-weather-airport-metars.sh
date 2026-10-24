@@ -3,6 +3,7 @@
 set -euo pipefail
 WEATHER_PROJECT="${1:-j-weather-261020012817}"
 WEATHER_REGION=us-central1
+WEATHER_ARTIFACT_REPOSITORY="${WEATHER_ARTIFACT_REPOSITORY:-weather-lab}"
 # Scope quota attribution only for this restore process and its children.
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 WEATHER_WORK="$(mktemp -d "$HOME/j-weather-airports.XXXXXX")"
@@ -34,14 +35,14 @@ bash "$WEATHER_WORK/source/ensure-weather-apis.sh" "$WEATHER_PROJECT"
 gcloud run services list --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/services-before.json"
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/jobs-before.json"
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
-WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/weather-lab/app:airports-${WEATHER_COMMIT:0:12}"
+WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/$WEATHER_ARTIFACT_REPOSITORY/app:airports-${WEATHER_COMMIT:0:12}"
 WEATHER_BUCKET="$WEATHER_PROJECT-weather-data"
 WEATHER_COLLECTOR_SA="weather-collector@$WEATHER_PROJECT.iam.gserviceaccount.com"
 
-echo 'Step 2/5: rebuilding missing resources and deploying the collector.'
+echo "Step 2/5: rebuilding in repository $WEATHER_ARTIFACT_REPOSITORY and deploying the collector."
 (
   cd "$WEATHER_WORK/source"
-  WEATHER_APIS_VERIFIED=true WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true bash deploy.sh "$WEATHER_PROJECT"
+  WEATHER_APIS_VERIFIED=true WEATHER_ARTIFACT_REPOSITORY="$WEATHER_ARTIFACT_REPOSITORY" WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true bash deploy.sh "$WEATHER_PROJECT"
 )
 # Pause the managed jobs while the one-time imports publish their objects.
 for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality; do

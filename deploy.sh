@@ -4,7 +4,8 @@ set -euo pipefail
 WEATHER_PROJECT="${1:?Pass your Google Cloud project ID}"
 WEATHER_REGION="us-central1"
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
-WEATHER_IMAGE="${WEATHER_DEPLOY_IMAGE:-${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/weather-lab/app:latest}"
+WEATHER_ARTIFACT_REPOSITORY="${WEATHER_ARTIFACT_REPOSITORY:-weather-lab}"
+WEATHER_IMAGE="${WEATHER_DEPLOY_IMAGE:-${WEATHER_REGION}-docker.pkg.dev/${WEATHER_PROJECT}/${WEATHER_ARTIFACT_REPOSITORY}/app:latest}"
 WEATHER_WEB_SA="weather-web@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_BUILD_SA="weather-builder@${WEATHER_PROJECT}.iam.gserviceaccount.com"
 WEATHER_COLLECTOR_SA="weather-collector@${WEATHER_PROJECT}.iam.gserviceaccount.com"
@@ -39,8 +40,16 @@ if gcloud run jobs describe weather-forecast --region="$WEATHER_REGION" >/dev/nu
   gcloud run jobs delete weather-forecast --region="$WEATHER_REGION" --quiet
 fi
 
-if ! gcloud artifacts repositories describe weather-lab --location="$WEATHER_REGION" >/dev/null 2>&1; then
-  gcloud artifacts repositories create weather-lab --repository-format=docker --location="$WEATHER_REGION"
+# A failed repository read must stop recovery, not be treated as an empty list.
+WEATHER_REPOSITORIES="$(gcloud artifacts repositories list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='value(name)')"
+WEATHER_REPOSITORY_FOUND=false
+while IFS= read -r WEATHER_REPOSITORY_PATH; do
+  if [[ "${WEATHER_REPOSITORY_PATH##*/}" == "$WEATHER_ARTIFACT_REPOSITORY" ]]; then
+    WEATHER_REPOSITORY_FOUND=true
+  fi
+done <<< "$WEATHER_REPOSITORIES"
+if [[ "$WEATHER_REPOSITORY_FOUND" != true ]]; then
+  gcloud artifacts repositories create "$WEATHER_ARTIFACT_REPOSITORY" --project="$WEATHER_PROJECT" --repository-format=docker --location="$WEATHER_REGION"
 fi
 for WEATHER_SA_NAME in weather-web weather-builder weather-collector weather-scheduler; do
   if ! gcloud iam service-accounts describe "${WEATHER_SA_NAME}@${WEATHER_PROJECT}.iam.gserviceaccount.com" >/dev/null 2>&1; then

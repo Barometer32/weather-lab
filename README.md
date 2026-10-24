@@ -174,3 +174,14 @@ node tests/weather_tabs.test.js
 node tests/sun_angle.test.js
 node tests/map_fullscreen.test.js
 ```
+
+## Container recovery after project restoration
+
+If the Cloud Run revision cannot import its old image after a deleted project
+is restored, rebuild from GitHub with the full airport restore helper and set
+`WEATHER_ARTIFACT_REPOSITORY` to a new repository ID (for example,
+`j-weather-recovery-20261024`). The builder, both services and the history seed
+job use that repository. Existing project resources and weather data remain in
+the same project; no new project or billing account is created. The default
+repository remains `weather-lab` for other deployments. Failed repository reads
+or creation stop before the build.
