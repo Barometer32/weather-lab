@@ -13,13 +13,13 @@ from PIL import Image, ImageChops, ImageDraw
 UTC = timezone.utc
 VERSION = 'mn-region-v2'
 LEGACY_VERSION = 'mn-region-v1'
+MAP_STYLE = 'contours-only-no-labels'
 # Entire Minnesota, including the Northwest Angle and the Arrowhead.
 BOUNDS = [-97.65, 43.2, -89.1, 49.65]
 CONTOURS = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0'
 BASE = 'https://utility.arcgis.com/usrsvcs/servers/6907e02ec8474c6580e269c2b3f68d81/rest/services/base/aqi_base_bg_light/MapServer'
 OVERLAY = 'https://utility.arcgis.com/usrsvcs/servers/b4b392805417402d8d0510c586b89d87/rest/services/base/aqi_basemap/MapServer'
 COLORS = {1:'#00e400', 2:'#ffff00', 3:'#ff7e00', 4:'#ff0000', 5:'#8f3f97', 6:'#7e0023'}
-CITIES = ['Albert Lea','Alexandria','Bemidji','Brainerd','Duluth','Hibbing','Mankato','Marshall','Worthington','Ortonville','Hinckley','Two Harbors','Moorhead','Minneapolis','Rochester','East Grand Forks','Ely','International Falls','Roseau','Thief River Falls','Grand Marais']
 
 
 def iso(value):
@@ -72,20 +72,15 @@ def overlay_styles():
         return dict(id=identifier,source=dict(type='mapLayer',mapLayerId=source),
                     drawingInfo=dict(showLabels=False,renderer=dict(type='simple',symbol=dict(
                         type='esriSFS',style='esriSFSNull',outline=dict(type='esriSLS',style='esriSLSSolid',color=color,width=width)))))
-    cities = dict(id=2,source=dict(type='mapLayer',mapLayerId=2),
-        definitionExpression='Name IN ('+','.join("'"+name+"'" for name in CITIES)+')',
-        drawingInfo=dict(renderer=dict(type='simple',symbol=dict(type='esriSMS',style='esriSMSCircle',size=1,color=[0,0,0,0])),
-            showLabels=True,labelingInfo=[dict(labelPlacement='esriServerPointLabelPlacementAboveRight',
-                labelExpression='[Name]',useCodedValues=False,symbol=dict(type='esriTS',color=[55,55,55,255],
-                    haloColor=[255,255,255,255],haloSize=1.2,font=dict(family='Arial',size=10,weight='bold')))]))
+    # Only boundary and lake layers: explicitly omit both city label layers.
     # First dynamic layer is drawn on top. Keep county/state outlines visible.
-    return [cities,polygon(101,1,[180,180,180,255],1.5),polygon(1,1,[255,255,255,240],7),
+    return [polygon(101,1,[180,180,180,255],1.5),polygon(1,1,[255,255,255,240],7),
             polygon(4,4,[214,214,214,255],.8),dict(id=18,source=dict(type='mapLayer',mapLayerId=18),drawingInfo=dict(transparency=0,showLabels=False,renderer=dict(type='simple',symbol=dict(type='esriSFS',style='esriSFSSolid',color=[166,187,194,255],outline=dict(type='esriSLS',style='esriSLSNull'))))),
             polygon(20,20,[160,160,160,255],1)]
 
 
 def basemap(store,kind,fetch):
-    key=f'air-quality/maps/{VERSION}-{kind}.png'
+    key=f'air-quality/maps/{VERSION}-{MAP_STYLE}-{kind}.png'
     raw=store.read(key)
     if raw is None:
         params=dict(f='image',bbox=','.join(map(str,[XMIN,YMIN,XMAX,YMAX])),bboxSR=3857,imageSR=3857,
@@ -165,7 +160,7 @@ def collect(store,now,fetch=None):
     contours=[f for f in contours if isinstance(f.get('attributes',{}).get('Timestamp'),(int,float)) and
               datetime.fromtimestamp(f['attributes']['Timestamp']/1000,UTC).replace(minute=0,second=0,microsecond=0)==slot]
     canonical=lambda rows:sorted(json.dumps(f,sort_keys=True,separators=(',',':')) for f in rows)
-    digest=sha256(json.dumps(canonical(contours),separators=(',',':')).encode()).hexdigest()
+    digest=sha256(json.dumps([MAP_STYLE,canonical(contours)],separators=(',',':')).encode()).hexdigest()
     existing=next((f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)==slot),None)
     unchanged=existing and existing.get('version')==VERSION and existing.get('dataHash')==digest
     if not unchanged:
@@ -177,7 +172,7 @@ def collect(store,now,fetch=None):
         # corrected later; its slider position remains the same source hour.
         key=f'air-quality/{VERSION}/{source.strftime("%Y%m%d%H%M%S")}-{digest[:16]}.png'
         frame=dict(version=VERSION,time=iso(source),sourceTime=iso(source),capturedAt=iso(now),
-                   url='/api/prepared/'+key,dataHash=digest,style='contours-only')
+                   url='/api/prepared/'+key,dataHash=digest,style=MAP_STYLE)
         store.write(key,png,'image/png')
         frames=[f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)!=slot]+[frame]
     frames=recent_frames({'frames':frames},now)

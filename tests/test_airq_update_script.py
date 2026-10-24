@@ -17,7 +17,7 @@ if name=='git':
 elif name=='curl':
  p=pathlib.Path(a[a.index('-o')+1])
  if p.name=='page.html':p.write_text((pathlib.Path(os.environ['AIRQ_ROOT'])/'static/index.html').read_text())
- else:p.write_text(json.dumps({'version':'mn-region-v2','timeBasis':'source','frames':[{'time':'2026-10-23T23:00:00Z','sourceTime':'2026-10-23T23:00:00Z'}]}))
+ else:p.write_text(json.dumps({'version':'mn-region-v2','timeBasis':'source','frames':[{'time':'2026-10-23T23:00:00Z','sourceTime':'2026-10-23T23:00:00Z','style':'contours-only-no-labels'}]}))
 elif a[:3]==['run','services','describe']:
  if os.environ.get('AIRQ_DENIED'):sys.exit(1)
  print('collector@example.iam.gserviceaccount.com' if '--format=value(spec.template.spec.serviceAccountName)' in a else 'https://weather.example.run.app')

@@ -41,7 +41,7 @@ if [[ "$(gcloud scheduler jobs describe weather-live-air-quality --project="$WEA
 fi
 gcloud storage buckets update "gs://$WEATHER_PROJECT-weather-data" --project="$WEATHER_PROJECT" --lifecycle-file="$WEATHER_WORK/source/data-lifecycle.json"
 
-echo 'Step 5/5: publishing the page and verifying the captured history.'
+echo 'Step 5/5: publishing the wind-vector layout and verifying Air Q history.'
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 WEATHER_WEB_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_WEB_URL/" -o "$WEATHER_WORK/page.html"
@@ -50,12 +50,14 @@ python3 - "$WEATHER_WORK" <<'PY'
 from pathlib import Path
 import json,sys
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();data=json.loads((work/'airq.json').read_text())
-if '>AIR Q</button>' not in html or '/static/air-quality-views.js?v=airq-v2' not in html or 'id="metar-timeline-description"' in html:
+if '>AIR Q</button>' not in html or '/static/air-quality-views.js?v=airq-v3' not in html or '/static/metar-model.js?v=wind-vector-v1' not in html or 'id="metar-timeline-description"' in html:
     raise SystemExit('The AIR Q page or METAR heading cleanup is not published yet.')
 if not data.get('frames') or data.get('version')!='mn-region-v2' or data.get('timeBasis')!='source':
     raise SystemExit('No statewide Air Q map is ready yet.')
 if any(frame.get('time')!=frame.get('sourceTime') for frame in data['frames']):
     raise SystemExit('The AIR Q slider is not using source data times yet.')
+if data['frames'][-1].get('style')!='contours-only-no-labels':
+    raise SystemExit('The latest Air Q map still uses the older labeled style.')
 print(f"Verified {len(data['frames'])}/12 saved Air Q data hours.")
 PY
 gcloud scheduler jobs describe weather-live-air-quality --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='yaml(name,schedule,state)'

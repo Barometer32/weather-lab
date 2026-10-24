@@ -69,11 +69,17 @@ forecast and Air Quality views are retained.
 
 ## Air Quality
 
-The Air Quality tab embeds the standalone interactive map used on MPCA's
-[current conditions page](https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions).
-It loads directly from MPCA on the first tab selection, keeps its view across
-tab changes, and offers a manual refresh and direct source links. MPCA manages
-its data and layer refreshes; J-Weather adds no collection job, archive, or API key.
+AIR Q archives the public EPA AirNow AQI contours used by MPCA, covering all
+Minnesota. The map has county/state boundaries and lake geography without
+city labels, monitor markers or numbers, plus a category legend. Source checks
+run at :00 and :30; the slider keeps twelve distinct source data hours, using
+the source timestamp rather than download time. Repeated checks reuse the same
+hour; corrections replace its image. Previously archived styles remain until
+they age out. Upstream failures retain the last available map.
+
+The METAR plot uses red temperature and green dewpoint at the left, a compact
+arrow centered on the station pointing downwind, and blue wind speed (mph)
+at the lower right. Calm winds show 0; variable winds show VRB without an arrow.
 
 ## Clouds map
 

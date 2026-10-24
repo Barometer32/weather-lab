@@ -46,7 +46,7 @@ def test_snapshot_is_atomic_and_records_capture_and_distinct_source_times():
     assert frame['time']==aq.iso(SOURCE)
     assert frame['capturedAt']==aq.iso(NOW)
     assert frame['sourceTime']==aq.iso(SOURCE)
-    assert frame['style']=='contours-only'
+    assert frame['style']==aq.MAP_STYLE
     assert len(data['frames'])==1,'never invent the eleven hours before collection started'
     key=frame['url'].removeprefix('/api/prepared/')
     assert store.writes.index(key)<store.writes.index('live/air-quality.json')
@@ -171,3 +171,19 @@ def test_statewide_bounds_include_northwest_angle_arrowhead_and_southern_border(
     w,s,e,n=aq.BOUNDS
     for lon,lat in [(-95.15,49.38),(-89.49,48.0),(-97.24,48.0),(-92.0,43.5)]:
         assert w<lon<e and s<lat<n
+
+
+def test_unlabeled_style_replaces_same_hour_without_reusing_labeled_geography():
+    store=MemoryStore();fetch,calls=fetcher();aq.collect(store,NOW,fetch)
+    current=store.read_json('live/air-quality.json');old=current['frames'][0]
+    # Model a prior release with the same source data and a cached city overlay.
+    current['frames'][0]={**old,'style':'contours-only','dataHash':'older-render','url':'old-labeled.png'}
+    store.write_json('live/air-quality.json',current)
+    store.write('air-quality/maps/mn-region-v2-overlay.png',png('red'),'image/png')
+    aq.collect(store,NOW+timedelta(minutes=1),fetch)
+    frames=store.read_json('live/air-quality.json')['frames']
+    assert len(frames)==1 and frames[0]['sourceTime']==old['sourceTime']
+    assert frames[0]['style']==aq.MAP_STYLE and frames[0]['url']!='old-labeled.png'
+    layers=aq.overlay_styles()
+    assert {layer['source']['mapLayerId'] for layer in layers}=={1,4,18,20}
+    assert all(layer['drawingInfo']['showLabels'] is False for layer in layers)

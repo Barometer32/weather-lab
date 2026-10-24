@@ -21,7 +21,7 @@ window.WeatherAirQuality = (() => {
       const slider=el("airq-timeline");slider.max=String(frames.length-1);slider.value=String(index);slider.disabled=frames.length<2;
       slider.setAttribute("aria-valuetext",el("airq-time").textContent);
       slider.style.setProperty("--progress",`${frames.length>1?100*index/(frames.length-1):0}%`);
-      el("airq-status").textContent=`${frames.length}/12 data hours saved${frames.length<12?" · History is building":""}${data.stale?" · Background checks delayed":""}${frame.version==="mn-region-v1"?" · Earlier saved map style":""}`;
+      el("airq-status").textContent=`${frames.length}/12 data hours saved${frames.length<12?" · History is building":""}${data.stale?" · Background checks delayed":""}${frame.style!=="contours-only-no-labels"?" · Earlier saved map style":""}`;
     }catch(error){if(request===serial)el("airq-status").textContent="This Air Q snapshot could not load. The previous image is retained.";}
   }
   async function load(){
