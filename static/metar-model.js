@@ -1,7 +1,7 @@
 "use strict";
-// Combined hourly station model: sky cover at the site and standard wind barbs.
+// Combined hourly station model: sky cover at the site and compact downwind arrows.
 window.WeatherStationModel = (() => {
-  const scale=.82,width=108,height=60,cx=51,cy=30;
+  const scale=.82,width=88,height=52,cx=43,cy=26;
   const rounded=v=>v==null?"—":String(Math.round(v));
   const windMph=w=>w?.speedMph??(w?.speedKnots==null?null:w.speedKnots*1.150779);
   const cloudLayers=station=>station.cloudLayers?.length?station.cloudLayers:station.layers||[];
@@ -32,34 +32,24 @@ window.WeatherStationModel = (() => {
     else if(fraction==null)fill=`<text class="plot-sky-unknown" x="${cx}" y="${cy+3}" text-anchor="middle">?</text>`;
     return `<g class="plot-sky"><circle cx="${cx}" cy="${cy}" r="${r+1}" fill="white"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>${fill}<circle class="sky-outline" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#111" stroke-width="1.4"/></g>`;
   }
-  function windBarb(wind,speed){
+  function windVector(wind,speed){
     if(speed==null||speed<.5||!Number.isFinite(wind.direction))return "";
-    // Shaft points toward the wind source. Feathers encode knots; text is mph.
-    const knots=Math.max(0,Math.round((wind.speedKnots??speed/1.150779)/5)*5);
-    const flags=Math.floor(knots/50),full=Math.floor(knots%50/10),half=knots%10>=5;
-    // Compress feather spacing for extreme winds without extending into labels.
-    const spacing=Math.min(1,14/(flags*4+full*2.5+(half?2.5:0)||1));
-    let y=-20,lines='M0 -5.25V-20',pennants="";
-    for(let n=0;n<flags;n++){
-      pennants+=`<path class="wind-flag" d="M0 ${y}L6 ${y-3*spacing}L0 ${y+4*spacing}Z"/>`;
-      y+=4*spacing;
-    }
-    for(let n=0;n<full;n++){lines+=`M0 ${y}L6 ${y-3*spacing}`;y+=2.5*spacing;}
-    if(half){if(!flags&&!full)y+=2.5*spacing;lines+=`M0 ${y}L3 ${y-1.5*spacing}`;}
-    const shape=`<path class="wind-shaft" d="${lines}" fill="none"/>${pennants}`;
-    return `<g class="wind-barb" transform="translate(${cx} ${cy}) rotate(${wind.direction})" stroke-linecap="round" stroke-linejoin="round"><g class="wind-halo" fill="white" stroke="white" stroke-width="3.6">${shape}</g><g class="wind-ink" fill="#111" stroke="#111" stroke-width="1.6">${shape}</g></g>`;
+    // METAR bearings name the wind source; the arrow points where air is going.
+    const rotation=((wind.direction+180)%360+360)%360;
+    const shape="M0 -11.5L3.8 -7.6H1.1V-4.5H-1.1V-7.6H-3.8Z";
+    return `<g class="wind-vector" transform="translate(${cx} ${cy}) rotate(${rotation})"><path class="wind-vector-solid" d="${shape}" fill="#111" stroke="white" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke fill"/></g>`;
   }
   function stationModel(station){
     const wind=station.wind||{},speed=windMph(wind),label=rounded(speed),ceiling=cloudHeightText(station);
     const state=speed==null?"?":speed>=.5&&!Number.isFinite(wind.direction)?(wind.variable?"VRB":"?"):"";
-    return `<svg class="metar-plot" width="${width*scale}" height="${height*scale}" viewBox="0 0 ${width} 60" aria-hidden="true">${windBarb(wind,speed)}${skySymbol(station)}<text class="plot-temp" x="23" y="22" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="23" y="49" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="79" y="49" text-anchor="start"${label.length>2?' style="font-size:10px"':""}>${label}</text>${ceiling?`<text class="plot-ceiling" x="79" y="22" text-anchor="start">${ceiling}</text>`:""}${state?`<text class="plot-wind-state" x="${cx}" y="44" text-anchor="middle">${state}</text>`:""}</svg>`;
+    return `<svg class="metar-plot" width="${width*scale}" height="${height*scale}" viewBox="0 0 ${width} ${height}" aria-hidden="true">${windVector(wind,speed)}${skySymbol(station)}<text class="plot-temp" x="27.5" y="22" text-anchor="end">${rounded(station.tempF)}</text><text class="plot-dew" x="27.5" y="40" text-anchor="end">${rounded(station.dewpointF)}</text><text class="plot-speed" x="58.5" y="40" text-anchor="start"${label.length>2?' style="font-size:10px"':""}>${label}</text>${ceiling?`<text class="plot-ceiling" x="58.5" y="22" text-anchor="start">${ceiling}</text>`:""}${state?`<text class="plot-wind-state" x="${cx}" y="41" text-anchor="middle">${state}</text>`:""}</svg>`;
   }
   const textWidth=(label,small=false)=>label==="—"?13:label.length*(small?6.5:8.5);
   function footprint(station){
-    const left=Math.min(23-textWidth(rounded(station.tempF)),23-textWidth(rounded(station.dewpointF)));
+    const left=Math.min(27.5-textWidth(rounded(station.tempF)),27.5-textWidth(rounded(station.dewpointF)));
     const label=rounded(windMph(station.wind));
-    const right=79+Math.max(textWidth(label,label.length>2),textWidth(cloudHeightText(station)));
-    return {left:(left-cx-3)*scale,right:(right-cx+3)*scale,top:-26*scale,bottom:26*scale};
+    const right=58.5+Math.max(textWidth(label,label.length>2),textWidth(cloudHeightText(station)));
+    return {left:(left-cx-3)*scale,right:(right-cx+3)*scale,top:-18*scale,bottom:19*scale};
   }
   function cloudFootprint(station){
     const half=cloudHeightText(station).length*4+.75;

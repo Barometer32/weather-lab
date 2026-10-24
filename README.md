@@ -78,7 +78,7 @@ hour; corrections replace its image. Previously archived styles remain until
 they age out. Upstream failures retain the last available map.
 
 The METAR station model combines red temperature and green dewpoint on the
-left, a cloud-cover circle and source-directed wind barb at the airport, blue
+left, a cloud-cover circle and compact downwind arrow at the airport, blue
 wind speed in mph at lower right and the lowest BKN/OVC base at upper right.
 Heights are rounded to thousands of feet (at or below 1,000 feet is 1).
 No number is shown for FEW/SCT/clear, obscured sky (VV), or unknown ceiling
@@ -178,9 +178,9 @@ or creation stop before the build.
 Run `update-weather-lab-plots.sh weather-lab-261024-133205` in Cloud Shell.
 The five tabs are METAR, RADAR, SATELLITE, FORECAST and AIR Q. Cloud information
 is combined into the main twelve-hour METAR map; the separate Clouds tab is
-removed. A station circle shows reported sky cover, with a standard wind barb
-pointing toward the wind source (feathers in knots). Temperature and dewpoint
-remain on the left, wind speed in mph is lower right, and the lowest BKN/OVC
+removed. A station circle shows reported sky cover, with a compact solid arrow
+pointing where the wind is going. Temperature and dewpoint
+sit close to the circle on the left, wind speed in mph is lower right, and the lowest BKN/OVC
 base is upper right, rounded to thousands of feet (at or below 1,000 feet is 1).
 Clear reports have hollow circles, obscured sky has an X, and missing cloud
 reports have a question mark. No ceiling number is invented for missing bases.

@@ -54,7 +54,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
  assertSpacing();zoomed=false;mapEvents.moveend();
  for(const id of ['METRO','KOUT'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
- assert.match(find('KAAA').icon.html,/class="plot-speed" x="79" y="49" text-anchor="start">12/);
+ assert.match(find('KAAA').icon.html,/class="plot-speed" x="58.5" y="40" text-anchor="start">12/);
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
  assert.match(find('KAAA').title,/Clouds BKN.*2,700 ft AGL/);
  assert.match(get('metar-cloud-status').textContent,/5 nearby plots hidden for spacing; zoom in/);
