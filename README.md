@@ -211,3 +211,17 @@ schedule is paused briefly during preparation; its original state is restored
 on success or failure. The five-minute schedule and other collectors stay the
 same. This update also includes the thicker METAR arrow with a shorter tail and
 the latest compact value positions.
+
+## Resume after a completed build and failed restore job
+
+For the October 24 recovery, run
+`bash resume-weather-lab-restore.sh weather-lab-261024-133205`. The helper reads
+the deployed collector image, identity and bucket, saves existing website and
+schedule settings, and runs the history import in a newly named job. This tests
+whether a fresh job can run; it does not establish the cause of an earlier
+FAILED_PRECONDITION. No image build, API enablement or billing change is made.
+Only previously enabled managed schedules are paused and resumed. Existing
+paused and unrelated jobs retain their state. The website image is updated only
+after the import succeeds; the latest layout and twelve populated hourly airport
+frames are then verified. Failure reports retain full execution, task and audit
+JSON, including protoPayload. Saved settings are printed on exit.
