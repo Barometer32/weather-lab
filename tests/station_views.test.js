@@ -9,7 +9,7 @@ class ClockDate extends Date{constructor(...a){super(...(a.length?a:[clock]));}s
 const row=(station,layers,lat=1)=>({station,lat,lon:0,time:'2026-10-20T11:53:00Z',layers,tempF:65,dewpointF:45,wind:{speedMph:12,direction:180},skyCover:{code:layers[0]?.cover||null,displayFraction:layers[0]?.cover==='CLR'?0:layers.length?.75:null},ceiling:layers.filter(l=>['BKN','OVC'].includes(l.cover)&&l.baseFtAGL!=null).sort((a,b)=>a.baseFtAGL-b.baseFtAGL)[0]});
 const cloud=(cover,baseFtAGL)=>({cover,baseFtAGL});
 const stations=[
- row('KAAA',[cloud('BKN',2700)],1),row('KCLR',[cloud('CLR',null)],2.8),
+ row('KAAA',[cloud('BKN',2700)],1),row('KCLR',[cloud('CLR',null)],3.2),
  row('KFCM',[cloud('BKN',300)],7),row('KMIC',[cloud('BKN',25000)],7.01),row('KMSP',[cloud('OVC',2700)],7.02),
  row('KCFE',[],13.01),row('KFCE',[],13.02),row('KSGS',[],13.03),
  row('KUNK',[],10),row('KDEH',[cloud('OVC',300)],13),row('KOUT',[cloud('OVC',5000)],10000)
@@ -30,7 +30,7 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
  context.window.WeatherCloudViews.select('metar-clouds');await flush();
  assert.equal(fullscreenConfig.surfaceId,'metar-surface');assert.equal(fullscreenConfig.buttonId,'metar-fullscreen');
  assert.equal(get('metar-cloud-timeline').max,'11');assert.equal(get('metar-cloud-timeline').value,'11');
- assert.ok(shown.every(s=>!s.icon.html.includes('plot-ceiling')&&!s.icon.html.includes('plot-sky')),'cloud data has its own tab');
+ assert.ok(shown.every(s=>s.icon.html.includes('plot-sky')),'every airport has a cloud-cover station circle');
  assert.ok(find('KCLR'),'clear airports still have full temperature/wind plots');
  assert.ok(find('KUNK'),'missing clouds do not remove an otherwise available station');
  assert.ok(find('KCFE'),'formerly excluded airports remain eligible');
@@ -48,15 +48,15 @@ const find=id=>shown.find(s=>s.title.startsWith(id+' ·'));
   }
  };
  assertSpacing();
- assert.ok(find('KAAA')&&find('KCLR'),'airports only 72 pixels apart fit when their footprints clear');
+ assert.ok(find('KAAA')&&find('KCLR'),'airports 88 pixels apart fit when their footprints clear');
  zoomed=true;mapEvents.moveend();
  for(const id of ['KFCM','KMIC','KMSP'])assert.ok(find(id),'zooming reveals close airport: '+id);
  assertSpacing();zoomed=false;mapEvents.moveend();
  for(const id of ['METRO','KOUT'])assert.equal(find(id),undefined);
  assert.ok(shown.every(s=>s.icon.html.startsWith('<svg')&&s.icon.html.includes('plot-temp')&&s.icon.html.includes('plot-speed')));
- assert.match(find('KAAA').icon.html,/class="plot-speed" x="56" y="48" text-anchor="start">12/);
+ assert.match(find('KAAA').icon.html,/class="plot-speed" x="79" y="49" text-anchor="start">12/);
  assert.equal(find('KAAA').position[0],1,'plots stay centered on actual airports');
- assert.doesNotMatch(find('KAAA').title,/cloud|BKN|OVC|ft/i);
+ assert.match(find('KAAA').title,/Clouds BKN.*2,700 ft AGL/);
  assert.match(get('metar-cloud-status').textContent,/5 nearby plots hidden for spacing; zoom in/);
  assert.doesNotMatch(get('metar-cloud-status').textContent,/MADIS|Hennepin/);
  assert.equal(lastView.zoom,8.5);assert.equal(mapOptions.zoomSnap,.25);assert.equal(mapOptions.zoomDelta,.25);assert.equal(mapOptions.wheelPxPerZoomLevel,90);

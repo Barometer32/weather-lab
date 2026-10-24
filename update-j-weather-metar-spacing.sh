@@ -26,7 +26,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-if '/static/cloud-views.js?v=airport-hourly-' not in html:
+if '/static/cloud-views.js?v=' not in html:
     raise SystemExit('The compact-spacing page is not published yet.')
 for asset in ['style.css','metar-model.js','radar-roads.js','app.js']:
     if f'/static/{asset}?v=' not in html:

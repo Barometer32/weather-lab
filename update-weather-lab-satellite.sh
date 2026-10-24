@@ -75,7 +75,7 @@ for product in ['truecolor','dcphase','ntmicro']:
         raise SystemExit(product+': latest-24 image policy is not ready yet.')
     print(f'{product}: {len(frames)}/24 available images, {times[0]} through {times[-1]}')
 html=(work/'page.html').read_text()
-if '/static/metar-model.js?v=' not in html or '/static/app.js?v=satellite-24-v1' not in html:
+if '/static/metar-model.js?v=' not in html or '/static/app.js?v=' not in html:
     raise SystemExit('The latest satellite and wind display assets are not published yet.')
 PY
 if [[ "$WEATHER_RESUME_SATELLITE" == true ]]; then

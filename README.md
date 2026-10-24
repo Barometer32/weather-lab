@@ -77,32 +77,18 @@ the source timestamp rather than download time. Repeated checks reuse the same
 hour; corrections replace its image. Previously archived styles remain until
 they age out. Upstream failures retain the last available map.
 
-The METAR plot uses red temperature and green dewpoint at the left, a compact
-solid arrow with a short tail centered on the station pointing downwind,
-with temperature/dewpoint pulled inward and blue wind speed (mph)
-at the lower right. Calm winds show 0; variable winds show VRB without an arrow.
+The METAR station model combines red temperature and green dewpoint on the
+left, a cloud-cover circle and source-directed wind barb at the airport, blue
+wind speed in mph at lower right and the lowest BKN/OVC base at upper right.
+Heights are rounded to thousands of feet (at or below 1,000 feet is 1).
+No number is shown for FEW/SCT/clear, obscured sky (VV), or unknown ceiling
+bases. An unknown-height BKN/OVC layer prevents claiming another layer is lowest.
+Tap a station to see the exact cloud base in feet above ground level.
+The separate Clouds tab has been removed. All eligible airports, including
+KCFE/KFCE, KSGS and KDEH, are available; compact spacing prevents overlaps,
+and zooming reveals more airports. No clouds are inferred above reporting limits.
 
-## Clouds map
-
-The Clouds map shows only the lowest known **broken or overcast** cloud base
-at each actual airport location. Compact 12 px numbers are hundreds of feet
-above ground: 27 = 2,700 ft, 250 = 25,000 ft, 3 = 300 ft. No color dots or
-height-band scale are used. Tap a number for its station, exact base, actual
-report time and all reported cloud layers.
-
-Clear/few/scattered, vertical visibility, unknown ceiling heights and missing
-cloud data have no map number. An unknown-height BKN/OVC layer prevents
-labeling a higher layer as the lowest base. Higher bases use actual reports;
-no clouds are inferred above an automated station's reporting limit.
-
-KFCM, KMIC and KMSP appear individually here. Every qualifying airport in view
-is drawn with no collision suppression, station priority or station-count cap.
-The station list includes all available reports, including those without a
-plotted ceiling. The regional extent remains 40–50°N, 100–85°W; existing
-station exclusions KCFE/KFCE, KSGS and KDEH remain in effect. Zoom and pan reveal
-more of the collected region. A missing number does not establish clear skies.
-
-Clouds uses the canonical hourly archive: `live/metar-clouds.json` in the
+METAR uses the canonical hourly archive: `live/metar-clouds.json` in the
 private weather-data bucket. Collection now runs once hourly at **:00** and
 selects routine METARs closest to :53 within **:45–:59** in the preceding hour.
 SPECI and five-minute reports are excluded. The twelve-hour slider keeps real
@@ -187,17 +173,24 @@ the same project; no new project or billing account is created. The default
 repository remains `weather-lab` for other deployments. Failed repository reads
 or creation stop before the build.
 
-## Compact plot display update
+## Combined METAR display update
 
-Run `update-weather-lab-plots.sh` in Cloud Shell to update the compact METAR
-vectors and the denser Clouds labels. It verifies which of the two recovery
-projects owns `weather-lab.cloud.run` (or accepts a confirmed project ID as
-its argument), builds into that website's current image
-repository, and updates only `weather-lab`. Ambiguous ownership, unreadable
-settings and failed builds stop before website deployment. Collector settings,
-schedules and saved weather data are retained. Both maps reserve each site's
-widest label over the twelve-hour loop to keep neighboring labels separate
-without shifting station visibility as values change.
+Run `update-weather-lab-plots.sh weather-lab-261024-133205` in Cloud Shell.
+The five tabs are METAR, RADAR, SATELLITE, FORECAST and AIR Q. Cloud information
+is combined into the main twelve-hour METAR map; the separate Clouds tab is
+removed. A station circle shows reported sky cover, with a standard wind barb
+pointing toward the wind source (feathers in knots). Temperature and dewpoint
+remain on the left, wind speed in mph is lower right, and the lowest BKN/OVC
+base is upper right, rounded to thousands of feet (at or below 1,000 feet is 1).
+Clear reports have hollow circles, obscured sky has an X, and missing cloud
+reports have a question mark. No ceiling number is invented for missing bases.
+Tap a station to see the exact base in feet. The map reserves the largest
+station footprint across the loop to avoid overlaps as values change.
+
+The helper saves website settings, builds into its current image repository,
+and updates only `weather-lab`. Collector settings, schedules and saved weather
+data are retained. The confirmed project argument avoids domain-discovery
+ambiguity after a project restore.
 
 ## Satellite image count
 

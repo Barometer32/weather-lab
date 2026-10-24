@@ -251,3 +251,5 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
   .airq-controls { grid-template-columns:1fr; grid-template-areas:"time" "timeline"; }
   .airq-legend { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 10px; }
 }
+
+.plot-sky-unknown { fill:#111; font:800 9px system-ui,sans-serif; stroke:none !important; }

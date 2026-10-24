@@ -15,6 +15,10 @@ window.WeatherCloudViews = (() => {
     const direction=wind.direction==null?(wind.variable?"VRB":"?"):["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8];
     return `${direction} ${rounded(speed)} mph`;
   }
+  function cloudText(station) {
+    const layer=model.firstCloudLayer(station),code=model.skyCode(station);
+    return `Clouds ${code||"not reported"}${layer?` · Lowest BKN/OVC ${layer.baseFtAGL.toLocaleString("en-US")} ft AGL`:""}`;
+  }
   function node(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
   async function read(url) { const r=await fetch(url,{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error||"Data unavailable");return d; }
   function initMetars() {
@@ -78,7 +82,8 @@ window.WeatherCloudViews = (() => {
       popup.append(node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       popup.append(node("p",`Temperature ${rounded(station.tempF)}°F · Dewpoint ${rounded(station.dewpointF)}°F`));
       popup.append(node("p",`Wind ${windText(station.wind)}`));
-      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)}`,keyboard:true}).bindPopup(popup).addTo(markers);
+      popup.append(node("p",cloudText(station)));
+      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${rounded(station.tempF)}°F / ${rounded(station.dewpointF)}°F · ${windText(station.wind)} · ${cloudText(station)}`,keyboard:true}).bindPopup(popup).addTo(markers);
     }
     // The searchable list includes every eligible report in the regional frame.
     if(el("metar-station-list").open)for(const station of stations){

@@ -67,8 +67,8 @@ python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);page=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)!=['metar-clouds','radar','clouds','satellite','forecast','air-quality']:
-    raise SystemExit('The six expected tabs are not published yet.')
+if re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)!=['metar-clouds','radar','satellite','forecast','air-quality']:
+    raise SystemExit('The five expected tabs are not published yet.')
 if 'current-views.js' in page or data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1':
     raise SystemExit('The airport-only station policy has not been published.')
 frames=data.get('history',[])

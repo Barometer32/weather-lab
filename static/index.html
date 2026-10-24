@@ -6,24 +6,22 @@
   <meta name="description" content="Routine hourly airport METAR plots with twelve hours of history, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=clean-layout-v1">
+  <link rel="stylesheet" href="/static/style.css?v=combined-station-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js"></script>
   <script defer src="/static/map-fullscreen.js?v=20261020"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/metar-model.js?v=compact-vector-v4"></script>
-  <script defer src="/static/cloud-views.js?v=airport-hourly-clouds-v7"></script>
-  <script defer src="/static/cloud-height-views.js?v=clouds-dense-v2"></script>
+  <script defer src="/static/metar-model.js?v=combined-station-v1"></script>
+  <script defer src="/static/cloud-views.js?v=combined-station-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-v3"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
-  <script defer src="/static/app.js?v=satellite-24-v1"></script>
+  <script defer src="/static/app.js?v=combined-station-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar-clouds" aria-selected="true" aria-controls="metar-clouds">METAR</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
-    <button role="tab" id="tab-clouds" aria-selected="false" aria-controls="clouds" tabindex="-1">CLOUDS</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
     <button role="tab" id="tab-air-quality" aria-selected="false" aria-controls="air-quality" tabindex="-1">AIR Q</button>
@@ -33,7 +31,7 @@
 <section id="metar-clouds" role="tabpanel" aria-labelledby="tab-metar-clouds">
   <div class="section-heading"><div><p class="eyebrow">AIRPORT METARS · UPPER MIDWEST</p><h1 id="metar-heading">METAR</h1></div><div class="metar-view-controls"><span class="sun-angle-readout">Sun angle <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W; independent of the selected METAR hour.">—</strong></span><button class="secondary" id="refresh-metar-clouds">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Hourly airport temperature, dewpoint and wind with state and county boundaries"></div></div>
+    <div id="metar-map-area" class="map-area"><div id="metar-cloud-map" aria-label="Hourly airport temperature, dewpoint, wind, cloud cover and lowest BKN/OVC height with state and county boundaries"></div></div>
     <div id="metar-viewer-controls" class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-cloud-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control"><label class="sr-only" for="metar-cloud-timeline">METAR history: drag to select a time</label><input id="metar-cloud-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual METAR timeline: last 12 routine hourly snapshots" disabled></div>
@@ -42,9 +40,9 @@
   </div>
   <div class="page-notes" hidden>
   <p id="metar-cloud-status" class="small-note" role="status">Loading routine hourly airport reports…</p>
-  <p id="metar-cloud-legend" class="small-note">Temperature upper left (red) · Dewpoint lower left (green) · Wind speed inside the circle (blue, mph). The wind barb points toward the direction the wind comes from; its feathers use standard knots. Calm winds show 0. Cloud reports are on the Clouds tab. Plots use compact spacing so neighboring numbers and arrows do not overlap; zoom in to reveal nearby airports. All reports remain in the station list.</p>
-  <details id="metar-station-list" class="method"><summary>All reporting airports</summary><label for="metar-cloud-search">Find an airport</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC, KDEH…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Airport</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Temperature / dewpoint / wind</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
-  <details class="method"><summary>Sources and timing</summary><p>Only official routine airport METARs from NOAA Aviation Weather Center are used. One report per airport is selected in each :45–:59 window, closest to :53, and labeled with the following hour. For example, an 8:53 p.m. report appears in the 9 p.m. frame. SPECI and high-frequency MADIS reports, road stations and mesonets are not included. Collection starts at :00 and rechecks every two minutes through :20 so late batches can fill in. If the entire hour is still missing, retries continue every two minutes. Once the catch-up window ends and reports are available, later checks reuse the saved hour. Page refreshes only read saved data. The preceding two hours are revisited at each scheduled collection to recover late deliveries. While the newest hour has no reports, the map follows the latest available hour and labels that actual hour; it advances automatically as new reports arrive. Reports arriving after the catch-up window can be recovered by the next hour’s overlap collection. Missing station-hours are left missing, with no earlier report carried forward.</p><p>All eligible airports in the existing Upper Midwest extent (40–50°N, 100–85°W) are included. KCFE, KFCE, KSGS and KDEH are no longer excluded. KFCM, KMIC and KMSP are plotted individually. All airport reports are retained. Overlapping plots are temporarily hidden with a small gap; spacing stays consistent across the twelve hourly frames. Zooming in reveals nearby airports. The list includes all reporting airports for the selected hour, including those outside the current map view. Missing or invalid measurements show as unknown while the rest of the station plot remains available.</p><p>The Sun angle is current for Hopkins and does not follow the history slider. Cloud heights are available on the separate Clouds tab.</p></details>
+  <p id="metar-cloud-legend" class="small-note" data-ceiling-unit="thousands-ft">Temperature upper left (red) · Dewpoint lower left (green) · Wind speed lower right (blue, mph) · Lowest BKN/OVC height upper right, rounded to thousands of feet above ground (1,000 feet or lower → 1). The station circle shows reported sky cover; the barb points toward the wind source and its feathers use knots. Clear is hollow, overcast is filled, obscured sky has an X and unreported sky has a question mark. Calm winds show 0. Compact spacing prevents neighboring plots from overlapping; zoom in to reveal nearby airports.</p>
+  <details id="metar-station-list" class="method"><summary>All reporting airports</summary><label for="metar-cloud-search">Find an airport</label><input type="search" id="metar-cloud-search" placeholder="KMSP, KFCM, KMIC, KDEH…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Airport</th><th scope="col">Reported</th><th scope="col" id="metar-table-values">Temperature / dewpoint / wind / clouds</th></tr></thead><tbody id="metar-cloud-rows"></tbody></table></div></details>
+  <details class="method"><summary>Sources and timing</summary><p>Only official routine airport METARs from NOAA Aviation Weather Center are used. One report per airport is selected in each :45–:59 window, closest to :53, and labeled with the following hour. For example, an 8:53 p.m. report appears in the 9 p.m. frame. SPECI and high-frequency MADIS reports, road stations and mesonets are not included. Collection starts at :00 and rechecks every two minutes through :20 so late batches can fill in. If the entire hour is still missing, retries continue every two minutes. Once the catch-up window ends and reports are available, later checks reuse the saved hour. Page refreshes only read saved data. The preceding two hours are revisited at each scheduled collection to recover late deliveries. While the newest hour has no reports, the map follows the latest available hour and labels that actual hour; it advances automatically as new reports arrive. Reports arriving after the catch-up window can be recovered by the next hour’s overlap collection. Missing station-hours are left missing, with no earlier report carried forward.</p><p>All eligible airports in the existing Upper Midwest extent (40–50°N, 100–85°W) are included. KCFE, KFCE, KSGS and KDEH are no longer excluded. KFCM, KMIC and KMSP are plotted individually. All airport reports are retained. Overlapping plots are temporarily hidden with a small gap; spacing stays consistent across the twelve hourly frames. Zooming in reveals nearby airports. The list includes all reporting airports for the selected hour, including those outside the current map view. Missing or invalid measurements show as unknown while the rest of the station plot remains available.</p><p>The Sun angle is current for Hopkins and does not follow the history slider. Cloud cover and the lowest known BKN/OVC cloud height are included in each station plot.</p></details>
   <p class="source">Reports: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">NOAA Aviation Weather Center</a>. Sun: <a href="https://gml.noaa.gov/grad/solcalc/calcdetails.html" target="_blank" rel="noopener">NOAA calculation details</a>.</p>
   </div>
 </section>
@@ -70,23 +68,7 @@
   <p class="source">Radar: NOAA/NWS Level II data via <a href="https://registry.opendata.aws/noaa-nexrad/" target="_blank" rel="noopener">NSF Unidata public archive and real-time feed</a>. Map boundaries: Iowa Environmental Mesonet. Faint, label-free major roads: U.S. Census Bureau TIGERweb.</p>
   </div>
 </section>
-<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT CLOUD HEIGHTS · UPPER MIDWEST</p><h1>Clouds</h1></div><button class="secondary" id="refresh-clouds">Refresh</button></div>
-  <div id="clouds-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="cloud-height-map" aria-label="Airport cloud heights in thousands of feet with state and county boundaries"></div></div>
-    <div class="radar-controls viewer-controls">
-      <span class="viewer-frame-time" id="clouds-time" aria-live="polite">Loading hourly cloud heights…</span>
-      <div class="timeline-control"><label class="sr-only" for="clouds-timeline">Cloud height history</label><input id="clouds-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Cloud height timeline: last 12 routine hourly snapshots" disabled></div>
-      <div class="viewer-actions"><button class="secondary" id="clouds-reset">Reset view</button><button id="clouds-fullscreen" class="secondary" aria-label="Open full-screen cloud heights map">Full screen</button></div>
-    </div>
-  </div>
-  <div class="page-notes" hidden>
-  <p id="clouds-status" class="small-note" role="status">Loading airport cloud reports…</p>
-  <p class="small-note" data-ceiling-unit="thousands-ft">Lowest reported BKN/OVC cloud base, rounded to the nearest thousand feet above airport ground level. 1,000 feet or lower → 1 · 2,700 feet → 3 · 12,000 feet → 12 · 25,000 feet → 25. All airports with a known BKN/OVC base are eligible. A small gap prevents overlapping numbers; zoom in to reveal more airports. Spacing stays stable across the twelve hourly frames. Clear, FEW, SCT, vertical visibility (VV), and unknown heights have no number. Tap a height for exact feet and report time.</p>
-  <details id="clouds-station-list" class="method"><summary>All reporting airports</summary><label for="clouds-search">Find an airport</label><input type="search" id="clouds-search" placeholder="KMSP, KFCM, KMIC, KDEH…" autocomplete="off"><div class="table-wrap cloud-station-table"><table><thead><tr><th scope="col">Airport</th><th scope="col">Reported</th><th scope="col">Lowest BKN/OVC height</th></tr></thead><tbody id="clouds-rows"></tbody></table></div></details>
-  <p class="source">Same official routine airport METARs as the METAR map: reports :45–:59, collected at :00 with two-minute catch-up checks. Heights are above ground level, not sea level.</p>
-  </div>
-</section>
+
 
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
   <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE · HENNEPIN</p><h1>Your local forecast</h1><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
