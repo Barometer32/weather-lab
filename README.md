@@ -191,7 +191,8 @@ or creation stop before the build.
 
 Run `update-weather-lab-plots.sh` in Cloud Shell to update the compact METAR
 vectors and the denser Clouds labels. It verifies which of the two recovery
-projects owns `weather-lab.cloud.run`, builds into that website's current image
+projects owns `weather-lab.cloud.run` (or accepts a confirmed project ID as
+its argument), builds into that website's current image
 repository, and updates only `weather-lab`. Ambiguous ownership, unreadable
 settings and failed builds stop before website deployment. Collector settings,
 schedules and saved weather data are retained. Both maps reserve each site's

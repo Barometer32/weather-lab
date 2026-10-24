@@ -5,9 +5,11 @@ WEATHER_REGION=us-central1
 WEATHER_WORK="$(mktemp -d "$HOME/weather-lab-plots.XXXXXX")"
 trap 'echo "Plot update stopped at line $LINENO. Settings and diagnostics: $WEATHER_WORK" >&2' ERR
 
-echo 'Step 1/3: locating the project serving weather-lab.cloud.run.'
+echo 'Step 1/3: selecting the website project and saving its settings.'
+if [[ -n "${1:-}" ]]; then
+  WEATHER_PROJECT="$1"
+else
 WEATHER_CANDIDATES=(j-weather-261020012817 weather-lab-261024-133205)
-if [[ -n "${1:-}" ]]; then WEATHER_CANDIDATES=("$1"); fi
 WEATHER_OWNERS=()
 for WEATHER_CANDIDATE in "${WEATHER_CANDIDATES[@]}"; do
   if gcloud beta run domain-mappings describe --domain=weather-lab.cloud.run --project="$WEATHER_CANDIDATE" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/$WEATHER_CANDIDATE-mapping.json" 2>"$WEATHER_WORK/$WEATHER_CANDIDATE-mapping.err"; then
@@ -20,11 +22,12 @@ PY
   fi
 done
 if [[ "${#WEATHER_OWNERS[@]}" != 1 ]]; then
-  echo 'Could not verify exactly one project mapping weather-lab.cloud.run to weather-lab. No build or deployment was started.' >&2
+  echo 'Could not verify exactly one project mapping weather-lab.cloud.run to weather-lab. Pass the confirmed project ID as the script argument. No build or deployment was started.' >&2
   for WEATHER_CANDIDATE in "${WEATHER_CANDIDATES[@]}"; do cat "$WEATHER_WORK/$WEATHER_CANDIDATE-mapping.err" >&2; done
   exit 1
 fi
 WEATHER_PROJECT="${WEATHER_OWNERS[0]}"
+fi
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 printf 'Updating project: %s\n' "$WEATHER_PROJECT"
 gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=export >"$WEATHER_WORK/website-before.yaml"

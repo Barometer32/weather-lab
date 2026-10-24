@@ -7,6 +7,7 @@ NEW='weather-lab-261024-133205'
 
 
 def run_update(tmp_path,**options):
+    project_arg=options.pop('project',None)
     binary=tmp_path/'bin';binary.mkdir();home=tmp_path/'home';home.mkdir();log=tmp_path/'calls'
     stub='''#!/usr/bin/env python3
 import json,os,pathlib,sys
@@ -31,7 +32,7 @@ elif a[:2]==['builds','submit'] and os.environ.get('PLOT_BUILD_FAIL'):sys.exit(1
     for name in ['gcloud','git','curl']:
         p=binary/name;p.write_text(stub);p.chmod(0o755)
     env={**os.environ,'PATH':str(binary)+os.pathsep+os.environ['PATH'],'HOME':str(home),'PLOT_LOG':str(log),'PLOT_ROOT':str(ROOT),**{'PLOT_'+k.upper():str(v) for k,v in options.items()}}
-    result=subprocess.run(['bash',str(ROOT/'update-weather-lab-plots.sh')],env=env,text=True,capture_output=True)
+    result=subprocess.run(['bash',str(ROOT/'update-weather-lab-plots.sh')]+([project_arg] if project_arg else []),env=env,text=True,capture_output=True)
     return result,[json.loads(line) for line in log.read_text().splitlines()]
 
 
@@ -63,3 +64,13 @@ def test_settings_or_build_failure_keeps_running_website(tmp_path):
         d=tmp_path/kind;d.mkdir();result,calls=run_update(d,**{kind:1})
         assert result.returncode!=0
         assert not any(c[:4]==['gcloud','run','services','update'] for c in calls)
+
+
+def test_confirmed_project_argument_bypasses_inconclusive_domain_discovery(tmp_path):
+    result,calls=run_update(tmp_path,project=NEW,unresolved=1)
+    assert result.returncode==0,result.stderr
+    assert not any('domain-mappings' in c for c in calls)
+    build=next(c for c in calls if c[:3]==['gcloud','builds','submit'])
+    update=next(c for c in calls if c[:4]==['gcloud','run','services','update'])
+    assert '--project='+NEW in build and '--project='+NEW in update
+    assert not any('weather-collector' in c or 'scheduler' in c or 'delete' in c for c in calls)
