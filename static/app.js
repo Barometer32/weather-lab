@@ -11,16 +11,12 @@ function wind(w) {
   const dir = w.direction == null ? "Variable" : directions[Math.round(w.direction / 45) % 8];
   return `${dir} ${fmt(w.speedMph)} mph`;
 }
-async function api(url) {
-  const response = await fetch(url, {cache:"no-store"});
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Weather service unavailable.");
-  return data;
-}
+async function api(url) { return window.WeatherPrepared.read(url); }
+
 function cell(row, text) { const td = document.createElement("td"); td.textContent = text; row.append(td); }
 let map, nativeLayer, frames = [], overlays = [], index = 0, radarBusy = false, radarRequest = 0;
 const radarSite = "KMPX";
-let radarPalette = [];
+let radarPalette = [],radarSaved=false,radarQueued=false,satelliteSaved=false,satelliteQueued=false;
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
 function showFrame(n) {
@@ -30,7 +26,7 @@ function showFrame(n) {
   $("timeline").value = String(index);
   $("timeline").style.setProperty("--progress", `${frames.length > 1 ? index / (frames.length - 1) * 100 : 0}%`);
   $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frames[index].time))}, scan ${index + 1} of ${frames.length}`);
-  $("radar-time").textContent = `${fullTime.format(new Date(frames[index].time))} · ${index + 1}/${frames.length}`;
+  $("radar-time").textContent = `${radarSaved?"Saved · ":""}${fullTime.format(new Date(frames[index].time))} · ${index + 1}/${frames.length}`;
 }
 function initMap() {
   if (map) return;
@@ -78,7 +74,7 @@ async function loadRadar() {
     $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
     const data = await api(`/api/radar?site=${radarSite}`);
     if (request !== radarRequest) return;
-    renderRadarLegend(data.palette); radarPalette=data.palette;
+    renderRadarLegend(data.palette); radarPalette=data.palette;radarSaved=!!data._savedCopy;
     $("radar-eyebrow").textContent=`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
     const loaded = []; let completed = 0, failures = 0;
     // Show the newest image first. Fetch only frames not already decoded.
@@ -89,10 +85,7 @@ async function loadRadar() {
         try {
           let entry = radarLayers.get(key);
           if (!entry) {
-            const response=await fetch(frame.url);
-            if(!response.ok)throw new Error("Native scan could not load");
-            const decoded=NativeRadar.decode(await response.arrayBuffer());
-            if(decoded.meta.site!==data.site || decoded.meta.id!==frame.id)throw new Error("Radar scan mismatch");
+            const decoded=await window.WeatherPrepared.radar(frame,data);
             if (request !== radarRequest) return;
             entry = {frame,data:decoded}; radarLayers.set(key,entry);
           }
@@ -126,6 +119,7 @@ async function loadRadar() {
     if (request === radarRequest) {
       radarBusy=false; $("refresh-radar").disabled=false;
       $("timeline").disabled=overlays.length<2;
+      if(radarQueued){radarQueued=false;setTimeout(()=>{if(!$("radar").hidden)loadRadar();},0);}
     }
   }
 }
@@ -134,7 +128,7 @@ function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
   const periods = data.periods.filter(p => new Date(p.endTime).getTime() > Date.now());
-  $("forecast-updated").textContent = data.updatedAt ? `NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
+  $("forecast-updated").textContent = data.updatedAt ? `${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();
@@ -190,7 +184,7 @@ function showSatelliteFrame(n) {
   satelliteIndex = (n + satelliteOverlays.length) % satelliteOverlays.length;
   satelliteOverlays.forEach((overlay,i) => overlay.setOpacity(i === satelliteIndex ? 1 : 0));
   const stamp = fullTime.format(new Date(satelliteFrames[satelliteIndex].time));
-  $("satellite-time").textContent = `${stamp} · ${satelliteIndex + 1}/${satelliteFrames.length}`;
+  $("satellite-time").textContent = `${satelliteSaved?"Saved · ":""}${stamp} · ${satelliteIndex + 1}/${satelliteFrames.length}`;
   $("satellite-timeline").value = String(satelliteIndex);
   $("satellite-timeline").style.setProperty("--progress", `${satelliteFrames.length > 1 ? satelliteIndex / (satelliteFrames.length - 1) * 100 : 0}%`);
   $("satellite-timeline").setAttribute("aria-valuetext", `${stamp}, image ${satelliteIndex + 1} of ${satelliteFrames.length}`);
@@ -213,7 +207,7 @@ async function loadSatellite(force = false) {
   try {
     initSatelliteMap();
     $("satellite-status").textContent = "Loading local satellite imagery…";
-    const data = await api(`/api/satellite/${product}`);
+    const data = await api(`/api/satellite/${product}`);satelliteSaved=!!data._savedCopy;
     if (request !== satelliteRequest) return;
     $("satellite-source").href = data.sourceUrl;
     const boundaryKey = JSON.stringify(data.boundaries);
@@ -233,7 +227,7 @@ async function loadSatellite(force = false) {
         try {
           let entry = satelliteLayers.get(frame.url);
           if (!entry) {
-            const image = new Image(); image.src = frame.url; await image.decode();
+            const image = await window.WeatherPrepared.image(frame.url);
             if (request !== satelliteRequest) return;
             if (image.naturalWidth !== data.width || image.naturalHeight !== data.height) throw new Error("Satellite image size changed");
             const overlay = L.imageOverlay(image,satelliteBounds,{opacity:0,pane:"satellite-images",interactive:false}).addTo(satelliteMap);
@@ -267,15 +261,14 @@ async function loadSatellite(force = false) {
     $("satellite-time").textContent = satelliteOverlays.length ? "Previous satellite loop · refresh failed" : "Satellite unavailable";
     $("satellite-timeline").disabled = satelliteOverlays.length < 2;
   } finally {
-    if (request === satelliteRequest) { satelliteBusy = false; $("refresh-satellite").disabled = false; }
+    if (request === satelliteRequest) { satelliteBusy = false; $("refresh-satellite").disabled = false; if(satelliteQueued){satelliteQueued=false;setTimeout(()=>{if(!$("satellite").hidden)loadSatellite();},0);} }
   }
 }
 
-const tabs = ["observations","radar","clouds","satellite","forecast","air-quality"];
+const tabs = ["metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
-  window.WeatherObservations?.select(id);
-  window.WeatherCloudHeights?.select(id);
+  window.WeatherMetars?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
   window.WeatherAirQuality?.select(id);
@@ -295,7 +288,8 @@ $("refresh-radar").addEventListener("click",loadRadar);
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});
-selectTab("observations");
+selectTab("metar");
+setTimeout(()=>window.WeatherPrepared.prime(),0);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
 
@@ -311,8 +305,7 @@ setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},6
 
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
-    if (!$("observations").hidden) window.WeatherObservations?.select("observations");
-    if (!$("clouds").hidden) window.WeatherCloudHeights?.select("clouds");
+    if (!$("metar").hidden) window.WeatherMetars?.select("metar");
     if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();
@@ -320,3 +313,11 @@ document.addEventListener("visibilitychange",()=>{
   }
 });
 
+
+window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
+  if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
+});
+for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
+  if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
+});
+window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});

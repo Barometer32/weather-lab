@@ -1,0 +1,87 @@
+"use strict";
+// Four separate views of one prepared hourly airport dataset and one timeline.
+window.WeatherMetars = (() => {
+  const el=id=>document.getElementById(id),model=window.WeatherStationModel;
+  const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+  let map,markers,data,index=0,followLatest=true,busy=false;
+  const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
+  const labels={clouds:"Clouds",wind:"Wind",dewpoint:"Dewpoint",temperature:"Temperature"};
+  function reset(){map?.setView([44.925,-93.35],map.getSize().x<600?9:8.5);}
+  function init(){
+    if(map)return;
+    map=L.map("metar-map",{minZoom:5,maxZoom:13,zoomSnap:.25,zoomDelta:.25,wheelPxPerZoomLevel:90});reset();
+    for(const [kind,opacity] of [["uscounties",.2],["usstates",.8]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(map);
+    markers=L.layerGroup().addTo(map);map.on("moveend",render);
+  }
+  function visible(stations,mode){
+    const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
+    const inView=s=>{const p=point(s);return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;};
+    if(mode==="clouds")return stations.filter(inView);
+    // Reserve the largest label across all twelve hours to avoid flickering
+    // station density as the user moves the timeline.
+    const sites=new Map();
+    for(const frame of data.history)for(const station of frame.stations){
+      const f=model.singleFootprint(station,mode),old=sites.get(station.station);
+      sites.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
+    }
+    const preferred=["KFCM","KMIC","KMSP"],rank=s=>{const i=preferred.indexOf(s.station);return i<0?preferred.length:i;};
+    const boxes=[],keep=new Set();
+    for(const {station,f} of [...sites.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station))){
+      if(!inView(station))continue;const p=point(station),box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
+      if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
+      boxes.push(box);keep.add(station.station);
+    }
+    return stations.filter(s=>keep.has(s.station));
+  }
+  function render(){
+    if(!data||el("metar").hidden)return;
+    init();markers.clearLayers();
+    const hours=data.history,mode=el("metar-product").value;
+    if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
+    index=Math.max(0,Math.min(index,hours.length-1));
+    const frame=hours[index],drawn=visible(frame.stations,mode);
+    for(const station of drawn){
+      const plot=model.singleStationModel(station,mode),popup=node("div");popup.className="cloud-popup";
+      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      if(mode==="clouds"){
+        const layer=model.firstCloudLayer(station);
+        popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
+      }else if(mode==="wind"){
+        const wind=station.wind||{},speed=wind.speedMph;
+        popup.append(node("p",`Wind: ${Number.isFinite(speed)?Math.round(speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      }else{const value=mode==="temperature"?station.tempF:station.dewpointF;popup.append(node("p",`${labels[mode]}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));}
+      const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
+      L.marker([station.lat,station.lon],{icon,title:`${station.station} · ${labels[mode]}`,keyboard:true}).bindPopup(popup).addTo(markers);
+    }
+    const slider=el("metar-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
+    slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
+    el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
+    slider.setAttribute("aria-valuetext",el("metar-time").textContent);
+    el("metar-map").setAttribute("aria-label",`Hourly airport ${labels[mode].toLowerCase()} with state and county boundaries`);
+    el("metar-status").textContent=`${frame.stations.length} airport reports${!hours.at(-1).stations.length?" · Waiting for the newest hour":""}${data.stale?" · Background updates delayed":""}`;
+  }
+  function adopt(next){
+    if(!next.history?.length)throw Error("Hourly airport reports are not ready");
+    if(data===next)return;
+    if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
+    const selected=data?.history[index]?.hour;data=next;
+    const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
+    index=restored>=0?restored:followLatest?data.history.length-1:0;
+    if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
+    render();
+  }
+  async function load(force=false){
+    if(busy)return;busy=true;el("refresh-metar").disabled=true;
+    try{adopt(await window.WeatherPrepared.read("/api/station-plots",{force}));}
+    catch(error){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="METAR reports unavailable · try Refresh";}
+    finally{busy=false;el("refresh-metar").disabled=false;}
+  }
+  window.WeatherPrepared.subscribe("/api/station-plots",adopt);
+  el("refresh-metar").addEventListener("click",()=>load(true));
+  el("metar-product").addEventListener("change",render);
+  el("metar-reset").addEventListener("click",reset);
+  el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);followLatest=index===data.history.length-1;render();});
+  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
+  setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
+  return {select(id){if(id==="metar"){render();load();setTimeout(()=>map?.invalidateSize({pan:false}),0);}}};
+})();

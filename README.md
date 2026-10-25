@@ -3,15 +3,16 @@
 Active Google Cloud project: `weather-lab-261024-133205`, region `us-central1`.
 Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
 
-Current tabs: OBSERVATIONS, RADAR, CLOUDS, SATELLITE, FORECAST and AIR Q.
-Full restore in the same project: `bash restore-weather-lab-latest.sh weather-lab-261024-133205`. This undeletes the project when needed, links the only open billing account if billing is disabled (or accepts a chosen account ID as argument two), rebuilds missing weather resources, imports the latest observation list and twelve airport cloud frames, restores imagery and all six schedules, and checks the existing custom address. A closed billing account must first be reopened in the console. No replacement project is created. Lost Air Q source-hour snapshots accumulate again rather than being fabricated.
-OBSERVATIONS lists only public Hennepin West stations in Hennepin County for choosing a future
-average; it does not calculate an average yet. Run
-`bash update-weather-observations.sh weather-lab-261024-133205` to publish this
-configuration. The Hennepin observation station selection section below has
-the current data, timing and deployment details. CLOUDS retains its 12-hour
-airport history. Older scripts and implementation notes below are historical
-and may target retired projects; use the current update command above.
+Current tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+Update the working site with `bash update-weather-lab-metars.sh weather-lab-261024-133205`.
+Full restore in the same project: `bash restore-weather-lab-latest.sh weather-lab-261024-133205`.
+The full restore undeletes the project when needed, links the only open billing account if billing is disabled (or accepts an account ID as argument two), rebuilds weather resources, imports twelve routine airport hours, restores imagery and five schedules, and checks the custom address. A closed billing account must first be reopened in the console. No replacement project is created. Lost Air Q source-hour snapshots accumulate again.
+
+METAR has one map and one twelve-hour slider with Clouds, Wind, Dewpoint and Temperature in a dropdown. All four modes use the same official routine airport reports from :45–:59, closest to :53, labeled with the following hour. Collection starts at :00 with two-minute catch-up checks. No mesonet merge, airport blacklist or averaged metro site is used. Clouds keep every airport at its actual coordinates: a tiny dot without a reported BKN/OVC layer, otherwise the lowest BKN/OVC height rounded to thousands of feet (minimum 1). Missing cloud data/base shows ?. Wind shows a compact downwind vector and speed in mph; calm is 0. Dewpoint and temperature each show one rounded °F number. The non-cloud products use compact, history-stable spacing; zooming reveals nearby sites. Dropdown changes keep the selected hour and view and never fetch a different source. Sun angle is current for Hopkins above the METAR map.
+
+Prepared manifests for every page start loading on page open. Two background browser workers preload the immutable radar and imagery files, with newest frames first. The last successful JSON snapshots are retained with Cache Storage when available and marked Saved while fresh prepared objects load. Fresh callbacks replace saved copies without resetting a selected history hour. Radar decoding is shared between preloading and the radar tab; satellite images use the browser HTTP cache. JSON transfers omit unused raw report fields, and the server retains up to 96 prepared files. A missing file no longer flushes other warmed files. Public production routes use prepared data; visiting a page never starts upstream collection or image preparation. First visits still require network transfers and map rendering, and a scaled-to-zero service can still have a cold start. No always-on instance or extra warm-up schedule is added by this update.
+
+The update removes only retired rapid/mesonet schedule names, preserves the existing five weather schedules, builds and updates the web/collector images, checks every page's prepared data, and warms the newest radar/satellite/Air Q files. Older notes and scripts below are historical and may target retired projects; use the current update/restore commands above.
 
 ## Legacy Current implementation (historical)
 
@@ -233,7 +234,7 @@ populated hourly airport frames are then verified. Failure reports retain full e
 JSON, including protoPayload. Saved settings are printed on exit.
 
 
-## Hennepin observation station selection
+## Legacy Hennepin observation station selection (historical)
 
 `update-weather-observations.sh weather-lab-261024-133205` replaces the METAR tab with OBSERVATIONS. It lists only Hennepin West records available through public NOAA MADIS inside the actual U.S. Census Hennepin County boundary (GEOID 27053). Other mesonets, community stations, road stations and airport ASOS are excluded from this inventory. City/site names, station IDs, networks, Fahrenheit temperature/dewpoint, wind, actual observation time and age remain visible. Search helps select stations for a future average. No average or automatic station cohort is computed. There is no observation history slider. The Hopkins sun angle remains on Observations; CLOUDS retains all-airport exact-location slightly smaller dots/heights and twelve routine hourly frames.
 

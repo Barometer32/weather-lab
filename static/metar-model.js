@@ -32,12 +32,11 @@ window.WeatherStationModel = (() => {
     else if(fraction==null)fill=`<text class="plot-sky-unknown" x="${x}" y="${y+3}" text-anchor="middle">?</text>`;
     return `<g class="plot-sky"><circle cx="${x}" cy="${y}" r="${r+1}" fill="white"/><circle cx="${x}" cy="${y}" r="${r}" fill="white"/>${fill}<circle class="sky-outline" cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#111" stroke-width="1.4"/></g>`;
   }
-  function windVector(wind,speed){
+  function windVector(wind,speed,x=cx,y=cy,shape="M0 -9.5L4.5 -4H1.3V5H-1.3V-4H-4.5Z"){
     if(speed==null||speed<.5||!Number.isFinite(wind.direction))return "";
     // METAR bearings name the wind source; the arrow points where air is going.
     const rotation=((wind.direction+180)%360+360)%360;
-    const shape="M0 -9.5L4.5 -4H1.3V5H-1.3V-4H-4.5Z";
-    return `<g class="wind-vector" transform="translate(${cx} ${cy}) rotate(${rotation})"><path class="wind-vector-solid" d="${shape}" fill="#111" stroke="white" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke fill"/></g>`;
+    return `<g class="wind-vector" transform="translate(${x} ${y}) rotate(${rotation})"><path class="wind-vector-solid" d="${shape}" fill="#111" stroke="white" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke fill"/></g>`;
   }
   function stationModel(station){
     const wind=station.wind||{},speed=windMph(wind),label=rounded(speed);
@@ -66,7 +65,24 @@ window.WeatherStationModel = (() => {
     const label=cloudPlotLabel(station),half=label?textWidth(label)/2+2.5:3;
     return {left:-half*scale,right:half*scale,top:(label?-9:-3)*scale,bottom:(label?9:3)*scale};
   }
-  return {stationModel,cloudStationModel,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  function singleStationModel(station,mode){
+    if(mode==="clouds")return {html:cloudStationModel(station),size:[32*scale,24*scale],anchor:[16*scale,12*scale]};
+    if(mode==="wind"){
+      const wind=station.wind||{},speed=windMph(wind),state=speed==null?"?":speed>=.5&&!Number.isFinite(wind.direction)?(wind.variable?"VRB":"?"):"";
+      const vector=windVector(wind,speed,16,16,"M0 -12L5 -5H1.5V7H-1.5V-5H-5Z");
+      const mark=state?`<text class="plot-wind-state" x="16" y="19" text-anchor="middle">${state}</text>`:vector||'<circle cx="16" cy="16" r="1.9" fill="#111"/>';
+      return {html:`<svg class="metar-plot" width="${60*scale}" height="${40*scale}" viewBox="0 0 60 40" aria-hidden="true">${mark}<text class="plot-speed" x="29" y="33" text-anchor="start">${rounded(speed)}</text></svg>`,size:[60*scale,40*scale],anchor:[16*scale,16*scale]};
+    }
+    const value=mode==="dewpoint"?station.dewpointF:station.tempF,cls=mode==="dewpoint"?"plot-dew":"plot-temp";
+    return {html:`<svg class="metar-plot" width="${40*scale}" height="${24*scale}" viewBox="0 0 40 24" aria-hidden="true"><text class="${cls}" x="20" y="12" text-anchor="middle" dominant-baseline="central">${rounded(value)}</text></svg>`,size:[40*scale,24*scale],anchor:[20*scale,12*scale]};
+  }
+  function singleFootprint(station,mode){
+    if(mode==="clouds")return cloudFootprint(station);
+    if(mode==="wind")return {left:-14*scale,right:(13+textWidth(rounded(windMph(station.wind)))+2)*scale,top:-14*scale,bottom:20*scale};
+    const label=rounded(mode==="dewpoint"?station.dewpointF:station.tempF),half=textWidth(label)/2+2;
+    return {left:-half*scale,right:half*scale,top:-9*scale,bottom:9*scale};
+  }
+  return {stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[32*scale,24*scale],cloudIconAnchor:[16*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

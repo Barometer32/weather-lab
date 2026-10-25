@@ -438,7 +438,10 @@ def forecast_api():
     try:
         from nws_forecast import FORECAST_VERSION, current_periods
         now = utcnow()
-        data = prepared_snapshot("forecast", 2100) or get_forecast(now)
+        data = prepared_snapshot("forecast", 2100)
+        if data is None and os.environ.get("WEATHER_PREPARED_ONLY") == "true":
+            return jsonify(error="The background forecast is being prepared."),503,{"Cache-Control":"no-store"}
+        data = data or get_forecast(now)
         if data.get("forecastVersion") != FORECAST_VERSION:
             return jsonify(error="The matching NWS webpage forecast is being prepared. Please refresh shortly."), 503
         periods = current_periods(data["periods"], now)
@@ -463,6 +466,8 @@ def satellite_api(product):
             data["frames"] = latest_frames(data["frames"],now)
             data.update(frame_window(data["frames"],now))
             return jsonify(data)
+        if os.environ.get("WEATHER_PREPARED_ONLY") == "true":
+            return jsonify(error="The background satellite images are being prepared."),503,{"Cache-Control":"no-store"}
         html = cached("satellite-" + product, 120, lambda: download(page_url(product)).decode())
         return jsonify(parse_loop(html, product, utcnow()))
     except Exception:
@@ -486,6 +491,12 @@ def station_plots_api():
         for frame in result["history"]:
             frame.pop("metro", None)
             frame["airportCount"] = len(frame["stations"])
+            # Send only the values used by the four displays, rather than
+            # repeating raw reports and derived cloud metadata in every row.
+            frame["stations"] = [{key:row[key] for key in (
+                "station","name","lat","lon","time","reportType","tempF","dewpointF",
+                "wind","layers","skyCover","network","source") if key in row} for row in frame["stations"]]
+        result["stations"] = result["history"][-1]["stations"]
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Vary"] = "Accept-Encoding"
@@ -615,10 +626,15 @@ def radar_png(scan_id):
         return jsonify(error="This radar scan could not be loaded."), 502
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=96)
 def prepared_image(key):
     store = get_store()
-    return store.read(key) if store else None
+    value = store.read(key) if store else None
+    if value is None:
+        # Exceptions are not retained by lru_cache. A missing frame must not
+        # evict every successfully warmed file from the server cache.
+        raise FileNotFoundError(key)
+    return value
 
 
 @app.get("/api/prepared/<path:key>")
@@ -635,14 +651,13 @@ def prepared_asset(key):
         return jsonify(error="Unknown image"), 404
     try:
         image = prepared_image(key)
-        if image is None:
-            prepared_image.cache_clear()  # Do not permanently cache a missing object.
-            return jsonify(error="Image not prepared yet"), 404
         headers = {"Cache-Control": "public, max-age=86400, immutable"}
         if key.endswith(".bin"):
             headers["Content-Encoding"] = "gzip"
         return Response(image, mimetype="application/octet-stream" if key.endswith(".bin") else "image/jpeg" if key.endswith(".jpg") else "image/png",
                         headers=headers)
+    except FileNotFoundError:
+        return jsonify(error="Image not prepared yet"),404
     except Exception:
         app.logger.exception("Prepared image read failed")
         return jsonify(error="Prepared image temporarily unavailable"), 502

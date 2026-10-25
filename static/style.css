@@ -193,7 +193,7 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 .plot-speed { fill:#1254c4; font-size:13px; }
 .plot-wind-state { fill:#111; font-size:8px; }
 
-#metar-clouds .section-heading { flex-wrap:wrap; }
+#metar-clouds .section-heading, #metar .section-heading { flex-wrap:wrap; }
 @media(max-width:600px) {
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
@@ -287,3 +287,10 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
   .observation-site .station-meta { font-size:11px; }
   .observation-table td[data-label]::before { content:attr(data-label); display:block; color:var(--muted); font-size:11px; font-weight:400; margin-bottom:5px; }
 }
+
+/* One METAR surface shared by all four isolated products. */
+.metar-product-row { display:flex; align-items:center; gap:10px; margin:-4px 0 16px; }
+.metar-product-row label { color:var(--muted); font-size:14px; }
+.metar-product-row select { background:white; color:#243d2e; border:1px solid var(--border); border-radius:6px; min-height:42px; padding:8px 12px; min-width:170px; }
+#metar-map { height:clamp(540px,70dvh,680px); min-height:360px; background:white; z-index:0; }
+@media (max-width:600px) { #metar-map { height:clamp(400px,64dvh,620px); } }

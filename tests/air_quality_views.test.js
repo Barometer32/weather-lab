@@ -4,8 +4,8 @@ const nodes=new Map();function get(id){if(!nodes.has(id))nodes.set(id,{hidden:fa
 get('air-quality').hidden=true;get('air-quality-map').hidden=true;
 const frame=hour=>({time:`2026-10-24T${String(hour).padStart(2,'0')}:05:00Z`,sourceTime:`2026-10-24T${String(hour-1).padStart(2,'0')}:00:00Z`,url:`/api/prepared/air-quality/mn-region-v1/${hour}.png`});
 let data={frames:[frame(1)],stale:false},reads=0,fail=false;const polls=[];
-const context={window:{},document:{getElementById:get,hidden:false},Intl,Date,Map,Set,Image:class{decode(){return this.src.includes('bad')?Promise.reject(Error('missing image')):Promise.resolve();}},
- fetch:async url=>{reads++;assert.equal(url,'/api/air-quality');if(fail)throw Error('Unavailable');return{ok:true,json:async()=>data};},setInterval(fn){polls.push(fn);}};
+const context={window:{WeatherPrepared:{subscribe(){},async read(url){reads++;if(fail)throw Error('Unavailable');return data;},async image(url){if(url.includes('bad'))throw Error('missing image');return {src:url};}}},document:{getElementById:get,hidden:false},Intl,Date,Map,Set,Image:class{decode(){return this.src.includes('bad')?Promise.reject(Error('missing image')):Promise.resolve();}},
+ fetch:async url=>{reads++;assert.equal(url,'/api/air-quality');if(fail)throw Error('Unavailable');return{ok:true,json:async()=>data};},setTimeout(){},setInterval(fn){polls.push(fn);}};
 vm.runInNewContext(fs.readFileSync('static/air-quality-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{

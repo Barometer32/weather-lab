@@ -81,12 +81,21 @@ for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-foreca
   if [[ " ${WEATHER_PAUSED[*]} " != *" $WEATHER_JOB "* ]]; then WEATHER_PAUSED+=("$WEATHER_JOB"); fi
 done
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
-WEATHER_ACTION="$(python3 -c 'import json,sys;print("update" if any(j["name"].rsplit("/",1)[-1]=="weather-live-observation-stations" for j in json.load(open(sys.argv[1]))) else "create")' "$WEATHER_WORK/jobs-before.json")"
-gcloud scheduler jobs "$WEATHER_ACTION" http weather-live-observation-stations --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --schedule='*/2 * * * *' --time-zone=Etc/UTC --uri="$WEATHER_COLLECTOR_URL/collect/observation-stations" --http-method=POST --oidc-service-account-email="weather-scheduler@$WEATHER_PROJECT.iam.gserviceaccount.com" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline=300s --max-retry-attempts=0 --quiet
-gcloud scheduler jobs pause weather-live-observation-stations --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
-if [[ " ${WEATHER_PAUSED[*]} " != *' weather-live-observation-stations '* ]]; then WEATHER_PAUSED+=(weather-live-observation-stations); fi
+gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/jobs-after-deploy.json"
+python3 - "$WEATHER_WORK/jobs-after-deploy.json" >"$WEATHER_WORK/retired-observations.txt" <<'PYINNER'
+import json,sys
+for job in json.load(open(sys.argv[1])):
+    name=job['name'].rsplit('/',1)[-1]
+    if name in {'weather-live-observation-stations','weather-live-current','weather-live-madis','weather-live-observations'}:print(name)
+PYINNER
+while IFS= read -r WEATHER_JOB; do
+  gcloud scheduler jobs delete "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --quiet
+  WEATHER_KEPT=()
+  for WEATHER_PAUSED_JOB in "${WEATHER_PAUSED[@]}"; do if [[ "$WEATHER_PAUSED_JOB" != "$WEATHER_JOB" ]]; then WEATHER_KEPT+=("$WEATHER_PAUSED_JOB"); fi; done
+  WEATHER_PAUSED=("${WEATHER_KEPT[@]}")
+done <"$WEATHER_WORK/retired-observations.txt"
 
-echo 'Step 3/6: collecting observations, twelve cloud hours, radar and satellite history.'
+echo 'Step 3/6: collecting twelve airport METAR hours, radar and satellite history.'
 WEATHER_JOB="weather-latest-$(date -u +%y%m%d-%H%M%S)-${WEATHER_WORK##*.}"
 WEATHER_JOB="${WEATHER_JOB,,}"
 printf '%s\n' "$WEATHER_JOB" >"$WEATHER_WORK/data-job.txt"
@@ -96,29 +105,25 @@ if ! gcloud run jobs execute "$WEATHER_JOB" --project="$WEATHER_PROJECT" --regio
   exit 1
 fi
 
-echo 'Step 4/6: publishing the latest six-tab website.'
-gcloud run deploy weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --allow-unauthenticated --service-account="weather-web@$WEATHER_PROJECT.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_PROJECT-weather-data" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90 --quiet
+echo 'Step 4/6: publishing the latest five-tab website.'
+gcloud run deploy weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --allow-unauthenticated --service-account="weather-web@$WEATHER_PROJECT.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_PROJECT-weather-data,WEATHER_PREPARED_ONLY=true" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90 --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/" -o "$WEATHER_WORK/page.html"
-curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/api/observation-stations" -o "$WEATHER_WORK/stations.json"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/api/station-plots" -o "$WEATHER_WORK/clouds.json"
 python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
-work=Path(sys.argv[1]);html=(work/'page.html').read_text();data=json.loads((work/'stations.json').read_text());clouds=json.loads((work/'clouds.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['observations','radar','clouds','satellite','forecast','air-quality']:
+work=Path(sys.argv[1]);html=(work/'page.html').read_text();clouds=json.loads((work/'clouds.json').read_text())
+if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('Latest saved tabs were not verified.')
-if data.get('version')!='hennepin-west-station-list-v1' or not data.get('stations') or any(r.get('network')!='Hennepin West' for r in data['stations']) or data.get('average') is not None:
-    raise SystemExit('The Hennepin West station-selection page is not ready.')
 if len(clouds.get('history',[]))!=12 or any(not f.get('stations') for f in clouds['history']):
     raise SystemExit('The twelve airport cloud frames are not populated.')
-if 'cloud-dots-v2' not in html:raise SystemExit('The latest cloud-dot display is missing.')
-print('Verified Hennepin West Observations, Radar, Clouds, Satellite, Forecast and Air Q.')
-print(len(data['stations']),'Hennepin West sites; twelve hourly airport cloud frames; average not selected.')
+if 'metar-product' not in html or 'metar-products-v1' not in html:raise SystemExit('The four METAR products are missing.')
+print('Verified four-product METAR, Radar, Satellite, Forecast and Air Q with twelve airport hours.')
 PY
 
-echo 'Step 5/6: enabling all six weather collection schedules.'
+echo 'Step 5/6: enabling all five weather collection schedules.'
 for WEATHER_JOB in "${WEATHER_PAUSED[@]}"; do
   gcloud scheduler jobs resume "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
 done
