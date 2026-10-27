@@ -42,7 +42,7 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:plots-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/3: building smoother map zooming and updating the website.'
+echo 'Step 2/3: restoring direct radar timeline rendering with larger zoom steps.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
@@ -54,10 +54,11 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=metar-combined-v2','metar-views.js?v=map-motion-v1','native-radar.js?v=map-motion-v1','radar-renderer.js?v=map-motion-v1','prepared-data.js?v=metar-products-v1','app.js?v=metar-products-v1']:
+for asset in ['metar-model.js?v=metar-combined-v2','metar-views.js?v=map-motion-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=metar-products-v1','app.js?v=radar-zoom-v2']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 if 'data-station-model="combined-v1"' not in html or 'id="metar-product"' in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
     raise SystemExit('The combined station METAR page is not published yet.')
-print('Verified compact combined station models and the 12-hour timeline.')
+if 'radar-renderer.js' in html or 'radar-worker.js' in html:raise SystemExit('The retired radar worker is still loaded.')
+print('Verified direct radar timeline rendering, larger radar zoom steps and preserved combined METAR plots.')
 PY
 printf '\nPlot update complete.\nWebsite: https://weather-lab.cloud.run\nProject: %s\nDirect URL: %s\nSaved settings: %s\n' "$WEATHER_PROJECT" "$WEATHER_WEB_URL" "$WEATHER_WORK"

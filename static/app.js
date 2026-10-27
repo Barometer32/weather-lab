@@ -30,7 +30,7 @@ function showFrame(n) {
 }
 function initMap() {
   if (map) return;
-  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.1,zoomDelta:.1}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
+  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
   window.WeatherRadarRoads.addTo(map,()=>{
