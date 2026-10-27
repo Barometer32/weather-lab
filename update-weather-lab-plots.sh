@@ -9,7 +9,7 @@ echo 'Step 1/3: selecting the website project and saving its settings.'
 if [[ -n "${1:-}" ]]; then
   WEATHER_PROJECT="$1"
 else
-WEATHER_CANDIDATES=(j-weather-261020012817 weather-lab-261024-133205)
+WEATHER_CANDIDATES=(weather-lab-261027-024631-5ff2 weather-lab-261024-133205 j-weather-261020012817)
 WEATHER_OWNERS=()
 for WEATHER_CANDIDATE in "${WEATHER_CANDIDATES[@]}"; do
   if gcloud beta run domain-mappings describe --domain=weather-lab.cloud.run --project="$WEATHER_CANDIDATE" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/$WEATHER_CANDIDATE-mapping.json" 2>"$WEATHER_WORK/$WEATHER_CANDIDATE-mapping.err"; then
@@ -42,21 +42,22 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:plots-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/3: building the separate METAR and cloud plots and updating only the website.'
+echo 'Step 2/3: building compact combined station plots and updating the website.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
+gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 WEATHER_WEB_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 
-echo 'Step 3/3: verifying the separate METAR and Clouds tabs.'
+echo 'Step 3/3: verifying combined station plots and the existing weather tabs.'
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_WEB_URL/" -o "$WEATHER_WORK/page.html"
 python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=metar-products-v1','metar-views.js?v=metar-products-v1','prepared-data.js?v=metar-products-v1','app.js?v=metar-products-v1']:
+for asset in ['metar-model.js?v=metar-combined-v1','metar-views.js?v=metar-combined-v1','prepared-data.js?v=metar-products-v1','app.js?v=metar-products-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
-if 'id="metar-product"' not in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
-    raise SystemExit('The four-product METAR page is not published yet.')
-print('Verified four-product hourly airport METAR map and 12-hour history.')
+if 'data-station-model="combined-v1"' not in html or 'id="metar-product"' in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
+    raise SystemExit('The combined station METAR page is not published yet.')
+print('Verified compact combined station models and the 12-hour timeline.')
 PY
 printf '\nPlot update complete.\nWebsite: https://weather-lab.cloud.run\nProject: %s\nDirect URL: %s\nSaved settings: %s\n' "$WEATHER_PROJECT" "$WEATHER_WEB_URL" "$WEATHER_WORK"

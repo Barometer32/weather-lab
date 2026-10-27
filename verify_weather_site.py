@@ -20,8 +20,10 @@ def verify(base, fetch=None):
     html = fetch('/').decode()
     if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != ['metar', 'radar', 'satellite', 'forecast', 'air-quality']:
         raise ValueError('The five saved tabs were not verified')
-    if not all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature')):
-        raise ValueError('A METAR dropdown product is missing')
+    combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-v1' in html
+    separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
+    if not (combined or separate):
+        raise ValueError('The saved METAR station model is missing')
     metars = json.loads(fetch('/api/station-plots'))
     frames = metars.get('history', [])
     if metars.get('sourcePolicy') != 'airport-routine-only' or metars.get('stationPolicy') != 'all-airports-v1' or len(frames) != 12 or any(not frame.get('stations') for frame in frames):
@@ -42,7 +44,7 @@ def verify(base, fetch=None):
             if not fetch(asset):
                 raise ValueError('Empty prepared asset for ' + endpoint)
         print(endpoint + ': ready', flush=True)
-    print('Verified five tabs, all four METAR products and twelve airport hours.', flush=True)
+    print('Verified five tabs, the saved METAR station model and twelve airport hours.', flush=True)
 
 
 if __name__ == '__main__':

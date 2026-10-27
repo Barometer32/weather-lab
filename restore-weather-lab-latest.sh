@@ -125,8 +125,9 @@ if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','sa
     raise SystemExit('Latest saved tabs were not verified.')
 if len(clouds.get('history',[]))!=12 or any(not f.get('stations') for f in clouds['history']):
     raise SystemExit('The twelve airport cloud frames are not populated.')
-if 'metar-product' not in html or 'metar-products-v1' not in html:raise SystemExit('The four METAR products are missing.')
-print('Verified four-product METAR, Radar, Satellite, Forecast and Air Q with twelve airport hours.')
+combined='data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-v1' in html
+if not combined and ('metar-product' not in html or 'metar-products-v1' not in html):raise SystemExit('The saved METAR station model is missing.')
+print('Verified METAR, Radar, Satellite, Forecast and Air Q with twelve airport hours.')
 PY
 
 echo 'Step 5/6: enabling all five weather collection schedules.'

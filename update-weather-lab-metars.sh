@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Restore separate airport variables in one tab and stop retired mesonet pulls.
+# Restore the saved airport METAR layout and stop retired mesonet pulls.
 set -euo pipefail
-WEATHER_PROJECT="${1:-weather-lab-261024-133205}"
+WEATHER_PROJECT="${1:-weather-lab-261027-024631-5ff2}"
 WEATHER_REGION=us-central1
 WEATHER_WORK="$(mktemp -d "$HOME/weather-lab-metars.XXXXXX")"
 trap 'echo "METAR update stopped at line $LINENO. Saved settings: $WEATHER_WORK" >&2' ERR
@@ -21,7 +21,7 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:metars-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/5: building the four METAR products and prepared-data loading.'
+echo 'Step 2/5: building the saved METAR layout and prepared-data loading.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
@@ -54,14 +54,16 @@ import json,re,sys
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
 if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('The five expected tabs were not verified.')
-if not all(f'<option value="{mode}">' in html for mode in ('clouds','wind','dewpoint','temperature')) or 'prepared-data.js?v=metar-products-v1' not in html:
-    raise SystemExit('The four METAR products or preloading assets are missing.')
+combined='data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-v1' in html
+separate=all(f'<option value="{mode}">' in html for mode in ('clouds','wind','dewpoint','temperature'))
+if not (combined or separate) or 'prepared-data.js?v=metar-products-v1' not in html:
+    raise SystemExit('The METAR station model or preloading assets are missing.')
 frames=data.get('history',[])
 if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12 or any(not f.get('stations') for f in frames):
     raise SystemExit('Twelve populated all-airport hourly frames were not verified.')
 if any(r.get('reportType')!='METAR' or not 45<=int(r['time'][14:16])<=59 for f in frames for r in f['stations']):
     raise SystemExit('An ineligible observation reached the airport page.')
-print('Verified: four separate METAR products, twelve routine airport hours, Sun angle and five tabs.')
+print('Verified: saved METAR station model, twelve routine airport hours, Sun angle and five tabs.')
 PY
 
 echo 'Step 5/5: checking the other pages and warming their newest prepared files.'

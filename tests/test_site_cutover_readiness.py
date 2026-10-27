@@ -25,6 +25,14 @@ def test_checks_every_page_and_downloads_each_newest_asset():
     assert set(calls) == set(data)
 
 
+def test_pinned_earlier_four_view_restore_is_still_verified():
+    data = fixture()
+    html = data['/'].decode().replace('data-station-model="combined-v1"', '').replace('metar-combined-v1', 'metar-products-v1')
+    html += '<select>' + ''.join(f'<option value="{mode}">{mode}</option>' for mode in ('clouds', 'wind', 'dewpoint', 'temperature')) + '</select>'
+    data['/'] = html.encode()
+    verify('https://weather.example.run.app', data.__getitem__)
+
+
 @pytest.mark.parametrize('case', ['empty-metars', 'speci', 'outside-window', 'empty-radar', 'empty-forecast', 'missing-asset', 'missing-tab'])
 def test_invalid_weather_page_or_unavailable_asset_prevents_cutover(case):
     data = fixture()

@@ -1,5 +1,5 @@
 "use strict";
-// Separate weather and cloud station models share the prepared hourly reports.
+// Compact combined station plots and retained legacy single-variable models.
 window.WeatherStationModel = (() => {
   const scale=.82,width=88,height=52,cx=43,cy=26;
   const rounded=v=>v==null?"—":String(Math.round(v));
@@ -82,7 +82,60 @@ window.WeatherStationModel = (() => {
     const label=rounded(mode==="dewpoint"?station.dewpointF:station.tempF),half=textWidth(label)/2+2;
     return {left:-half*scale,right:half*scale,top:-9*scale,bottom:9*scale};
   }
-  return {stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4,speedX:8,speedY:19};
+  const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
+  function combinedWind(wind={}){
+    wind=wind||{};
+    const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
+    const knots=Number.isFinite(wind.speedKnots)&&wind.speedKnots>=0?wind.speedKnots:speed==null?null:speed/1.150779;
+    if(knots==null)return {kind:"unknown",speed,state:"?",points:[]};
+    if(knots===0)return {kind:"calm",speed,points:[]};
+    if(!Number.isFinite(wind.direction))return {kind:"unknown",speed,state:wind.variable?"VRB":"?",points:[]};
+    const roundedKnots=5*Math.round(knots/5);
+    if(roundedKnots===0)return {kind:"calm",speed,roundedKnots,points:[]};
+    const flags=Math.floor(roundedKnots/50),full=Math.floor((roundedKnots%50)/10),half=roundedKnots%10>=5;
+    const length=Math.max(26,6+flags*8+full*4+(half?4:0));
+    const lines=[[[0,-5.9],[0,-length]]],pennants=[];
+    let y=-length;
+    for(let i=0;i<flags;i++){pennants.push([[0,y],[8,y-4],[0,y+6]]);y+=8;}
+    for(let i=0;i<full;i++){lines.push([[0,y],[8,y-4]]);y+=4;}
+    if(half){if(!flags&&!full)y+=4;lines.push([[0,y],[4,y-2]]);}
+    // A conventional meteorological barb points FROM the reported bearing.
+    const rotation=((wind.direction%360)+360)%360,a=rotation*Math.PI/180;
+    const points=[...lines.flat(),...pennants.flat()].map(([x,y])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)]);
+    return {kind:"barb",speed,roundedKnots,rotation,lines,pennants,points};
+  }
+  function combinedBarb(wind){
+    if(wind.kind==="calm")return `<circle class="wind-calm" cx="${combined.x}" cy="${combined.y}" r="7.2" fill="none" stroke="#111" stroke-width="1.1"/>`;
+    if(wind.kind!=="barb")return "";
+    const path=wind.lines.map(([a,b])=>`M${a[0]} ${a[1]}L${b[0]} ${b[1]}`).join("");
+    const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
+    return `<g class="wind-barb" data-knots="${wind.roundedKnots}" transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
+  }
+  function combinedStationModel(station){
+    const w=combinedWind(station.wind),c=combined,ceiling=cloudPlotLabel(station);
+    const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
+    const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
+    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w)}${skySymbol(station,c.x,c.y)}${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${text("plot-speed",c.speedX,c.speedY,numeric(w.speed))}${state}</svg>`;
+    return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
+  }
+  function combinedFootprint(station){
+    const c=combined,w=combinedWind(station.wind),ceiling=cloudPlotLabel(station);
+    let left=-8.5,right=8.5,top=-8.5,bottom=8.5;
+    function include(x,y,width,anchor){
+      const start=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
+      left=Math.min(left,start-2);right=Math.max(right,start+width+2);
+      top=Math.min(top,y-13);bottom=Math.max(bottom,y+3);
+    }
+    include(c.tempX,c.tempY,textWidth(numeric(station.tempF)),"end");
+    include(c.dewX,c.dewY,textWidth(numeric(station.dewpointF)),"end");
+    if(ceiling)include(c.ceilingX,c.ceilingY,textWidth(ceiling),"start");
+    include(c.speedX,c.speedY,textWidth(numeric(w.speed)),"start");
+    if(w.kind==="unknown")include(0,29,textWidth(w.state,true),"middle");
+    for(const [x,y] of w.points){left=Math.min(left,x-2);right=Math.max(right,x+2);top=Math.min(top,y-2);bottom=Math.max(bottom,y+2);}
+    return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
+  }
+  return {combinedStationModel,combinedFootprint,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[32*scale,24*scale],cloudIconAnchor:[16*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();
