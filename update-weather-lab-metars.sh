@@ -54,7 +54,7 @@ import json,re,sys
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
 if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('The five expected tabs were not verified.')
-combined='data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-v1' in html
+combined='data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
 separate=all(f'<option value="{mode}">' in html for mode in ('clouds','wind','dewpoint','temperature'))
 if not (combined or separate) or 'prepared-data.js?v=metar-products-v1' not in html:
     raise SystemExit('The METAR station model or preloading assets are missing.')

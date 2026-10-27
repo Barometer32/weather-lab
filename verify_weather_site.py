@@ -20,7 +20,7 @@ def verify(base, fetch=None):
     html = fetch('/').decode()
     if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != ['metar', 'radar', 'satellite', 'forecast', 'air-quality']:
         raise ValueError('The five saved tabs were not verified')
-    combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-v1' in html
+    combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
     if not (combined or separate):
         raise ValueError('The saved METAR station model is missing')

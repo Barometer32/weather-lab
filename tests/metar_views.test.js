@@ -14,7 +14,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'11');assert.equal(fullConfig.surfaceId,'metar-surface');
  const svg=shown[0].icon.html;
- for(const cls of ['combined-station-plot','plot-temp','plot-dew','plot-speed','plot-ceiling','plot-sky','wind-barb'])assert.ok(svg.includes(cls),cls);
+ for(const cls of ['combined-station-plot','plot-temp','plot-dew','plot-ceiling','plot-sky','wind-barb'])assert.ok(svg.includes(cls),cls);
+ assert.doesNotMatch(svg,/plot-speed/);
  assert.match(svg,/rotate\(270\)/,'A standard west-wind barb extends west toward the source');
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');

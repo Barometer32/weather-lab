@@ -7,7 +7,8 @@ const plot=m.combinedStationModel(station);
 assert.match(plot.html,/class="plot-temp" x="32.5" y="31" text-anchor="end">71/);
 assert.match(plot.html,/class="plot-dew" x="32.5" y="50" text-anchor="end">50/);
 assert.match(plot.html,/class="plot-ceiling" x="48" y="40" text-anchor="start">3/);
-assert.match(plot.html,/class="plot-speed" x="48" y="55" text-anchor="start">17/);
+assert.doesNotMatch(plot.html,/plot-speed/,'Wind is encoded only by the barb on the map');
+assert.match(plot.html,/class="wind-shaft"[^>]*stroke-width="1.7"/);
 assert.match(plot.html,/wind-barb" data-knots="15".*rotate\(270\)/);
 assert.match(plot.html,/class="sky-fill"/);assert.doesNotMatch(plot.html,/wind-vector/);
 assert.equal(plot.anchor[0]/m.scale,40);assert.equal(plot.anchor[1]/m.scale,36);
@@ -19,7 +20,7 @@ for(const [knots,flags,full,half] of [[5,0,0,true],[10,0,1,false],[15,0,1,true],
   assert.equal(w.pennants.length,flags);assert.equal(w.lines.length,1+full+(half?1:0));
   for(const [x,y] of w.points){assert.ok(bounds.left<=x*m.scale-1.5*m.scale);assert.ok(bounds.right>=x*m.scale+1.5*m.scale);assert.ok(bounds.top<=y*m.scale-1.5*m.scale);assert.ok(bounds.bottom>=y*m.scale+1.5*m.scale);}
   assert.deepEqual(anchors(html),anchors(plot.html),'Bearing and number length never shift text anchors');
-  assert.doesNotMatch(html,/NaN|undefined/);
+  assert.doesNotMatch(html,/NaN|undefined|plot-speed/);
  }
 }
 assert.equal(m.combinedWind({speedMph:11.50779,direction:90}).roundedKnots,10,'Feathers use knots, not the mph text');
@@ -27,7 +28,11 @@ for(const [knots,rounded] of [[2,0],[3,5],[7,5],[8,10],[12,10],[13,15]]){
  const w=m.combinedWind({speedKnots:knots,direction:0});assert.equal(w.roundedKnots,rounded);
 }
 const calm=m.combinedStationModel({...station,wind:{speedMph:0,speedKnots:0}}).html;
-assert.match(calm,/wind-calm/);assert.match(calm,/class="plot-speed"[^>]*>0<\/text>/);assert.doesNotMatch(calm,/Calm|calm<|wind-barb"/);
+assert.match(calm,/wind-calm/);assert.doesNotMatch(calm,/plot-speed|Calm|calm<|wind-barb"/);
+const short=m.combinedWind({speedKnots:5,direction:0}),full=m.combinedWind({speedKnots:10,direction:0}),double=m.combinedWind({speedKnots:20,direction:0});
+assert.equal(short.lines[1][1][0],4.75);assert.equal(full.lines[1][1][0],9.5);
+assert.equal(double.lines[2][0][1]-double.lines[1][0][1],5,'Separate feathers remain distinguishable at map scale');
+assert.equal(full.lines[0][1][1],-26,'Normal barb shaft stays compact');
 const vrb=m.combinedStationModel({...station,wind:{speedMph:7,direction:null,variable:true}}).html;
 assert.match(vrb,/>VRB<\/text>/);assert.doesNotMatch(vrb,/wind-barb"/);
 assert.doesNotThrow(()=>m.combinedStationModel({...station,wind:null}));
