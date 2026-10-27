@@ -3,6 +3,9 @@
 Active Google Cloud project: `weather-lab-261024-133205`, region `us-central1`.
 Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
 
+Fresh-project migration: `bash start-weather-lab-fresh.sh weather-lab-261024-133205`.
+This creates one project named Weather Lab, reuses its saved ID on retries, rebuilds the saved four-product METAR layout at commit `ada1bdb84bfa39d3608812a6ed392a588e303b50`, copies the dedicated old weather bucket when available, and refreshes the source feeds. Settings are saved in `~/weather-lab-fresh-migration`. It tests the collector, all five public pages and their newest imagery before moving `weather-lab.cloud.run` with Google's delete-and-recreate mapping flow. The name is briefly released and cannot be guaranteed during transfer; failed claims attempt to restore the previous mapping. Old billing is disconnected only after the new mapping is ready and responds successfully. The old project itself is retained. Lost Air Q history accumulates again. A specific billing account can be supplied as argument two.
+
 Current tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
 Update the working site with `bash update-weather-lab-metars.sh weather-lab-261024-133205`.
 Full restore in the same project: `bash restore-weather-lab-latest.sh weather-lab-261024-133205`.

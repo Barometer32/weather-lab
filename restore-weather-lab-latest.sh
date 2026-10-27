@@ -44,6 +44,12 @@ fi
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 gcloud config set project "$WEATHER_PROJECT"
 git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
+if [[ -n "${WEATHER_RESTORE_SOURCE_COMMIT:-}" ]]; then
+  [[ "$WEATHER_RESTORE_SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || { echo 'Invalid source commit.' >&2; exit 1; }
+  git -C "$WEATHER_WORK/source" fetch --quiet --depth=1 origin "$WEATHER_RESTORE_SOURCE_COMMIT"
+  git -C "$WEATHER_WORK/source" checkout --quiet --detach "$WEATHER_RESTORE_SOURCE_COMMIT"
+  [[ "$(git -C "$WEATHER_WORK/source" rev-parse HEAD)" == "$WEATHER_RESTORE_SOURCE_COMMIT" ]] || exit 1
+fi
 bash "$WEATHER_WORK/source/ensure-weather-apis.sh" "$WEATHER_PROJECT"
 gcloud run services list --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/services-before.json"
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format=json >"$WEATHER_WORK/jobs-before.json"
@@ -130,7 +136,9 @@ done
 WEATHER_PAUSED=()
 
 echo 'Step 6/6: checking the weather-lab.cloud.run address.'
-if gcloud beta run domain-mappings describe --domain=weather-lab.cloud.run --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/domain.json" 2>"$WEATHER_WORK/domain.err"; then
+if [[ "${WEATHER_SKIP_DOMAIN_SETUP:-false}" == true ]]; then
+  echo 'Address changes are deferred to the verified project migration.'
+elif gcloud beta run domain-mappings describe --domain=weather-lab.cloud.run --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/domain.json" 2>"$WEATHER_WORK/domain.err"; then
   python3 - "$WEATHER_WORK/domain.json" <<'PY'
 import json,sys
 mapping=json.load(open(sys.argv[1]))

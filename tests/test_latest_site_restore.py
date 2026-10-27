@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 PROJECT='weather-lab-261024-133205'
 
 
-def run_restore(tmp_path,**options):
+def run_restore(tmp_path,extra_env=None,**options):
     binary=tmp_path/'bin';binary.mkdir();home=tmp_path/'home';home.mkdir();log=tmp_path/'calls'
     stub='''#!/usr/bin/env python3
 import json,os,pathlib,shutil,sys
@@ -51,6 +51,7 @@ elif a[:4]==['beta','run','domain-mappings','describe']:print(json.dumps({'spec'
     for name in ('gcloud','git','curl'):
         file=binary/name;file.write_text(stub);file.chmod(0o755)
     env={**os.environ,'PATH':str(binary)+os.pathsep+os.environ['PATH'],'HOME':str(home),'LATEST_ROOT':str(ROOT),'LATEST_LOG':str(log),**{'LATEST_'+k.upper():str(v) for k,v in options.items()}}
+    env.update(extra_env or {})
     result=subprocess.run(['bash',str(ROOT/'restore-weather-lab-latest.sh'),PROJECT],env=env,text=True,capture_output=True)
     return result,[json.loads(line) for line in log.read_text().splitlines()]
 
@@ -95,3 +96,18 @@ def test_failed_data_job_does_not_publish_website_and_resumes_collection(tmp_pat
     assert not any(c[:4]==['gcloud','run','deploy','weather-lab'] for c in calls)
     resumed={c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','resume']}
     assert len(resumed)==5
+
+
+def test_migration_pins_application_source_and_defers_address_changes(tmp_path):
+    commit='abc123456789'+'0'*28
+    result,calls=run_restore(tmp_path,extra_env={'WEATHER_RESTORE_SOURCE_COMMIT':commit,'WEATHER_SKIP_DOMAIN_SETUP':'true'})
+    assert result.returncode==0,result.stderr
+    assert any(c[0]=='git' and c[-5:]==['fetch','--quiet','--depth=1','origin',commit] for c in calls)
+    assert any(c[0]=='git' and c[-4:]==['checkout','--quiet','--detach',commit] for c in calls)
+    assert not any(c[:4]==['gcloud','beta','run','domain-mappings'] for c in calls)
+
+
+def test_unverified_source_commit_stops_before_build(tmp_path):
+    result,calls=run_restore(tmp_path,extra_env={'WEATHER_RESTORE_SOURCE_COMMIT':'a'*40})
+    assert result.returncode!=0
+    assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
