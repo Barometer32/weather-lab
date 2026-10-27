@@ -2,28 +2,6 @@
 // Render native polar gates directly at the current map scale. No neighboring
 // values are blended, and no coarse geographic image sits between data and view.
 window.NativeRadar = (() => {
-  function inverse(latitude1, longitude1, latitude2, longitude2) {
-    // Vincenty inverse on WGS84: preserve geographic alignment at 250 m gates.
-    const rad=Math.PI/180,a=6378137,f=1/298.257223563,b=a*(1-f);
-    const u1=Math.atan((1-f)*Math.tan(latitude1*rad)),u2=Math.atan((1-f)*Math.tan(latitude2*rad));
-    const s1=Math.sin(u1),c1=Math.cos(u1),s2=Math.sin(u2),c2=Math.cos(u2);
-    const difference=(longitude2-longitude1)*rad;
-    let lambda=difference,sinSigma=0,cosSigma=1,sigma=0,sinAlpha=0,cosSqAlpha=1,cos2SigmaM=0;
-    for(let iteration=0;iteration<10;iteration++) {
-      const sin=Math.sin(lambda),cos=Math.cos(lambda),x=c2*sin,y=c1*s2-s1*c2*cos;
-      sinSigma=Math.hypot(x,y);
-      if(sinSigma===0)return {distance:0,bearing:0};
-      cosSigma=s1*s2+c1*c2*cos;sigma=Math.atan2(sinSigma,cosSigma);
-      sinAlpha=c1*c2*sin/sinSigma;cosSqAlpha=1-sinAlpha*sinAlpha;
-      cos2SigmaM=cosSqAlpha>1e-14 ? cosSigma-2*s1*s2/cosSqAlpha : 0;
-      const c=f/16*cosSqAlpha*(4+f*(4-3*cosSqAlpha)),old=lambda;
-      lambda=difference+(1-c)*f*sinAlpha*(sigma+c*sinSigma*(cos2SigmaM+c*cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)));
-      if(Math.abs(lambda-old)<1e-11)break;
-    }
-    const uSq=cosSqAlpha*(a*a-b*b)/(b*b),A=1+uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq))),B=uSq/1024*(256+uSq*(-128+uSq*(74-47*uSq)));
-    const delta=B*sinSigma*(cos2SigmaM+B/4*(cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)-B/6*cos2SigmaM*(-3+4*sinSigma*sinSigma)*(-3+4*cos2SigmaM*cos2SigmaM)));
-    return {distance:b*A*(sigma-delta),bearing:(Math.atan2(c2*Math.sin(lambda),c1*s2-s1*c2*Math.cos(lambda))/rad+360)%360};
-  }
   function decode(buffer) {
     if (buffer.byteLength < 4) throw new Error("Incomplete radar data");
     const length = new DataView(buffer).getUint32(0);
@@ -66,74 +44,84 @@ window.NativeRadar = (() => {
   }
   const Layer = L.Layer.extend({
     onAdd(map) {
-      this._map=map;
-      this._canvas=L.DomUtil.create("canvas","leaflet-layer leaflet-zoom-hide native-radar-canvas");
-      this._canvas.style.pointerEvents="none";
+      this._map=map;this._generation=0;this._moving=false;this._working=false;this._pending=null;this._topLeft=null;
+      this._canvas=L.DomUtil.create("canvas","leaflet-layer leaflet-zoom-animated native-radar-canvas");
+      this._canvas.style.pointerEvents="none";this._canvas.style.transformOrigin="0 0";
       map.getPane("radar").appendChild(this._canvas);
+      map.on("movestart",this._moveStart,this);
       map.on("moveend resize",this._reset,this);
+      map.on("zoom",this._position,this);map.on("zoomanim",this._animateZoom,this);
+      try {
+        this._worker=new Worker("/static/radar-worker.js?v=map-motion-v1");
+        this._worker.onmessage=event=>this._finished(event.data);
+        this._worker.onerror=()=>{this._worker?.terminate();this._worker=null;this._working=false;this._draw();};
+      } catch(_) {this._worker=null;}
       this._reset();
     },
-    onRemove(map) {map.off("moveend resize",this._reset,this);this._canvas.remove();},
-    setFrame(frame,palette) {
-      const old=this._frame?.meta;
-      const sameSite=old?.site===frame.meta.site && old.latitude===frame.meta.latitude && old.longitude===frame.meta.longitude && old.gates===frame.meta.gates && old.gateWidthMeters===frame.meta.gateWidthMeters;
-      this._frame=frame;
-      this._colors=colors(palette);
-      if(!sameSite)this._grid=null;
-      this._draw();
+    onRemove(map) {
+      map.off("movestart",this._moveStart,this);map.off("moveend resize",this._reset,this);
+      map.off("zoom",this._position,this);map.off("zoomanim",this._animateZoom,this);
+      clearTimeout(this._timer);this._generation++;this._worker?.terminate();this._worker=null;
+      this._canvas.remove();this._canvas=null;this._map=null;
     },
-    clear() {this._frame=null;this._grid=null;if(this._canvas)this._canvas.getContext("2d").clearRect(0,0,this._canvas.width,this._canvas.height);},
+    setFrame(frame,palette) {this._frame=frame;this._colors=colors(palette);this._generation++;this._draw();},
+    clear() {
+      this._frame=null;this._generation++;this._pending=null;this._grid=null;
+      if(this._canvas)this._canvas.getContext("2d").clearRect(0,0,this._canvas.width,this._canvas.height);
+    },
+    _moveStart() {
+      this._moving=true;this._generation++;this._pending=null;clearTimeout(this._timer);
+    },
+    _position() {
+      if(!this._topLeft)return;
+      L.DomUtil.setTransform(this._canvas,this._map.latLngToLayerPoint(this._topLeft),this._map.getZoomScale(this._map.getZoom(),this._canvasZoom));
+    },
+    _animateZoom(event) {
+      if(!this._topLeft)return;
+      const offset=this._map._latLngToNewLayerPoint(this._topLeft,event.zoom,event.center);
+      L.DomUtil.setTransform(this._canvas,offset,this._map.getZoomScale(event.zoom,this._canvasZoom));
+    },
     _reset() {
-      const size=this._map.getSize();
-      // Screen pixels cap memory on high-DPI phones; zooming always samples
-      // the original radar gates again rather than enlarging a cached raster.
-      this._canvas.width=Math.max(1,size.x);this._canvas.height=Math.max(1,size.y);
-      L.DomUtil.setPosition(this._canvas,this._map.containerPointToLayerPoint([0,0]));
-      this._grid=null;this._draw();
+      this._moving=false;this._generation++;this._pending=null;this._position();clearTimeout(this._timer);
+      // Leave the existing geographically anchored image visible while zooming.
+      // Wait briefly for wheel/touch movement to settle before resampling gates.
+      this._timer=setTimeout(()=>this._draw(),80);
     },
     _draw() {
-      if(!this._frame || !this._canvas)return;
-      const {meta,codes,rays}=this._frame, width=this._canvas.width,height=this._canvas.height;
-      const radians=Math.PI/180, earth=6371008.8, effective=earth*4/3;
-      if(!this._grid) {
-        const origin=this._map.getPixelOrigin().subtract(this._map._getMapPanePos());
-        const scale=256*Math.pow(2,this._map.getZoom());
-        const lat0=meta.latitude*radians, sin0=Math.sin(lat0),cos0=Math.cos(lat0);
-        const longs=Array.from({length:width},(_,x)=>((origin.x+x+0.5)/scale*360-180-meta.longitude)*radians);
-        const sinLon=longs.map(Math.sin),cosLon=longs.map(Math.cos);
-        const distances=new Float32Array(width*height), bearings=new Uint16Array(width*height);
-        for(let y=0;y<height;y++) {
-          const lat=Math.atan(Math.sinh(Math.PI*(1-2*(origin.y+y+0.5)/scale)));
-          const sin=Math.sin(lat),cos=Math.cos(lat);
-          for(let x=0;x<width;x++) {
-            const a=sinLon[x]*cos,b=cos0*sin-sin0*cos*cosLon[x],dot=sin0*sin+cos0*cos*cosLon[x];
-            const i=y*width+x,ground=earth*Math.atan2(Math.hypot(a,b),dot);
-            if(ground>meta.firstGateMeters+meta.gates*meta.gateWidthMeters+3000) {
-              distances[i]=Infinity;continue;
-            }
-            const exact=inverse(meta.latitude,meta.longitude,lat/radians,meta.longitude+longs[x]/radians);
-            distances[i]=exact.distance;
-            bearings[i]=Math.floor(exact.bearing*100)%36000;
-          }
-        }
-        this._grid={distances,bearings};
+      if(!this._frame||!this._canvas||this._moving)return;
+      clearTimeout(this._timer);
+      const size=this._map.getSize(),origin=this._map.getPixelOrigin().subtract(this._map._getMapPanePos());
+      this._pending={id:this._generation,frame:this._frame,colors:this._colors,
+        width:Math.max(1,Math.round(size.x)),height:Math.max(1,Math.round(size.y)),
+        origin:{x:origin.x,y:origin.y},zoom:this._map.getZoom(),topLeft:this._map.containerPointToLatLng([0,0])};
+      this._dispatch();
+    },
+    _dispatch() {
+      if(this._working||!this._pending)return;
+      const request=this._pending;this._pending=null;this._working=true;
+      if(this._worker){this._worker.postMessage(request);return;}
+      // Worker-blocking browser settings still get a responsive fallback.
+      const iterator=window.WeatherRadarRenderer.render(request,this._grid);
+      const step=()=>{
+        if(!this._canvas||request.id!==this._generation){this._working=false;this._dispatch();return;}
+        const start=performance.now();let result;
+        do {result=iterator.next();} while(!result.done&&performance.now()-start<8);
+        if(!result.done){setTimeout(step,0);return;}
+        this._grid=result.value.grid;this._finished({...request,pixels:result.value.pixels});
+      };
+      setTimeout(step,0);
+    },
+    _finished(result) {
+      this._working=false;
+      if(this._canvas&&result.id===this._generation&&!this._moving) {
+        // Swap only complete results, and never let an older view overwrite a new one.
+        this._canvas.width=result.width;this._canvas.height=result.height;
+        this._topLeft=result.topLeft;this._canvasZoom=result.zoom;
+        this._canvas.getContext("2d").putImageData(new ImageData(result.pixels,result.width,result.height),0,0);
+        this._position();
       }
-      const context=this._canvas.getContext("2d"), image=context.createImageData(width,height), pixels=image.data;
-      const tilt=(meta.nominalElevation ?? 0.5)*radians,cosTilt=Math.cos(tilt),sinTilt=Math.sin(tilt);
-      const {distances,bearings}=this._grid;
-      for(let i=0;i<distances.length;i++) {
-        if(!Number.isFinite(distances[i]))continue;
-        // Standard 4/3-earth beam geometry converts ground arc to slant range.
-        const tangent=Math.tan(distances[i]/effective);
-        const slant=effective*tangent/(cosTilt-sinTilt*tangent);
-        const gate=Math.round((slant-meta.firstGateMeters)/meta.gateWidthMeters);
-        if(gate<0 || gate>=meta.gates)continue;
-        const code=codes[rays[bearings[i]]*meta.gates+gate],color=code*4,pixel=i*4;
-        pixels[pixel]=this._colors[color];pixels[pixel+1]=this._colors[color+1];
-        pixels[pixel+2]=this._colors[color+2];pixels[pixel+3]=this._colors[color+3];
-      }
-      context.putImageData(image,0,0);
+      this._dispatch();
     }
   });
-  return {decode,colors,inverse,layer:()=>new Layer()};
+  return {decode,colors,inverse:window.WeatherRadarRenderer.inverse,layer:()=>new Layer()};
 })();

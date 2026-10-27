@@ -4,15 +4,17 @@ function element(){return{value:'',events:{},children:[],hidden:false,disabled:f
 const nodes=new Map(),get=id=>{assert.notEqual(id,'metar-product','Removed dropdown is never accessed');if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
 const stations=[{station:'KFCM',lat:3,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:71,dewpointF:50,wind:{speedMph:7,direction:270},layers:[{cover:'BKN',baseFtAGL:2700}]},{station:'KNEAR',lat:3.01,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:70,dewpointF:49,wind:{speedMph:0},layers:[{cover:'CLR',baseFtAGL:null}]},{station:'KMSP',lat:9,lon:2,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:72,dewpointF:51,wind:{speedMph:10,direction:225},layers:[{cover:'OVC',baseFtAGL:25000}]}];
 let data={checkedAt:'2026-10-24T18:01:00Z',serverTime:'2026-10-24T18:02:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,24,7+i)).toISOString(),stations:stations.map(s=>({...s,tempF:i===0?100:s.tempF}))}))};
-let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber;const callbacks={};
+let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber,created=0,footprints=0;const callbacks={};
 const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*5000+100:lat*50,y:lon*50};},invalidateSize(){}};
-const context={window:{WeatherPrepared:{read:async()=>{reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){assert.equal(url,'/api/station-plots');subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){shown=[];}}),divIcon:x=>x,marker:(position,config)=>({bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push({position,popup:this.popup,...config});}})}};
-vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
+const context={window:{WeatherPrepared:{read:async()=>{reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){assert.equal(url,'/api/station-plots');subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
+vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'11');assert.equal(fullConfig.surfaceId,'metar-surface');
+ const firstMarker=shown[0],initialFootprints=footprints;
+ callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Twelve-hour footprints are cached until new data arrives');
  const svg=shown[0].icon.html;
  for(const cls of ['combined-station-plot','plot-temp','plot-dew','plot-ceiling','plot-sky','wind-barb'])assert.ok(svg.includes(cls),cls);
  assert.doesNotMatch(svg,/plot-speed/);
@@ -22,7 +24,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.match(popup,/Temperature: 71.0°F/);assert.match(popup,/Dewpoint: 50.0°F/);assert.match(popup,/Wind: 7 mph from 270°/);assert.match(popup,/BKN: 2,700 ft AGL/);
  get('metar-timeline').events.input({target:{value:'2'}});const before=ids();
  get('metar-timeline').events.input({target:{value:'0'}});assert.deepEqual(ids(),before,'History label changes keep density stable');assert.equal(reads,1,'Slider does not fetch source data');
- zoomed=true;callbacks.moveend();assert.ok(ids().includes('KNEAR'),'Zoom reveals nearby eligible airports');zoomed=false;
+ zoomed=true;callbacks.movestart();const duringMotion=created;get('metar-timeline').events.input({target:{value:'1'}});assert.equal(created,duringMotion,'No plot rebuild during a zoom gesture');callbacks.moveend();assert.ok(ids().includes('KNEAR'),'Zoom reveals nearby eligible airports');zoomed=false;
  get('metar-timeline').events.input({target:{value:'3'}});const hour=get('metar-time').textContent;
  data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-24T19:00:00Z'})};subscriber(data);assert.equal(get('metar-timeline').value,'2');assert.equal(get('metar-time').textContent,hour.replace('4/12','3/12'));
  const kept=ids();fail=true;get('refresh-metar').events.click();await flush();assert.deepEqual(ids(),kept);assert.match(get('metar-status').textContent,/Previous reports retained/);
