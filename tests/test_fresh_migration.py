@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-OLD = 'weather-lab-261024-133205'
+OLD = 'weather-lab-261027-024631-5ff2'
 
 
 def setup(tmp_path):
@@ -16,7 +16,7 @@ def setup(tmp_path):
     stub = r"""#!/usr/bin/env python3
 import json,os,pathlib,sys,shutil
 a=sys.argv[1:];name=pathlib.Path(sys.argv[0]).name
-home=pathlib.Path(os.environ['HOME']);old='weather-lab-261024-133205'
+home=pathlib.Path(os.environ['HOME']);old='weather-lab-261027-024631-5ff2'
 with open(os.environ['MIGRATE_LOG'],'a') as f:f.write(json.dumps([name,*a])+'\n')
 def fail(label):print(label,file=sys.stderr);sys.exit(1)
 if name=='python3':
@@ -35,6 +35,7 @@ with open(os.environ['MIGRATE_LOG'],'a') as f:f.write(json.dumps(['restore',sys.
 sys.exit(1 if os.environ.get('MIGRATE_RESTORE_FAIL') else 0)
 PY
 ''')
+ if a[-2:]==['rev-parse','HEAD']:print('bad-source' if os.environ.get('MIGRATE_BAD_SOURCE') else '4e8df6fa9e6e20efbe0614f86dce12109964bb98')
  sys.exit(0)
 if name=='curl':
  if os.environ.get('MIGRATE_COLLECTOR_FAIL') and any('/collect/' in arg for arg in a):fail('collector unavailable')
@@ -102,9 +103,9 @@ def test_fresh_rebuild_copy_verification_and_transfer_before_old_billing_stops(t
     assert copied < restored < verified < deleted[0] < claimed[0] < unlinked[0]
     assert '--project=' + OLD in deleted[1] and '--project=' + new in claimed[1]
     assert unlinked[1][4] == OLD
-    assert calls[restored][2:] == ['ada1bdb84bfa39d3608812a6ed392a588e303b50', 'true']
+    assert calls[restored][2:] == ['4e8df6fa9e6e20efbe0614f86dce12109964bb98', 'true']
     assert not cloud(calls, ['projects', 'delete'])
-    assert (home / 'weather-lab-fresh-migration/project-id.txt').read_text().strip() == new
+    assert (home / ('weather-lab-fresh-' + OLD) / 'project-id.txt').read_text().strip() == new
     again, calls = run()
     assert again.returncode == 0, again.stderr
     assert len(cloud(calls, ['projects', 'create'])) == 1
@@ -175,3 +176,30 @@ def test_missing_bucket_rebuilds_without_attempting_copy(tmp_path):
     assert result.returncode == 0, result.stderr
     assert not cloud(calls, ['storage', 'rsync'])
     assert any(c[0] == 'restore' for c in calls)
+
+
+def test_previous_migration_folder_cannot_reuse_a_retired_target_project(tmp_path):
+    run, home = setup(tmp_path)
+    old_folder=home/'weather-lab-fresh-migration';old_folder.mkdir()
+    retired='weather-lab-261027-024631-5ff2'
+    (old_folder/'project-id.txt').write_text(retired)
+    result,calls=run()
+    assert result.returncode==0,result.stderr
+    created=cloud(calls,['projects','create'])[0][1][3]
+    assert created!=retired
+    assert (old_folder/'project-id.txt').read_text()==retired
+    assert (home/('weather-lab-fresh-'+OLD)/'project-id.txt').read_text().strip()==created
+
+
+def test_wrong_source_or_changed_snapshot_stops_before_creating_project(tmp_path):
+    run,home=setup(tmp_path)
+    result,calls=run(bad_source=1)
+    assert result.returncode!=0
+    assert not cloud(calls,['projects','create'])
+    assert not cloud(calls,['beta','run','domain-mappings'])
+    work=home/('weather-lab-fresh-'+OLD)
+    (work/'site-commit.txt').write_text('0'*40)
+    result,calls=run()
+    assert result.returncode!=0
+    assert 'different website version' in result.stderr
+    assert not cloud(calls,['projects','create'])

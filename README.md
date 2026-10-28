@@ -1,10 +1,10 @@
 # Weather Lab
 
-Active Google Cloud project: `weather-lab-261027-024631-5ff2`, region `us-central1`.
+Last deployed Google Cloud project: `weather-lab-261027-024631-5ff2`, region `us-central1`.
 Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
 
-Fresh-project migration: `bash start-weather-lab-fresh.sh weather-lab-261024-133205`.
-This creates one project named Weather Lab, reuses its saved ID on retries, rebuilds the saved four-product METAR layout at commit `ada1bdb84bfa39d3608812a6ed392a588e303b50`, copies the dedicated old weather bucket when available, and refreshes the source feeds. Settings are saved in `~/weather-lab-fresh-migration`. It tests the collector, all five public pages and their newest imagery before moving `weather-lab.cloud.run` with Google's delete-and-recreate mapping flow. The name is briefly released and cannot be guaranteed during transfer; failed claims attempt to restore the previous mapping. Old billing is disconnected only after the new mapping is ready and responds successfully. The old project itself is retained. Lost Air Q history accumulates again. A specific billing account can be supplied as argument two.
+Fresh-project recovery after registry/build errors: `bash start-weather-lab-fresh.sh weather-lab-261027-024631-5ff2`.
+This creates one new project named Weather Lab and rebuilds the verified working website at commit `4e8df6fa9e6e20efbe0614f86dce12109964bb98`: combined METAR station plots, the direct smooth radar timeline renderer, half-level radar zoom, Satellite, Forecast and Air Q. The later location-dot change was not published and is not part of this recovery. Tools and application source are both pinned to that snapshot. The recovery folder is `~/weather-lab-fresh-weather-lab-261027-024631-5ff2`, isolated from prior migrations; retries reuse its saved new project ID, and a mismatched saved source version stops before creating a project. Existing dedicated weather data is copied when available, and recoverable source history is refreshed. The helper verifies the collector, all five pages and their newest prepared assets before moving `weather-lab.cloud.run`. Google's address-transfer flow briefly releases the name; failed claims attempt to restore its old mapping. Old billing is disconnected only after the new mapping is ready and responds successfully. The old project itself is retained. Lost Air Q history accumulates again. A specific open billing account can be supplied as argument two.
 
 Current tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
 Update the combined station plots with `bash update-weather-lab-plots.sh weather-lab-261027-024631-5ff2` (website only).

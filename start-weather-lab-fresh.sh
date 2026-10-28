@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build one new project, verify it, then move the user's existing custom URL.
 set -euo pipefail
-WEATHER_OLD_PROJECT="${1:-weather-lab-261024-133205}"
+WEATHER_OLD_PROJECT="${1:-weather-lab-261027-024631-5ff2}"
 WEATHER_REGION=us-central1
 WEATHER_DOMAIN=weather-lab.cloud.run
-WEATHER_SITE_COMMIT=ada1bdb84bfa39d3608812a6ed392a588e303b50
-WEATHER_WORK="${WEATHER_FRESH_WORK_DIR:-$HOME/weather-lab-fresh-migration}"
+WEATHER_SITE_COMMIT=4e8df6fa9e6e20efbe0614f86dce12109964bb98
+WEATHER_WORK="${WEATHER_FRESH_WORK_DIR:-$HOME/weather-lab-fresh-$WEATHER_OLD_PROJECT}"
 mkdir -p "$WEATHER_WORK"
 trap 'echo "Migration stopped at line $LINENO. Rerun the same command to resume the same project. Settings: $WEATHER_WORK" >&2' ERR
 
@@ -13,6 +13,12 @@ if [[ -s "$WEATHER_WORK/old-project.txt" ]]; then
   [[ "$(cat "$WEATHER_WORK/old-project.txt")" == "$WEATHER_OLD_PROJECT" ]] || { echo 'This resume folder belongs to another source project.' >&2; exit 1; }
 else
   printf '%s\n' "$WEATHER_OLD_PROJECT" >"$WEATHER_WORK/old-project.txt"
+fi
+
+if [[ -s "$WEATHER_WORK/site-commit.txt" ]]; then
+  [[ "$(cat "$WEATHER_WORK/site-commit.txt")" == "$WEATHER_SITE_COMMIT" ]] || { echo 'This resume folder belongs to a different website version; stopping.' >&2; exit 1; }
+else
+  printf '%s\n' "$WEATHER_SITE_COMMIT" >"$WEATHER_WORK/site-commit.txt"
 fi
 
 echo 'Step 1/6: checking billing and fetching the recovery tools.'
@@ -40,6 +46,10 @@ WEATHER_OPEN="$(gcloud billing accounts describe "$WEATHER_BILLING" --format='va
 if [[ ! -d "$WEATHER_WORK/tools/.git" ]]; then
   git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/tools"
 fi
+# Recovery tools and application both use the same verified working snapshot.
+git -C "$WEATHER_WORK/tools" fetch --quiet --depth=1 origin "$WEATHER_SITE_COMMIT"
+git -C "$WEATHER_WORK/tools" checkout --quiet --detach "$WEATHER_SITE_COMMIT"
+[[ "$(git -C "$WEATHER_WORK/tools" rev-parse HEAD)" == "$WEATHER_SITE_COMMIT" ]] || { echo 'Could not verify the saved website source; stopping.' >&2; exit 1; }
 test -f "$WEATHER_WORK/tools/verify_weather_site.py"
 test -f "$WEATHER_WORK/tools/restore-weather-lab-latest.sh"
 
