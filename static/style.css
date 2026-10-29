@@ -371,3 +371,15 @@ body.map-focus main { padding-top:6px; }
   .section-heading .eyebrow { display:none; }
   .viewer-controls { grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; grid-template-areas:"time timeline actions"; }
 }
+
+/* Center compact desktop timelines; phone controls retain their full width. */
+@media (min-width:951px) {
+  .viewer-controls,.airq-controls {
+    grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);
+    grid-template-areas:"time timeline actions";
+  }
+  .viewer-controls .timeline-control,.airq-controls .timeline-control {
+    width:100%; max-width:520px; justify-self:center;
+  }
+  .viewer-controls .viewer-actions { justify-self:end; }
+}

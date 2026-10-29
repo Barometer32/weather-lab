@@ -8,6 +8,8 @@ trap 'echo "Plot update stopped at line $LINENO. Settings and diagnostics: $WEAT
 echo 'Step 1/3: selecting the website project and saving its settings.'
 if [[ -n "${1:-}" ]]; then
   WEATHER_PROJECT="$1"
+elif [[ -s "$HOME/weather-lab-fresh-weather-lab-261027-024631-5ff2/project-id.txt" ]]; then
+  WEATHER_PROJECT="$(cat "$HOME/weather-lab-fresh-weather-lab-261027-024631-5ff2/project-id.txt")"
 else
 WEATHER_CANDIDATES=(weather-lab-261027-024631-5ff2 weather-lab-261024-133205 j-weather-261020012817)
 WEATHER_OWNERS=()
@@ -42,23 +44,23 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:plots-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/3: restoring direct radar timeline rendering with larger zoom steps.'
+echo 'Step 2/3: publishing shorter, centered desktop timelines.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 WEATHER_WEB_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 
-echo 'Step 3/3: verifying combined station plots and the existing weather tabs.'
+echo 'Step 3/3: verifying the compact timeline layout and existing weather tabs.'
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_WEB_URL/" -o "$WEATHER_WORK/page.html"
 python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=metar-combined-v3','metar-views.js?v=viewport-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=viewport-v1','app.js?v=viewport-v1']:
+for asset in ['style.css?v=compact-timeline-v1','metar-model.js?v=metar-combined-v3','metar-views.js?v=viewport-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=viewport-v1','app.js?v=viewport-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 if 'data-station-model="combined-v1"' not in html or 'id="metar-product"' in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
     raise SystemExit('The combined station METAR page is not published yet.')
 if 'radar-renderer.js' in html or 'radar-worker.js' in html:raise SystemExit('The retired radar worker is still loaded.')
-print('Verified direct radar timeline rendering, larger radar zoom steps and preserved combined METAR plots.')
+print('Verified centered desktop timeline assets and preserved weather tabs.')
 PY
 printf '\nPlot update complete.\nWebsite: https://weather-lab.cloud.run\nProject: %s\nDirect URL: %s\nSaved settings: %s\n' "$WEATHER_PROJECT" "$WEATHER_WEB_URL" "$WEATHER_WORK"
