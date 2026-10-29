@@ -30,7 +30,7 @@ def verify(base, fetch=None):
         raise ValueError('Twelve populated all-airport frames were not verified')
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')
-    for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
+    for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':
             if not data.get('periods'):

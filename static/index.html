@@ -6,17 +6,18 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=metar-combined-v1">
+  <link rel="stylesheet" href="/static/style.css?v=viewport-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
-  <script defer src="/static/map-fullscreen.js?v=20261020"></script>
+  <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=metar-products-v1"></script>
-  <script defer src="/static/metar-model.js?v=metar-combined-v2"></script>
-  <script defer src="/static/metar-views.js?v=map-motion-v1"></script>
+  <script defer src="/static/prepared-data.js?v=viewport-v1"></script>
+  <script defer src="/static/metar-model.js?v=metar-combined-v3"></script>
+  <script defer src="/static/metar-views.js?v=viewport-v1"></script>
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
-  <script defer src="/static/app.js?v=radar-zoom-v2"></script>
+  <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
+  <script defer src="/static/app.js?v=viewport-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -77,7 +78,7 @@
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
   <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
-  <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
+  <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="13">Infrared</option><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <div id="satellite-surface" class="map-viewer">
     <div id="satellite-map-area" class="map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
@@ -87,7 +88,7 @@
     </div>
   </div>
   <div class="page-notes" hidden>
-  <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
+  <p id="satellite-status" class="small-note" role="status">All four satellite products are prepared in the background every five minutes.</p>
   <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
   <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-48-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
   </div>
@@ -114,4 +115,3 @@
 </main>
 <footer hidden>WEATHER LAB · Observations from NOAA Aviation Weather Center · <a href="https://github.com/Barometer32/weather-lab" target="_blank" rel="noopener">Project on GitHub</a></footer>
 </body></html>
-

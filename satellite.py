@@ -6,6 +6,7 @@ FRAME_COUNT = 24
 SECTOR = "S_Minnesota"
 BASE = f"https://weather.cod.edu/wxdata/satellite/local/{SECTOR}"
 PRODUCTS = {
+    "13": {"label": "Infrared", "description": "GOES clean longwave infrared (Band 13), showing cloud-top brightness temperatures by day and night."},
     "truecolor": {"label": "True color", "description": "A natural daytime view of clouds and the ground. Requires sunlight; use NT Microphysics after dark."},
     "dcphase": {"label": "Day Cloud Phase", "description": "Daytime RGB imagery helps distinguish liquid-water clouds, ice clouds, and snow. Its colors are meaningful in daylight."},
     "ntmicro": {"label": "NT Microphysics", "description": "Nighttime RGB imagery helps distinguish low clouds and fog from higher clouds. Solar reflection affects its colors during daylight."},

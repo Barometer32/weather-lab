@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const events={},vevents={},styles={},queue=[],seen=[];let notifications=0,observer;
+const viewport={height:744,scale:1,addEventListener(k,f){vevents[k]=f;}};
+const context={Event:class{constructor(type){this.type=type;}},document:{documentElement:{style:{setProperty(k,v){styles[k]=v;}}},querySelectorAll:()=>['metar','radar','satellite']},ResizeObserver:class{constructor(fn){observer=fn;}observe(n){seen.push(n);}},window:{innerHeight:800,visualViewport:viewport,requestAnimationFrame:fn=>queue.push(fn),dispatchEvent:e=>{assert.equal(e.type,'weather-layout-resize');notifications++;},addEventListener(k,f){events[k]=f;}}};
+vm.runInNewContext(fs.readFileSync('static/viewport-fit.js','utf8'),context);
+assert.equal(styles['--app-height'],'744px');assert.equal(seen.length,3);
+viewport.height=660;vevents.resize();observer();events.resize();assert.equal(queue.length,1,'Layout changes coalesce into one map resize');queue.shift()();assert.equal(notifications,1);assert.equal(styles['--app-height'],'660px');
+viewport.scale=2;viewport.height=330;vevents.resize();assert.equal(styles['--app-height'],'660px','Page magnification does not reflow the entire app smaller');queue.shift()();
+viewport.scale=1;viewport.height=390;events.resize();queue.shift()();assert.equal(styles['--app-height'],'390px','Rotation refits the usable screen');
+console.log('Viewport checks passed: iPhone toolbar height, coalesced map resizing, page magnification and rotation.');

@@ -80,3 +80,20 @@ def test_future_expired_duplicate_and_malformed_frames_do_not_count_as_history()
             {'time':'2026-10-24T14:50:00Z','url':'one'}, {'time':'2026-10-24T14:50:00Z','url':'two'}]
     selected=latest_frames(frames,NOW)
     assert len(selected)==1 and selected[0]['url']=='two'
+
+
+def test_infrared_has_24_original_images_and_public_prepared_asset_access():
+    import app as weather
+    from satellite import PRODUCTS
+    assert PRODUCTS['13']['label']=='Infrared'
+    old,_,urls,jpeg=source()
+    infrared=[url.replace('/truecolor/','/13/').replace('.truecolor.','.13.') for url in urls]
+    def fetch(url):return ' '.join(infrared).encode() if 'satrad' in url else jpeg
+    store=AtomicStore()
+    with patch('app.download',side_effect=fetch):result=collector.collect_product(store,'13',NOW)
+    data=store.read_json('live/satellite-13.json');assert result['frames']==24
+    key=data['frames'][-1]['url'];assert '/satellite/13/' in key
+    assert store.read(key.removeprefix('/api/prepared/'))==jpeg
+    weather._cache.clear();weather.prepared_image.cache_clear()
+    with patch('app.get_store',return_value=store):response=weather.app.test_client().get(key)
+    assert response.status_code==200 and response.mimetype=='image/jpeg'

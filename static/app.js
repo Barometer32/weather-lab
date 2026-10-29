@@ -267,6 +267,7 @@ async function loadSatellite(force = false) {
 
 const tabs = ["metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
+  window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   window.WeatherMetars?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
@@ -317,7 +318,12 @@ document.addEventListener("visibilitychange",()=>{
 window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
   if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
 });
-for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
+for(const product of ["13","truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
 });
 window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});
+
+window.addEventListener("weather-layout-resize",()=>{
+  if(!$("radar").hidden)map?.invalidateSize({pan:false});
+  if(!$("satellite").hidden)satelliteMap?.invalidateSize({pan:false});
+});

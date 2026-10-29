@@ -295,3 +295,79 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 .metar-product-row select { background:white; color:#243d2e; border:1px solid var(--border); border-radius:6px; min-height:42px; padding:8px 12px; min-width:170px; }
 #metar-map { height:clamp(540px,70dvh,680px); min-height:360px; background:white; z-index:0; }
 @media (max-width:600px) { #metar-map { height:clamp(400px,64dvh,620px); } }
+
+/* Fit the complete weather viewer between the browser's visible edges. */
+html { height:100%; overflow:hidden; }
+body { height:var(--app-height,100dvh); min-height:0; display:flex; flex-direction:column; overflow:hidden; padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+header { flex:0 0 auto; min-width:0; }
+.header-inner { max-width:1800px; padding:10px 24px 7px; }
+.brand { font-size:21px; letter-spacing:-.4px; }
+.brand span { display:inline; font-size:12px; margin-left:10px; }
+nav { max-width:1800px; padding:0 16px; gap:4px; }
+nav button { min-height:44px; padding:10px 18px; font-size:14px; }
+main { width:100%; max-width:1800px; margin:0 auto; padding:10px 20px 12px; flex:1 1 0; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+main > [role="tabpanel"] { flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
+main > [role="tabpanel"] > * { flex-shrink:0; }
+.section-heading { gap:12px; margin-bottom:8px; min-height:44px; }
+h1 { font-size:23px; margin:2px 0 0; line-height:1.15; }
+.section-heading .eyebrow { font-size:10px; letter-spacing:1px; line-height:1.35; }
+.section-heading > div { min-width:0; }
+#metar .section-heading { flex-wrap:nowrap; }
+.metar-view-controls { width:auto; flex-wrap:nowrap; justify-content:flex-end; gap:12px; }
+.sun-angle-readout { font-size:16px; }
+.sun-angle-readout strong { font-size:25px; }
+main > [role="tabpanel"] > .map-viewer { display:flex; flex-direction:column; flex:1 1 0; min-height:0; }
+.map-viewer > .map-area { flex:1 1 0; min-height:0; }
+.map-viewer > .map-area > :is(#map,#metar-map,#satellite-map) { width:100%; height:100%; min-height:0; aspect-ratio:auto; }
+.map-viewer > .viewer-controls { flex:0 0 auto; }
+.viewer-controls { grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; grid-template-areas:"time timeline actions"; padding:5px 10px; gap:4px 12px; }
+.viewer-controls .timeline-control { width:100%; }
+.viewer-frame-time { font-size:12px; }
+.viewer-actions button { padding:8px 12px; font-size:13px; }
+#legend { flex:0 0 auto; margin:6px 0 0; }
+#legend:empty { display:none; }
+#legend .reflectivity-gradient { height:8px; }
+#legend .reflectivity-ticks { margin-top:3px; font-size:10px; line-height:1.2; }
+#legend .small-note { margin:2px 0 0; font-size:10px; line-height:1.2; }
+.satellite-product-row { margin:0 0 7px; gap:8px; }
+.satellite-product-row select { min-height:36px; padding:5px 8px; font-size:13px; }
+#forecast .section-heading p:not(.eyebrow) { font-size:12px; }
+#forecast-periods { flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+#forecast-status { margin:0 0 8px; }
+.airq-viewer { width:100%; max-width:none; flex:1 1 0!important; min-height:0; display:flex; flex-direction:column; margin:0; }
+.airq-map-stage { flex:1 1 0; min-height:0; grid-template-rows:minmax(0,1fr) auto; }
+#air-quality-map { grid-row:1; width:100%; height:100%; min-height:0; max-height:none; object-fit:contain; }
+.airq-legend { grid-row:2; padding:6px 10px; font-size:10px; }
+.airq-controls { flex:0 0 auto; padding:5px 10px; }
+body.map-focus .header-inner,body.map-focus .section-heading { display:none; }
+body.map-focus main { padding-top:6px; }
+@media(max-width:950px) {
+  .viewer-controls { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"time actions" "timeline timeline"; gap:0 8px; }
+}
+@media(max-width:600px) {
+  .header-inner { display:none; }
+  nav { width:100%; padding:0 3px; gap:0; overflow:visible; }
+  nav button { flex:1 1 0; min-width:0; padding:10px 4px; font-size:clamp(10px,2.8vw,12px); }
+  main { padding:6px 8px 8px; }
+  .section-heading { gap:8px; margin-bottom:6px; min-height:44px; align-items:center; }
+  .section-heading .eyebrow { display:none; }
+  h1 { font-size:18px; }
+  .section-heading button { min-height:44px; padding:8px; font-size:12px; }
+  .metar-view-controls { width:auto; gap:8px; }
+  .sun-angle-readout { gap:4px; font-size:12px; }
+  .sun-angle-readout strong { font-size:22px; }
+  .viewer-controls { padding:3px 7px; }
+  .viewer-frame-time { font-size:11px; line-height:1.25; }
+  .viewer-actions { gap:5px; }
+  .viewer-actions button { font-size:11px; padding:6px 8px; }
+  .airq-legend { gap:5px 8px; font-size:9px; }
+  .airq-controls { grid-template-areas:"time" "timeline"; gap:0; }
+  #forecast .section-heading p:not(.eyebrow) { font-size:10px; }
+}
+@media(max-height:500px) {
+  .header-inner { display:none; }
+  main { padding-top:5px; padding-bottom:5px; }
+  .section-heading { min-height:36px; margin-bottom:4px; }
+  .section-heading .eyebrow { display:none; }
+  .viewer-controls { grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; grid-template-areas:"time timeline actions"; }
+}

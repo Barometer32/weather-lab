@@ -54,7 +54,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['metar-model.js?v=metar-combined-v2','metar-views.js?v=map-motion-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=metar-products-v1','app.js?v=radar-zoom-v2']:
+for asset in ['metar-model.js?v=metar-combined-v3','metar-views.js?v=viewport-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=viewport-v1','app.js?v=viewport-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 if 'data-station-model="combined-v1"' not in html or 'id="metar-product"' in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
     raise SystemExit('The combined station METAR page is not published yet.')

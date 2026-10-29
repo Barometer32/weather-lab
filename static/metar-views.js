@@ -93,5 +93,6 @@ window.WeatherMetars = (() => {
   el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);followLatest=index===data.history.length-1;render();});
   window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
   setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
+  window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){render();load();setTimeout(()=>map?.invalidateSize({pan:false}),0);}}};
 })();

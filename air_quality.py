@@ -14,6 +14,8 @@ UTC = timezone.utc
 VERSION = 'mn-region-v2'
 LEGACY_VERSION = 'mn-region-v1'
 MAP_STYLE = 'contours-only-no-labels'
+CHECK_MINUTES = list(range(3, 60, 5))
+HISTORY = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNow24HrCombined/FeatureServer/0'
 # Entire Minnesota, including the Northwest Angle and the Arrowhead.
 BOUNDS = [-97.65, 43.2, -89.1, 49.65]
 CONTOURS = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0'
@@ -144,47 +146,81 @@ def recent_frames(data,now):
     return sorted((f for f in result.values() if moment(f['time'])>=cutoff),key=lambda f:f['time'])
 
 
+def source_groups(rows,now):
+    groups={}
+    for feature in rows:
+        attrs=feature.get('attributes',{});stamp=attrs.get('Timestamp')
+        if attrs.get('gridcode') not in COLORS or not feature.get('geometry',{}).get('rings'):continue
+        if not isinstance(stamp,(int,float)) or not math.isfinite(stamp):continue
+        try:source=datetime.fromtimestamp(stamp/1000,UTC)
+        except (OverflowError,OSError,ValueError):continue
+        if source>now or source<now-timedelta(days=1):continue
+        slot=source.replace(minute=0,second=0,microsecond=0)
+        groups.setdefault(slot,[]).append(feature)
+    return groups
+
+
 def collect(store,now,fetch=None):
     now=now.astimezone(UTC);fetch=fetch or download
     previous=store.read_json('live/air-quality.json') or {}
     frames=recent_frames(previous,now)
-    # Check the feeds even when this clock hour already has an archived map:
-    # AirNow may publish a new source hour between the half-hour checks.
-    contours=query(CONTOURS,'gridcode,Unixtime,Timestamp',fetch)
-    stamps=[f.get('attributes',{}).get('Timestamp') for f in contours if f.get('attributes',{}).get('gridcode') in COLORS and f.get('geometry',{}).get('rings')]
-    stamps=[v/1000 for v in stamps if isinstance(v,(int,float)) and math.isfinite(v)]
-    if not stamps:raise ValueError('AirNow contours are unavailable; previous snapshot retained')
-    source=datetime.fromtimestamp(max(stamps),UTC)
-    if source>now:raise ValueError('AirNow source time is in the future')
-    slot=source.replace(minute=0,second=0,microsecond=0)
-    contours=[f for f in contours if isinstance(f.get('attributes',{}).get('Timestamp'),(int,float)) and
-              datetime.fromtimestamp(f['attributes']['Timestamp']/1000,UTC).replace(minute=0,second=0,microsecond=0)==slot]
-    canonical=lambda rows:sorted(json.dumps(f,sort_keys=True,separators=(',',':')) for f in rows)
-    digest=sha256(json.dumps([MAP_STYLE,canonical(contours)],separators=(',',':')).encode()).hexdigest()
-    existing=next((f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)==slot),None)
-    unchanged=existing and existing.get('version')==VERSION and existing.get('dataHash')==digest
-    if not unchanged:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            b=pool.submit(basemap,store,'base',fetch);o=pool.submit(basemap,store,'overlay',fetch)
-            base,overlay=b.result(),o.result()
-        png=render(contours,base,overlay)
-        # Content-derived keys remain immutable even when a source-hour map is
-        # corrected later; its slider position remains the same source hour.
+    groups=source_groups(query(CONTOURS,'gridcode,Unixtime,Timestamp',fetch),now)
+    if not groups:raise ValueError('AirNow contours are unavailable; previous snapshot retained')
+    newest=max(groups)
+    # Archive real source hours missed between collections. The public 24-hour
+    # combined-contour service uses the same gridcode and Timestamp fields.
+    latest=max([newest]+[moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames])
+    wanted=[latest-timedelta(hours=n) for n in range(12)]
+    present={moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames}|set(groups)
+    missing=[hour for hour in wanted if hour not in present]
+    last_backfill=previous.get('backfillCheckedAt');backfill_errors=0
+    try:can_backfill=not last_backfill or now-moment(last_backfill)>=timedelta(minutes=15)
+    except (TypeError,ValueError):can_backfill=True
+    if missing and can_backfill:
+        def recover_hour(hour):
+            end=hour+timedelta(hours=1)
+            where=f"Timestamp >= timestamp '{hour.strftime('%Y-%m-%d %H:%M:%S')}' AND Timestamp < timestamp '{end.strftime('%Y-%m-%d %H:%M:%S')}'"
+            try:
+                rows=source_groups(query(HISTORY,'gridcode,Unixtime,Timestamp',fetch,where),now)
+                return hour,rows.get(hour),False
+            except Exception:
+                return hour,None,True
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            for hour,rows,failed in pool.map(recover_hour,missing):
+                if rows:groups[hour]=rows
+                backfill_errors+=int(failed)
+        last_backfill=iso(now)
+    geography=None
+    for slot,contours in sorted(groups.items()):
+        if slot not in wanted:continue
+        source=datetime.fromtimestamp(max(f['attributes']['Timestamp'] for f in contours)/1000,UTC)
+        canonical=sorted(json.dumps(f,sort_keys=True,separators=(',',':')) for f in contours)
+        digest=sha256(json.dumps([MAP_STYLE,canonical],separators=(',',':')).encode()).hexdigest()
+        existing=next((f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)==slot),None)
+        if existing and existing.get('version')==VERSION and existing.get('dataHash')==digest:continue
+        if geography is None:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                b=pool.submit(basemap,store,'base',fetch);o=pool.submit(basemap,store,'overlay',fetch)
+                geography=(b.result(),o.result())
+        png=render(contours,*geography)
         key=f'air-quality/{VERSION}/{source.strftime("%Y%m%d%H%M%S")}-{digest[:16]}.png'
         frame=dict(version=VERSION,time=iso(source),sourceTime=iso(source),capturedAt=iso(now),
                    url='/api/prepared/'+key,dataHash=digest,style=MAP_STYLE)
         store.write(key,png,'image/png')
         frames=[f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)!=slot]+[frame]
     frames=recent_frames({'frames':frames},now)
+    present={moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames}
+    missing=[iso(hour) for hour in reversed(wanted) if hour not in present]
     store.write_json('live/air-quality.json',dict(version=VERSION,timeBasis='source',checkedAt=iso(now),bounds=BOUNDS,
-        width=WIDTH,height=HEIGHT,frames=frames,source='EPA AirNow combined AQI contours used by MPCA',checkMinutes=[0,30]))
-    return {'frames':len(frames),'sourceTime':iso(source),'status':'source hour already saved' if unchanged else 'source hour saved'}
+        width=WIDTH,height=HEIGHT,frames=frames,source='EPA AirNow combined AQI contours used by MPCA',
+        checkMinutes=CHECK_MINUTES,backfillCheckedAt=last_backfill,missingHours=missing,backfillErrors=backfill_errors))
+    return {'frames':len(frames),'sourceTime':iso(newest),'missingHours':missing,'backfillErrors':backfill_errors}
 
 
 def public_manifest(data,now):
     frames=recent_frames(data,now)
     if not frames:raise ValueError('No recent Air Q snapshots have been captured yet')
-    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':[0,30]}
+    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES}
 
 
 def main():

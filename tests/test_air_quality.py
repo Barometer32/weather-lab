@@ -56,7 +56,7 @@ def test_snapshot_is_atomic_and_records_capture_and_distinct_source_times():
         x,y=aq.xy(aq.mercator(-92,46));assert image.getpixel((round(x),round(y)))==(255,255,0)
         assert {color for _,color in image.getcolors()}=={(255,255,255),(255,255,0)},'no monitor dots or number labels are drawn'
     aq.collect(store,NOW+timedelta(minutes=20),fetch)
-    assert len(calls)==4,'the second check fetches contours but reuses the unchanged source-hour image'
+    assert len([url for url in calls if aq.HISTORY not in url])==4,'the second check fetches contours but reuses the unchanged source-hour image'
     assert len(store.read_json('live/air-quality.json')['frames'])==1
     assert store.read_json('live/air-quality.json')['checkedAt']==aq.iso(NOW+timedelta(minutes=20))
 
@@ -187,3 +187,34 @@ def test_unlabeled_style_replaces_same_hour_without_reusing_labeled_geography():
     layers=aq.overlay_styles()
     assert {layer['source']['mapLayerId'] for layer in layers}=={1,4,18,20}
     assert all(layer['drawingInfo']['showLabels'] is False for layer in layers)
+
+
+def test_missing_hours_are_recovered_from_the_real_hourly_archive():
+    from copy import deepcopy
+    import re
+    store=MemoryStore();basic,calls=fetcher();rows,_=feature_data()
+    def fetch(url):
+        if aq.HISTORY in url:
+            where=parse_qs(urlsplit(url).query)['where'][0]
+            stamp=datetime.fromisoformat(re.search(r"timestamp '([^']+)'",where)[1]).replace(tzinfo=timezone.utc)
+            row=deepcopy(rows[0]);row['attributes']['Timestamp']=stamp.timestamp()*1000
+            return json.dumps({'features':[row]}).encode()
+        return basic(url)
+    result=aq.collect(store,NOW,fetch)
+    frames=store.read_json('live/air-quality.json')['frames']
+    assert len(frames)==12 and result['missingHours']==[]
+    assert [f['sourceTime'] for f in frames]==[aq.iso(SOURCE-timedelta(hours=n)) for n in reversed(range(12))]
+    assert sum('/export?' in url for url in calls)==2
+    aq.collect(store,NOW+timedelta(minutes=5),fetch)
+    assert len(store.read_json('live/air-quality.json')['frames'])==12,'Polling never adds duplicate hourly positions'
+
+
+def test_failed_archive_retains_current_map_without_relabeling_old_hours():
+    store=MemoryStore();basic,_=fetcher()
+    def fetch(url):
+        if aq.HISTORY in url:raise TimeoutError('archive unavailable')
+        return basic(url)
+    result=aq.collect(store,NOW,fetch)
+    frames=store.read_json('live/air-quality.json')['frames']
+    assert len(frames)==1 and frames[0]['sourceTime']==aq.iso(SOURCE)
+    assert len(result['missingHours'])==11 and result['backfillErrors']==11
