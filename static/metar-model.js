@@ -94,7 +94,7 @@ window.WeatherStationModel = (() => {
     const roundedKnots=5*Math.round(knots/5);
     if(roundedKnots===0)return {kind:"calm",speed,roundedKnots,points:[]};
     const flags=Math.floor(roundedKnots/50),full=Math.floor((roundedKnots%50)/10),half=roundedKnots%10>=5;
-    const length=Math.max(26,6+flags*8+full*5+(half?5:0));
+    const length=Math.max(28,6+flags*8+full*5+(half?5:0));
     const lines=[[[0,-5.9],[0,-length]]],pennants=[];
     let y=-length;
     for(let i=0;i<flags;i++){pennants.push([[0,y],[9.5,y-4.8],[0,y+6]]);y+=8;}
@@ -116,7 +116,7 @@ window.WeatherStationModel = (() => {
     const w=combinedWind(station.wind),c=combined,ceiling=cloudPlotLabel(station);
     const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
     const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
-    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}${combinedBarb(w)}${skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
+    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w)}${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}${skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
   function combinedFootprint(station){
