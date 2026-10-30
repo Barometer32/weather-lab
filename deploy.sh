@@ -96,7 +96,7 @@ weather_schedule() {
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
-weather_schedule metar-clouds '0 * * * *' metar-clouds 300 0
+weather_schedule metar-clouds '4 * * * *' metar-clouds 300 0
 weather_schedule air-quality '3-58/5 * * * *' air-quality 300 2
 
 
