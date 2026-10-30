@@ -83,7 +83,7 @@ window.WeatherStationModel = (() => {
     return {left:-half*scale,right:half*scale,top:-9*scale,bottom:9*scale};
   }
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
-  const barbScale=1.08;
+  const barbScale=1.1448;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
   function combinedWind(wind={}){
     wind=wind||{};

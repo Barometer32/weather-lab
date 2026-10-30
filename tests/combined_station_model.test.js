@@ -8,7 +8,7 @@ assert.match(plot.html,/class="plot-temp" x="32.5" y="31" text-anchor="end">71/)
 assert.match(plot.html,/class="plot-dew" x="32.5" y="50" text-anchor="end">50/);
 assert.match(plot.html,/class="plot-ceiling" x="48" y="40" text-anchor="start">3/);
 assert.doesNotMatch(plot.html,/plot-speed/,'Wind is encoded only by the barb on the map');
-assert.match(plot.html,/rotate\(270\) scale\(1\.08\)/);
+assert.match(plot.html,/rotate\(270\) scale\(1\.1448\)/);
 assert.match(plot.html,/class="wind-shaft"[^>]*stroke-width="1.7"/);
 assert.match(plot.html,/wind-barb" data-knots="15".*rotate\(270\)/);
 assert.ok(plot.html.indexOf('class="wind-barb"')<plot.html.indexOf('class="plot-temp"'),'The wind barb draws behind temperature text');

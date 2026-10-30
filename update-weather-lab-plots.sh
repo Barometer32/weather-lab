@@ -44,7 +44,7 @@ git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:plots-${WEATHER_COMMIT:0:12}"
 
-echo 'Step 2/3: publishing 8 percent larger wind barbs.'
+echo 'Step 2/3: publishing another 6 percent increase in wind barb size.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
@@ -56,7 +56,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ['style.css?v=compact-timeline-v1','metar-model.js?v=metar-combined-v6','metar-views.js?v=viewport-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=viewport-v1','app.js?v=viewport-v1']:
+for asset in ['style.css?v=compact-timeline-v1','metar-model.js?v=metar-combined-v7','metar-views.js?v=viewport-v1','native-radar.js?v=radar-timeline-v2','prepared-data.js?v=viewport-v1','app.js?v=viewport-v1']:
     if '/static/'+asset not in html:raise SystemExit('The compact plot assets are not published yet.')
 if 'data-station-model="combined-v1"' not in html or 'id="metar-product"' in html or 'id="metar-timeline"' not in html or 'id="tab-metar"' not in html:
     raise SystemExit('The combined station METAR page is not published yet.')

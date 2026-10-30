@@ -59,7 +59,7 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ('style.css?v=compact-timeline-v1','map-fullscreen.js?v=viewport-v1','viewport-fit.js?v=viewport-v1','app.js?v=viewport-v1','metar-model.js?v=metar-combined-v6'):
+for asset in ('style.css?v=compact-timeline-v1','map-fullscreen.js?v=viewport-v1','viewport-fit.js?v=viewport-v1','app.js?v=viewport-v1','metar-model.js?v=metar-combined-v7'):
     if '/static/'+asset not in html:raise SystemExit('The new viewer assets were not verified.')
 if '<option value="13">Infrared</option>' not in html:raise SystemExit('Infrared dropdown was not verified.')
 print('Verified fitted-screen layout, infrared option, combined METAR plots and prepared weather data.')
