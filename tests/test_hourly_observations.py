@@ -83,7 +83,7 @@ class HourlyObservationTests(unittest.TestCase):
     def test_deployment_has_one_shared_hourly_job_and_retires_separate_observations(self):
         from pathlib import Path
         text=Path('deploy.sh').read_text()
-        self.assertIn("weather_schedule metar-clouds '4 * * * *'",text)
+        self.assertIn("weather_schedule metar-clouds '0,2,4,6,8,10 * * * *'",text)
         self.assertNotIn('weather_schedule observations',text)
         self.assertIn('gcloud scheduler jobs delete weather-live-observations',text)
 
