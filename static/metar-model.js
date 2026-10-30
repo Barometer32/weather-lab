@@ -1,7 +1,7 @@
 "use strict";
 // Compact combined station plots and retained legacy single-variable models.
 window.WeatherStationModel = (() => {
-  const scale=.82,width=88,height=52,cx=43,cy=26;
+  const scale=.82*1.15,width=88,height=52,cx=43,cy=26;
   const rounded=v=>v==null?"—":String(Math.round(v));
   const windMph=w=>w?.speedMph??(w?.speedKnots==null?null:w.speedKnots*1.150779);
   const cloudLayers=station=>station.cloudLayers?.length?station.cloudLayers:station.layers||[];
