@@ -83,6 +83,7 @@ window.WeatherStationModel = (() => {
     return {left:-half*scale,right:half*scale,top:-9*scale,bottom:9*scale};
   }
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
+  const barbScale=1.08;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
   function combinedWind(wind={}){
     wind=wind||{};
@@ -102,7 +103,7 @@ window.WeatherStationModel = (() => {
     if(half){if(!flags&&!full)y+=5;lines.push([[0,y],[4.75,y-2.4]]);}
     // A conventional meteorological barb points FROM the reported bearing.
     const rotation=((wind.direction%360)+360)%360,a=rotation*Math.PI/180;
-    const points=[...lines.flat(),...pennants.flat()].map(([x,y])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)]);
+    const points=[...lines.flat(),...pennants.flat()].map(([x,y])=>[barbScale*(x*Math.cos(a)-y*Math.sin(a)),barbScale*(x*Math.sin(a)+y*Math.cos(a))]);
     return {kind:"barb",speed,roundedKnots,rotation,lines,pennants,points};
   }
   function combinedBarb(wind){
@@ -110,7 +111,7 @@ window.WeatherStationModel = (() => {
     if(wind.kind!=="barb")return "";
     const path=wind.lines.map(([a,b])=>`M${a[0]} ${a[1]}L${b[0]} ${b[1]}`).join("");
     const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
-    return `<g class="wind-barb" data-knots="${wind.roundedKnots}" transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
+    return `<g class="wind-barb" data-knots="${wind.roundedKnots}" transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation}) scale(${barbScale})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
   }
   function combinedStationModel(station){
     const w=combinedWind(station.wind),c=combined,ceiling=cloudPlotLabel(station);
