@@ -7,8 +7,7 @@ observations. Both views retain twelve hourly airport frames and the selected
 hour when switching between them.
 
 PLOTS shows temperature, dewpoint and a standard wind barb from a small station
-dot, without cloud cover or ceiling labels. Barbs are 10% shorter along their
-shaft than the previous version; feather widths, stroke thickness, knot encoding
+dot, without cloud cover or ceiling labels. Barbs are 10% longer along their shaft than the preceding shortened setting; feather widths, stroke thickness, knot encoding
 and station anchors stay the same. The collision filter uses the shortened
 geometry and reserves space across all twelve hours for stable history loops.
 CLOUDS shows only the first/lowest BKN or OVC height in rounded thousands of feet.
