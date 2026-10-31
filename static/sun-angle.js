@@ -31,10 +31,8 @@ window.WeatherSun = (() => {
     return geometric+refraction(geometric);
   }
   function update(){
-    const value=`${elevation(new Date(Date.now()+clockOffset)).toFixed(1)}°`;
-    for(const id of ["sun-angle","current-sun-angle"]){
-      const el=document.getElementById(id);if(el)el.textContent=value;
-    }
+    const el=document.getElementById("sun-angle");
+    if(el)el.textContent=`${elevation(new Date(Date.now()+clockOffset)).toFixed(1)}°`;
   }
   function sync(serverTime, requestStarted=Date.now()) {
     const server=Date.parse(serverTime),received=Date.now();

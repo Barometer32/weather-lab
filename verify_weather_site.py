@@ -18,10 +18,8 @@ def verify(base, fetch=None):
 
     fetch = fetch or download
     html = fetch('/').decode()
-    tabs = re.findall(r'<button role="tab" id="tab-([^"]+)"', html)
-    if tabs not in (['metar', 'radar', 'satellite', 'forecast', 'air-quality'],
-                    ['current', 'metar', 'radar', 'satellite', 'forecast', 'air-quality']):
-        raise ValueError('The saved weather tabs were not verified')
+    if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != ['metar', 'radar', 'satellite', 'forecast', 'air-quality']:
+        raise ValueError('The five saved tabs were not verified')
     combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
     if not (combined or separate):
@@ -35,15 +33,6 @@ def verify(base, fetch=None):
         raise ValueError('Twelve populated all-airport frames were not verified')
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')
-    if 'current' in tabs:
-        from hennepin_current import STATIONS, VERSION, MIN_STATIONS
-        current = json.loads(fetch('/api/hennepin-current'))
-        if (current.get('version') != VERSION or set(current.get('selectedStations', {})) != set(STATIONS)
-                or current.get('collectionMinutes') != 5 or not current.get('available')
-                or not current.get('current', {}).get('observedAt') or current.get('held')
-                or any(current['current']['counts'].get(k, 0) < MIN_STATIONS for k in ('tempF', 'dewpointF', 'wind'))):
-            raise ValueError('The selected twelve-station observations average was not verified')
-        print('Observations: ready (twelve selected Hennepin West sites, five-minute collection)', flush=True)
     for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':
@@ -58,7 +47,7 @@ def verify(base, fetch=None):
             if not fetch(asset):
                 raise ValueError('Empty prepared asset for ' + endpoint)
         print(endpoint + ': ready', flush=True)
-    print(f'Verified {len(tabs)} tabs, the saved METAR station model and twelve airport hours.', flush=True)
+    print('Verified five tabs, the saved METAR station model and twelve airport hours.', flush=True)
 
 
 if __name__ == '__main__':

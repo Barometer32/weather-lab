@@ -44,7 +44,7 @@ def fetch(url, previous=None):
         raise
 
 
-def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH"), station_ids=None, include_qc=False):
+def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
     """Return local usable measurements without copying the national arrays."""
     v = dataset.variables
     required = {"stationId", "observationTime", "latitude", "longitude"}
@@ -88,7 +88,7 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
     rows = []
     for i in indices:
         station = text("stationId", i)
-        if not station or station in excluded_stations or (station_ids is not None and station not in station_ids):
+        if not station or station in excluded_stations:
             continue
         observed = datetime.fromtimestamp(float(stamp[i]), UTC)
         # Public1 is the access boundary. Also reject explicit all-data
@@ -129,11 +129,6 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
                      "wind": {"speedMph": round(speed*2.2369362921, 1) if speed is not None else None,
                               "direction": direction if speed is not None else None},
                      "layers": layers, **summarize({"layers": layers})})
-        if include_qc:
-            rows[-1]["qc"] = {name: {"descriptor": text(name+"DD", i),
-                "applied": number(name+"QCA", i, 0, 2**31, qc=False),
-                "results": number(name+"QCR", i, 0, 2**31, qc=False)}
-                for name in ("temperature", "dewpoint", "windSpeed", "windDir")}
     return rows
 
 
