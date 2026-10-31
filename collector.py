@@ -11,12 +11,11 @@ from flask import Flask, jsonify
 from PIL import Image
 
 import app as weather
-import madis_map
 from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "madis-map", "current", "madis-stations", "air-quality", "observation-stations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "observation-stations")}
 
 
 def collect_radar_legacy(store, now):
@@ -214,7 +213,6 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecast,
-            "madis-map": madis_map.collect,
             "air-quality": collect_air_quality,
             "observation-stations": collect_observation_stations,
             "metar-clouds": collect_metar_clouds}

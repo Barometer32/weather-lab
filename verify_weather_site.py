@@ -24,24 +24,15 @@ def verify(base, fetch=None):
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
     if not (combined or separate):
         raise ValueError('The saved METAR station model is missing')
+    picker = re.search(r'<select id="metar-product"[^>]*>(.*?)</select>', html)
+    if picker and re.findall(r'<option value="([^"]+)">', picker[1]) != ['plots', 'clouds']:
+        raise ValueError('Expected only PLOTS and CLOUDS in the observation dropdown')
     metars = json.loads(fetch('/api/station-plots'))
     frames = metars.get('history', [])
     if metars.get('sourcePolicy') != 'airport-routine-only' or metars.get('stationPolicy') != 'all-airports-v1' or len(frames) != 12 or any(not frame.get('stations') for frame in frames):
         raise ValueError('Twelve populated all-airport frames were not verified')
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')
-    if '<option value="madis">' in html:
-        from datetime import timedelta
-        from madis_map import VERSION, POLICY, allowed, stamp
-        madis = json.loads(fetch('/api/madis-map'))
-        if (madis.get('version') != VERSION or madis.get('stationPolicy') != POLICY
-                or madis.get('checkMinutes') != [0, 15, 30, 45] or madis.get('windowMinutes') != 25
-                or not isinstance(madis.get('stations'), list) or 'history' in madis):
-            raise ValueError('The separate current mesonet snapshot was not verified')
-        end = stamp(madis['checkedAt'])
-        if any(not allowed(row) or not end-timedelta(minutes=25) <= stamp(row['time']) <= end for row in madis['stations']):
-            raise ValueError('An excluded station or out-of-window report reached the mesonet map')
-        print('MADIS: ready (current 25-minute snapshot; quarter-hour checks)', flush=True)
     for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':

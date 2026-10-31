@@ -41,7 +41,7 @@ window.WeatherDefaultViews = (()=>{
     return null;
   }
   function saveMetar(mode,center,zoom){
-    const view={center,zoom};if(!["plots","clouds","madis"].includes(mode)||!valid(view))return false;
+    const view={center,zoom};if(!["plots","clouds"].includes(mode)||!valid(view))return false;
     try{window.localStorage.setItem("weather-metar-default-v1-"+mode,JSON.stringify(view));return true;}catch(_){return false;}
   }
   return {metar,radar,saveRadar,savedMetar,saveMetar};

@@ -8,7 +8,6 @@ def main():
     import metar_history
     import refresh_media
     import air_quality
-    import madis_map
     store = get_store()
     if store is None:
         raise ValueError("WEATHER_DATA_BUCKET is required")
@@ -18,8 +17,6 @@ def main():
     refresh_media.main()
     print("Data 3/3: latest Minnesota Air Q map",flush=True)
     air_quality.main()
-    print("Preparing the current public mesonet snapshot",flush=True)
-    madis_map.collect(store, datetime.now(timezone.utc))
     print("Latest Weather Lab data prepared. Existing Air Q history is retained when available; lost source-hour snapshots rebuild over time.",flush=True)
 
 

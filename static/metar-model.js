@@ -83,7 +83,7 @@ window.WeatherStationModel = (() => {
     return {left:-half*scale,right:half*scale,top:-9*scale,bottom:9*scale};
   }
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
-  const barbScale=1.1448;
+  const barbScale=1.1448,barbLengthScale=.9;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
   function combinedWind(wind={}){
     wind=wind||{};
@@ -101,6 +101,9 @@ window.WeatherStationModel = (() => {
     for(let i=0;i<flags;i++){pennants.push([[0,y],[9.5,y-4.8],[0,y+6]]);y+=8;}
     for(let i=0;i<full;i++){lines.push([[0,y],[9.5,y-4.8]]);y+=5;}
     if(half){if(!flags&&!full)y+=5;lines.push([[0,y],[4.75,y-2.4]]);}
+    // Shorten the shaft and feather offsets by 10%, preserving feather width,
+    // line thickness, standard knot encoding, and the exact station anchor.
+    for(const point of [...lines.flat(),...pennants.flat()])point[1]*=barbLengthScale;
     // A conventional meteorological barb points FROM the reported bearing.
     const rotation=((wind.direction%360)+360)%360,a=rotation*Math.PI/180;
     const points=[...lines.flat(),...pennants.flat()].map(([x,y])=>[barbScale*(x*Math.cos(a)-y*Math.sin(a)),barbScale*(x*Math.sin(a)+y*Math.cos(a))]);

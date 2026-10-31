@@ -34,12 +34,12 @@ const storage=new Map();blocked=false;
 context.window.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)};
 assert.ok(views.saveMetar('plots',[44.8,-93.3],9.25));
 assert.ok(views.saveMetar('clouds',[44.9,-93.4],10));
-assert.ok(views.saveMetar('madis',[45,-93.5],10.5));
+assert.equal(views.saveMetar('madis',[45,-93.5],10.5),false);
 assert.equal(views.saveMetar('unknown',[45,-93],9),false);
 vm.runInNewContext(fs.readFileSync('static/default-views.js','utf8'),context);
 assert.equal(context.window.WeatherDefaultViews.savedMetar('plots').zoom,9.25);
 assert.equal(context.window.WeatherDefaultViews.savedMetar('clouds').zoom,10);
-assert.equal(context.window.WeatherDefaultViews.savedMetar('madis').zoom,10.5);
-storage.set('weather-metar-default-v1-madis','bad json');assert.equal(views.savedMetar('madis'),null);
+
+storage.set('weather-metar-default-v1-clouds','bad json');assert.equal(views.savedMetar('clouds'),null);
 context.window.localStorage={getItem(){throw Error('Blocked');},setItem(){throw Error('Blocked');}};
 assert.equal(views.savedMetar('plots'),null);assert.equal(views.saveMetar('plots',[45,-93],9),false);

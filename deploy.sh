@@ -26,6 +26,13 @@ fi
 if gcloud scheduler jobs describe weather-live-radar-KEVX --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-radar-KEVX --location="$WEATHER_REGION" --quiet
 fi
+# Retire the removed public mesonet map when redeploying an existing project.
+WEATHER_ACTIVE_JOBS="$(gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='value(name)')"
+while IFS= read -r WEATHER_JOB_PATH; do
+  if [[ "${WEATHER_JOB_PATH##*/}" == weather-live-madis-map ]]; then
+    gcloud scheduler jobs delete weather-live-madis-map --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --quiet
+  fi
+done <<< "$WEATHER_ACTIVE_JOBS"
 # Only the airport METAR map collects observations.
 if gcloud scheduler jobs describe weather-live-observations --location="$WEATHER_REGION" >/dev/null 2>&1; then
   gcloud scheduler jobs delete weather-live-observations --location="$WEATHER_REGION" --quiet
@@ -97,7 +104,6 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
 weather_schedule metar-clouds '0,5,10 * * * *' metar-clouds 300 0
-weather_schedule madis-map '0,15,30,45 * * * *' madis-map 300 0
 weather_schedule air-quality '3-58/5 * * * *' air-quality 300 2
 
 
