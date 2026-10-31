@@ -6,15 +6,15 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=compact-timeline-v1">
+  <link rel="stylesheet" href="/static/style.css?v=metar-products-v2">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=viewport-v1"></script>
+  <script defer src="/static/prepared-data.js?v=metar-products-v2"></script>
   <script defer src="/static/default-views.js?v=default-views-v1"></script>
-  <script defer src="/static/metar-model.js?v=metar-combined-v7"></script>
-  <script defer src="/static/metar-views.js?v=default-views-v1"></script>
+  <script defer src="/static/metar-model.js?v=metar-combined-v9"></script>
+  <script defer src="/static/metar-views.js?v=metar-products-v2"></script>
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -32,7 +32,7 @@
 </header>
 <main>
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar">
-  <div class="section-heading"><div><p class="eyebrow">AIRPORT METARS · UPPER MIDWEST</p><h1>METAR</h1></div><div class="metar-view-controls"><span class="sun-angle-readout">Sun angle <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option><option value="madis">MADIS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint, cloud cover, ceiling and wind barbs with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">

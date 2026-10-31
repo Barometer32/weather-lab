@@ -3,8 +3,12 @@
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  let map,markers,data,index=0,followLatest=true,busy=false,moving=false,sites=[];
-  const active=new Map(),plots=new WeakMap();
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
+  const datasets=new Map(),pending=new Set(),plotCaches={plots:new WeakMap(),clouds:new WeakMap(),madis:new WeakMap()};
+  const kind=()=>mode==="madis"?"madis":"airports",endpoint=k=>k==="madis"?"/api/madis-map":"/api/station-plots";
+  const eligible=station=>mode!=="clouds"||Boolean(model.cloudHeightText(station));
+  const active=new Map();
+  el("metar-product").value=mode;
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
   function reset(){
     if(!map)return;
@@ -24,10 +28,14 @@ window.WeatherMetars = (() => {
     // station density as the user moves the timeline.
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
-      const f=model.combinedFootprint(station),old=bySite.get(station.station);
+      if(!eligible(station))continue;
+      const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{mesonet:mode==="madis"}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
-    const preferred=["KFCM","KMIC","KMSP"],rank=s=>{const i=preferred.indexOf(s.station);return i<0?preferred.length:i;};
+    const preferred=["KFCM","KMIC","KMSP"],rank=s=>{
+      if(mode==="madis")return s.network==="Hennepin West"?0:s.network==="MnDOT"?1:s.network==="CWOP"?3:2;
+      const i=preferred.indexOf(s.station);return i<0?preferred.length:i;
+    };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
   function visible(stations){
@@ -38,7 +46,7 @@ window.WeatherMetars = (() => {
       if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
       boxes.push(box);keep.add(station.station);
     }
-    return stations.filter(s=>keep.has(s.station));
+    return stations.filter(s=>keep.has(s.station)&&eligible(s));
   }
   function render(){
     if(!data||el("metar").hidden||moving)return;
@@ -51,12 +59,14 @@ window.WeatherMetars = (() => {
     for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
     for(const station of drawn){
       const existing=active.get(station.station);
-      if(existing?.station===station)continue;
+      if(existing?.station===station&&existing.mode===mode)continue;
+      const plots=plotCaches[mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=model.combinedStationModel(station),popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{mesonet:mode==="madis"}),popup=node("div");popup.className="cloud-popup";
+      popup.append(node("strong",station.station+(mode==="madis"&&station.name?" · "+station.name.split(/\s{2,}/)[0]:"")),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
+      if(mode==="madis")popup.append(node("p",`Network: ${station.network||station.provider||"MADIS"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
       popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
@@ -65,36 +75,55 @@ window.WeatherMetars = (() => {
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);
       }
-      if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station});}
+      if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · ${mode==="madis"?"MADIS":"METAR"}`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
     }
     const slider=el("metar-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
-    el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
+    el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}${mode==="madis"&&(data.stale||data.errors?.length)?" · Updates delayed":""}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label","Hourly airport station models: temperature, dewpoint, cloud cover, ceiling and wind barbs with state and county boundaries");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Lowest BKN or OVC airport cloud heights in thousands of feet":mode==="madis"?"Public non-airport mesonet temperature, dewpoint and wind plots":"Hourly airport station models: temperature, dewpoint, cloud cover, ceiling and wind barbs with state and county boundaries");
     el("metar-status").textContent=`${frame.stations.length} airport reports${!hours.at(-1).stations.length?" · Waiting for the newest hour":""}${data.stale?" · Background updates delayed":""}`;
   }
-  function adopt(next){
-    if(!next.history?.length)throw Error("Hourly airport reports are not ready");
+  function adopt(next,source="airports"){
+    if(!next.history?.length)throw Error("Hourly reports are not ready");
+    const cached=datasets.get(source);
+    if(next._savedCopy&&cached&&!cached._savedCopy&&next.checkedAt<=cached.checkedAt)return;
+    datasets.set(source,next);
+    if(source!==kind())return;
     if(data===next)return;
     if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
-    const selected=data?.history[index]?.hour;data=next;prepareSpacing();
+    const selected=data?.history[index]?.hour||wantedHour;data=next;prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
     render();
   }
   async function load(force=false){
-    if(busy)return;busy=true;el("refresh-metar").disabled=true;
-    try{adopt(await window.WeatherPrepared.read("/api/station-plots",{force}));}
-    catch(error){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="METAR reports unavailable · try Refresh";}
-    finally{busy=false;el("refresh-metar").disabled=false;}
+    const source=kind();if(pending.has(source))return;pending.add(source);el("refresh-metar").disabled=true;
+    try{adopt(await window.WeatherPrepared.read(endpoint(source),{force}),source);}
+    catch(error){if(source===kind()){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="Reports unavailable · try Refresh";}}
+    finally{pending.delete(source);el("refresh-metar").disabled=pending.has(kind());}
   }
-  window.WeatherPrepared.subscribe("/api/station-plots",adopt);
+  for(const source of ["airports","madis"])window.WeatherPrepared.subscribe(endpoint(source),next=>adopt(next,source));
+  el("metar-product").addEventListener("change",event=>{
+    const hour=data?.history[index]?.hour||wantedHour;wantedHour=hour;mode=event.target.value;
+    if(!["plots","clouds","madis"].includes(mode))mode="plots";
+    const next=datasets.get(kind());data=null;
+    el("metar-eyebrow").textContent=mode==="madis"?"MADIS MESONET · UPPER MIDWEST":"AIRPORT METARS · UPPER MIDWEST";
+    if(next){
+      data=next;prepareSpacing();
+      const selected=!followLatest&&hour?data.history.findIndex(f=>f.hour===hour):-1;
+      index=selected>=0?selected:followLatest?data.history.length-1:0;render();
+    }else{
+      for(const entry of active.values())markers?.removeLayer(entry.marker);active.clear();
+      el("metar-time").textContent="Loading MADIS…";
+    }
+    load();
+  });
   el("refresh-metar").addEventListener("click",()=>load(true));
   el("metar-reset").addEventListener("click",reset);
-  el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);followLatest=index===data.history.length-1;render();});
+  el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);wantedHour=data.history[index]?.hour;followLatest=index===data.history.length-1;render();});
   window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
   setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});

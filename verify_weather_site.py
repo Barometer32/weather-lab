@@ -30,6 +30,19 @@ def verify(base, fetch=None):
         raise ValueError('Twelve populated all-airport frames were not verified')
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')
+    if '<option value="madis">' in html:
+        from datetime import timedelta
+        from madis_map import VERSION, POLICY, allowed, stamp
+        madis = json.loads(fetch('/api/madis-map'))
+        if (madis.get('version') != VERSION or madis.get('stationPolicy') != POLICY
+                or madis.get('checkMinutes') != [0, 15, 30, 45] or len(madis.get('history', [])) != 12
+                or not any(frame.get('stations') for frame in madis['history'])):
+            raise ValueError('The separate hourly mesonet map was not verified')
+        for frame in madis['history']:
+            end = stamp(frame['hour'])
+            if any(not allowed(row) or not end-timedelta(hours=1) <= stamp(row['time']) < end for row in frame['stations']):
+                raise ValueError('An excluded station or wrong-hour report reached the mesonet map')
+        print('MADIS: ready (separate public mesonet hours; quarter-hour checks)', flush=True)
     for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':

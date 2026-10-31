@@ -1,0 +1,33 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const nodes=new Map(),subscribers=new Map(),callbacks={};let shown=[],fail=false,reads=[],deferMadis;
+function element(){return{value:'',hidden:false,events:{},children:[],style:{setProperty(){}},setAttribute(k,v){this[k]=v;},addEventListener(k,f){this.events[k]=f;},append(...a){this.children.push(...a);}};}
+const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
+const station=(id,lat,layers=[])=>({station:id,name:id==='HPN20'?'Hopkins MN US HENNEPIN':id,network:'Hennepin West',lat,lon:2,time:'2026-10-31T03:53:00Z',tempF:52,dewpointF:40,wind:{speedMph:7,direction:180},layers});
+const make=stations=>({checkedAt:'2026-10-31T04:00:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,30,17+i)).toISOString(),stations}))});
+let airports=make([station('KFCM',2,[{cover:'BKN',baseFtAGL:4000}]),station('KMIC',4,[{cover:'OVC',baseFtAGL:25000}]),station('KMSP',6,[{cover:'SCT',baseFtAGL:1000}]),station('KCLEAR',8,[{cover:'CLR',baseFtAGL:null}])]);
+let madis=make([station('HPN20',3),{...station('MN085',7),network:'MnDOT'},{...station('C0001',3.01),network:'CWOP'}]);
+const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(k,f){callbacks[k]=f;},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},invalidateSize(){}};
+const group={addTo(){return this;},removeLayer(m){shown=shown.filter(s=>s!==m);}};
+const context={window:{WeatherPrepared:{subscribe(url,fn){subscribers.set(url,fn);},async read(url,options){reads.push([url,options]);if(fail)throw Error('Offline');if(url==='/api/madis-map'&&deferMadis)return deferMadis;return url==='/api/madis-map'?madis:airports;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Math,Number,Date,Intl,Map,Set,WeakMap,setTimeout(){},setInterval(){},L:{map(){return map;},tileLayer(){return{addTo(){}};},layerGroup(){return group;},divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(p){this.position=p;return this;},setPopupContent(p){this.popup=p;return this;}})}};
+for(const f of ['metar-model','metar-views'])vm.runInNewContext(fs.readFileSync('static/'+f+'.js','utf8'),context);
+const flush=()=>new Promise(r=>setImmediate(r));
+const select=async mode=>{get('metar-product').value=mode;get('metar-product').events.change({target:{value:mode}});await flush();};
+(async()=>{
+ context.window.WeatherMetars.select('metar');await flush();
+ assert.equal(get('metar-product').value,'plots');assert.equal(shown.length,4);assert.ok(shown[0].icon.html.includes('wind-barb'));
+ get('metar-timeline').events.input({target:{value:'3'}});const hour=get('metar-time').textContent;
+ await select('clouds');assert.equal(shown.length,2);assert.ok(shown.every(m=>!/plot-temp|plot-dew|plot-sky|wind-barb|cloud-dot/.test(m.icon.html)));
+ assert.ok(shown.some(m=>/plot-ceiling[^>]*>4</.test(m.icon.html)));assert.ok(shown.some(m=>/plot-ceiling[^>]*>25</.test(m.icon.html)));
+ assert.equal(get('metar-time').textContent,hour,'Changing product preserves the selected hour');
+ await select('madis');assert.equal(shown.length,2);assert.ok(shown.every(m=>!m.title.startsWith('K')));assert.ok(shown.every(m=>/mesonet-dot/.test(m.icon.html)));assert.ok(shown.some(m=>m.title.startsWith('HPN20')),'Hennepin West is retained ahead of overlapping personal stations');
+ assert.ok(shown.every(m=>!/plot-sky-unknown|plot-ceiling/.test(m.icon.html)),'Missing mesonet cloud sensors never imply clear sky or an invented ceiling');
+ assert.ok(shown[0].popup.children.some(n=>n.textContent==='Network: Hennepin West'));
+ assert.equal(get('metar-timeline').value,'3');
+ await select('plots');assert.equal(shown.length,4);const count=shown.length;
+ subscribers.get('/api/madis-map')({...madis,checkedAt:'2026-10-31T04:15:00Z'});assert.equal(shown.length,count,'Inactive feed updates cannot overwrite airport plots');
+ let release;deferMadis=new Promise(r=>release=r);await select('madis');await select('clouds');release(madis);await flush();assert.equal(shown.length,2);assert.ok(shown.every(m=>!m.title.startsWith('HPN')),'Late MADIS response cannot replace the selected Clouds view');
+ deferMadis=null;await select('madis');const old=shown.map(m=>m.title);fail=true;await get('refresh-metar').events.click();await flush();assert.deepEqual(shown.map(m=>m.title),old);assert.match(get('metar-status').textContent,/Previous reports retained/);
+ assert.ok(reads.every(([url])=>['/api/station-plots','/api/madis-map'].includes(url)),'Only prepared APIs are read');
+ console.log('Dropdown checks passed: unchanged airport plots, number-only BKN/OVC clouds, separate mesonet plots, matching hour, request races, hidden feed updates and failure retention.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

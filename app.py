@@ -509,6 +509,26 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
+@app.get("/api/madis-map")
+def madis_map_api():
+    from madis_map import KEY, VERSION, present
+    try:
+        store = get_store()
+        saved = cached("prepared-madis-map", 10, lambda: store.read_json(KEY)) if store else None
+        if not saved or saved.get("version") != VERSION:
+            return jsonify(error="The MADIS map is being prepared."), 503, {"Cache-Control": "no-store"}
+        response = jsonify(present(saved, utcnow()))
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
+    except Exception:
+        app.logger.exception("Prepared mesonet map unavailable")
+        return jsonify(error="MADIS plots unavailable; previous data retained."), 502, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current
