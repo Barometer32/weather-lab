@@ -547,6 +547,18 @@ def observation_api():
         return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/hennepin-current")
+def hennepin_current_api():
+    from hennepin_current import KEY, present
+    try:
+        store = get_store()
+        saved = cached("prepared-hennepin-current", 10, lambda: store.read_json(KEY)) if store else None
+        return jsonify(present(saved, utcnow())), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("Prepared Hennepin average unavailable")
+        return jsonify(error="Current conditions unavailable; previous readings retained."), 502, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/observation-stations")
 def observation_stations_api():
     from observation_stations import KEY, present

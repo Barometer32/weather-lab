@@ -5,8 +5,8 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map(),assetQueue=[],queued=new Set();
   let warming=false,workers=0;
-  const paths=["/api/station-plots","/api/radar?site=KMPX","/api/forecast","/api/satellite/13","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
-  const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
+  const paths=["/api/hennepin-current","/api/station-plots","/api/radar?site=KMPX","/api/forecast","/api/satellite/13","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const maxSavedAge=url=>url.includes("hennepin-current")?1800000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   async function remember(url,data,stamp){
@@ -100,8 +100,8 @@ window.WeatherPrepared = (() => {
   }
   async function prime(){
     warming=true;
-    // Give the initial METAR display priority before older imagery transfers.
-    try{await read("/api/station-plots");}catch(_){}
+    // Prepare the initial Current view before older imagery transfers.
+    try{await read("/api/hennepin-current");}catch(_){}
     return Promise.allSettled(paths.slice(1).map(async url=>{const data=await read(url);warmManifest(url,data);}));
   }
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)drain();});
