@@ -6,7 +6,11 @@ window.WeatherMetars = (() => {
   let map,markers,data,index=0,followLatest=true,busy=false,moving=false,sites=[];
   const active=new Map(),plots=new WeakMap();
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
-  function reset(){map?.setView([44.925,-93.35],map.getSize().x<600?9:8.5);}
+  function reset(){
+    if(!map)return;
+    const view=window.WeatherDefaultViews?.metar(sites,map.getSize())||{center:[44.945,-93.343],zoom:9};
+    map.setView(view.center,view.zoom,{animate:false});
+  }
   function init(){
     if(map)return;
     map=L.map("metar-map",{minZoom:5,maxZoom:13,zoomSnap:.25,zoomDelta:.25,wheelPxPerZoomLevel:90});reset();

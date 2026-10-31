@@ -30,7 +30,8 @@ function showFrame(n) {
 }
 function initMap() {
   if (map) return;
-  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(radarViews[radarSite].center,radarViews[radarSite].zoom);
+  const initial=window.WeatherDefaultViews?.radar()||radarViews[radarSite];
+  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(initial.center,initial.zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
   window.WeatherRadarRoads.addTo(map,()=>{
@@ -286,6 +287,14 @@ for(const id of tabs) {
 }
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-radar").addEventListener("click",loadRadar);
+$("radar-save-view").addEventListener("click",()=>{
+  if(!map)return;
+  const center=map.getCenter(),button=$("radar-save-view");
+  const saved=window.WeatherDefaultViews?.saveRadar([center.lat,center.lng],map.getZoom());
+  button.textContent=saved?"Saved":"Not saved";
+  button.title=saved?"This radar view will open by default on this device.":"Browser storage is unavailable; the default view could not be saved.";
+  setTimeout(()=>{button.textContent="Set default";},2500);
+});
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});

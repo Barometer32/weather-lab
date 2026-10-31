@@ -40,7 +40,7 @@ vm.runInNewContext('let map,nativeLayer;const radarSite="KMPX",radarViews={KMPX:
 assert.equal(options.zoomSnap,.5);assert.equal(options.zoomDelta,.5);assert.equal(options.wheelPxPerZoomLevel,60);
 assert.equal(options.minZoom,5);assert.equal(options.maxZoom,13);
 const html=fs.readFileSync('static/index.html','utf8');
-assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));assert.ok(html.includes('app.js?v=viewport-v1'));
-assert.ok(html.includes('metar-views.js?v=viewport-v1'),'Keep the successful METAR optimization');
+assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));assert.ok(html.includes('app.js?v=default-views-v1'));
+assert.ok(html.includes('metar-views.js?v=default-views-v1'),'Keep the successful METAR optimization');
 assert.doesNotMatch(html,/radar-renderer\.js|radar-worker\.js/);
 console.log('Radar checks passed: original pixels, synchronous slider frames, cached projection, half-level zoom and preserved METAR optimization.');
