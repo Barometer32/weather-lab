@@ -295,6 +295,11 @@ $("radar-save-view").addEventListener("click",()=>{
   button.title=saved?"This radar view will open by default on this device.":"Browser storage is unavailable; the default view could not be saved.";
   setTimeout(()=>{button.textContent="Set default";},2500);
 });
+$("radar-reset-view").addEventListener("click",()=>{
+  if(!map)return;
+  const view=window.WeatherDefaultViews?.radar()||radarViews[radarSite];
+  map.setView(view.center,view.zoom,{animate:false});
+});
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});

@@ -18,8 +18,8 @@ def main():
     refresh_media.main()
     print("Data 3/3: latest Minnesota Air Q map",flush=True)
     air_quality.main()
-    print("Preparing twelve separate public mesonet hours",flush=True)
-    madis_map.collect(store, datetime.now(timezone.utc), hours=12)
+    print("Preparing the current public mesonet snapshot",flush=True)
+    madis_map.collect(store, datetime.now(timezone.utc))
     print("Latest Weather Lab data prepared. Existing Air Q history is retained when available; lost source-hour snapshots rebuild over time.",flush=True)
 
 

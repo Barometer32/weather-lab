@@ -40,7 +40,12 @@ vm.runInNewContext('let map,nativeLayer;const radarSite="KMPX",radarViews={KMPX:
 assert.equal(options.zoomSnap,.5);assert.equal(options.zoomDelta,.5);assert.equal(options.wheelPxPerZoomLevel,60);
 assert.equal(options.minZoom,5);assert.equal(options.maxZoom,13);
 const html=fs.readFileSync('static/index.html','utf8');
-assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));assert.ok(html.includes('app.js?v=default-views-v1'));
-assert.ok(html.includes('metar-views.js?v=metar-products-v2'),'Keep the successful METAR optimization');
+assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));assert.ok(html.includes('app.js?v=saved-map-views-v2'));
+assert.ok(html.includes('metar-views.js?v=metar-current-v3'),'Keep the successful METAR optimization');
 assert.doesNotMatch(html,/radar-renderer\.js|radar-worker\.js/);
 console.log('Radar checks passed: original pixels, synchronous slider frames, cached projection, half-level zoom and preserved METAR optimization.');
+
+let reset,restored;
+vm.runInNewContext(app.slice(app.indexOf('$("radar-reset-view")'),app.indexOf('$("timeline").addEventListener')),
+ {map:{setView(center,zoom){restored={center,zoom};}},window:{WeatherDefaultViews:{radar(){return{center:[45,-94],zoom:9.5};}}},$(){return{addEventListener(event,fn){assert.equal(event,'click');reset=fn;}}}});
+reset();assert.equal(restored.zoom,9.5);assert.deepEqual(Array.from(restored.center),[45,-94]);

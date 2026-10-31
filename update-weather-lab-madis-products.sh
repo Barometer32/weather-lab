@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Add the observation dropdown and independent quarterly-hour MADIS collection.
+# Add the observation dropdown and independent quarter-hour current MADIS collection.
 set -euo pipefail
 WEATHER_PROJECT="${1:-$(gcloud config get-value project)}"
 WEATHER_REGION=us-central1
@@ -35,12 +35,12 @@ job=next((j for j in json.loads((work/'jobs-before.json').read_text()) if j['nam
 PY
 git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
-WEATHER_IMAGE="$(cat "$WEATHER_WORK/image-path.txt"):madis-products-${WEATHER_COMMIT:0:12}"
+WEATHER_IMAGE="$(cat "$WEATHER_WORK/image-path.txt"):madis-current-${WEATHER_COMMIT:0:12}"
 echo 'Step 2/5: building the dropdown and deploying the matching collector image.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
-echo 'Step 3/5: preparing twelve mesonet hours (this initial import can take a few minutes).'
+echo 'Step 3/5: preparing the current 25-minute mesonet snapshot.'
 WEATHER_JOB="weather-madis-seed-$(date -u +%y%m%d-%H%M%S)-${WEATHER_WORK##*.}"
 WEATHER_JOB="${WEATHER_JOB,,}"
 gcloud run jobs deploy "$WEATHER_JOB" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$(cat "$WEATHER_WORK/collector-account.txt")" --set-env-vars="WEATHER_DATA_BUCKET=$(cat "$WEATHER_WORK/bucket.txt")" --command=python --args='-u,madis_map.py' --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=900s --quiet

@@ -48,3 +48,10 @@ for(const [baseFtAGL,label] of [[1000,'1'],[12000,'12'],[25000,'25']]){
  assert.match(m.combinedStationModel({...station,layers:[{cover:'BKN',baseFtAGL}]}).html,new RegExp('plot-ceiling[^>]*>'+label+'<'));
 }
 console.log('Combined station model passed: fixed compact quadrants, cloud coverage/ceiling, standard 5/10/50-kt feathers, calm/VRB and rotated collision extents.');
+
+// Dot mode removes all cloud encoding, including a calm-wind ring, for both feeds.
+for(const wind of [{speedKnots:10,direction:270},{speedMph:0}]){
+ const dot=m.combinedStationModel({...station,wind},{dot:true}).html;
+ assert.match(dot,/class="mesonet-dot"/);assert.doesNotMatch(dot,/plot-sky|sky-fill|plot-ceiling|wind-calm/);
+ if(wind.direction)assert.match(dot,/class="wind-shaft" d="M0 0L0 -28/,'The shaft starts at the exact station dot');
+}

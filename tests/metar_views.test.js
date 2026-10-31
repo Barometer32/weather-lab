@@ -16,8 +16,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  const firstMarker=shown[0],initialFootprints=footprints;
  callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Twelve-hour footprints are cached until new data arrives');
  const svg=shown[0].icon.html;
- for(const cls of ['combined-station-plot','plot-temp','plot-dew','plot-ceiling','plot-sky','wind-barb'])assert.ok(svg.includes(cls),cls);
- assert.doesNotMatch(svg,/plot-speed/);
+ for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-barb'])assert.ok(svg.includes(cls),cls);
+ assert.doesNotMatch(svg,/plot-speed|plot-ceiling|plot-sky|wind-calm/);
  assert.match(svg,/rotate\(270\)/,'A standard west-wind barb extends west toward the source');
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');

@@ -35,14 +35,13 @@ def verify(base, fetch=None):
         from madis_map import VERSION, POLICY, allowed, stamp
         madis = json.loads(fetch('/api/madis-map'))
         if (madis.get('version') != VERSION or madis.get('stationPolicy') != POLICY
-                or madis.get('checkMinutes') != [0, 15, 30, 45] or len(madis.get('history', [])) != 12
-                or not any(frame.get('stations') for frame in madis['history'])):
-            raise ValueError('The separate hourly mesonet map was not verified')
-        for frame in madis['history']:
-            end = stamp(frame['hour'])
-            if any(not allowed(row) or not end-timedelta(hours=1) <= stamp(row['time']) < end for row in frame['stations']):
-                raise ValueError('An excluded station or wrong-hour report reached the mesonet map')
-        print('MADIS: ready (separate public mesonet hours; quarter-hour checks)', flush=True)
+                or madis.get('checkMinutes') != [0, 15, 30, 45] or madis.get('windowMinutes') != 25
+                or not isinstance(madis.get('stations'), list) or 'history' in madis):
+            raise ValueError('The separate current mesonet snapshot was not verified')
+        end = stamp(madis['checkedAt'])
+        if any(not allowed(row) or not end-timedelta(minutes=25) <= stamp(row['time']) <= end for row in madis['stations']):
+            raise ValueError('An excluded station or out-of-window report reached the mesonet map')
+        print('MADIS: ready (current 25-minute snapshot; quarter-hour checks)', flush=True)
     for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':

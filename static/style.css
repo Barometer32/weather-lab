@@ -390,3 +390,12 @@ body.map-focus main { padding-top:6px; }
 @media(max-width:380px) { #metar .sun-angle-label { display:none; } }
 body.map-focus #metar .section-heading { display:flex; min-height:44px; margin-bottom:6px; }
 body.map-focus #metar .eyebrow { display:none; }
+
+/* Current MADIS has no timeline; keep its timestamp and map actions visible. */
+#metar-history[hidden]{display:none!important}
+
+@media(max-width:600px){
+  :is(#metar-surface,#radar-surface) > .viewer-controls{grid-template-columns:1fr;grid-template-areas:"time" "actions" "timeline";gap:2px;}
+  :is(#metar-surface,#radar-surface) .viewer-actions{justify-self:center;}
+  :is(#metar-surface,#radar-surface) .viewer-frame-time{justify-self:center;}
+}

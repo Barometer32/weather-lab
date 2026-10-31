@@ -28,3 +28,18 @@ assert.equal(views.saveRadar([91,0],8),false);assert.equal(views.saveRadar([44,-
 saved='not JSON';assert.equal(views.radar().zoom,8);saved='{"center":[0,0],"zoom":null}';assert.equal(views.radar().zoom,8);
 blocked=true;assert.equal(views.saveRadar([44,-93],8),false);assert.equal(views.radar().zoom,8);
 console.log('Default view checks passed: footprint-aware initial METAR zoom and valid, persistent radar defaults with blocked-storage fallback.');
+
+// Product defaults use independent keys and survive reloading the module.
+const storage=new Map();blocked=false;
+context.window.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)};
+assert.ok(views.saveMetar('plots',[44.8,-93.3],9.25));
+assert.ok(views.saveMetar('clouds',[44.9,-93.4],10));
+assert.ok(views.saveMetar('madis',[45,-93.5],10.5));
+assert.equal(views.saveMetar('unknown',[45,-93],9),false);
+vm.runInNewContext(fs.readFileSync('static/default-views.js','utf8'),context);
+assert.equal(context.window.WeatherDefaultViews.savedMetar('plots').zoom,9.25);
+assert.equal(context.window.WeatherDefaultViews.savedMetar('clouds').zoom,10);
+assert.equal(context.window.WeatherDefaultViews.savedMetar('madis').zoom,10.5);
+storage.set('weather-metar-default-v1-madis','bad json');assert.equal(views.savedMetar('madis'),null);
+context.window.localStorage={getItem(){throw Error('Blocked');},setItem(){throw Error('Blocked');}};
+assert.equal(views.savedMetar('plots'),null);assert.equal(views.saveMetar('plots',[45,-93],9),false);
