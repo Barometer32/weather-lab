@@ -8,10 +8,6 @@ def fixture():
     html = (Path(__file__).resolve().parents[1] / 'static/index.html').read_bytes()
     row = {'station': 'KMSP', 'reportType': 'METAR', 'time': '2026-10-27T01:53:00Z'}
     data = {'/': html, '/api/station-plots': json.dumps({'sourcePolicy': 'airport-routine-only', 'stationPolicy': 'all-airports-v1', 'history': [{'stations': [row]}] * 12}).encode()}
-    from hennepin_current import STATIONS, VERSION
-    data['/api/hennepin-current'] = json.dumps({'version': VERSION, 'selectedStations': STATIONS,
-        'collectionMinutes': 5, 'available': True, 'current': {'observedAt': '2026-10-27T01:53:00Z',
-        'counts': {'tempF': 12, 'dewpointF': 12, 'wind': 12}}}).encode()
     for endpoint in ('radar?site=KMPX', 'satellite/13', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'air-quality'):
         asset = '/api/prepared/' + endpoint.replace('?', '-').replace('/', '-')
         data['/api/' + endpoint] = json.dumps({'frames': [{'url': asset}]}).encode()
