@@ -399,3 +399,13 @@ body.map-focus #metar .eyebrow { display:none; }
   :is(#metar-surface,#radar-surface) .viewer-actions{justify-self:center;}
   :is(#metar-surface,#radar-surface) .viewer-frame-time{justify-self:center;}
 }
+
+/* Phone timelines are centered at three quarters of the available width.
+   Keep the desktop rules above unchanged, including full-screen desktop. */
+@media(max-width:600px){
+  .viewer-controls .timeline-control,
+  .airq-controls .timeline-control,
+  :is(#radar-surface,#metar-surface,#clouds-surface,#satellite-surface):is(:fullscreen,.expanded) .timeline-control {
+    width:75%; justify-self:center; align-self:center;
+  }
+}
