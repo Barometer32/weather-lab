@@ -38,4 +38,4 @@ for text in ('style.css?v=phone-sliders-v1','id="metar-timeline"','id="timeline"
     if text not in html:raise SystemExit('The updated slider stylesheet was not verified.')
 print('Verified: phone slider update and existing weather controls.')
 PY
-printf '\nPhone sliders updated to 75% width and centered. Desktop layout unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
+printf '\nPhone sliders updated to 75%% width and centered. Desktop layout unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
