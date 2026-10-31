@@ -16,7 +16,7 @@ const select=async mode=>{get('metar-product').value=mode;get('metar-product').e
 (async()=>{
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(get('metar-product').value,'plots');assert.equal(shown.length,4);
- assert.ok(shown[0].icon.html.includes('wind-barb'));assert.doesNotMatch(shown[0].icon.html,/plot-sky|plot-ceiling/);
+ assert.ok(shown[0].icon.html.includes('wind-vector'));assert.doesNotMatch(shown[0].icon.html,/wind-barb|plot-sky|plot-ceiling/);
  get('metar-timeline').events.input({target:{value:'3'}});const hour=get('metar-time').textContent;
  await select('clouds');assert.equal(shown.length,2);assert.ok(shown.every(m=>!/plot-temp|plot-dew|plot-sky|wind-barb|cloud-dot/.test(m.icon.html)));
  assert.ok(shown.some(m=>/plot-ceiling[^>]*>4</.test(m.icon.html)));assert.ok(shown.some(m=>/plot-ceiling[^>]*>25</.test(m.icon.html)));
@@ -30,5 +30,5 @@ const select=async mode=>{get('metar-product').value=mode;get('metar-product').e
  assert.ok(reads.every(([url])=>url==='/api/station-plots'),'Only airport data is read');
  assert.deepEqual([...subscribers.keys()],['/api/station-plots'],'No MADIS subscription remains');
  const html=fs.readFileSync('static/index.html','utf8');assert.doesNotMatch(html,/<option value="madis">/);
- console.log('Airport choices passed: dot/barb plots, numeric clouds, hourly selection, saved defaults, failed refresh retention and no MADIS reads.');
+ console.log('Airport choices passed: dot/vector plots, numeric clouds, hourly selection, saved defaults, failed refresh retention and no MADIS reads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

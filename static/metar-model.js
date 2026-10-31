@@ -140,7 +140,45 @@ window.WeatherStationModel = (() => {
     for(const [x,y] of w.points){left=Math.min(left,x-2);right=Math.max(right,x+2);top=Math.min(top,y-2);bottom=Math.max(bottom,y+2);}
     return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
   }
-  return {combinedStationModel,combinedFootprint,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  // Airport PLOTS: a short solid arrow points TO the wind destination.
+  const vectorPlot={width:104,height:64,x:52,y:30,tempX:-16,tempY:-5,dewX:-16,dewY:14,speedX:16,speedY:14};
+  const vectorShape=[[-.95,0],[-.95,-8.8],[-3.6,-8.8],[0,-14],[3.6,-8.8],[.95,-8.8],[.95,0]];
+  function vectorWind(wind={}){
+    wind=wind||{};
+    const value=windMph(wind),speed=Number.isFinite(value)&&value>=0?value:null;
+    if(speed==null)return {kind:"unknown",speed:null,state:"?",points:[]};
+    if(speed<.5)return {kind:"calm",speed:0,points:[]};
+    if(wind.variable||!Number.isFinite(wind.direction))return {kind:"unknown",speed,state:wind.variable?"VRB":"?",points:[]};
+    const rotation=((wind.direction+180)%360+360)%360,a=rotation*Math.PI/180;
+    const points=vectorShape.map(([x,y])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)]);
+    return {kind:"vector",speed,rotation,points};
+  }
+  function vectorSpeedLabel(wind){
+    return wind.kind==="unknown"&&wind.speed!=null?`${wind.state} ${numeric(wind.speed)}`:numeric(wind.speed);
+  }
+  function vectorStationModel(station){
+    const c=vectorPlot,w=vectorWind(station.wind);
+    const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
+    const shape="M"+vectorShape.map(p=>p.join(" ")).join("L")+"Z";
+    const arrow=w.kind==="vector"?`<g class="wind-vector" data-bearing-to="${w.rotation}" transform="translate(${c.x} ${c.y}) rotate(${w.rotation})"><path class="wind-vector-solid" d="${shape}" fill="#111" stroke="white" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke fill"/></g>`:"";
+    const html=`<svg class="metar-plot combined-station-plot vector-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${arrow}${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}<circle class="station-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${text("plot-speed",c.speedX,c.speedY,vectorSpeedLabel(w))}</svg>`;
+    return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
+  }
+  function vectorFootprint(station){
+    const c=vectorPlot,w=vectorWind(station.wind);
+    let left=-3,right=3,top=-3,bottom=3;
+    function include(x,y,label,anchor="start"){
+      const width=textWidth(label),start=anchor==="end"?x-width:x;
+      left=Math.min(left,start-2);right=Math.max(right,start+width+2);
+      top=Math.min(top,y-13);bottom=Math.max(bottom,y+3);
+    }
+    include(c.tempX,c.tempY,numeric(station.tempF),"end");
+    include(c.dewX,c.dewY,numeric(station.dewpointF),"end");
+    include(c.speedX,c.speedY,vectorSpeedLabel(w));
+    for(const [x,y] of w.points){left=Math.min(left,x-2);right=Math.max(right,x+2);top=Math.min(top,y-2);bottom=Math.max(bottom,y+2);}
+    return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
+  }
+  return {vectorStationModel,vectorFootprint,vectorWind,combinedStationModel,combinedFootprint,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[32*scale,24*scale],cloudIconAnchor:[16*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

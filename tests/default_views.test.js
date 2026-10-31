@@ -7,7 +7,7 @@ vm.runInNewContext(fs.readFileSync('static/default-views.js','utf8'),context);
 const model=context.window.WeatherStationModel,views=context.window.WeatherDefaultViews;
 const airports=[{station:'KFCM',lat:44.8272,lon:-93.4571},{station:'KMIC',lat:45.0619,lon:-93.3539},{station:'KMSP',lat:44.8831,lon:-93.2289}];
 const sites=airports.map(station=>{
- const feet=Array.from({length:12},(_,i)=>model.combinedFootprint({...station,tempF:i===0?-12:53,dewpointF:i===0?-20:38,layers:[{cover:'BKN',baseFtAGL:12000}],wind:{direction:i*30,speedKnots:20}}));
+ const feet=Array.from({length:12},(_,i)=>model.vectorFootprint({...station,tempF:i===0?-12:53,dewpointF:i===0?-20:38,layers:[{cover:'BKN',baseFtAGL:12000}],wind:{direction:i*30,speedKnots:20}}));
  return{station,f:{left:Math.min(...feet.map(f=>f.left)),right:Math.max(...feet.map(f=>f.right)),top:Math.min(...feet.map(f=>f.top)),bottom:Math.max(...feet.map(f=>f.bottom))}};
 });
 function project(lat,lon,z){const world=256*2**z,s=Math.sin(lat*Math.PI/180);return{x:(lon+180)/360*world,y:(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*world};}

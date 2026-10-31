@@ -29,7 +29,7 @@ window.WeatherMetars = (() => {
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
       if(!eligible(station))continue;
-      const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
+      const f=mode==="clouds"?model.cloudFootprint(station):model.vectorFootprint(station),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
     const preferred=["KFCM","KMIC","KMSP"],rank=s=>{
@@ -62,14 +62,13 @@ window.WeatherMetars = (() => {
       const plots=plotCaches[mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{dot:true}),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.vectorStationModel(station),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
-      const wind=station.wind||{},barb=model.combinedWind(wind),layer=model.firstCloudLayer(station);
-      popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      const wind=station.wind||{},vector=model.vectorWind(wind),layer=model.firstCloudLayer(station);
+      popup.append(node("p",`Wind: ${Number.isFinite(vector.speed)?Math.round(vector.speed)+" mph":"unknown"}${vector.kind==="vector"?" toward "+Math.round(vector.rotation)+"° (from "+Math.round(wind.direction)+"°)":vector.kind==="calm"?"":wind.variable?" · variable direction":" · direction unavailable"}`));
       popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
       popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
-      if(barb.kind==="barb")popup.append(node("p",`Barb feathers: ${barb.roundedKnots} kt (nearest 5 kt)`));
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);
       }
@@ -80,7 +79,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Lowest BKN or OVC airport cloud heights in thousands of feet":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Lowest BKN or OVC airport cloud heights in thousands of feet":"Hourly airport temperature, dewpoint and wind vectors pointing toward the wind destination with state and county boundaries");
     el("metar-status").textContent=`${frame.stations.length} airport reports${!hours.at(-1).stations.length?" · Waiting for the newest hour":""}${data.stale?" · Background updates delayed":""}`;
   }
   function adopt(next){
