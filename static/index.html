@@ -6,24 +6,26 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=phone-sliders-v2">
+  <link rel="stylesheet" href="/static/style.css?v=hennepin-observations-v2">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
-  <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=metar-airports-v4"></script>
+  <script defer src="/static/sun-angle.js?v=hennepin-observations-v2"></script>
+  <script defer src="/static/prepared-data.js?v=hennepin-observations-v2"></script>
+  <script defer src="/static/hennepin-current.js?v=hennepin-observations-v2"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-combined-v11"></script>
   <script defer src="/static/metar-views.js?v=metar-airports-v4"></script>
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=saved-map-views-v2"></script>
+  <script defer src="/static/app.js?v=hennepin-observations-v2"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
-    <button role="tab" id="tab-metar" aria-selected="true" aria-controls="metar">METAR</button>
+    <button role="tab" id="tab-current" aria-selected="true" aria-controls="current" aria-label="Observations"><span class="desktop-tab-label">OBSERVATIONS</span><span class="phone-tab-label" aria-hidden="true">OBS</span></button>
+    <button role="tab" id="tab-metar" aria-selected="false" aria-controls="metar" tabindex="-1">METAR</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
@@ -31,7 +33,24 @@
   </nav>
 </header>
 <main>
-<section id="metar" role="tabpanel" aria-labelledby="tab-metar">
+<section id="current" role="tabpanel" aria-labelledby="tab-current">
+  <div class="section-heading"><div><p class="eyebrow">HENNEPIN WEST · SELECTED STATION AVERAGE</p><h1>Observations</h1></div><button class="secondary" id="refresh-current">Refresh</button></div>
+  <div class="current-content">
+    <div class="current-live-summary" aria-live="polite">
+      <div class="live-reading"><h2>Temperature</h2><p id="current-temp">—</p></div>
+      <div class="live-reading"><h2>Dewpoint</h2><p id="current-dew">—</p></div>
+      <div class="live-reading"><h2>Wind</h2><p id="current-wind">—</p></div>
+      <div class="live-reading"><h2>Sun angle</h2><p id="current-sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</p></div>
+    </div>
+    <p id="current-time" aria-live="polite">Loading observations…</p>
+    <p id="current-notice" class="notice" role="status" hidden></p>
+    <details id="current-details"><summary>Selected stations</summary>
+      <div class="current-table"><table><thead><tr><th>Station</th><th>Observed</th><th>Temp °F</th><th>Dew °F</th><th>Wind</th><th>Status</th></tr></thead><tbody id="current-station-rows"></tbody></table></div>
+    </details>
+  </div>
+</section>
+
+<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>

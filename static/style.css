@@ -409,3 +409,28 @@ body.map-focus #metar .eyebrow { display:none; }
     width:80%; justify-self:center; align-self:center;
   }
 }
+
+/* Compact selected-station observations; the existing map layouts stay intact. */
+.phone-tab-label{display:none}
+#current .current-content{flex:1 1 0!important;min-height:0;overflow:auto;width:100%;max-width:920px;margin:0 auto;padding:4px 0 12px}
+#current .current-live-summary{gap:14px;border:0;padding:0;margin:10px 0 16px}
+#current .live-reading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:128px;padding:20px 12px;border:1px solid var(--border);border-radius:12px;background:#fff}
+#current .live-reading h2{margin:0;font-size:13px;font-weight:500}
+#current .live-reading p{margin:10px 0 0;font-size:34px;line-height:1.2;text-align:center;white-space:nowrap}
+#current-temp{color:#b52326} #current-dew{color:#087440} #current-wind{color:#1765a5}
+#current-time{text-align:center;color:var(--muted);font-size:13px;margin:12px 0}
+#current-notice{text-align:center;font-size:13px}
+#current-details{margin-top:18px;border-top:1px solid var(--border)}
+#current-details summary{min-height:44px;padding:12px 4px;cursor:pointer;font-size:13px}
+.current-table{overflow-x:auto}
+.current-table table{width:100%}
+.current-table th,.current-table td{font-size:12px;padding:10px 8px;text-align:center}
+.current-table th:first-child,.current-table td:first-child{text-align:left}
+.current-table td small{display:block;color:var(--muted)}
+@media(max-width:600px){
+  .desktop-tab-label{display:none}.phone-tab-label{display:inline}
+  #current .current-live-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
+  #current .live-reading{min-height:112px;padding:16px 8px}
+  #current .live-reading p{font-size:29px}
+  #current-time,#current-notice{font-size:12px}
+}

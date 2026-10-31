@@ -266,11 +266,12 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar","radar","satellite","forecast","air-quality"];
+const tabs = ["current","metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   window.WeatherMetars?.select(id);
+  window.WeatherHennepinCurrent?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
   window.WeatherAirQuality?.select(id);
@@ -303,7 +304,7 @@ $("radar-reset-view").addEventListener("click",()=>{
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});
-selectTab("metar");
+selectTab("current");
 setTimeout(()=>window.WeatherPrepared.prime(),0);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
@@ -320,6 +321,7 @@ setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},6
 
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
+    if (!$("current").hidden) window.WeatherHennepinCurrent?.select("current");
     if (!$("metar").hidden) window.WeatherMetars?.select("metar");
     if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("radar").hidden) loadRadar();
