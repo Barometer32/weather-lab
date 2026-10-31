@@ -8,7 +8,7 @@ export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 WEATHER_WORK="$(mktemp -d "$HOME/weather-lab-wind-barbs.XXXXXX")"
 trap 'echo "View update stopped at line $LINENO. Saved settings: $WEATHER_WORK" >&2' ERR
 printf 'Updating website in project: %s\n' "$WEATHER_PROJECT"
-echo 'Step 1/3: saving the website settings and building the slightly longer wind barbs.'
+echo 'Step 1/3: saving the website settings and building the restored wind barbs at the adjusted length.'
 gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/web-before.json"
 WEATHER_IMAGE_PATH="$(python3 - "$WEATHER_WORK/web-before.json" "$WEATHER_PROJECT" <<'PY'
 import json,sys
@@ -34,8 +34,8 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for text in ('metar-model.js?v=metar-combined-v12','id="metar-timeline"','id="timeline"','id="satellite-timeline"','id="airq-timeline"'):
+for text in ('metar-model.js?v=metar-combined-v14','id="metar-timeline"','id="timeline"','id="satellite-timeline"','id="airq-timeline"'):
     if text not in html:raise SystemExit('The updated wind barb asset was not verified.')
-print('Verified: longer wind barbs and existing weather controls.')
+print('Verified: restored wind barbs and existing weather controls.')
 PY
-printf '\nWind barbs lengthened by 10%%. Other map settings unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
+printf '\nWind barbs restored, 5%% shorter than the last pre-vector version. Other map settings unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
