@@ -12,9 +12,9 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
 (async()=>{
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
- assert.equal(reads,1);assert.equal(get('metar-timeline').max,'11');assert.equal(fullConfig.surfaceId,'metar-surface');
+ assert.equal(reads,1);assert.equal(get('metar-timeline').max,'5');assert.equal(fullConfig.surfaceId,'metar-surface');
  const firstMarker=shown[0],initialFootprints=footprints;
- callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Twelve-hour footprints are cached until new data arrives');
+ callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Six-hour footprints are cached until new data arrives');
  const svg=shown[0].icon.html;
  for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-barb'])assert.ok(svg.includes(cls),cls);
  assert.doesNotMatch(svg,/plot-speed|plot-ceiling|plot-sky|wind-calm/);
@@ -26,7 +26,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  get('metar-timeline').events.input({target:{value:'0'}});assert.deepEqual(ids(),before,'History label changes keep density stable');assert.equal(reads,1,'Slider does not fetch source data');
  zoomed=true;callbacks.movestart();const duringMotion=created;get('metar-timeline').events.input({target:{value:'1'}});assert.equal(created,duringMotion,'No plot rebuild during a zoom gesture');callbacks.moveend();assert.ok(ids().includes('KNEAR'),'Zoom reveals nearby eligible airports');zoomed=false;
  get('metar-timeline').events.input({target:{value:'3'}});const hour=get('metar-time').textContent;
- data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-24T19:00:00Z'})};subscriber(data);assert.equal(get('metar-timeline').value,'2');assert.equal(get('metar-time').textContent,hour.replace('4/12','3/12'));
+ data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-24T19:00:00Z'})};subscriber(data);assert.equal(get('metar-timeline').value,'2');assert.equal(get('metar-time').textContent,hour.replace('4/6','3/6'));
  const kept=ids();fail=true;get('refresh-metar').events.click();await flush();assert.deepEqual(ids(),kept);assert.match(get('metar-status').textContent,/Previous reports retained/);
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

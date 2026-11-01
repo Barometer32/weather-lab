@@ -14,7 +14,7 @@
   <script defer src="/static/prepared-data.js?v=metar-airports-v4"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-combined-v14"></script>
-  <script defer src="/static/metar-views.js?v=metar-continuity-v1"></script>
+  <script defer src="/static/metar-views.js?v=metar-six-hour-v1"></script>
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -37,11 +37,11 @@
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
-      <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: last 12 routine hourly snapshots" disabled></div>
+      <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: last 6 routine hourly snapshots" disabled></div>
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show knots. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Stable collision spacing reveals more stations as you zoom.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show knots. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Only airports reporting in all six displayed hours are eligible. Stable collision spacing reveals more stations as you zoom.</p></div>
 </section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>

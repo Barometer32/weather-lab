@@ -1,10 +1,11 @@
 "use strict";
-// Two views of the same twelve prepared hourly airport frames.
+// Two views of the latest six prepared hourly airport frames.
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
-  let busy=false;
+  const historyHours=6;
+  let busy=false,sourceData;
   let suppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const eligible=station=>mode!=="clouds"||Boolean(model.cloudHeightText(station));
@@ -24,28 +25,15 @@ window.WeatherMetars = (() => {
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
   }
-  function unstableSites(history){
-    // Count completed present -> absent -> present cycles in chronological
-    // report availability, never cloud state or map collision visibility.
-    // An entirely empty frame is a feed gap, not a station-specific failure.
-    const frames=history.slice(-12).filter(frame=>frame.stations.length);
-    const presence=frames.map(frame=>new Set(frame.stations.map(station=>station.station)));
-    const ids=new Set(frames.flatMap(frame=>frame.stations.map(station=>station.station)));
-    const hidden=new Set();
-    for(const id of ids){
-      let seen=false,missing=false,returns=0;
-      for(const frame of presence){
-        if(frame.has(id)){
-          if(seen&&missing)returns++;
-          seen=true;missing=false;
-        }else if(seen)missing=true;
-      }
-      if(returns>=2)hidden.add(id);
-    }
-    return hidden;
+  function incompleteSites(history){
+    // A report must exist in each of the six displayed frames. Leading,
+    // trailing and whole-frame gaps count; cloud changes and spacing do not.
+    const presence=history.map(frame=>new Set(frame.stations.map(station=>station.station)));
+    const ids=new Set(history.flatMap(frame=>frame.stations.map(station=>station.station)));
+    return new Set([...ids].filter(id=>history.length!==historyHours||presence.some(frame=>!frame.has(id))));
   }
   function prepareSpacing(){
-    // Reserve the largest label across all twelve hours to avoid flickering
+    // Reserve the largest label across all six hours to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
@@ -106,9 +94,11 @@ window.WeatherMetars = (() => {
   }
   function adopt(next){
     if(!next.history?.length)throw Error("Hourly reports are not ready");
-    if(data===next)return;
+    if(sourceData===next)return;
     if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
-    const selected=data?.history[index]?.hour||wantedHour;data=next;suppressed=unstableSites(data.history);prepareSpacing();
+    const selected=data?.history[index]?.hour||wantedHour;
+    sourceData=next;data={...next,history:next.history.slice(-historyHours)};
+    suppressed=incompleteSites(data.history);prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
