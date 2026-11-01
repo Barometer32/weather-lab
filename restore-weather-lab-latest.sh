@@ -66,7 +66,7 @@ PY
 )"
 python3 - "$WEATHER_WORK/jobs-before.json" >"$WEATHER_WORK/pause-before.txt" <<'PY'
 import json,sys
-managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-observation-stations','weather-live-expmet'}
+managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-observation-stations'}
 for job in json.load(open(sys.argv[1])):
     name=job['name'].rsplit('/',1)[-1]
     if name in managed and job.get('state')=='ENABLED':print(name)
@@ -83,7 +83,7 @@ WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/$WEATHER_REPOSITO
   cd "$WEATHER_WORK/source"
   WEATHER_APIS_VERIFIED=true WEATHER_ARTIFACT_REPOSITORY="$WEATHER_REPOSITORY" WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true WEATHER_DEFER_COLLECTION=true WEATHER_COLLECTOR_MEMORY=2Gi bash deploy.sh "$WEATHER_PROJECT"
 )
-for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality weather-live-expmet; do
+for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality; do
   if [[ " ${WEATHER_PAUSED[*]} " != *" $WEATHER_JOB "* ]]; then WEATHER_PAUSED+=("$WEATHER_JOB"); fi
 done
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
@@ -92,7 +92,7 @@ python3 - "$WEATHER_WORK/jobs-after-deploy.json" >"$WEATHER_WORK/retired-observa
 import json,sys
 for job in json.load(open(sys.argv[1])):
     name=job['name'].rsplit('/',1)[-1]
-    if name in {'weather-live-observation-stations','weather-live-current','weather-live-madis','weather-live-observations'}:print(name)
+    if name in {'weather-live-observation-stations','weather-live-current','weather-live-madis','weather-live-observations','weather-live-expmet'}:print(name)
 PYINNER
 while IFS= read -r WEATHER_JOB; do
   gcloud scheduler jobs delete "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --quiet
@@ -111,7 +111,7 @@ if ! gcloud run jobs execute "$WEATHER_JOB" --project="$WEATHER_PROJECT" --regio
   exit 1
 fi
 
-echo 'Step 4/6: publishing the latest weather website.'
+echo 'Step 4/6: publishing the latest five-tab website.'
 gcloud run deploy weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --allow-unauthenticated --service-account="weather-web@$WEATHER_PROJECT.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_PROJECT-weather-data,WEATHER_PREPARED_ONLY=true" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90 --quiet
 gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
@@ -121,7 +121,7 @@ python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();clouds=json.loads((work/'clouds.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','expmet','radar','satellite','forecast','air-quality']:
+if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('Latest saved tabs were not verified.')
 if len(clouds.get('history',[]))!=12 or any(not f.get('stations') for f in clouds['history']):
     raise SystemExit('The twelve airport cloud frames are not populated.')
@@ -130,7 +130,7 @@ if not combined and ('metar-product' not in html or 'metar-products-v1' not in h
 print('Verified METAR, Radar, Satellite, Forecast and Air Q with twelve airport hours.')
 PY
 
-echo 'Step 5/6: enabling all weather collection schedules.'
+echo 'Step 5/6: enabling all five weather collection schedules.'
 for WEATHER_JOB in "${WEATHER_PAUSED[@]}"; do
   gcloud scheduler jobs resume "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
 done

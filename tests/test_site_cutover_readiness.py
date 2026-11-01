@@ -13,7 +13,6 @@ def fixture():
         data['/api/' + endpoint] = json.dumps({'frames': [{'url': asset}]}).encode()
         data[asset] = b'image or radar bytes'
     data['/api/forecast'] = b'{"periods":[{"name":"Tonight"}]}'
-    data['/api/expmet'] = b'{"experimental":true,"stations":[{"tempF":50}],"gridKm":10}'
     return data
 
 
@@ -34,7 +33,7 @@ def test_pinned_earlier_four_view_restore_is_still_verified():
     verify('https://weather.example.run.app', data.__getitem__)
 
 
-@pytest.mark.parametrize('case', ['empty-metars', 'speci', 'outside-window', 'empty-radar', 'empty-forecast', 'empty-expmet', 'missing-asset', 'missing-tab'])
+@pytest.mark.parametrize('case', ['empty-metars', 'speci', 'outside-window', 'empty-radar', 'empty-forecast', 'missing-asset', 'missing-tab'])
 def test_invalid_weather_page_or_unavailable_asset_prevents_cutover(case):
     data = fixture()
     metars = json.loads(data['/api/station-plots'])
@@ -44,7 +43,6 @@ def test_invalid_weather_page_or_unavailable_asset_prevents_cutover(case):
     data['/api/station-plots'] = json.dumps(metars).encode()
     if case == 'empty-radar': data['/api/radar?site=KMPX'] = b'{"frames":[]}'
     if case == 'empty-forecast': data['/api/forecast'] = b'{"periods":[]}'
-    if case == 'empty-expmet': data['/api/expmet'] = b'{"experimental":true,"stations":[],"gridKm":10}'
     if case == 'missing-asset': data.pop('/api/prepared/satellite-truecolor')
     if case == 'missing-tab': data['/'] = data['/'].replace(b'id="tab-metar"', b'id="tab-old"')
     with pytest.raises((ValueError, KeyError)):

@@ -1,10 +1,10 @@
 "use strict";
-// Two views of the latest six prepared hourly airport frames.
+// Current hour plus the preceding three hours, with complete station history.
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
-  const historyHours=6;
+  const historyHours=4;
   let busy=false,sourceData;
   let suppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
@@ -26,14 +26,14 @@ window.WeatherMetars = (() => {
     map.on("moveend",()=>{moving=false;render();});
   }
   function incompleteSites(history){
-    // A report must exist in each of the six displayed frames. Leading,
+    // A report must exist in each of the four displayed frames. Leading,
     // trailing and whole-frame gaps count; cloud changes and spacing do not.
     const presence=history.map(frame=>new Set(frame.stations.map(station=>station.station)));
     const ids=new Set(history.flatMap(frame=>frame.stations.map(station=>station.station)));
     return new Set([...ids].filter(id=>history.length!==historyHours||presence.some(frame=>!frame.has(id))));
   }
   function prepareSpacing(){
-    // Reserve the largest label across all six hours to avoid flickering
+    // Reserve the largest label across all four frames to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
