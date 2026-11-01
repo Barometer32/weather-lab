@@ -73,7 +73,7 @@ def test_deleted_project_is_restored_in_place_and_latest_data_is_imported_before
     assert execute<publish
     assert not any(c[:4]==['gcloud','scheduler','jobs','run'] for c in calls),'scheduled work is deferred until history import finishes'
     resumed={c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','resume']}
-    assert resumed=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality'}
+    assert resumed=={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-expmet'}
     assert not any('unrelated' in c for c in calls if c[:3]==['gcloud','scheduler','jobs'] and c[3] in ('pause','resume','delete'))
 
 
@@ -95,7 +95,7 @@ def test_failed_data_job_does_not_publish_website_and_resumes_collection(tmp_pat
     assert result.returncode!=0
     assert not any(c[:4]==['gcloud','run','deploy','weather-lab'] for c in calls)
     resumed={c[4] for c in calls if c[:4]==['gcloud','scheduler','jobs','resume']}
-    assert len(resumed)==5
+    assert len(resumed)==6
 
 
 def test_migration_pins_application_source_and_defers_address_changes(tmp_path):

@@ -580,6 +580,24 @@ def radar_api():
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/expmet")
+def expmet_api():
+    try:
+        data = prepared_snapshot("expmet", 4500)
+        if not data or not data.get("stations"):
+            raise ValueError("No prepared analysis")
+        response = jsonify(data)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
+    except Exception:
+        app.logger.exception("Experimental analysis read failed")
+        return jsonify(error="The experimental hourly analysis is being prepared."), 503, {"Cache-Control":"no-store"}
+
+
 @app.get("/api/air-quality")
 def air_quality_history():
     from air_quality import public_manifest

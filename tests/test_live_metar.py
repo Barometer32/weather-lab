@@ -79,7 +79,8 @@ class HourlyMetarViewTests(unittest.TestCase):
         self.assertTrue(all('metro' in h for h in maps['history']))
         self.assertTrue(maps['metro']['available'])
         self.assertNotIn('tab-current',page)
-        self.assertIn('tab-metar-clouds',page)
+        self.assertIn('id="tab-metar"',page)
+        self.assertNotIn('id="tab-metar-clouds"',page)
         self.assertNotIn('tab-observations',page)
 
     def test_collector_never_downloads_madis_and_has_one_hourly_schedule(self):
