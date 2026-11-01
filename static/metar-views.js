@@ -5,6 +5,7 @@ window.WeatherMetars = (() => {
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   let busy=false;
+  let suppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const eligible=station=>mode!=="clouds"||Boolean(model.cloudHeightText(station));
   const active=new Map();
@@ -23,12 +24,32 @@ window.WeatherMetars = (() => {
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
   }
+  function unstableSites(history){
+    // Count completed present -> absent -> present cycles in chronological
+    // report availability, never cloud state or map collision visibility.
+    // An entirely empty frame is a feed gap, not a station-specific failure.
+    const frames=history.slice(-12).filter(frame=>frame.stations.length);
+    const presence=frames.map(frame=>new Set(frame.stations.map(station=>station.station)));
+    const ids=new Set(frames.flatMap(frame=>frame.stations.map(station=>station.station)));
+    const hidden=new Set();
+    for(const id of ids){
+      let seen=false,missing=false,returns=0;
+      for(const frame of presence){
+        if(frame.has(id)){
+          if(seen&&missing)returns++;
+          seen=true;missing=false;
+        }else if(seen)missing=true;
+      }
+      if(returns>=2)hidden.add(id);
+    }
+    return hidden;
+  }
   function prepareSpacing(){
     // Reserve the largest label across all twelve hours to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
-      if(!eligible(station))continue;
+      if(suppressed.has(station.station)||!eligible(station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -87,7 +108,7 @@ window.WeatherMetars = (() => {
     if(!next.history?.length)throw Error("Hourly reports are not ready");
     if(data===next)return;
     if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
-    const selected=data?.history[index]?.hour||wantedHour;data=next;prepareSpacing();
+    const selected=data?.history[index]?.hour||wantedHour;data=next;suppressed=unstableSites(data.history);prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);

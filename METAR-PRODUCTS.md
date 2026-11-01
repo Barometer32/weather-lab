@@ -22,3 +22,18 @@ It saves existing settings, builds once, deletes only weather-live-madis-map if
 present, updates the collector and web images, and verifies the weather pages.
 It does not create collection jobs or backfill/download weather history. A full
 redeploy also removes the retired MADIS schedule rather than recreating it.
+
+## Stable station history
+
+Both views hide a station throughout the displayed twelve-hour history when its
+raw report availability contains two or more completed present → missing →
+present cycles. Leading missing frames, trailing missing frames and one completed
+gap do not suppress a station. Fully empty feed frames do not count against
+individual stations. Cloud ceiling changes and collision thinning are not report
+gaps. Suppressed stations reserve no collision space, and become eligible again
+when their repeated gaps leave the rolling window. Original reports remain intact;
+missing hours never borrow data from another hour. The filter uses downloaded
+history and makes no additional source requests.
+
+Install with `update-weather-lab-station-continuity.sh PROJECT_ID`. This builds and
+updates only the website, retaining collection schedules and warm-instance settings.
