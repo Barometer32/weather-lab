@@ -3,43 +3,60 @@
 window.WeatherAirQuality = (() => {
   const el=id=>document.getElementById(id);
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  const images=new Map();let data,index=0,followLatest=true,busy=false,serial=0,queued=false;
+  const images=new Map();let data,index=0,followLatest=true,busy=false,serial=0,queued=false,queuedForce=false,notice="";
   async function imageReady(url){
     if(!images.has(url)){
       images.set(url,window.WeatherPrepared.image(url).catch(error=>{images.delete(url);throw error;}));
     }
     return images.get(url);
   }
-  async function showFrame(n){
-    const frames=data.frames,next=Math.max(0,Math.min(n,frames.length-1)),frame=frames[next],request=++serial;
+  function updateTime(){
+    if(!data){el("airq-time").textContent=notice||"Loading Air Q snapshots…";return;}
+    const frame=data.frames[index];
+    const warning=notice||(data.stale?"Background collection delayed":data._savedCopy?"Saved copy":"");
+    el("airq-time").textContent=`Data as of ${time.format(new Date(frame.sourceTime||frame.time))} · ${index+1}/${data.frames.length}${warning?" · "+warning:""}`;
+    el("airq-timeline").setAttribute("aria-valuetext",el("airq-time").textContent);
+  }
+  async function showFrame(n,manifest=data,refreshed=false){
+    const frames=manifest.frames,next=Math.max(0,Math.min(n,frames.length-1)),frame=frames[next],request=++serial;
     try{
       const image=await imageReady(frame.url);if(request!==serial)return;
-      index=next;el("air-quality-map").src=image.src;el("air-quality-map").hidden=false;
-      el("air-quality-map").alt=`Minnesota air quality as of ${time.format(new Date((frame.sourceTime||frame.time)))}`;
-      el("airq-time").textContent=`${data._savedCopy?"Saved · ":""}Data as of ${time.format(new Date((frame.sourceTime||frame.time)))} · ${index+1}/${frames.length}`;
+      // Commit the image, manifest and time together, only after it loads.
+      data=manifest;index=next;if(refreshed)notice="";
+      el("air-quality-map").src=image.src;el("air-quality-map").hidden=false;
+      el("air-quality-map").alt=`Minnesota air quality as of ${time.format(new Date(frame.sourceTime||frame.time))}`;
       const slider=el("airq-timeline");slider.max=String(frames.length-1);slider.value=String(index);slider.disabled=frames.length<2;
-      slider.setAttribute("aria-valuetext",el("airq-time").textContent);
       slider.style.setProperty("--progress",`${frames.length>1?100*index/(frames.length-1):0}%`);
+      updateTime();
       el("airq-status").textContent=`${frames.length}/12 data hours saved${frames.length<12?" · History is building":""}${data.stale?" · Background checks delayed":""}${frame.style!=="contours-only-no-labels"?" · Earlier saved map style":""}`;
-    }catch(error){if(request===serial)el("airq-status").textContent="This Air Q snapshot could not load. The previous image is retained.";}
+    }catch(error){if(request===serial){notice="Latest image unavailable; previous image retained";updateTime();el("airq-status").textContent="This Air Q snapshot could not load. The previous image is retained.";}}
   }
-  async function load(){
-    if(busy)return;busy=true;el("refresh-air-quality").disabled=true;
+  async function load({force=false,latest=false}={}){
+    if(latest)followLatest=true;
+    if(busy){queued=true;queuedForce=queuedForce||force;return;}
+    busy=true;el("refresh-air-quality").disabled=true;
     try{
-      const next=await window.WeatherPrepared.read("/api/air-quality");
+      const next=await window.WeatherPrepared.read("/api/air-quality",{force});
       if(!next.frames?.length)throw Error("Air Q history is building; no snapshots are ready yet.");
-      const selected=data?.frames[index]?.sourceTime||data?.frames[index]?.time;data=next;
-      const restored=!followLatest&&selected?data.frames.findIndex(f=>(f.sourceTime||f.time)===selected):-1;
-      await showFrame(restored>=0?restored:followLatest?data.frames.length-1:0);
-      const keep=new Set(data.frames.map(f=>f.url));for(const url of images.keys())if(!keep.has(url))images.delete(url);
-    }catch(error){el("airq-status").textContent=error.message+(data?" Previous snapshots retained; check the displayed time.":"");}
-    finally{busy=false;el("refresh-air-quality").disabled=false;if(queued){queued=false;setTimeout(()=>{if(!el("air-quality").hidden)load();},0);}}
+      const selected=data?.frames[index]?.sourceTime||data?.frames[index]?.time;
+      const restored=!followLatest&&selected?next.frames.findIndex(f=>(f.sourceTime||f.time)===selected):-1;
+      await showFrame(restored>=0?restored:followLatest?next.frames.length-1:0,next,true);
+      const keep=new Set(data?.frames.map(f=>f.url));for(const url of images.keys())if(!keep.has(url))images.delete(url);
+    }catch(error){
+      notice=data?"Refresh failed; showing saved map":"Air Q unavailable; retry Refresh map";updateTime();
+      el("airq-status").textContent=error.message+(data?" Previous snapshots retained; check the displayed time.":"");
+    }
+    finally{
+      busy=false;el("refresh-air-quality").disabled=false;
+      if(queued){const force=queuedForce;queued=false;queuedForce=false;setTimeout(()=>{if(!el("air-quality").hidden)load({force});},0);}
+    }
   }
   window.WeatherPrepared.subscribe("/api/air-quality",()=>{if(!el("air-quality").hidden){if(busy)queued=true;else load();}});
-  el("refresh-air-quality").addEventListener("click",load);
+  el("refresh-air-quality").addEventListener("click",()=>load({force:true,latest:true}));
   el("airq-timeline").addEventListener("input",event=>{
     if(!data)return;const n=Number(event.target.value);followLatest=n===data.frames.length-1;showFrame(n);
   });
-  setInterval(()=>{if(!document.hidden&&!el("air-quality").hidden)load();},60000);
+  setInterval(()=>{if(!document.hidden&&!el("air-quality").hidden)load({force:true});},60000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!el("air-quality").hidden)load({force:true});});
   return {select(id){if(id==="air-quality")load();}};
 })();
