@@ -305,3 +305,18 @@ Hourly retention maintenance deletes only recognized TEST archive keys older
 than 24 hours. Point-history requests are read-only, use a small bounded result
 cache, and decode one archive record at a time to limit memory on the website.
 The existing five-minute schedule is reused; there is no additional scheduled job.
+
+### Current location on radar
+
+The RADAR map's **My location** button opts into browser geolocation, with a blue
+dot and the device-reported accuracy circle. The first fix centers the map at its
+existing zoom; later fixes update the marker without overriding manual panning.
+Click **Location on** to hide it. The control remains on the map in full screen.
+Its preference is remembered on that device, but watches run only while RADAR is
+selected and the page is visible. No location coordinates are sent to the weather
+backend for this marker. A laptop's reported location may be much less precise
+than a phone's. The radar source remains KMPX.
+
+`update-weather-radar-location.sh PROJECT_ID` builds and updates only the website
+image. It preserves service settings and does not change collectors, schedules,
+weather downloads, data history or the custom address.
