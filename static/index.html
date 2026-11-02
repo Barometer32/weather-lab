@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=phone-sliders-v2">
+  <link rel="stylesheet" href="/static/style.css?v=test-point-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -18,12 +18,14 @@
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=saved-map-views-v2"></script>
+  <script defer src="/static/test-weather.js?v=test-point-v1"></script>
+  <script defer src="/static/app.js?v=test-point-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar" aria-selected="true" aria-controls="metar">METAR</button>
+    <button role="tab" id="tab-test" aria-selected="false" aria-controls="test" tabindex="-1">TEST</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
@@ -42,6 +44,27 @@
     </div>
   </div>
   <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show knots. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Only airports reporting in all four displayed hours are eligible. Stable collision spacing reveals more stations as you zoom.</p></div>
+</section>
+
+<section id="test" role="tabpanel" aria-labelledby="tab-test" hidden>
+  <div class="section-heading"><div><p class="eyebrow">EXPERIMENTAL · OBSERVATION-BASED ESTIMATE</p><h1>Your weather</h1></div><button class="secondary" id="test-refresh">Refresh</button></div>
+  <div class="test-scroll">
+    <form id="test-search" class="test-search"><label class="sr-only" for="test-place">City and state, ZIP or latitude, longitude</label><input id="test-place" maxlength="160" placeholder="City, state · ZIP · latitude, longitude" value="Shakopee, MN" required><button type="submit" id="test-go">Find</button><button class="secondary" type="button" id="test-locate">My location</button></form>
+    <p id="test-status" role="status" aria-live="polite">Choose a place, or tap the map to select a point.</p>
+    <div class="test-grid">
+      <div class="test-local">
+        <div class="test-location-row"><h2 id="test-location">Shakopee, MN</h2><label for="test-window">Reports <select id="test-window"><option value="60">Past 60 min</option><option value="30">Past 30 min</option></select></label></div>
+        <div class="test-cards" id="test-cards"><article><h3>Temperature</h3><strong id="test-temp">—</strong></article><article><h3>Dewpoint</h3><strong id="test-dew">—</strong></article><article><h3>Wind · mph</h3><strong id="test-wind">—</strong></article></div>
+        <p class="test-time" id="test-valid">Waiting for observations…</p>
+        <p class="test-time" id="test-checked"></p>
+        <p class="notice" id="test-warning" hidden></p>
+        <div id="test-map" aria-label="Tap to choose a weather point. Green pin is your location; gray dots are nearby contributing stations."></div>
+        <p class="test-map-hint">Tap the map to choose a point. Gray dots show up to 30 nearest contributing stations.</p>
+        <details class="test-details"><summary id="test-support-title">Station support and method</summary><div id="test-support"></div><p>All usable observations within 80 km and the selected time window can contribute. At least three reports, with one within 40 km, are required for each estimate. A 5 km computational grid is interpolated at your pin; its spacing is not an accuracy guarantee. Distance, report age and station density affect the weights. MADIS variable checks, basic limits, duplicate removal and outlier downweighting help screen readings. Wind is averaged as a vector. Forecasts are separate NWS predictions.</p><p>Public NOAA MADIS mesonet, RWIS and high-frequency airport feeds, plus Aviation Weather Center METARs. Restricted networks and reports that have not reached the public feeds are unavailable. Unknown QC flags do not mean a sensor has been verified. Terrain, local exposure and fronts can cause differences at your location.</p></details>
+      </div>
+      <div class="test-forecast"><div class="test-forecast-heading"><h2>NWS forecast</h2><a id="test-nws-link" href="https://forecast.weather.gov/MapClick.php?lat=44.797&amp;lon=-93.527" target="_blank" rel="noopener">NWS ↗</a></div><p class="test-time" id="test-issued">Loading forecast…</p><div id="test-periods" aria-live="polite"></div></div>
+    </div>
+  </div>
 </section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>

@@ -24,7 +24,7 @@ def iso(moment):
     return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def fetch(url, previous=None):
+def fetch(url, previous=None, timeout=60):
     headers = {"User-Agent": "J-Weather (https://github.com/Barometer32/weather-lab)"}
     previous = previous or {}
     if previous.get("etag"):
@@ -32,7 +32,7 @@ def fetch(url, previous=None):
     elif previous.get("lastModified"):
         headers["If-Modified-Since"] = previous["lastModified"]
     try:
-        with urlopen(Request(url, headers=headers), timeout=60) as response:
+        with urlopen(Request(url, headers=headers), timeout=timeout) as response:
             payload = response.read(64_000_001)
             if len(payload) > 64_000_000:
                 raise ValueError("MADIS compressed mesonet file exceeds expected size")
@@ -44,7 +44,7 @@ def fetch(url, previous=None):
         raise
 
 
-def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
+def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, sensor_status_checks=False, derive_dewpoint=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
     """Return local usable measurements without copying the national arrays."""
     v = dataset.variables
     required = {"stationId", "observationTime", "latitude", "longitude"}
@@ -76,6 +76,13 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
                     return None
             if text(name + "DD", index) in ("Q", "B", "X"):
                 return None
+            status = v.get(name + "Status") if sensor_status_checks else None
+            if status is not None and int(status[index]) not in (0, 16):
+                passed = text(name + "DD", index) in ("V", "S", "G")
+                reserved = int(status[index]) in (1, 4, 11, 13, 14, 15)
+                check = v.get(name + "QCR")
+                if not (reserved and passed and check is not None and int(check[index]) == 0):
+                    return None
         return value
 
     lat, lon, stamp = v["latitude"][:], v["longitude"][:], v["observationTime"][:]
@@ -98,6 +105,12 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
             continue
         temp = number("temperature", i, 183.15, 333.15)
         dew = number("dewpoint", i, 173.15, 333.15)
+        if derive_dewpoint and dew is None and temp is not None:
+            rh = number("relHumidity", i, 1, 100)
+            if rh is not None:
+                celsius = temp-273.15
+                gamma = math.log(rh/100)+17.625*celsius/(243.04+celsius)
+                dew = 243.04*gamma/(17.625-gamma)+273.15
         speed = number("windSpeed", i, 0, 103)
         direction = number("windDir", i, 0, 360)
         if temp is not None and dew is not None and dew > temp + 2:

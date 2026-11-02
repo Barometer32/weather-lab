@@ -433,6 +433,54 @@ def live_current_payload():
     return present(saved, utcnow())
 
 
+@app.get("/api/test/location")
+def test_location_api():
+    from point_weather import location
+    try:
+        return jsonify(location(request.args.get("q", "")))
+    except ValueError as error:
+        return jsonify(error=str(error)),400
+    except Exception:
+        app.logger.exception("TEST location lookup unavailable")
+        return jsonify(error="Place search is unavailable. Use latitude, longitude, the map or your phone location."),502
+
+
+@app.get("/api/test/conditions")
+def test_conditions_api():
+    from point_weather import coordinates, analysis
+    try:
+        lat,lon=coordinates(request.args.get("lat"),request.args.get("lon"))
+        minutes=int(request.args.get("minutes","60"))
+        if minutes not in (30,60):raise ValueError("Choose a 30- or 60-minute observation window.")
+    except (ValueError,TypeError) as error:
+        return jsonify(error=str(error)),400
+    try:
+        data=prepared_snapshot("test-weather",720)
+        if not data:raise ValueError("No station snapshot")
+        return jsonify(analysis(data,lat,lon,utcnow(),minutes)),200,{"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("TEST conditions unavailable")
+        return jsonify(error="The TEST station snapshot is not ready. Background collection will retry."),503
+
+
+@app.get("/api/test/forecast")
+def test_forecast_api():
+    from point_weather import coordinates,point_forecast
+    try:
+        lat,lon=coordinates(request.args.get("lat"),request.args.get("lon"))
+    except (ValueError,TypeError) as error:
+        return jsonify(error=str(error)),400
+    try:
+        now=utcnow()
+        data=point_forecast(lat,lon,int(now.timestamp()//600))
+        periods=[p for p in data['periods'] if datetime.fromisoformat(p['endTime'])>now]
+        if not periods:raise ValueError("No future forecast periods")
+        return jsonify({**data,'periods':periods}),200,{"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("TEST point forecast unavailable")
+        return jsonify(error="NWS forecast is unavailable for this point. Try again; NWS covers U.S. locations."),502
+
+
 @app.get("/api/forecast")
 def forecast_api():
     try:

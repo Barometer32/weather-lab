@@ -18,8 +18,9 @@ def verify(base, fetch=None):
 
     fetch = fetch or download
     html = fetch('/').decode()
-    if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != ['metar', 'radar', 'satellite', 'forecast', 'air-quality']:
-        raise ValueError('The five saved tabs were not verified')
+    expected = ['metar', 'test', 'radar', 'satellite', 'forecast', 'air-quality'] if 'id="tab-test"' in html else ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
+    if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != expected:
+        raise ValueError('The saved weather tabs were not verified')
     combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
     if not (combined or separate):
@@ -47,7 +48,7 @@ def verify(base, fetch=None):
             if not fetch(asset):
                 raise ValueError('Empty prepared asset for ' + endpoint)
         print(endpoint + ': ready', flush=True)
-    print('Verified five tabs, the saved METAR station model and twelve airport hours.', flush=True)
+    print('Verified saved tabs, the METAR station model and twelve airport hours.', flush=True)
 
 
 if __name__ == '__main__':

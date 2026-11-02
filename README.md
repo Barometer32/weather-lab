@@ -252,3 +252,33 @@ JSON, including protoPayload. Saved settings are printed on exit.
 Collection checks the current and previous UTC hourly MADIS files every two minutes with conditional HTTP requests. Five-minute report cadence does not imply five-minute delivery latency. Records are not forced onto the top of the hour. Previously discovered sites retain their last actual observation for up to 24 hours, with the original timestamp; missing/QC-rejected measurements show as unknown instead of hiding the entire site. Public availability is not a complete registry of all installed stations. County geometry is bundled in `static/hennepin-county.geojson`, fetched 2026-10-24 from U.S. Census TIGERweb State_County/MapServer/1 with `GEOID='27053'`, WGS84 coordinates, five decimal places. No county lookup is needed at runtime.
 
 The update builds one image, saves both service settings and scheduler definitions, updates the collector and website, adds only `weather-live-observation-stations` at `*/2 * * * *`, and verifies the public station inventory. Existing airport collection continues for CLOUDS. Radar, satellite, forecast and Air Q schedules are preserved. Public page requests read the prepared inventory; they do not download NOAA files. The endpoint is `/api/observation-stations`, and the private collection route is `/collect/observation-stations`.
+
+### Experimental location weather (TEST)
+
+`setup-weather-lab-test.sh PROJECT_ID` builds and adds TEST in place, keeping the
+existing METAR/Radar/Satellite/Forecast/Air Q settings and schedules. TEST has a
+separate private `weather-live-test-weather` schedule every five minutes. No bulk
+station download runs on a page view. Forecasts use the NWS points API with a
+10-minute per-point cache; city/ZIP search uses the NWS place lookup. Manual
+coordinates, map selection and explicit browser geolocation are supported.
+
+`point_weather.py` reads current and previous public NOAA MADIS mesonet, RWIS and
+high-frequency airport files plus the AWC airport cache. Conditional HTTP requests
+and per-file normalized caches avoid re-decoding unchanged files. Each physical
+station contributes its newest report in the requested 30/60-minute window;
+reissued files replace earlier QC decisions. Restricted observations are not
+included. Missing fields remain missing; zero wind is valid calm. Temperature and
+dewpoint use source field checks and bounds; dewpoint may be derived from screened
+RH and temperature. Explicit sensor faults are rejected. Unknown QC descriptors
+are accepted provisionally, not described as verified measurements.
+
+At a selected point, all usable nearby station fields within 80 km of the four
+surrounding 5-km grid nodes can contribute, weighted by distance, age and station
+density. At least three stations and one within 40 km are required per variable.
+Temperature/dewpoint outliers are downweighted with a robust neighborhood scale.
+Wind is interpolated as u/v components and converted back to speed/from-direction.
+Bilinear interpolation samples the four nodes. The reported observation range and
+per-field weighted representative times are actual source times, separate from
+cache-check and NWS forecast-issue times. Grid spacing is not a claim of 5-km
+accuracy; exposure, terrain, stale input and sparse coverage remain limitations.
+This first experiment does not include every weather network or restricted feeds.
