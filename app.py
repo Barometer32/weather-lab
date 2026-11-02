@@ -450,8 +450,8 @@ def test_conditions_api():
     from point_weather import coordinates, analysis
     try:
         lat,lon=coordinates(request.args.get("lat"),request.args.get("lon"))
-        minutes=int(request.args.get("minutes","60"))
-        if minutes not in (30,60):raise ValueError("Choose a 30- or 60-minute observation window.")
+        minutes=int(request.args.get("minutes","30"))
+        if minutes != 30:raise ValueError("TEST uses only observations from the past 30 minutes.")
     except (ValueError,TypeError) as error:
         return jsonify(error=str(error)),400
     try:

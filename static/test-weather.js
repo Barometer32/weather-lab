@@ -49,7 +49,7 @@ window.WeatherTest = (() => {
     try{localStorage.setItem("weather-test-location",JSON.stringify(point));}catch(_){}
     clearConditions();el("periods").replaceChildren();el("issued").textContent="Loading NWS forecast…";el("status").textContent="Checking selected point…";
     el("nws-link").href=`https://forecast.weather.gov/MapClick.php?lat=${point.latitude}&lon=${point.longitude}`;
-    const query=new URLSearchParams({lat:point.latitude,lon:point.longitude,minutes:el("window").value});
+    const query=new URLSearchParams({lat:point.latitude,lon:point.longitude,minutes:30});
     let conditions,forecast;
     const results=await Promise.allSettled([
       read(`/api/test/conditions?${query}`).then(data=>{if(request!==serial)return;conditions=data;renderConditions(data);}),
@@ -60,11 +60,11 @@ window.WeatherTest = (() => {
     if(conditions){dots.clearLayers();renderConditions(conditions);}
     if(results[0].status==="rejected")el("valid").textContent=results[0].reason.message;
     if(results[1].status==="rejected")el("issued").textContent=results[1].reason.message;
-    el("status").textContent=conditions?.available?"Estimated conditions at the selected pin.":"Current estimate is unavailable; try a longer time window or a different location.";
+    el("status").textContent=conditions?.available?"Estimated conditions at the selected pin.":"Current estimate is unavailable; no sufficiently recent station support for this point.";
   }
   el("search").addEventListener("submit",async event=>{event.preventDefault();const query=el("place").value,request=++serial;el("status").textContent="Finding location…";try{const found=await read(`/api/test/location?${new URLSearchParams({q:query})}`);if(request!==serial)return;point=found;load(true);}catch(error){if(request===serial)el("status").textContent=error.message;}});
   el("locate").addEventListener("click",()=>{if(!navigator.geolocation){el("status").textContent="Location is unavailable. Enter a place or coordinates.";return;}const request=++serial;el("status").textContent="Waiting for your location permission…";navigator.geolocation.getCurrentPosition(position=>{if(request!==serial)return;point={latitude:Number(position.coords.latitude.toFixed(4)),longitude:Number(position.coords.longitude.toFixed(4)),label:"Your location"};load(true);},()=>{if(request===serial)el("status").textContent="Location was not available. Enter a city or tap the map.";},{timeout:15000,maximumAge:60000});});
-  el("window").addEventListener("change",()=>load());el("refresh").addEventListener("click",()=>load());
+  el("refresh").addEventListener("click",()=>load());
   setInterval(()=>{if(active&&!document.hidden&&Date.now()-last>=300000)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(active)map?.invalidateSize();});
   return {select(id){active=id==="test";if(active){initMap();setTimeout(()=>map.invalidateSize(),0);if(!loaded||Date.now()-last>=300000)load();}else {serial++;if(pending)loaded=false;pending=false;}}};

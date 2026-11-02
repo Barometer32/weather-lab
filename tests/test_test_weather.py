@@ -134,8 +134,10 @@ def test_public_point_apis_validate_input_and_never_download_station_feeds(monke
     monkeypatch.setattr(w,'fetch',lambda *a,**kw:pytest.fail('No bulk source call on a page view'))
     assert client.get('/api/test/conditions?lat=nan&lon=0').status_code==400
     assert client.get('/api/test/conditions?lat=44.9&lon=-93.4&minutes=10').status_code==400
+    assert client.get('/api/test/conditions?lat=44.9&lon=-93.4&minutes=60').status_code==400
     result=client.get('/api/test/conditions?lat=44.9&lon=-93.4').get_json()
     assert result['available'] and len(result['stations'])==4
+    assert result['windowMinutes']==30
     monkeypatch.setattr(w,'point_forecast',lambda *a:{'periods':[{'endTime':w.iso(NOW+timedelta(hours=5))}],'source':'NWS'})
     assert client.get('/api/test/forecast?lat=44.9&lon=-93.4').status_code==200
     monkeypatch.setattr(app,'prepared_snapshot',lambda *a:None)
@@ -178,3 +180,16 @@ def test_test_parser_screens_sensor_faults_and_can_derive_missing_dewpoint(tmp_p
     assert by_id['FAULT']['tempF'] is None and by_id['FAULT']['dewpointF'] is None
     assert by_id['GOOD']['tempF']==68 and by_id['GOOD']['dewpointF']==pytest.approx(48.7,abs=.1)
     assert by_id['RESERVED']['tempF']==68,'Reserved status with affirmative QC is usable'
+
+
+def test_thirty_minute_window_is_fixed_with_inclusive_cutoff():
+    recent=cluster(age=30)
+    stale=row('TOOOLD',lat=44.93,lon=-93.44,age=30.01)
+    result=w.analysis(data(recent+[stale]),44.925,-93.415,NOW)
+    assert result['available'] and result['windowMinutes']==30
+    assert result['stationCount']==4
+    assert all(r['station']!='TOOOLD' for r in result['stations'])
+    with pytest.raises(ValueError,match='30 minutes'):
+        w.analysis(data(recent),44.925,-93.415,NOW,60)
+    html=(Path(__file__).resolve().parents[1]/'static/index.html').read_text()
+    assert 'id="test-window"' not in html and 'Past 60 min' not in html

@@ -265,7 +265,7 @@ coordinates, map selection and explicit browser geolocation are supported.
 `point_weather.py` reads current and previous public NOAA MADIS mesonet, RWIS and
 high-frequency airport files plus the AWC airport cache. Conditional HTTP requests
 and per-file normalized caches avoid re-decoding unchanged files. Each physical
-station contributes its newest report in the requested 30/60-minute window;
+station contributes its newest report in the fixed 30-minute window;
 reissued files replace earlier QC decisions. Restricted observations are not
 included. Missing fields remain missing; zero wind is valid calm. Temperature and
 dewpoint use source field checks and bounds; dewpoint may be derived from screened

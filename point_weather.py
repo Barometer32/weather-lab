@@ -161,12 +161,12 @@ def haversine(lat, lon, lats, lons):
     return 6371*2*np.arcsin(np.sqrt(np.clip(a,0,1)))
 
 
-def analysis(data, lat, lon, now, minutes=60):
+def analysis(data, lat, lon, now, minutes=30):
     """IDW at four fixed 5-km grid nodes, bilinear sampling at the chosen pin."""
     from scipy.spatial import cKDTree
     lat, lon = coordinates(lat, lon)
-    if minutes not in (30, 60):
-        raise ValueError('Choose a 30- or 60-minute observation window.')
+    if minutes != 30:
+        raise ValueError('TEST uses only observations from the past 30 minutes.')
     result = {'latitude': lat, 'longitude': lon, 'estimated': True, 'gridSpacingKm': GRID_KM,
               'windowMinutes': minutes, 'checkedAt': data.get('checkedAt'), 'available': False,
               'sourceErrors': data.get('errors', []), 'pendingFiles': data.get('pendingFiles', []), 'fields': {}, 'stations': []}

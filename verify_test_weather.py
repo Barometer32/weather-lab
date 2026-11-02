@@ -9,10 +9,10 @@ def verify(base):
         with urlopen(Request(base.rstrip('/')+path,headers={'User-Agent':'Weather-Lab deployment check'}),timeout=90) as response:
             return response.read()
     html = read('/').decode()
-    if 'id="tab-test"' not in html or 'test-weather.js?v=test-point-v1' not in html:
+    if 'id="tab-test"' not in html or 'test-weather.js?v=test-point-v2' not in html:
         raise ValueError('TEST page assets were not published.')
-    data = json.loads(read('/api/test/conditions?lat=44.9244&lon=-93.414&minutes=60'))
-    if not data.get('checkedAt') or data.get('gridSpacingKm') != 5 or not data.get('fields'):
+    data = json.loads(read('/api/test/conditions?lat=44.9244&lon=-93.414&minutes=30'))
+    if not data.get('checkedAt') or data.get('gridSpacingKm') != 5 or data.get('windowMinutes') != 30 or not isinstance(data.get('fields'), dict) or not isinstance(data.get('available'), bool):
         raise ValueError('The TEST observation snapshot was not verified.')
     print('TEST ready; '+str(data.get('stationCount',0))+' supporting stations near Hopkins.',flush=True)
     if not data.get('available'):

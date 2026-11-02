@@ -2,7 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const nodes=new Map(),calls=[],stored=new Map();let gps=0,mapClick;
 function element(tag='div'){return {tag,children:[],events:{},hidden:false,value:'',append(...x){this.children.push(...x);},replaceChildren(...x){this.children=x;},addEventListener(e,f){this.events[e]=f;},setAttribute(){},style:{}};}
-const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};get('test-window').value='60';
+const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
 function fetch(url){let resolve,reject;const p=new Promise((r,j)=>{resolve=data=>r({ok:true,json:async()=>data});reject=j;});calls.push({url,resolve,reject});return p;}
 const layer={addTo(){return this;},setLatLng(){return this;},bindPopup(){return this;}};
 const map={setView(){return this;},getZoom(){return 10;},invalidateSize(){},on(event,fn){if(event==='click')mapClick=fn;}};
@@ -13,7 +13,7 @@ const conditions=value=>({fields:{temperatureF:{value,stationCount:4},dewpointF:
 const forecast={periods:[{name:'Tonight',temperature:40,temperatureUnit:'F',detailedForecast:'Clear.'}],timeZone:'America/Chicago',updatedAt:'2026-11-02T11:00:00Z',sourceUrl:'https://forecast.weather.gov/MapClick.php?lat=44.9&lon=-93.4'};
 (async()=>{
  ctx.window.WeatherTest.select('metar');assert.equal(calls.length,0);assert.equal(gps,0);
- ctx.window.WeatherTest.select('test');assert.equal(calls.length,2);assert.ok(calls[0].url.includes('conditions'));assert.ok(calls[0].url.includes('minutes=60'));
+ ctx.window.WeatherTest.select('test');assert.equal(calls.length,2);assert.ok(calls[0].url.includes('conditions'));assert.ok(calls[0].url.includes('minutes=30'));
  calls[0].resolve(conditions(50));calls[1].resolve(forecast);await tick();
  assert.equal(get('test-temp').textContent,'50°F');assert.equal(get('test-wind').textContent,'0');assert.match(get('test-valid').textContent,/Reports/);assert.equal(get('test-periods').children.length,1);
  // A new pin clears old values, and late old-location responses cannot win.
