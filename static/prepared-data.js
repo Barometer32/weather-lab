@@ -5,10 +5,12 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map(),assetQueue=[],queued=new Set();
   let warming=false,workers=0;
-  const paths=["/api/station-plots","/api/radar?site=KMPX","/api/forecast","/api/satellite/13","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const paths=["/api/station-plots","/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
+  // Drop the retired product manifest without disturbing other saved weather.
+  disk().then(cache=>cache?.delete("/api/satellite/13")).catch(()=>{});
   async function remember(url,data,stamp){
     try{const cache=await disk();if(cache)await cache.put(url,new Response(JSON.stringify(data),{headers:{"Content-Type":"application/json","X-Weather-Saved-At":String(stamp)}}));}catch(_){}
   }

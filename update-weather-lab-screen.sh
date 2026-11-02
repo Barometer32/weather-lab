@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fit all screens, add infrared, and repair hourly Air Q history in the live project.
+# Fit all screens and repair hourly Air Q history in the live project.
 set -euo pipefail
 WEATHER_REGION=us-central1
 WEATHER_WORK="$(mktemp -d "$HOME/weather-lab-screen.XXXXXX")"
@@ -41,7 +41,7 @@ echo 'Step 2/5: building the screen layout and data improvements.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 gcloud run services update weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
-echo 'Step 3/5: preparing infrared images and filling available hourly Air Q gaps.'
+echo 'Step 3/5: preparing satellite images and filling available hourly Air Q gaps.'
 WEATHER_JOB="weather-viewer-$(date -u +%y%m%d-%H%M%S)-${WEATHER_WORK##*.}"
 WEATHER_JOB="${WEATHER_JOB,,}"
 gcloud run jobs deploy "$WEATHER_JOB" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$(cat "$WEATHER_WORK/collector-account.txt")" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args='-u,prepare_viewer_data.py' --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=900s --quiet
@@ -59,9 +59,9 @@ python3 - "$WEATHER_WORK/page.html" <<'PY'
 from pathlib import Path
 import sys
 html=Path(sys.argv[1]).read_text()
-for asset in ('style.css?v=compact-timeline-v1','map-fullscreen.js?v=viewport-v1','viewport-fit.js?v=viewport-v1','app.js?v=viewport-v1','metar-model.js?v=metar-combined-v7'):
-    if '/static/'+asset not in html:raise SystemExit('The new viewer assets were not verified.')
-if '<option value="13">Infrared</option>' not in html:raise SystemExit('Infrared dropdown was not verified.')
-print('Verified fitted-screen layout, infrared option, combined METAR plots and prepared weather data.')
+for asset in ('style.css','map-fullscreen.js','viewport-fit.js','app.js','metar-model.js'):
+    if '/static/'+asset+'?v=' not in html:raise SystemExit('The new viewer assets were not verified.')
+if '<option value="13">' in html or '<option value="truecolor">' not in html:raise SystemExit('Three-product satellite dropdown was not verified.')
+print('Verified fitted-screen layout, three satellite options, combined METAR plots and prepared weather data.')
 PY
 printf '\nWeather Lab screen update complete.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nProject: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_PROJECT" "$WEATHER_WORK"

@@ -333,7 +333,7 @@ document.addEventListener("visibilitychange",()=>{
 window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
   if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
 });
-for(const product of ["13","truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
+for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
 });
 window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});

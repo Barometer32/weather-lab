@@ -82,18 +82,25 @@ def test_future_expired_duplicate_and_malformed_frames_do_not_count_as_history()
     assert len(selected)==1 and selected[0]['url']=='two'
 
 
-def test_infrared_has_24_original_images_and_public_prepared_asset_access():
+@pytest.mark.parametrize('product', ['truecolor','dcphase','ntmicro'])
+def test_remaining_products_keep_24_images_and_public_asset_access(product):
     import app as weather
     from satellite import PRODUCTS
-    assert PRODUCTS['13']['label']=='Infrared'
-    old,_,urls,jpeg=source()
-    infrared=[url.replace('/truecolor/','/13/').replace('.truecolor.','.13.') for url in urls]
-    def fetch(url):return ' '.join(infrared).encode() if 'satrad' in url else jpeg
+    assert set(PRODUCTS)=={'truecolor','dcphase','ntmicro'}
+    _,_,urls,jpeg=source()
+    images=[url.replace('/truecolor/',f'/{product}/').replace('.truecolor.',f'.{product}.') for url in urls]
+    def fetch(url):return ' '.join(images).encode() if 'satrad' in url else jpeg
     store=AtomicStore()
-    with patch('app.download',side_effect=fetch):result=collector.collect_product(store,'13',NOW)
-    data=store.read_json('live/satellite-13.json');assert result['frames']==24
-    key=data['frames'][-1]['url'];assert '/satellite/13/' in key
-    assert store.read(key.removeprefix('/api/prepared/'))==jpeg
+    with patch('app.download',side_effect=fetch):result=collector.collect_product(store,product,NOW)
+    data=store.read_json(f'live/satellite-{product}.json');assert result['frames']==24
+    key=data['frames'][-1]['url'];assert f'/satellite/{product}/' in key
     weather._cache.clear();weather.prepared_image.cache_clear()
     with patch('app.get_store',return_value=store):response=weather.app.test_client().get(key)
     assert response.status_code==200 and response.mimetype=='image/jpeg'
+
+
+def test_retired_infrared_endpoints_are_unavailable_even_with_saved_data():
+    import app as weather
+    client=weather.app.test_client()
+    assert client.get('/api/satellite/13').status_code==404
+    assert client.get('/api/prepared/satellite/13/20261024145000.jpg').status_code==404
