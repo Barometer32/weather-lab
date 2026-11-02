@@ -50,7 +50,7 @@ PY
       gcloud run jobs executions cancel "$WEATHER_EXECUTION" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --quiet
     done <"$WEATHER_WORK/$WEATHER_JOB-running.txt"
     gcloud run jobs delete "$WEATHER_JOB" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --quiet
-  elif ! grep -q NOT_FOUND "$WEATHER_WORK/$WEATHER_JOB.err"; then
+  elif ! grep -Eq 'NOT_FOUND|Cannot find job \[' "$WEATHER_WORK/$WEATHER_JOB.err"; then
     cat "$WEATHER_WORK/$WEATHER_JOB.err" >&2; exit 1
   fi
 done

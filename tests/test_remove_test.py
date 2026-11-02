@@ -50,7 +50,7 @@ def test_removed_routes_return_404_without_touching_data(monkeypatch):
     assert not (ROOT/'point_weather.py').exists() and not (ROOT/'point_history.py').exists()
 
 
-@pytest.mark.parametrize('mode',['present','absent','build-fail','denied'])
+@pytest.mark.parametrize('mode',['present','absent','build-fail','denied','job-denied'])
 def test_remove_installer_only_mutates_test_jobs_and_preserves_service_settings(tmp_path,mode):
     binary=tmp_path/'bin';binary.mkdir();home=tmp_path/'home';home.mkdir();log=tmp_path/'calls'
     stub='''#!REALPY
@@ -73,7 +73,8 @@ elif a[:3]==['scheduler','jobs','describe']:
  if mode=='absent':print('NOT_FOUND',file=sys.stderr);sys.exit(1)
  print(json.dumps({'state':'ENABLED'}))
 elif a[:3]==['run','jobs','describe']:
- if mode=='absent' or a[3]=='weather-test-cleanup':print('NOT_FOUND',file=sys.stderr);sys.exit(1)
+ if mode=='job-denied' and a[3]=='weather-test-cleanup':print('PERMISSION_DENIED',file=sys.stderr);sys.exit(1)
+ if mode=='absent' or a[3]=='weather-test-cleanup':print('ERROR: (gcloud.run.jobs.describe) Cannot find job ['+a[3]+'].',file=sys.stderr);sys.exit(1)
  print('{}')
 elif a[:4]==['run','jobs','executions','list']:
  print(json.dumps([{'metadata':{'name':'weather-test-seed-active'},'status':{'conditions':[{'type':'Completed','status':'Unknown'}]}},{'metadata':{'name':'weather-test-seed-done'},'status':{'completionTime':'2026-11-02T01:00:00Z'}}]))
@@ -88,13 +89,13 @@ elif a[:2]==['builds','submit'] and mode=='build-fail':sys.exit(1)
     schedules=[c for c in calls if c[:3]==['gcloud','scheduler','jobs']]
     assert all('weather-live-test-weather' in c for c in schedules)
     canceled=[c[5] for c in calls if c[:5]==['gcloud','run','jobs','executions','cancel']]
-    assert canceled==(['weather-test-seed-active'] if mode in ['present','build-fail'] else [])
+    assert canceled==(['weather-test-seed-active'] if mode in ['present','build-fail','job-denied'] else [])
     updates=[c for c in calls if c[:4]==['gcloud','run','services','update']]
     assert [c[4] for c in updates]==(['weather-collector','weather-lab'] if mode in ['present','absent'] else [])
     assert all(not any(v.startswith(('--memory','--min','--set-env','--service-account')) for v in c) for c in updates)
     jobs=[c for c in calls if c[:3]==['gcloud','run','jobs'] and c[3] in ('delete','deploy','execute')]
     assert all(c[4] in ['weather-test-seed','weather-test-cleanup'] for c in jobs)
-    if mode=='denied':assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
+    if mode in ['denied','job-denied']:assert not any(c[:3]==['gcloud','builds','submit'] for c in calls)
     if mode in ['present','absent']:
         assert any(c[:5]==['gcloud','run','jobs','delete','weather-test-cleanup'] for c in calls)
         assert not any('domain-mappings' in c or c[:3]==['gcloud','billing','projects'] for c in calls)
