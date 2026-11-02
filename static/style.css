@@ -410,50 +410,6 @@ body.map-focus #metar .eyebrow { display:none; }
   }
 }
 
-/* TEST is a scrollable point dashboard; existing map viewers keep their sizing. */
-#test .test-scroll { flex:1 1 0; min-height:0; overflow:auto; overscroll-behavior:contain; padding:0 3px 12px; }
-.test-search { display:flex; gap:8px; max-width:820px; }
-.test-search input { flex:1; min-width:0; font:inherit; border:1px solid #cfdad6; border-radius:8px; padding:10px 12px; }
-.test-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; }
-.test-location-row,.test-forecast-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.test-location-row h2,.test-forecast-heading h2 { margin:8px 0 12px; font-size:20px; }
-.test-location-row label { font-size:12px; color:#53645d; white-space:nowrap; }
-.test-location-row select { padding:6px; margin-left:3px; font:inherit; }
-.test-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-.test-cards article { padding:16px 7px; text-align:center; background:#f3f7f5; border-radius:10px; }
-.test-cards h3 { font-size:13px; font-weight:500; margin:0 0 8px; color:#4d6257; }
-.test-cards strong { font-size:clamp(23px,2.2vw,34px); color:#142f22; }
-.test-time,.test-map-hint { font-size:12px; color:#53645d; margin:8px 0; line-height:1.5; }
-#test-map { height:230px; border:1px solid #d6e0da; border-radius:10px; margin-top:14px; background:#fafbfa; z-index:0; }
-.test-map-hint { margin-bottom:16px; }
-.test-details { font-size:12px; line-height:1.65; }
-.test-details summary { cursor:pointer; font-size:13px; font-weight:600; }
-.test-details table { width:100%; font-size:12px; }
-.test-details th,.test-details td { padding:5px; text-align:left; }
-.test-details .test-support-table { overflow:auto; }
-.test-period { padding:12px 0; border-top:1px solid #e2e8e4; }
-.test-period h3 { font-size:15px; margin:0 0 5px; display:flex; gap:12px; justify-content:space-between; }
-.test-period p { font-size:14px; line-height:1.5; margin:0; }
-#test-status { font-size:13px; min-height:1.4em; margin:10px 0; }
-@media(max-width:800px) {
- .test-grid { grid-template-columns:minmax(0,1fr); gap:22px; }
- .test-search { flex-wrap:wrap; gap:6px; }
- .test-search input { flex-basis:calc(100% - 90px); }
- .test-search button { padding:9px 12px; font-size:13px; }
- .test-location-row h2 { font-size:18px; }
- .test-cards strong { font-size:27px; }
- .test-cards h3 { font-size:12px; }
- #test-map { height:220px; }
-}
-
-.test-history-panel { margin-top:16px; border-top:1px solid #e1e8e4; padding-top:5px; }
-.test-history-panel h3 { font-size:14px; margin:10px 0; }
-.test-history-panel .secondary { padding:6px 10px; font-size:12px; }
-#test-chart svg { display:block; width:100%; height:auto; max-height:210px; }
-#test-timeline { display:block; width:100%; max-width:520px; margin:5px auto 0; }
-#test-history-time,#test-history-status { text-align:center; }
-@media(max-width:800px) { #test-timeline { width:80%; } }
-
 .radar-location-control { position:absolute; top:10px; right:10px; z-index:700; padding:8px 10px; min-height:36px; font-size:12px; box-shadow:0 1px 5px #0002; }
 #radar-location[aria-pressed="true"] { background:#edf5ff; color:#175c9c; border-color:#82afd8; }
 #radar-map-area { position:relative; }

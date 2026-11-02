@@ -253,59 +253,6 @@ Collection checks the current and previous UTC hourly MADIS files every two minu
 
 The update builds one image, saves both service settings and scheduler definitions, updates the collector and website, adds only `weather-live-observation-stations` at `*/2 * * * *`, and verifies the public station inventory. Existing airport collection continues for CLOUDS. Radar, satellite, forecast and Air Q schedules are preserved. Public page requests read the prepared inventory; they do not download NOAA files. The endpoint is `/api/observation-stations`, and the private collection route is `/collect/observation-stations`.
 
-### Experimental location weather (TEST)
-
-`setup-weather-lab-test.sh PROJECT_ID` builds and adds TEST in place, keeping the
-existing METAR/Radar/Satellite/Forecast/Air Q settings and schedules. TEST has a
-separate private `weather-live-test-weather` schedule every five minutes. No bulk
-station download runs on a page view. Forecasts use the NWS points API with a
-10-minute per-point cache; city/ZIP search uses the NWS place lookup. Manual
-coordinates, map selection and explicit browser geolocation are supported.
-
-`point_weather.py` reads current and previous public NOAA MADIS mesonet, RWIS and
-high-frequency airport files plus the AWC airport cache. Conditional HTTP requests
-and per-file normalized caches avoid re-decoding unchanged files. Each physical
-station contributes its newest report in the fixed 30-minute window;
-reissued files replace earlier QC decisions. Restricted observations are not
-included. Missing fields remain missing; zero wind is valid calm. Temperature and
-dewpoint use source field checks and bounds; dewpoint may be derived from screened
-RH and temperature. Explicit sensor faults are rejected. Unknown QC descriptors
-are accepted provisionally, not described as verified measurements.
-
-At a selected point, all usable nearby station fields within 80 km of the four
-surrounding 5-km grid nodes can contribute, weighted by distance, age and station
-density. At least three stations and one within 40 km are required per variable.
-Temperature/dewpoint outliers are downweighted with a robust neighborhood scale.
-Wind is interpolated as u/v components and converted back to speed/from-direction.
-Bilinear interpolation samples the four nodes. The reported observation range and
-per-field weighted representative times are actual source times, separate from
-cache-check and NWS forecast-issue times. Grid spacing is not a claim of 5-km
-accuracy; exposure, terrain, stale input and sparse coverage remain limitations.
-This first experiment does not include every weather network or restricted feeds.
-
-
-TEST also provides **the past 12 hours at the selected point**, sampled hourly
-plus current conditions. Each sample uses reports observed during its preceding
-30 minutes. Its charts and slider update the condition cards; the adjacent NWS
-forecast remains the latest forecast, not an archived forecast. No personal travel history is created; the archived files contain shared station
-reports. Selected coordinates are used for weather requests and a bounded lookup
-cache.
-
-`point_history.py` stores shared, compressed, streaming MADIS hourly report
-archives from the same source downloads already used by TEST. The five-minute
-collector checks only current/previous source files, never downloads twelve hours
-per check. Installation runs a one-time best-effort backfill of fourteen source
-hours (the extra boundary hours support the earliest 30-minute window). Missing
-feeds leave gaps. Historical estimates use observation times, so delayed reports
-and revised QC may change them; they do not reproduce exactly what was visible
-at the original wall-clock time. Historical airport input comes from public MADIS
-high-frequency reports; the current AWC cache is not a historical archive.
-
-Hourly retention maintenance deletes only recognized TEST archive keys older
-than 24 hours. Point-history requests are read-only, use a small bounded result
-cache, and decode one archive record at a time to limit memory on the website.
-The existing five-minute schedule is reused; there is no additional scheduled job.
-
 ### Current location on radar
 
 The RADAR map's **My location** button opts into browser geolocation, with a blue
@@ -320,3 +267,12 @@ than a phone's. The radar source remains KMPX.
 `update-weather-radar-location.sh PROJECT_ID` builds and updates only the website
 image. It preserves service settings and does not change collectors, schedules,
 weather downloads, data history or the custom address.
+
+### Removing the retired TEST experiment
+
+`remove-weather-test.sh PROJECT_ID` stops and removes only the TEST scheduler,
+cancels unfinished TEST seed work, updates the website and collector images,
+and removes TEST caches and history through a temporary scoped cleanup job.
+The cleanup job is deleted after completion. The five weather tabs, their
+schedules, service configuration and radar location option remain. The location
+dot is now slightly smaller (5 px radius with a 1.5 px white outline).

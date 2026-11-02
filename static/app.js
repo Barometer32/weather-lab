@@ -1,4 +1,5 @@
 "use strict";
+try { localStorage.removeItem("weather-test-location"); } catch (_) {}
 const $ = id => document.getElementById(id);
 const central = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
 const fullTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", month:"short", day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
@@ -267,12 +268,11 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar","test","radar","satellite","forecast","air-quality"];
+const tabs = ["metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   window.WeatherMetars?.select(id);
-  window.WeatherTest?.select(id);
   window.WeatherRadarLocation?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
@@ -324,7 +324,6 @@ setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},6
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
     if (!$("metar").hidden) window.WeatherMetars?.select("metar");
-    if (!$("test").hidden) window.WeatherTest?.select("test");
     if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();

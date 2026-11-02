@@ -17,11 +17,6 @@ def main():
     refresh_media.main()
     print("Data 3/3: latest Minnesota Air Q map",flush=True)
     air_quality.main()
-    print("Preparing TEST's shared public station snapshot",flush=True)
-    import point_weather
-    point_weather.collect(store,datetime.now(timezone.utc))
-    from point_history import backfill
-    backfill(store,datetime.now(timezone.utc))
     print("Latest Weather Lab data prepared. Existing Air Q history is retained when available; lost source-hour snapshots rebuild over time.",flush=True)
 
 

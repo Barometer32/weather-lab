@@ -32,12 +32,12 @@ gcloud run services update-traffic weather-lab --project="$WEATHER_PROJECT" --re
 echo 'Step 3/3: verifying the location button and script.'
 WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/" -o "$WEATHER_WORK/page.html"
-curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/static/radar-location.js?v=radar-location-v1" -o "$WEATHER_WORK/location.js"
+curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/static/radar-location.js?v=radar-location-v2" -o "$WEATHER_WORK/location.js"
 python3 - "$WEATHER_WORK" <<'PY'
 from pathlib import Path
 import sys
 work=Path(sys.argv[1]);html=(work/'page.html').read_text()
-if 'id="radar-location"' not in html or 'radar-location.js?v=radar-location-v1' not in html:raise SystemExit('Radar location control was not verified.')
+if 'id="radar-location"' not in html or 'radar-location.js?v=radar-location-v2' not in html:raise SystemExit('Radar location control was not verified.')
 if (work/'location.js').read_bytes()!=(work/'source/static/radar-location.js').read_bytes():raise SystemExit('The expected location script was not served.')
 print('Verified: opt-in location dot and accuracy ring on radar, including full screen.')
 PY

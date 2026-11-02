@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("test-weather", "radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "observation-stations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "observation-stations")}
 
 
 def collect_radar_legacy(store, now):
@@ -195,12 +195,6 @@ def collect_observation_stations(store, now):
     return {"stations":len(data["stations"]),"sourceFailures":data["sourceFailures"]}
 
 
-def collect_test_weather(store, now):
-    from point_weather import collect
-    data = collect(store, now)
-    return {"stations":len(data["stations"]),"sourceErrors":data["errors"]}
-
-
 def collect_forecast(store, now):
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
@@ -216,8 +210,7 @@ def health():
 
 @app.post("/collect/<kind>")
 def collect(kind):
-    jobs = {"test-weather": collect_test_weather,
-            "radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
+    jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,

@@ -29,7 +29,7 @@ fi
 # Retire the removed mesonet map and selected-station Observations collectors.
 WEATHER_ACTIVE_JOBS="$(gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='value(name)')"
 while IFS= read -r WEATHER_JOB_PATH; do
-  if [[ "${WEATHER_JOB_PATH##*/}" == weather-live-madis-map || "${WEATHER_JOB_PATH##*/}" == weather-live-hennepin-current ]]; then
+  if [[ "${WEATHER_JOB_PATH##*/}" == weather-live-test-weather || "${WEATHER_JOB_PATH##*/}" == weather-live-madis-map || "${WEATHER_JOB_PATH##*/}" == weather-live-hennepin-current ]]; then
     gcloud scheduler jobs delete "${WEATHER_JOB_PATH##*/}" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --quiet
   fi
 done <<< "$WEATHER_ACTIVE_JOBS"
@@ -105,7 +105,6 @@ weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
 weather_schedule metar-clouds '0,5,10 * * * *' metar-clouds 300 0
 weather_schedule air-quality '3-58/5 * * * *' air-quality 300 2
-weather_schedule test-weather '*/5 * * * *' test-weather 300 0
 
 
 if [[ "${WEATHER_DEFER_WEB:-false}" != true ]]; then

@@ -18,7 +18,7 @@ def verify(base, fetch=None):
 
     fetch = fetch or download
     html = fetch('/').decode()
-    expected = ['metar', 'test', 'radar', 'satellite', 'forecast', 'air-quality'] if 'id="tab-test"' in html else ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
+    expected = ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
     if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != expected:
         raise ValueError('The saved weather tabs were not verified')
     combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html

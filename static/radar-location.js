@@ -24,7 +24,7 @@ window.WeatherRadarLocation = (() => {
         const reported=new Date(position.timestamp||Date.now()).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
         const text=`Your current location · ${reported}${radius==null?"":` · accuracy about ${radius>=1000?`${(radius/1000).toFixed(1)} km`:`${Math.round(radius)} m`}`}`;
         const popup=document.createElement("span");popup.textContent=text;
-        if(!marker){marker=L.circleMarker(coords,{pane:"radar-location",radius:6,color:"#ffffff",weight:2,fillColor:"#1976d2",fillOpacity:1}).addTo(map).bindPopup(popup);marker.bindTooltip("Your current location");}
+        if(!marker){marker=L.circleMarker(coords,{pane:"radar-location",radius:5,color:"#ffffff",weight:1.5,fillColor:"#1976d2",fillOpacity:1}).addTo(map).bindPopup(popup);marker.bindTooltip("Your current location");}
         else marker.setLatLng(coords).setPopupContent(popup);
         if(radius!=null){
           if(!accuracyRing)accuracyRing=L.circle(coords,{pane:"radar-location",radius,color:"#1976d2",weight:1,opacity:.35,fillColor:"#1976d2",fillOpacity:.05,interactive:false}).addTo(map);

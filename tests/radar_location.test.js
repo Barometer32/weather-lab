@@ -15,7 +15,7 @@ function setup(saved=false){
 {
  const t=setup();assert.equal(t.watches.size,0);t.location.select('radar');assert.equal(t.watches.size,0,'No GPS before explicit opt-in');
  t.nodes['radar-location'].events.click();assert.equal(t.watches.size,1);assert.equal(t.watches.get(0).options.maximumAge,30000);t.watches.get(0).success(t.fix());
- assert.equal(t.layers.length,2);assert.equal(t.pans.length,1);assert.equal(t.layers[0].options.radius,6);assert.equal(t.layers[1].options.radius,20);
+ assert.equal(t.layers.length,2);assert.equal(t.pans.length,1);assert.equal(t.layers[0].options.radius,5);assert.equal(t.layers[1].options.radius,20);
  t.watches.get(0).success(t.fix(45,-94,30));assert.equal(t.layers.length,2);assert.equal(t.pans.length,1,'Updates move the dot without recentering a panned map');assert.equal(t.layers[1].options.radius,30);
  t.location.select('metar');assert.ok(t.cleared.includes(0),'Watch ID zero is correctly stopped');assert.equal(t.layers.length,0);t.watches.get(0).success(t.fix());assert.equal(t.layers.length,0,'Late fixes cannot restore a canceled marker');
  t.location.select('radar');assert.equal(t.watches.size,2);t.watches.get(1).success(t.fix());assert.equal(t.layers.length,2);
@@ -31,5 +31,7 @@ function setup(saved=false){
 {
  const t=setup(true);assert.equal(t.watches.size,0,'Remembered preference does not start GPS on another page');t.location.select('radar');assert.equal(t.watches.size,1);t.watches.get(0).success(t.fix());assert.equal(t.pans.length,0,'Remembered preference preserves saved opening view');
 }
-const html=fs.readFileSync('static/index.html','utf8');assert.match(html,/<div id="radar-map-area"[\s\S]*id="radar-location"[\s\S]*id="radar-location-status"/);assert.match(html,/radar-location.js\?v=radar-location-v1/);
+const html=fs.readFileSync('static/index.html','utf8');assert.match(html,/<div id="radar-map-area"[\s\S]*id="radar-location"[\s\S]*id="radar-location-status"/);assert.match(html,/radar-location.js\?v=radar-location-v2/);
 console.log('Radar location passed: explicit opt-in, updates, accuracy, preserved zoom/view, hidden-tab cleanup, permission failure, stale-fix rejection and fullscreen control.');
+
+const retiredKeys=[];vm.runInNewContext(fs.readFileSync('static/app.js','utf8').split('const $')[0],{localStorage:{removeItem:key=>retiredKeys.push(key)}});assert.deepEqual(retiredKeys,['weather-test-location'],'Only the retired TEST location is cleared; radar preferences remain');
