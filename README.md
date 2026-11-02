@@ -282,3 +282,26 @@ per-field weighted representative times are actual source times, separate from
 cache-check and NWS forecast-issue times. Grid spacing is not a claim of 5-km
 accuracy; exposure, terrain, stale input and sparse coverage remain limitations.
 This first experiment does not include every weather network or restricted feeds.
+
+
+TEST also provides **the past 12 hours at the selected point**, sampled hourly
+plus current conditions. Each sample uses reports observed during its preceding
+30 minutes. Its charts and slider update the condition cards; the adjacent NWS
+forecast remains the latest forecast, not an archived forecast. No personal travel history is created; the archived files contain shared station
+reports. Selected coordinates are used for weather requests and a bounded lookup
+cache.
+
+`point_history.py` stores shared, compressed, streaming MADIS hourly report
+archives from the same source downloads already used by TEST. The five-minute
+collector checks only current/previous source files, never downloads twelve hours
+per check. Installation runs a one-time best-effort backfill of fourteen source
+hours (the extra boundary hours support the earliest 30-minute window). Missing
+feeds leave gaps. Historical estimates use observation times, so delayed reports
+and revised QC may change them; they do not reproduce exactly what was visible
+at the original wall-clock time. Historical airport input comes from public MADIS
+high-frequency reports; the current AWC cache is not a historical archive.
+
+Hourly retention maintenance deletes only recognized TEST archive keys older
+than 24 hours. Point-history requests are read-only, use a small bounded result
+cache, and decode one archive record at a time to limit memory on the website.
+The existing five-minute schedule is reused; there is no additional scheduled job.

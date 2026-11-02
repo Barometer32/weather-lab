@@ -101,7 +101,8 @@ def collect(store, now, download=None):
     previous = store.read_json(KEY) or {}
     if previous.get('version') == VERSION and now-stamp(previous['checkedAt']) < timedelta(minutes=4):
         return previous
-    rows, errors, pending, good = [], [], [], 0
+    from point_history import VERSION as ARCHIVE_VERSION, save_archive
+    rows, errors, pending, archive_errors, good = [], [], [], [], 0
     hour = now.replace(minute=0, second=0, microsecond=0)
     for family in FAMILIES:
         for offset in (0, 1):
@@ -112,13 +113,20 @@ def collect(store, now, download=None):
                 old = {}
             url = 'https://madis-data.ncep.noaa.gov/madisPublic1/data/LDAD/'+family+'/netCDF/'+name
             try:
-                payload, metadata = download(url, old.get('metadata'))
+                payload, metadata = download(url, old.get('metadata') if old.get('archiveVersion') == ARCHIVE_VERSION else None)
                 if payload is not None:
                     parsed = parse_file(payload, now, bounds=(-85,-180,85,180),
                                         window_start=hour-timedelta(hours=1), window_end=now+timedelta(seconds=1),
                                         excluded_stations=(), sensor_status_checks=True, derive_dewpoint=True)
+                    archived = False
+                    try:
+                        save_archive(store,family,hour-timedelta(hours=offset),parsed)
+                        archived = True
+                    except Exception as error:
+                        archive_errors.append({'feed':family,'file':name,'error':str(error)[:120]})
                     parsed = latest(parsed, now, 120)
-                    old = {'file': file_id, 'metadata': metadata, 'stations': parsed}
+                    old = {'file': file_id, 'metadata': metadata, 'stations': parsed,
+                           'archiveVersion': ARCHIVE_VERSION if archived else None}
                     store.write_json('live/test-input-'+family+'-'+str(offset)+'.json', old)
                 rows.extend(old.get('stations', []))
                 good += 1
@@ -148,9 +156,16 @@ def collect(store, now, download=None):
     if not stations:
         raise ValueError('No recent TEST observations; previous snapshot retained.')
     data = {'version': VERSION, 'checkedAt': iso(now), 'windowStart': iso(now-timedelta(hours=1)),
-            'windowEnd': iso(now), 'stations': stations, 'errors': errors, 'pendingFiles': pending,
+            'windowEnd': iso(now), 'stations': stations, 'errors': errors, 'pendingFiles': pending, 'historyArchiveErrors':archive_errors,
             'source': 'NOAA MADIS public mesonet, RWIS, high-frequency airports and AWC METAR'}
     store.write_json(KEY, data)
+    try:
+        from point_history import prune
+        prune(store,now)
+    except Exception:
+        # Retention maintenance must not interrupt fresh weather collection.
+        import logging
+        logging.getLogger(__name__).exception('TEST history retention delayed')
     return data
 
 
@@ -309,7 +324,10 @@ def point_forecast(lat, lon, slot):
 
 def main():
     from realtime import get_store
-    data = collect(get_store(),datetime.now(timezone.utc))
+    store=get_store()
+    data = collect(store,datetime.now(timezone.utc))
+    from point_history import backfill
+    print(json.dumps(backfill(store,datetime.now(timezone.utc))),flush=True)
     print(json.dumps({'stations':len(data['stations']),'checkedAt':data['checkedAt'],'partialFeedErrors':data['errors']}),flush=True)
 
 

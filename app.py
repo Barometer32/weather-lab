@@ -463,6 +463,24 @@ def test_conditions_api():
         return jsonify(error="The TEST station snapshot is not ready. Background collection will retry."),503
 
 
+@app.get("/api/test/history")
+def test_history_api():
+    from point_weather import coordinates
+    from point_history import get_history
+    try:
+        lat,lon=coordinates(request.args.get("lat"),request.args.get("lon"))
+    except (ValueError,TypeError) as error:
+        return jsonify(error=str(error)),400
+    try:
+        data=prepared_snapshot("test-weather",720)
+        store=get_store()
+        if not data or not store:raise ValueError("No TEST station snapshot")
+        return jsonify(get_history(store,lat,lon,utcnow(),data['checkedAt'])),200,{"Cache-Control":"no-store"}
+    except Exception:
+        app.logger.exception("TEST point history unavailable")
+        return jsonify(error="History is not ready or is busy loading. Current conditions and the forecast remain available."),503
+
+
 @app.get("/api/test/forecast")
 def test_forecast_api():
     from point_weather import coordinates,point_forecast

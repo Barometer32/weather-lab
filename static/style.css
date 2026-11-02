@@ -445,3 +445,11 @@ body.map-focus #metar .eyebrow { display:none; }
  .test-cards h3 { font-size:12px; }
  #test-map { height:220px; }
 }
+
+.test-history-panel { margin-top:16px; border-top:1px solid #e1e8e4; padding-top:5px; }
+.test-history-panel h3 { font-size:14px; margin:10px 0; }
+.test-history-panel .secondary { padding:6px 10px; font-size:12px; }
+#test-chart svg { display:block; width:100%; height:auto; max-height:210px; }
+#test-timeline { display:block; width:100%; max-width:520px; margin:5px auto 0; }
+#test-history-time,#test-history-status { text-align:center; }
+@media(max-width:800px) { #test-timeline { width:80%; } }

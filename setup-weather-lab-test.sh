@@ -35,7 +35,7 @@ WEATHER_BUCKET="$(cat "$WEATHER_WORK/bucket")"
 WEATHER_COLLECTOR_SA="$(cat "$WEATHER_WORK/collector-sa")"
 echo 'Step 2/5: building the TEST page and shared observation collector once.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
-echo 'Step 3/5: updating the private collector and preparing the first station snapshot.'
+echo 'Step 3/5: updating the private collector and preparing the first station snapshot and twelve-hour history.'
 gcloud run services update weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --quiet
 gcloud run services update-traffic weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --to-latest --quiet
 gcloud run jobs deploy weather-test-seed --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args='-u,point_weather.py' --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=900s --quiet

@@ -18,8 +18,21 @@ class BucketStore:
 
     def write(self, key, data, content_type):
         blob = self.bucket.blob(key)
-        blob.cache_control = "no-cache" if key.startswith("live/") else "public, max-age=86400, immutable"
+        blob.cache_control = "no-cache" if key.startswith(("live/", "test-history/")) else "public, max-age=86400, immutable"
         blob.upload_from_string(data, content_type=content_type, timeout=30)
+
+    def exists(self, key):
+        return self.bucket.blob(key).exists(timeout=30)
+
+    def list_keys(self, prefix):
+        return (blob.name for blob in self.bucket.list_blobs(prefix=prefix))
+
+    def delete(self, key):
+        from google.api_core.exceptions import NotFound
+        try:
+            self.bucket.blob(key).delete(timeout=30)
+        except NotFound:
+            pass
 
     def read_json(self, key):
         value = self.read(key)
