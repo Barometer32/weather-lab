@@ -1,4 +1,4 @@
-"""Retire TEST only; preserve the five weather pages and radar geolocation."""
+"""Retire TEST only; preserve the five weather pages without device location."""
 import json
 import os
 from pathlib import Path
@@ -43,7 +43,7 @@ def test_removed_routes_return_404_without_touching_data(monkeypatch):
     html=(ROOT/'static/index.html').read_text()
     import re
     assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','radar','satellite','forecast','air-quality']
-    assert 'id="radar-location"' in html and 'radar-location.js?v=radar-location-v2' in html
+    assert 'id="radar-location"' not in html and 'radar-location.js' not in html
     assert 'const historyHours=4;' in (ROOT/'static/metar-views.js').read_text()
     assert "weather_schedule metar-clouds '0,5,10 * * * *'" in (ROOT/'deploy.sh').read_text()
     assert 'WeatherTest' not in (ROOT/'static/app.js').read_text()

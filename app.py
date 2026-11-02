@@ -21,6 +21,13 @@ from realtime import get_store
 from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 
 app = Flask(__name__, static_folder="static", template_folder="static")
+@app.after_request
+def disable_device_location(response):
+    # None of the weather pages need access to the visitor's device location.
+    response.headers["Permissions-Policy"] = "geolocation=()"
+    return response
+
+
 UTC = timezone.utc
 STATIONS = {"KFCM": "Flying Cloud", "KMSP": "Minneapolis–St. Paul", "KMIC": "Crystal"}
 OBSERVATION_CHECK_MINUTES = (0,)

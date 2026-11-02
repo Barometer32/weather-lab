@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=standard-five-tabs-v1">
+  <link rel="stylesheet" href="/static/style.css?v=no-device-location-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -18,8 +18,7 @@
   <script defer src="/static/air-quality-views.js?v=metar-products-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/radar-location.js?v=radar-location-v2"></script>
-  <script defer src="/static/app.js?v=standard-five-tabs-v1"></script>
+  <script defer src="/static/app.js?v=no-device-location-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -48,7 +47,7 @@
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface" class="map-viewer">
-    <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries and faint major roads"></div><button id="radar-location" class="secondary radar-location-control" aria-pressed="false">My location</button><p id="radar-location-status" class="radar-location-status" role="status" aria-live="polite" hidden></p></div>
+    <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries and faint major roads"></div></div>
     <div class="radar-controls viewer-controls">
       <div class="viewer-frame-time" id="radar-time">Loading radar…</div>
       <div class="timeline-control"><label class="sr-only" for="timeline">Manual radar timeline: drag to select a scan</label><input id="timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="Manual radar scan timeline" disabled></div>

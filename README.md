@@ -253,20 +253,18 @@ Collection checks the current and previous UTC hourly MADIS files every two minu
 
 The update builds one image, saves both service settings and scheduler definitions, updates the collector and website, adds only `weather-live-observation-stations` at `*/2 * * * *`, and verifies the public station inventory. Existing airport collection continues for CLOUDS. Radar, satellite, forecast and Air Q schedules are preserved. Public page requests read the prepared inventory; they do not download NOAA files. The endpoint is `/api/observation-stations`, and the private collection route is `/collect/observation-stations`.
 
-### Current location on radar
+### Device location disabled
 
-The RADAR map's **My location** button opts into browser geolocation, with a blue
-dot and the device-reported accuracy circle. The first fix centers the map at its
-existing zoom; later fixes update the marker without overriding manual panning.
-Click **Location on** to hide it. The control remains on the map in full screen.
-Its preference is remembered on that device, but watches run only while RADAR is
-selected and the page is visible. No location coordinates are sent to the weather
-backend for this marker. A laptop's reported location may be much less precise
-than a phone's. The radar source remains KMPX.
+The five weather pages do not request or watch the visitor's device location.
+The former radar marker, accuracy ring, button and location module are removed.
+A `Permissions-Policy: geolocation=()` response header disables browser location
+access across the website. The old radar-location preference and TEST location
+are cleared on reload; manually saved map views are preserved.
 
-`update-weather-radar-location.sh PROJECT_ID` builds and updates only the website
-image. It preserves service settings and does not change collectors, schedules,
-weather downloads, data history or the custom address.
+`remove-weather-location.sh PROJECT_ID` updates only the website image and checks
+that the location control is absent and the blocking header is served. It does
+not alter collectors, weather schedules, data history or service resource settings.
+Refresh open pages on each device after installing it to unload the prior script.
 
 ### Removing the retired TEST experiment
 
@@ -274,5 +272,5 @@ weather downloads, data history or the custom address.
 cancels unfinished TEST seed work, updates the website and collector images,
 and removes TEST caches and history through a temporary scoped cleanup job.
 The cleanup job is deleted after completion. The five weather tabs, their
-schedules, service configuration and radar location option remain. The location
-dot is now slightly smaller (5 px radius with a 1.5 px white outline).
+schedules and service configuration remain. Device location is disabled on all
+weather pages.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Retire TEST only, keep the five weather tabs and the smaller radar location dot.
+# Retire TEST only, keep the five weather tabs without device location.
 set -euo pipefail
 WEATHER_PROJECT="${1:-weather-lab-261028-205713-506d}"
 WEATHER_REGION=us-central1
@@ -64,7 +64,7 @@ WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$(cat "$WEATHER_WORK/image-path"):without-test-${WEATHER_COMMIT:0:12}"
 WEATHER_BUCKET="$(cat "$WEATHER_WORK/bucket")"
 WEATHER_COLLECTOR_SA="$(cat "$WEATHER_WORK/collector-sa")"
-echo 'Step 2/4: building the five-tab site with the smaller radar location dot.'
+echo 'Step 2/4: building the five-tab site without TEST or device location.'
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
 echo 'Step 3/4: updating both service images while preserving their settings.'
 for WEATHER_SERVICE in weather-collector weather-lab; do
@@ -84,12 +84,12 @@ from urllib.request import urlopen
 from urllib.error import HTTPError
 import sys
 html=Path(sys.argv[1]).read_text()
-if 'id="tab-test"' in html or 'test-weather.js' in html or 'radar-location.js?v=radar-location-v2' not in html:raise SystemExit('The expected five-tab radar-location version was not verified.')
+if 'id="tab-test"' in html or 'test-weather.js' in html or 'radar-location.js' in html:raise SystemExit('The expected five-tab version without location was not verified.')
 for path in ('/api/test/conditions','/api/test/history','/api/test/location','/api/test/forecast'):
     try:
         with urlopen(sys.argv[2]+path,timeout=30):raise SystemExit('A retired TEST endpoint is still available')
     except HTTPError as error:
         if error.code!=404:raise
-print('Verified: TEST removed; five weather tabs and the smaller radar location dot remain.')
+print('Verified: TEST removed; five weather tabs remain without device location.')
 PY
 printf '\nOpen https://weather-lab.cloud.run and refresh.\nSaved settings: %s\n' "$WEATHER_WORK"

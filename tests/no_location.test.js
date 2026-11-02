@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('static/app.js','utf8'),removed=[];
+const navigator={};Object.defineProperty(navigator,'geolocation',{get(){throw new Error('Device location must never be accessed');}});
+vm.runInNewContext(source.split('const $')[0],{navigator,localStorage:{removeItem:key=>removed.push(key)}});
+assert.deepEqual(removed,['weather-test-location','weather-radar-location-enabled']);
+vm.runInNewContext(source.split('const $')[0],{navigator,localStorage:{removeItem(){throw new Error('Storage blocked');}}});
+assert.doesNotMatch(source,/WeatherRadarLocation|navigator\.geolocation|watchPosition|getCurrentPosition/);
+const html=fs.readFileSync('static/index.html','utf8');assert.doesNotMatch(html,/radar-location|My location|Location on/);
+assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));
+assert.ok(html.includes('metar-views.js?v=metar-four-frame-v1'));
+console.log('No-location checks passed: retired preferences cleared, blocked-storage fallback, no device-location access, no location controls, weather viewers preserved.');

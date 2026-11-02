@@ -1,5 +1,5 @@
 "use strict";
-try { localStorage.removeItem("weather-test-location"); } catch (_) {}
+try { for (const key of ["weather-test-location","weather-radar-location-enabled"]) localStorage.removeItem(key); } catch (_) {}
 const $ = id => document.getElementById(id);
 const central = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
 const fullTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", month:"short", day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
@@ -35,7 +35,6 @@ function initMap() {
   map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(initial.center,initial.zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
-  window.WeatherRadarLocation?.attach(map);
   window.WeatherRadarRoads.addTo(map,()=>{
     $("map-note").hidden=false;
     $("map-note").textContent="Some road lines could not load. Radar echoes remain available.";
@@ -273,7 +272,6 @@ function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   window.WeatherMetars?.select(id);
-  window.WeatherRadarLocation?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
   window.WeatherAirQuality?.select(id);
