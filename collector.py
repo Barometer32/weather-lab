@@ -60,7 +60,15 @@ def collect_radar(store, now):
 def collect_radar_site(store, now, site):
     from native_radar import collect_site
     palette = [{"dbz": value, "color": color} for value, color in weather.PALETTE]
-    return collect_site(store, now, site, palette, budget=45)
+    result = collect_site(store, now, site, palette, budget=45)
+    # Same minute schedule and identity; a Level III failure cannot erase REF.
+    try:
+        from radar_precipitation import collect
+        result["stormTotal"] = collect(store, now, site)
+    except Exception:
+        app.logger.exception("Storm total delayed; reflectivity remains available")
+        result["stormTotal"] = {"delayed": True}
+    return result
 
 
 def collect_product(store, product, now):

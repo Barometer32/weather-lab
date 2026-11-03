@@ -90,9 +90,9 @@ class NativeRadarTests(unittest.TestCase):
         self.assertEqual(data["site"],"KMPX")
 
     def test_collector_only_collects_kmpx_and_retired_endpoint_is_removed(self):
-        with patch("native_radar.collect_site",return_value={"frames":100}) as collect:
+        with patch("native_radar.collect_site",return_value={"frames":100}) as collect, patch("radar_precipitation.collect",return_value={"frames":20}):
             result=collector.collect_radar(MemoryStore(),NOW)
-        self.assertEqual(result,{"KMPX":{"frames":100}})
+        self.assertEqual(result,{"KMPX":{"frames":100,"stormTotal":{"frames":20}}})
         self.assertEqual([call.args[2] for call in collect.call_args_list],["KMPX"])
         self.assertEqual(set(radar.SITES),{"KMPX"})
         self.assertNotIn("radar-KEVX",collector.locks)
@@ -139,7 +139,7 @@ class NativeRadarTests(unittest.TestCase):
         def fetch(url,header=False):
             if header:return b"AR2V0006.001"+b"\0"*8+b"KMPX"
             return url.encode()
-        def decode(data,header=True):
+        def decode(data,header=True,all_tilts=False):
             url=data.decode()
             if url.endswith('-S'):return []
             if '-002-I' in url:return rows[:400]
@@ -148,7 +148,7 @@ class NativeRadarTests(unittest.TestCase):
         with patch("native_radar.archive_volumes",return_value=[archive]),patch("native_radar.objects",side_effect=listing),patch("native_radar.fetch",side_effect=fetch) as download,patch("native_radar.decode",side_effect=decode):
             result=radar.collect_site(store,NOW,"KMPX",[])
             self.assertEqual(result["frames"],1)
-            self.assertEqual(store.read_json("live/radar-state-KMPX.json")["streams"]["1"]["sequence"],3)
+            self.assertEqual(store.read_json("live/radar-all-state-KMPX.json")["streams"]["1"]["sequence"],3)
             native_keys=[k for k in store.writes if k.endswith('.bin')]
             self.assertEqual(len(native_keys),1)
             store.writes.clear();download.reset_mock()

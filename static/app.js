@@ -20,6 +20,8 @@ const radarSite = "KMPX";
 let radarPalette = [],radarSaved=false,radarQueued=false,satelliteSaved=false,satelliteQueued=false;
 const radarViews = {KMPX:{center:[44.925,-93.462],zoom:8}};
 const radarLayers = new Map();
+let radarProduct="",radarUnsubscribe=null;
+const radarEndpoint=()=>`/api/radar?site=${radarSite}${radarProduct?`&product=${radarProduct}`:""}`;
 function showFrame(n) {
   if (!overlays.length) return;
   index = (n + overlays.length) % overlays.length;
@@ -28,6 +30,9 @@ function showFrame(n) {
   $("timeline").style.setProperty("--progress", `${frames.length > 1 ? index / (frames.length - 1) * 100 : 0}%`);
   $("timeline").setAttribute("aria-valuetext", `${central.format(new Date(frames[index].time))}, scan ${index + 1} of ${frames.length}`);
   $("radar-time").textContent = `${radarSaved?"Saved · ":""}${fullTime.format(new Date(frames[index].time))} · ${index + 1}/${frames.length}`;
+  const frame=frames[index],note=$("radar-product-note");
+  note.hidden=radarProduct!=="storm-total";
+  if(!note.hidden)note.textContent=frame.nullProduct?"No active storm accumulation reported by KMPX.":`Radar-estimated accumulation since ${fullTime.format(new Date(frame.accumulationStart))} · inches`;
 }
 function initMap() {
   if (map) return;
@@ -53,16 +58,16 @@ function initMap() {
   }
 
 }
-function renderRadarLegend(palette) {
-  const minimum = 10, maximum = 80;
+function renderRadarLegend(palette,precip=false) {
+  const minimum = precip?0:10, maximum = precip?16:80;
   $("legend").replaceChildren(); $("legend").className = "legend continuous-legend";
   const bar = document.createElement("div"); bar.className = "reflectivity-gradient";
-  bar.style.background = `linear-gradient(to right, ${palette.map(p => `${p.color} ${(p.dbz-minimum)/(maximum-minimum)*100}%`).join(", ")})`;
+  bar.style.background = `linear-gradient(to right, ${palette.map(p => `${p.color} ${((precip?p.value:p.dbz)-minimum)/(maximum-minimum)*100}%`).join(", ")})`;
   const ticks = document.createElement("div"); ticks.className = "reflectivity-ticks";
-  for (let dbz=10; dbz<=80; dbz+=10) {
-    const tick = document.createElement("span"); tick.textContent = dbz === 80 ? "80+" : String(dbz); ticks.append(tick);
+  for (const value of precip?[0,4,8,12,16]:[10,20,30,40,50,60,70,80]) {
+    const tick = document.createElement("span"); tick.textContent = value === maximum ? `${value}+` : String(value); ticks.append(tick);
   }
-  const label = document.createElement("p"); label.className = "small-note"; label.textContent = "Reflectivity · dBZ";
+  const label = document.createElement("p"); label.className = "small-note"; label.textContent = precip?"Storm-total precipitation · inches (not a fixed 24-hour total)":"Reflectivity · dBZ";
   $("legend").append(bar,ticks,label);
 }
 async function loadRadar() {
@@ -74,16 +79,21 @@ async function loadRadar() {
   try {
     initMap();
     $("radar-status").textContent = `Checking latest ${radarSite} scans…`;
-    const data = await api(`/api/radar?site=${radarSite}`);
+    const data = await api(radarEndpoint());
     if (request !== radarRequest) return;
-    renderRadarLegend(data.palette); radarPalette=data.palette;radarSaved=!!data._savedCopy;
-    $("radar-eyebrow").textContent=`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
+    const picker=$("radar-product");
+    const products=data.products||[{id:"ref-0p5",label:"0.5° reflectivity"}];
+    picker.replaceChildren(...products.map((product,i)=>{
+      const option=document.createElement("option");option.value=i===0?"":product.id;option.textContent=product.label;return option;
+    }));picker.value=radarProduct;
+    renderRadarLegend(data.palette,radarProduct==="storm-total"); radarPalette=data.palette;radarSaved=!!data._savedCopy;
+    $("radar-eyebrow").textContent=radarProduct==="storm-total"?`${data.site} · STORM-TOTAL PRECIPITATION`:`${data.site} · ${data.elevationDegrees}° BASE REFLECTIVITY`;
     const loaded = []; let completed = 0, failures = 0;
     // Show the newest image first. Fetch only frames not already decoded.
     const queue = [...data.frames].reverse();
     async function worker() {
       while(queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
-        const frame = queue.shift(), key = `${data.site}/${data.renderVersion}/${frame.id}`;
+        const frame = queue.shift(), key = frame.url;
         try {
           let entry = radarLayers.get(key);
           if (!entry) {
@@ -102,7 +112,7 @@ async function loadRadar() {
     if (request !== radarRequest) return;
     if (!loaded.length) throw new Error("Radar scans could not be loaded. Please try Refresh scans.");
     loaded.sort((a,b)=>a.frame.id.localeCompare(b.frame.id));
-    const keep = new Set(loaded.map(entry => `${data.site}/${data.renderVersion}/${entry.frame.id}`));
+    const keep = new Set(loaded.map(entry => entry.frame.url));
     for (const [key, entry] of radarLayers) if (!keep.has(key)) { radarLayers.delete(key); }
     frames = loaded.map(x=>x.frame); overlays = loaded.map(x=>x.data);
     $("timeline").max = String(frames.length-1);
@@ -288,6 +298,18 @@ for(const id of tabs) {
 }
 $("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-radar").addEventListener("click",loadRadar);
+$("radar-product").addEventListener("change",()=>{
+  ++radarRequest;radarBusy=false;radarQueued=false;
+  radarProduct=$("radar-product").value;
+  frames=[];overlays=[];index=0;radarLayers.clear();nativeLayer?.clear();
+  $("timeline").disabled=true;$("radar-time").textContent="Loading selected radar product…";
+  $("radar-product-note").hidden=true;
+  radarUnsubscribe?.();
+  if(radarProduct)radarUnsubscribe=window.WeatherPrepared.subscribe(radarEndpoint(),()=>{
+    if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
+  });
+  loadRadar();
+});
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;
   const center=map.getCenter(),button=$("radar-save-view");
@@ -331,7 +353,7 @@ document.addEventListener("visibilitychange",()=>{
 
 
 window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
-  if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
+  if(!radarProduct&&!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
 });
 for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}

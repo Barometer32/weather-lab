@@ -24,6 +24,25 @@ CHUNKS = "https://unidata-nexrad-level2-chunks.s3.amazonaws.com/"
 NS = {"s": "http://s3.amazonaws.com/doc/2006-03-01/"}
 log = logging.getLogger(__name__)
 DECODE_LOCK = threading.Lock()
+COLLECTION_VERSION = VERSION + "-all-tilts-v1"
+
+
+def reflectivity_product(angle):
+    return "ref-" + f"{angle:.1f}".replace(".", "p")
+
+
+def reflectivity_cut(radial, cuts=None):
+    """Keep REF at every elevation, excluding duplicate split Doppler cuts."""
+    if b"REF" not in radial.moments:
+        return False
+    cut = (cuts or {}).get(str(getattr(radial.header, "el_num", "")))
+    # The scan plan identifies the companion surveillance sweep more reliably
+    # than a range heuristic (upper elevations legitimately have short range).
+    if cut and cut["waveform"] != "Contiguous Surveillance":
+        if any(abs(info["angle"]-cut["angle"]) < .05 and info["waveform"] == "Contiguous Surveillance"
+               for info in cuts.values()):
+            return False
+    return True
 
 
 def site_id(value):
@@ -101,7 +120,7 @@ def cuts_from_plan(plan):
             for i, cut in enumerate(plan.els)} if plan else None
 
 
-def decode(data, header=True):
+def decode(data, header=True, all_tilts=False):
     # Lazy import keeps the public serving process lightweight.
     from metpy.io import Level2File
     logging.getLogger("metpy.io.nexrad").setLevel(logging.ERROR)
@@ -110,7 +129,7 @@ def decode(data, header=True):
             super()._decode_msg31(message)
             radial = self.sweeps[-1][-1]
             cuts = cuts_from_plan(getattr(self, "vcp_info", None))
-            if not low_reflectivity(radial, cuts):
+            if not (reflectivity_cut(radial, cuts) if all_tilts else low_reflectivity(radial, cuts)):
                 self.sweeps[-1].pop()
                 return
             # Discard other moments as each radial arrives, rather than keeping
@@ -146,7 +165,7 @@ def low_reflectivity(radial, cuts=None):
     return b"VEL" not in radial.moments or moment.first_gate + moment.num_gates * moment.gate_width >= 400
 
 
-def consume(radials, site, pending=None, cuts=None):
+def consume(radials, site, pending=None, cuts=None, all_tilts=False):
     """Emit complete surveillance sweeps only; preserve a partial sweep for restart."""
     from metpy.io.nexrad import START_ELEVATION, END_ELEVATION, nexrad_to_datetime
     complete = []
@@ -160,17 +179,17 @@ def consume(radials, site, pending=None, cuts=None):
         hdr = radial.header
         if hdr.stid.decode() != site:
             raise ValueError("Radar station mismatch")
-        if not low_reflectivity(radial, cuts):
+        if not (reflectivity_cut(radial, cuts) if all_tilts else low_reflectivity(radial, cuts)):
             if hdr.rad_status & START_ELEVATION:
                 meta, values = None, []
             continue
         moment, ref = radial.moments[b"REF"]
         if hdr.rad_status & START_ELEVATION:
             cut = (cuts or {}).get(str(getattr(hdr, "el_num", "")))
-            if not cut and not 0.4 <= hdr.el_angle <= 0.8:
+            if not all_tilts and not cut and not 0.4 <= hdr.el_angle <= 0.8:
                 meta, values = None, []
                 continue
-            nominal = 0.3 if cut and cut["angle"] < 0.4 else 0.5
+            nominal = round(cut["angle"] if cut else hdr.el_angle, 1) if all_tilts else (0.3 if cut and cut["angle"] < 0.4 else 0.5)
             stamp = nexrad_to_datetime(hdr.date, hdr.time_ms).replace(tzinfo=UTC)
             vol = radial.vol_consts
             if vol is None:
@@ -208,12 +227,12 @@ def consume(radials, site, pending=None, cuts=None):
     return complete, pending
 
 
-def manifest(frames, now, site, palette):
+def manifest(frames, now, site, palette, angle=None):
     # Keep every available scan in the time window, regardless of scan frequency.
     start = now - timedelta(hours=2)
     frames = [frame for frame in frames if start <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
     frames.sort(key=lambda frame: frame["time"])
-    elevation = min((frame.get("elevationDegrees", 0.5) for frame in frames), default=0.5)
+    elevation = angle if angle is not None else min((frame.get("elevationDegrees", 0.5) for frame in frames), default=0.5)
     frames = [frame for frame in frames if frame.get("elevationDegrees", 0.5) == elevation]
     return {"site": site, "siteName": SITES[site]["name"], "center": SITES[site]["center"],
             "zoom": SITES[site]["zoom"], "frames": frames, "palette": palette,
@@ -224,14 +243,15 @@ def manifest(frames, now, site, palette):
 
 def collect_site(store, now, site, palette, budget=45):
     site_id(site)
-    previous = store.read_json(f"live/radar-{site}.json") or {}
-    initial = previous.get("renderVersion") != VERSION or not previous.get("frames")
+    previous = store.read_json(f"live/radar-all-{site}.json") or store.read_json(f"live/radar-{site}.json") or {}
+    initial = not previous.get("products") or not previous.get("frames")
     deadline = time.monotonic() + (max(budget, 120) if initial else budget)
-    frames = {frame["id"]: frame for frame in previous.get("frames", [])} if previous.get("renderVersion") == VERSION else {}
-    state_key = f"live/radar-state-{site}.json"
+    saved_frames = previous.get("frames", []) + [frame for product in previous.get("products", {}).values() for frame in product.get("frames", [])]
+    frames = {frame["id"]: frame for frame in saved_frames if now-timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now} if previous.get("renderVersion") == VERSION else {}
+    state_key = f"live/radar-all-state-{site}.json"
     state = store.read_json(state_key) or {}
-    if state.get("version") != VERSION:
-        state = {"version": VERSION, "archives": [], "streams": {}}
+    if state.get("version") != COLLECTION_VERSION:
+        state = {"version": COLLECTION_VERSION, "archives": [], "streams": {}}
     volumes = archive_volumes(site, now)
     if not volumes:
         raise ValueError("No recent Level II archive volumes; previous radar retained")
@@ -242,10 +262,18 @@ def collect_site(store, now, site, palette, budget=45):
 
     def publish():
         data = manifest(list(frames.values()), now, site, palette)
+        angles = sorted({f.get("elevationDegrees", .5) for f in frames.values()})
+        data["products"] = {reflectivity_product(angle): {
+            "label": f"{angle:g}° reflectivity", "elevationDegrees": angle,
+            "frames": manifest(list(frames.values()), now, site, palette, angle)["frames"]}
+            for angle in angles}
         data.update(historyPending=sum(row["key"] not in state["archives"] for row in volumes),
                     collectionErrors=failures)
         if data["frames"]:
-            store.write_json(f"live/radar-{site}.json", data)
+            store.write_json(f"live/radar-all-{site}.json", data)
+            # The old viewer can continue reading just the original lowest cut
+            # during preparation and until the website revision is replaced.
+            store.write_json(f"live/radar-{site}.json", {k: v for k, v in data.items() if k != "products"})
         store.write_json(state_key, state)
 
     def save(items):
@@ -259,6 +287,7 @@ def collect_site(store, now, site, palette, budget=45):
             frames[meta["id"]] = {k: meta[k] for k in ("id", "time", "endTime", "gateWidthMeters", "azimuthSpacing", "vcp")}
             frames[meta["id"]]["elevationDegrees"] = meta["nominalElevation"]
             frames[meta["id"]]["url"] = f"/api/prepared/{key}"
+        if items:
             publish()
 
     # Publish the newest completed volume before optional stream discovery.
@@ -266,7 +295,7 @@ def collect_site(store, now, site, palette, budget=45):
     newest = volumes[-1]
     if newest["key"] not in state["archives"]:
         try:
-            items, _ = consume(decode(fetch(ARCHIVE+newest["key"])), site)
+            items, _ = consume(decode(fetch(ARCHIVE+newest["key"]), all_tilts=True), site, all_tilts=True)
             if not items:
                 raise ValueError("No complete base reflectivity sweep in newest archive")
             save(items)
@@ -330,10 +359,10 @@ def collect_site(store, now, site, palette, budget=45):
                         failures += 1
                         break
                     try:
-                        radials = decode(future.result(), row["key"].endswith("-S"))
+                        radials = decode(future.result(), row["key"].endswith("-S"), all_tilts=True)
                         if getattr(radials, "cuts", None):
                             cursor["cuts"] = radials.cuts
-                        items, pending = consume(radials, site, cursor["pending"], cursor.get("cuts"))
+                        items, pending = consume(radials, site, cursor["pending"], cursor.get("cuts"), all_tilts=True)
                         cursor.update(sequence=seq, pending=pending)
                         save(items)
                     except Exception:
@@ -348,7 +377,7 @@ def collect_site(store, now, site, palette, budget=45):
         if row["key"] in state["archives"] or time.monotonic() >= deadline:
             continue
         try:
-            items, _ = consume(decode(fetch(ARCHIVE+row["key"])), site)
+            items, _ = consume(decode(fetch(ARCHIVE+row["key"]), all_tilts=True), site, all_tilts=True)
             if not items:
                 raise ValueError("No complete base reflectivity sweep in archive volume")
             save(items)

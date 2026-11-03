@@ -6,19 +6,19 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=no-device-location-v1">
+  <link rel="stylesheet" href="/static/style.css?v=radar-products-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
-  <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
+  <script defer src="/static/native-radar.js?v=radar-products-v1"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=satellite-three-v1"></script>
+  <script defer src="/static/prepared-data.js?v=radar-products-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-barb-staff-plus5-v1"></script>
   <script defer src="/static/metar-views.js?v=metar-hour-hold-v2"></script>
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=satellite-three-v1"></script>
+  <script defer src="/static/app.js?v=radar-products-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -45,7 +45,7 @@
 </section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
-  <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
+  <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><div class="metar-title-row"><h1 id="radar-title">Local radar</h1><label class="sr-only" for="radar-product">Radar product</label><select id="radar-product" aria-label="Radar product"><option value="">0.5° reflectivity</option></select></div></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>
   <div id="radar-surface" class="map-viewer">
     <div id="radar-map-area" class="map-area"><div id="map" aria-label="Interactive MPX radar with state and county boundaries and faint major roads"></div></div>
     <div class="radar-controls viewer-controls">
@@ -58,7 +58,8 @@
   <p id="map-note" class="small-note" role="status" hidden></p>
   <p id="radar-status" role="status">Loading available MPX scans…</p>
   </div>
-  <div class="legend" id="legend" aria-label="Radar echo strength legend"></div>
+  <p id="radar-product-note" class="small-note" aria-live="polite" hidden></p>
+  <div class="legend" id="legend" aria-label="Radar product legend"></div>
   <div class="page-notes" hidden>
   <p class="small-note">Below 10 dBZ is hidden. Native radar cells are displayed without smoothing or blending. Colors show reflectivity; echoes can also come from snow, virga, insects, or clutter, and extreme echoes may include hail.</p>
   <details class="method"><summary>About this radar</summary><p>Native Level II lowest-tilt surveillance reflectivity is collected every minute for KMPX. Completed low-level scans are published from the real-time chunk feed without waiting for the full radar volume; supplemental low-level scans are included when produced. KMPX uses its 0.5° base tilt. Scan frequency is controlled by the radar operator and is not guaranteed. Incomplete sweeps are withheld, and the completed-volume archive fills the previous two hours. Every available completed scan within that rolling two-hour window is included, with no fixed frame-count limit. Super-resolution scans have 250-meter range gates and 0.5° azimuth spacing; the beam footprint widens with distance. Display pixels sample the nearest native gate without smoothing. The beam rises with distance and does not directly measure rainfall at the surface. Times are shown in Central time.</p></details>

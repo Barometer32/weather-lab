@@ -574,14 +574,35 @@ def radar_api():
         site = request.args.get("site", "KMPX")
         if site not in RADAR_SITES:
             return jsonify(error="Unknown radar site."), 400
-        data = prepared_snapshot("radar-" + site, 180)
+        try:
+            data = prepared_snapshot("radar-all-" + site, 180)
+        except ValueError:
+            data = prepared_snapshot("radar-" + site, 180)
         if not data or data.get("renderVersion") != NATIVE_VERSION:
             return jsonify(error="Native radar is being prepared. Please refresh shortly."), 503
+        products = data.get("products", {})
+        catalog = [{"id": key, "label": value["label"]} for key, value in products.items()]
+        if not catalog:
+            catalog = [{"id": "ref-0p5", "label": "0.5° reflectivity"}]
+        catalog.append({"id": "storm-total", "label": "Storm-total precipitation"})
+        selected = request.args.get("product", "")
+        if selected == "storm-total":
+            data = prepared_snapshot("radar-storm-total-" + site, 600)
+        elif selected:
+            if selected == "ref-0p5" and not products:
+                pass
+            elif selected not in products:
+                return jsonify(error="This elevation is not available in the current scan pattern.", products=catalog), 400
+            else:
+                data = {**data, **products[selected]}
+        # Return only the selected loop: never send every elevation to phones.
+        data = {k: v for k, v in data.items() if k != "products"}
         scans = [frame for frame in data["frames"]
                  if now - timedelta(hours=2) <= datetime.fromisoformat(frame["time"].replace("Z", "+00:00")) <= now]
         if not scans:
             return jsonify(error=f"No recent {site} scans are available."), 503
-        return jsonify({**data, "frames": scans, "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
+        return jsonify({**data, "products": catalog, "selectedProduct": selected or (catalog[0]["id"]),
+                        "frames": scans, "windowStart": iso(now-timedelta(hours=2)), "windowEnd": iso(now)})
     except Exception:
         app.logger.exception("Radar scan list failed")
         return jsonify(error="Radar feed unavailable. Please try again shortly."), 502
@@ -649,6 +670,7 @@ def prepared_asset(key):
     # Public visitors may read only immutable image objects, never manifests or
     # arbitrary bucket files. Only the private collector can trigger processing.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
+               or re.fullmatch(r"radar/storm-total-v1/KMPX/\d{14}-[a-f0-9]{16}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
                or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)

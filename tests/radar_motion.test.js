@@ -6,6 +6,10 @@ const browser={window:{},Worker:class{constructor(){throw Error('Radar timeline 
  L:{Layer:{extend:methods=>{function Layer(){}Layer.prototype=methods;return Layer;}},DomUtil:{create:()=>canvas,setPosition:(c,p)=>{position=p;}}}};
 vm.runInNewContext(fs.readFileSync('static/native-radar.js','utf8'),browser);
 const radar=browser.window.NativeRadar;
+const precipColors=radar.colors([{value:.01,color:'#0000ff'},{value:2,color:'#ff0000'}],{codeValues:Array.from({length:256},(_,i)=>i?i/100:null)});
+assert.equal(precipColors[3],0,'Missing/zero accumulation remains transparent');
+assert.equal(precipColors[4+3],220,'Small nonzero accumulations are visible');
+assert.notDeepEqual(Array.from(precipColors.slice(4,8)),Array.from(precipColors.slice(800,804)),'Rainfall uses its inch scale, not reflectivity codes');
 const meta={site:'KMPX',latitude:44.8489,longitude:-93.5655,firstGateMeters:2125,gateWidthMeters:250,gates:1700,nominalElevation:.5,azimuths:Array.from({length:360},(_,i)=>i)};
 const frame={meta,codes:Uint8Array.from({length:360*meta.gates},(_,i)=>i%256),rays:Uint16Array.from({length:36000},(_,i)=>Math.floor(i/100))};
 const palette=[{dbz:10,color:'#44ff44'},{dbz:30,color:'#ffff00'},{dbz:50,color:'#ff0000'},{dbz:80,color:'#ff00ff'}];
@@ -40,8 +44,8 @@ vm.runInNewContext('let map,nativeLayer;const radarSite="KMPX",radarViews={KMPX:
 assert.equal(options.zoomSnap,.5);assert.equal(options.zoomDelta,.5);assert.equal(options.wheelPxPerZoomLevel,60);
 assert.equal(options.minZoom,5);assert.equal(options.maxZoom,13);
 const html=fs.readFileSync('static/index.html','utf8');
-assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));assert.ok(html.includes('app.js?v=no-device-location-v1'));
-assert.ok(html.includes('metar-views.js?v=metar-four-frame-v1'),'Keep the successful METAR optimization');
+assert.ok(html.includes('native-radar.js?v=radar-products-v1'));assert.ok(html.includes('app.js?v=radar-products-v1'));
+assert.ok(html.includes('metar-views.js?v=metar-hour-hold-v2'),'Keep the successful METAR optimization');
 assert.doesNotMatch(html,/radar-renderer\.js|radar-worker\.js/);
 console.log('Radar checks passed: original pixels, synchronous slider frames, cached projection, half-level zoom and preserved METAR optimization.');
 

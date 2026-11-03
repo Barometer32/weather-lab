@@ -32,7 +32,7 @@ window.WeatherPrepared = (() => {
     })();pending.set(url,work);return work;
   }
   async function read(url,{force=false}={}){
-    if(!paths.includes(url))throw Error("Unknown prepared weather endpoint");
+    if(!paths.includes(url)&&!/^\/api\/radar\?site=KMPX&product=(ref-\d{1,2}p\d|storm-total)$/.test(url))throw Error("Unknown prepared weather endpoint");
     const old=memory.get(url);
     if(!force&&old&&Date.now()-old.stamp<freshFor(url))return old.data;
     const work=refresh(url);work.catch(()=>{});

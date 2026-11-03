@@ -49,15 +49,17 @@ window.NativeRadar = (() => {
     }
     return {meta,codes,rays};
   }
-  function colors(palette) {
+  function colors(palette,meta={}) {
     const output = new Uint8ClampedArray(256*4);
     const rgb = color=>[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
-    for(let code=86;code<256;code++) {
-      const dbz=(code-2)*0.5-32;
-      let upper=palette.findIndex(stop=>stop.dbz>dbz);
+    const custom=Array.isArray(meta.codeValues),valueOf=stop=>custom?stop.value:stop.dbz;
+    for(let code=custom?1:86;code<256;code++) {
+      const dbz=custom?meta.codeValues[code]:(code-2)*0.5-32;
+      if(dbz==null || !Number.isFinite(dbz) || (custom && dbz<=0))continue;
+      let upper=palette.findIndex(stop=>valueOf(stop)>dbz);
       if(upper<0)upper=palette.length-1;
       const lower=Math.max(0,upper-1), a=palette[lower], b=palette[upper];
-      const amount=Math.min(1,Math.max(0,(dbz-a.dbz)/(b.dbz-a.dbz || 1)));
+      const amount=Math.min(1,Math.max(0,(dbz-valueOf(a))/(valueOf(b)-valueOf(a) || 1)));
       const ca=rgb(a.color),cb=rgb(b.color);
       for(let c=0;c<3;c++)output[code*4+c]=Math.round(ca[c]+(cb[c]-ca[c])*amount);
       output[code*4+3]=220;
@@ -78,7 +80,7 @@ window.NativeRadar = (() => {
       const old=this._frame?.meta;
       const sameSite=old?.site===frame.meta.site && old.latitude===frame.meta.latitude && old.longitude===frame.meta.longitude && old.gates===frame.meta.gates && old.gateWidthMeters===frame.meta.gateWidthMeters;
       this._frame=frame;
-      this._colors=colors(palette);
+      this._colors=colors(palette,frame.meta);
       if(!sameSite)this._grid=null;
       this._draw();
     },
@@ -125,7 +127,7 @@ window.NativeRadar = (() => {
         if(!Number.isFinite(distances[i]))continue;
         // Standard 4/3-earth beam geometry converts ground arc to slant range.
         const tangent=Math.tan(distances[i]/effective);
-        const slant=effective*tangent/(cosTilt-sinTilt*tangent);
+        const slant=meta.groundRange?distances[i]:effective*tangent/(cosTilt-sinTilt*tangent);
         const gate=Math.round((slant-meta.firstGateMeters)/meta.gateWidthMeters);
         if(gate<0 || gate>=meta.gates)continue;
         const code=codes[rays[bearings[i]]*meta.gates+gate],color=code*4,pixel=i*4;

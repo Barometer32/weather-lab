@@ -411,3 +411,10 @@ body.map-focus #metar .eyebrow { display:none; }
 }
 
 #radar-map-area { position:relative; }
+#radar-product { max-width:240px; min-height:40px; padding:5px 8px; }
+#radar .metar-title-row { flex-wrap:wrap; }
+#radar-product-note { margin:5px 0 0; text-align:center; font-size:11px; }
+@media(max-width:600px){
+  #radar-product { max-width:170px; font-size:12px; }
+  #radar-product-note { font-size:10px; }
+}
