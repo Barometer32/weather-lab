@@ -126,38 +126,6 @@ async function loadRadar() {
     }
   }
 }
-let forecastBusy = false, forecastData, forecastError;
-function renderForecast() {
-  if (!forecastData) return;
-  const data = forecastData;
-  const periods = data.periods.filter(p => new Date(p.endTime).getTime() > Date.now());
-  $("forecast-updated").textContent = data.updatedAt ? `${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
-  $("forecast-status").hidden = !forecastError && periods.length > 0;
-  $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
-  $("forecast-periods").replaceChildren();
-  periods.forEach(period => {
-    const row = document.createElement("article"); row.className = "forecast-row";
-    const name = document.createElement("h2"); name.textContent = period.name;
-    const temperature = document.createElement("div"); temperature.className = "forecast-temperature";
-    const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
-    const value = document.createElement("strong"); value.textContent = period.temperature == null ? "—" : `${period.temperature}°${period.temperatureUnit || "F"}`;
-    temperature.append(label, value);
-    const detail = document.createElement("p"); detail.className = "forecast-detail"; detail.textContent = period.detailedForecast;
-    row.append(name,temperature,detail); $("forecast-periods").append(row);
-  });
-}
-async function loadForecast() {
-  if (forecastBusy) return;
-  forecastBusy = true; $("refresh-forecast").disabled = true;
-  try {
-    forecastData = await api("/api/forecast"); forecastError = forecastData.stale ? "Background forecast updates are delayed." : null; renderForecast();
-  } catch (error) {
-    forecastError = error.message; renderForecast();
-    $("forecast-status").hidden = false;
-    $("forecast-status").textContent = `${error.message} Any displayed forecast is from the previous successful refresh.`;
-  } finally { forecastBusy = false; $("refresh-forecast").disabled = false; }
-}
-
 let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0;
 let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
 const satelliteLayers = new Map();
@@ -275,7 +243,7 @@ function selectTab(id) {
   window.WeatherClouds?.select(id);
   window.WeatherCurrent?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
-  if(id === "forecast") loadForecast();
+  window.WeatherForecast?.select(id);
   window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
@@ -288,7 +256,6 @@ for(const id of tabs) {
     selectTab(tabs[next]); $("tab-"+tabs[next]).focus();
   });
 }
-$("refresh-forecast").addEventListener("click",loadForecast);
 $("refresh-radar").addEventListener("click",loadRadar);
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;
@@ -311,10 +278,6 @@ setTimeout(()=>window.WeatherPrepared.prime(),0);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
 
-setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
-
-setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},30000);
-
 $("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
 $("satellite-product").addEventListener("change",()=>loadSatellite(true));
 $("satellite-timeline").addEventListener("input",event=>showSatelliteFrame(Number(event.target.value)));
@@ -323,14 +286,13 @@ setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},6
 
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
-    if (!$("metar").hidden) window.WeatherMetars?.select("metar");
+    if (!$("clouds").hidden) window.WeatherClouds?.select("clouds");
     if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();
-    if (!$("forecast").hidden) loadForecast();
+
   }
 });
-
 
 window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
   if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
@@ -338,7 +300,6 @@ window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
 for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
 });
-window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});
 
 window.addEventListener("weather-layout-resize",()=>{
   if(!$("radar").hidden)map?.invalidateSize({pan:false});

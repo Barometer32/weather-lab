@@ -1,6 +1,7 @@
 """Present the official NWS MapClick forecast without rewriting its narrative."""
 from datetime import datetime, timedelta, timezone
 import math
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 LATITUDE, LONGITUDE = 44.9244, -93.4140
@@ -34,7 +35,14 @@ def current_periods(periods, now):
     return [period for period in periods if timestamp(period["endTime"]) > now]
 
 
-def normalize_forecast(document, now=None):
+def point_urls(latitude, longitude):
+    params = dict(lat=latitude, lon=longitude, unit=0, lg='english')
+    base = 'https://forecast.weather.gov/MapClick.php?'
+    return (base + urlencode({**params, 'FcstType': 'json'}),
+            base + urlencode({**params, 'FcstType': 'text', 'TextType': 1}))
+
+
+def normalize_forecast(document, now=None, *, latitude=LATITUDE, longitude=LONGITUDE, location=None):
     now = now or datetime.now(timezone.utc)
     timing, data = document["time"], document["data"]
     names, starts, labels = (timing[key] for key in ("startPeriodName", "startValidTime", "tempLabel"))
@@ -62,8 +70,9 @@ def normalize_forecast(document, now=None):
     periods = current_periods(periods, now)
     if not periods:
         raise ValueError("NWS returned no current or future forecast periods")
-    return {"source": "National Weather Service", "location": "Hopkins, MN",
-            "latitude": LATITUDE, "longitude": LONGITUDE, "sourceUrl": SOURCE_URL,
+    source_url = SOURCE_URL if (latitude, longitude) == (LATITUDE, LONGITUDE) else point_urls(latitude, longitude)[1]
+    return {"source": "National Weather Service", "location": location or "Hopkins, MN",
+            "latitude": latitude, "longitude": longitude, "sourceUrl": source_url,
             "forecastVersion": FORECAST_VERSION,
             # creationDateLocal belongs to the current observation, not the forecast.
             "updatedAt": issued.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),

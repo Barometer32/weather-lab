@@ -1,8 +1,31 @@
 # CURRENT and CLOUDS
 
 CURRENT replaces the combined METAR station-plot tab. Navigation is CURRENT,
-RADAR, CLOUDS, SATELLITE, FORECAST, AIR Q. AIR Q and the fixed Hopkins NWS
-Forecast remain their existing products for this first stage.
+RADAR, CLOUDS, SATELLITE, FORECAST, AIR Q. AIR Q remains its existing product.
+Forecast uses the same saved point as Current, without reading device location.
+
+## Selected-location Forecast
+
+The Forecast viewer posts the saved Current latitude/longitude to /api/forecast.
+Coordinates are rounded to four decimal places (roughly 10 m); they do not enter
+our access-log query strings. The website reads the NWS MapClick JSON for that
+point, preserving its issuance time and day/night narrative. The source link is
+also built from that point. A bounded in-memory cache holds up to 64 points for
+30 minutes; refresh can recheck NWS after a one-minute minimum. No selected-point
+forecasts are written to Cloud Storage or retained as a travel history.
+
+The viewer preloads on page opening, reloads when the selected point changes,
+and checks every 30 minutes while Forecast is visible. It also checks on tab
+selection and return from the background; cache reuse avoids repeat upstream
+requests within the interval. A single browser snapshot accelerates repeat
+visits, is keyed to the selected coordinates, and is cleared on a location
+change/reset. A failed or late old-location request never substitutes Hopkins
+or a prior city's forecast. The fixed prepared GET /api/forecast and existing
+collector schedule remain available for legacy restoration checks, but the
+current viewer does not subscribe to or preload that fixed forecast.
+
+Update with update-weather-location-forecast.sh and a pinned source commit.
+It updates only the website and retains all other service/schedule settings.
 
 ## Location
 

@@ -473,6 +473,25 @@ def current_analysis_api():
         return jsonify(error='Current observations are temporarily unavailable.'),502,{'Cache-Control':'no-store'}
 
 
+@app.post("/api/forecast")
+def selected_forecast_api():
+    from current_analysis import coordinates
+    from selected_forecast import point_forecast
+    try:
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            raise ValueError('Expected a location object.')
+        lat, lon = coordinates(body.get('latitude'), body.get('longitude'))
+    except (ValueError, TypeError):
+        return jsonify(error='Choose valid forecast coordinates.'), 400, {'Cache-Control': 'no-store'}
+    try:
+        result = point_forecast(lat, lon, utcnow(), force=body.get('force') is True)
+        return jsonify(result), 200, {'Cache-Control': 'no-store'}
+    except Exception:
+        # Retain no location-bearing upstream URLs in application error logs.
+        return jsonify(error='The NWS forecast for your selected location is temporarily unavailable.'), 502, {'Cache-Control': 'no-store'}
+
+
 @app.get("/api/forecast")
 def forecast_api():
     try:

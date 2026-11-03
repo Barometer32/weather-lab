@@ -11,16 +11,17 @@
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=current-clouds-v1"></script>
   <script defer src="/static/sun-angle.js?v=current-location-v1"></script>
-  <script defer src="/static/prepared-data.js?v=current-clouds-v1"></script>
+  <script defer src="/static/prepared-data.js?v=selected-forecast-v2"></script>
   <script defer src="/static/location-choice.js?v=city-label-v2"></script>
   <script defer src="/static/current-views.js?v=weighted-time-v2"></script>
+  <script defer src="/static/forecast-views.js?v=selected-point-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-barb-staff-plus5-v1"></script>
   <script defer src="/static/clouds-views.js?v=clouds-only-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=current-clouds-v1"></script>
+  <script defer src="/static/app.js?v=selected-forecast-v2"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -89,11 +90,11 @@
 
 
 <section id="forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
-  <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE · HENNEPIN</p><h1>Your local forecast</h1><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
+  <div class="section-heading"><div><p class="eyebrow">NATIONAL WEATHER SERVICE</p><h1>Your local forecast</h1><p id="forecast-location"></p><p id="forecast-updated">Loading the latest NWS forecast…</p></div><button class="secondary" id="refresh-forecast">Refresh</button></div>
   <p class="notice" id="forecast-status" role="status" hidden></p>
   <div class="forecast-list" id="forecast-periods" aria-live="polite"><p>Loading the official point forecast…</p></div>
   <div class="page-notes" hidden>
-  <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
+  <p class="source"><a id="forecast-source" href="https://forecast.weather.gov/" target="_blank" rel="noopener noreferrer">Open the NWS forecast</a></p>
   </div>
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
