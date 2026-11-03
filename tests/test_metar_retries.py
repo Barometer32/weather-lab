@@ -38,8 +38,9 @@ def test_entire_missing_hour_still_retries_after_20_and_preserves_saved_history(
     assert source.call_count==2
     assert store.data['live/metar-clouds.json']==original
     public=metar_clouds.current(original,HOUR+timedelta(hours=1,minutes=26))
-    assert public['history'][-1]['stations']==[]
-    assert public['history'][-2]['stations'][0]['station']=='KMSP'
+    assert public['history'][-1]['stations'][0]['station']=='KMSP'
+    assert public['history'][-1]['hour']==metar_clouds.iso(HOUR)
+    assert public['pendingHour']==metar_clouds.iso(HOUR+timedelta(hours=1))
 
 
 def test_empty_source_batch_is_not_published_as_a_new_hour():
@@ -48,3 +49,26 @@ def test_empty_source_batch_is_not_published_as_a_new_hour():
         with pytest.raises(ValueError,match='previous data retained'):
             collector.collect_metar_clouds(store,HOUR+timedelta(hours=1,minutes=2))
     assert store.data['live/metar-clouds.json']==original
+
+
+def test_api_read_at_hour_boundary_keeps_twelve_real_frames_and_actual_times():
+    saved=saved_store().data['live/metar-clouds.json']
+    for minute in [0,2,10,35]:
+        public=metar_clouds.current(saved,HOUR+timedelta(hours=1,minutes=minute))
+        assert len(public['history'])==12
+        assert all(f['stations'] for f in public['history'])
+        assert public['history'][-1]['hour']==metar_clouds.iso(HOUR)
+        assert public['stations'][0]['time']==metar_clouds.iso(HOUR-timedelta(minutes=7))
+        assert public['checkedAt']==saved['checkedAt']
+        assert public['pendingHour']==metar_clouds.iso(HOUR+timedelta(hours=1))
+
+
+def test_api_advances_to_a_successfully_collected_hour():
+    store=saved_store()
+    next_hour=HOUR+timedelta(hours=1)
+    reports=metar_clouds.parse_reports(xml(xml_report(next_hour-timedelta(minutes=7))),next_hour)
+    with patch('metar_history.fetch_history',return_value={'reports':reports}):
+        collector.collect_metar_clouds(store,next_hour+timedelta(minutes=5))
+    public=metar_clouds.current(store.data['live/metar-clouds.json'],next_hour+timedelta(minutes=6))
+    assert public['history'][-1]['hour']==metar_clouds.iso(next_hour)
+    assert public['pendingHour'] is None

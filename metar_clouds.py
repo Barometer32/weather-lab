@@ -171,12 +171,21 @@ def current(data, now):
     if data.get("version") not in (2, 3):
         rows = data.get("stations", [])
     target = now.replace(minute=0, second=0, microsecond=0)
+    # Reading the page must not invent an empty current-hour frame before
+    # collection succeeds. Keep real timestamps and the previous loop intact.
+    available = [datetime.fromisoformat(frame["hour"].replace("Z", "+00:00"))
+                 for frame in data.get("history", []) if frame.get("stations")]
+    available = [hour for hour in available if hour <= target]
+    requested = target
+    if available:
+        target = max(available)
     rows = [row for row in rows if datetime.fromisoformat(row["time"].replace("Z", "+00:00")) < target]
     result = snapshot(rows, target, data["checkedAt"])
     for frame in result["history"]:
         frame["metro"] = metro_report(frame["stations"], target, frame["hour"])
     result["metro"] = result["history"][-1]["metro"]
     result["historyPending"] = data.get("version") != 3
+    result["pendingHour"] = iso(requested) if target < requested else None
     return {**result, "stale": data.get("stale", False)}
 
 

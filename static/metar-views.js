@@ -32,6 +32,22 @@ window.WeatherMetars = (() => {
     const ids=new Set(history.flatMap(frame=>frame.stations.map(station=>station.station)));
     return new Set([...ids].filter(id=>history.length!==historyHours||presence.some(frame=>!frame.has(id))));
   }
+  function readyWindow(history){
+    // Stage partial arrivals outside the viewer. A new batch must retain at
+    // least 95% of airports present in each of the previous three hours.
+    // Missing individual airports still use the existing four-frame rule.
+    for(let end=history.length;end>=historyHours;end--){
+      const frames=history.slice(end-historyHours,end);
+      if(frames.some((f,i)=>!f.stations?.length||!Number.isFinite(Date.parse(f.hour))||
+          (i>0&&Date.parse(f.hour)-Date.parse(frames[i-1].hour)!==3600000)))continue;
+      const sets=frames.map(f=>new Set(f.stations.map(s=>s.station)));
+      const expected=[...sets[0]].filter(id=>sets[1].has(id)&&sets[2].has(id));
+      if(expected.length>=20&&expected.filter(id=>sets[3].has(id)).length/expected.length<.95)continue;
+      if(["KFCM","KMIC","KMSP"].some(id=>expected.includes(id)&&!sets[3].has(id)))continue;
+      return frames;
+    }
+    return null;
+  }
   function prepareSpacing(){
     // Reserve the largest label across all four frames to avoid flickering
     // station density as the user moves the timeline.
@@ -96,8 +112,16 @@ window.WeatherMetars = (() => {
     if(!next.history?.length)throw Error("Hourly reports are not ready");
     if(sourceData===next)return;
     if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
+    const history=readyWindow(next.history);
+    if(!history){
+      if(data){el("metar-status").textContent="Waiting for a complete hourly batch; previous reports retained.";return;}
+      throw Error("Four consecutive populated airport hours are not ready");
+    }
+    // Out-of-order responses or a deteriorating feed must not roll the
+    // timeline backwards after a newer usable window has been displayed.
+    if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
-    sourceData=next;data={...next,history:next.history.slice(-historyHours)};
+    sourceData=next;data={...next,history};
     suppressed=incompleteSites(data.history);prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
