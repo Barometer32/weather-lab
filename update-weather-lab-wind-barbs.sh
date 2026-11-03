@@ -8,7 +8,7 @@ export CLOUDSDK_BILLING_QUOTA_PROJECT="$WEATHER_PROJECT"
 WEATHER_WORK="$(mktemp -d "$HOME/weather-lab-wind-barbs.XXXXXX")"
 trap 'echo "View update stopped at line $LINENO. Saved settings: $WEATHER_WORK" >&2' ERR
 printf 'Updating website in project: %s\n' "$WEATHER_PROJECT"
-echo 'Step 1/3: saving the website settings and building the restored wind barbs at the adjusted length.'
+echo 'Step 1/3: saving the website settings and building wind-barb shafts that are 5% longer.'
 gcloud run services describe weather-lab --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format=json >"$WEATHER_WORK/web-before.json"
 WEATHER_IMAGE_PATH="$(python3 - "$WEATHER_WORK/web-before.json" "$WEATHER_PROJECT" <<'PY'
 import json,sys
@@ -20,6 +20,11 @@ print(path)
 PY
 )"
 git clone --quiet --depth=1 --branch metar-cloud-history-20261019 https://github.com/Barometer32/weather-lab.git "$WEATHER_WORK/source"
+if [[ -n "${WEATHER_SOURCE_COMMIT:-}" ]]; then
+  [[ "$WEATHER_SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || { echo 'Invalid source commit.' >&2; exit 1; }
+  git -C "$WEATHER_WORK/source" fetch --quiet --depth=1 origin "$WEATHER_SOURCE_COMMIT"
+  git -C "$WEATHER_WORK/source" checkout --quiet --detach "$WEATHER_SOURCE_COMMIT"
+fi
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:wind-barbs-${WEATHER_COMMIT:0:12}"
 gcloud builds submit "$WEATHER_WORK/source" --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --tag="$WEATHER_IMAGE" --service-account="projects/$WEATHER_PROJECT/serviceAccounts/weather-builder@$WEATHER_PROJECT.iam.gserviceaccount.com" --default-buckets-behavior=regional-user-owned-bucket
@@ -30,12 +35,14 @@ WEATHER_URL="$(gcloud run services describe weather-lab --project="$WEATHER_PROJ
 echo 'Step 3/3: verifying the weather pages and wind barb asset.'
 python3 "$WEATHER_WORK/source/verify_weather_site.py" "$WEATHER_URL"
 curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/" -o "$WEATHER_WORK/page.html"
-python3 - "$WEATHER_WORK/page.html" <<'PY'
+curl --compressed --retry 3 --retry-delay 3 -fsS --max-time 90 "$WEATHER_URL/static/metar-model.js?v=metar-barb-staff-plus5-v1" -o "$WEATHER_WORK/metar-model.js"
+python3 - "$WEATHER_WORK" <<'PY'
 from pathlib import Path
 import sys
-html=Path(sys.argv[1]).read_text()
-for text in ('metar-model.js?v=metar-combined-v14','id="metar-timeline"','id="timeline"','id="satellite-timeline"','id="airq-timeline"'):
+work=Path(sys.argv[1]);html=(work/'page.html').read_text()
+for text in ('metar-model.js?v=metar-barb-staff-plus5-v1','id="metar-timeline"','id="timeline"','id="satellite-timeline"','id="airq-timeline"'):
     if text not in html:raise SystemExit('The updated wind barb asset was not verified.')
-print('Verified: restored wind barbs and existing weather controls.')
+if (work/'metar-model.js').read_bytes()!=(work/'source/static/metar-model.js').read_bytes():raise SystemExit('The expected station model was not served.')
+print('Verified: longer wind-barb shafts and existing weather controls.')
 PY
-printf '\nWind barbs restored, 5%% shorter than the last pre-vector version. Other map settings unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
+printf '\nWind-barb shafts are 5%% longer. Feather size, line thickness and text positions are unchanged.\nWebsite: https://weather-lab.cloud.run\nDirect website: %s\nSaved settings: %s\n' "$WEATHER_URL" "$WEATHER_WORK"

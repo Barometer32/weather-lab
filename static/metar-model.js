@@ -95,14 +95,14 @@ window.WeatherStationModel = (() => {
     const roundedKnots=5*Math.round(knots/5);
     if(roundedKnots===0)return {kind:"calm",speed,roundedKnots,points:[]};
     const flags=Math.floor(roundedKnots/50),full=Math.floor((roundedKnots%50)/10),half=roundedKnots%10>=5;
-    const length=Math.max(28,6+flags*8+full*5+(half?5:0));
+    // Extend the staff 5%; feather dimensions and spacing stay unchanged.
+    const length=1.05*Math.max(28,6+flags*8+full*5+(half?5:0));
     const lines=[[[0,-5.9],[0,-length]]],pennants=[];
     let y=-length;
     for(let i=0;i<flags;i++){pennants.push([[0,y],[9.5,y-4.8],[0,y+6]]);y+=8;}
     for(let i=0;i<full;i++){lines.push([[0,y],[9.5,y-4.8]]);y+=5;}
     if(half){if(!flags&&!full)y+=5;lines.push([[0,y],[4.75,y-2.4]]);}
-    // Shorten the last .99 barb setting by 5%, preserving feather width,
-    // line thickness, standard knot encoding, and the exact station anchor.
+    // Retain the existing compression, stroke and exact station anchor.
     for(const point of [...lines.flat(),...pennants.flat()])point[1]*=barbLengthScale;
     // A conventional meteorological barb points FROM the reported bearing.
     const rotation=((wind.direction%360)+360)%360,a=rotation*Math.PI/180;

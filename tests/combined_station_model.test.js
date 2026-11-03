@@ -35,7 +35,7 @@ assert.match(calm,/wind-calm/);assert.doesNotMatch(calm,/plot-speed|Calm|calm<|w
 const short=m.combinedWind({speedKnots:5,direction:0}),full=m.combinedWind({speedKnots:10,direction:0}),double=m.combinedWind({speedKnots:20,direction:0});
 assert.equal(short.lines[1][1][0],4.75);assert.equal(full.lines[1][1][0],9.5);
 assert.ok(Math.abs(double.lines[2][0][1]-double.lines[1][0][1]-4.7025)<1e-9,'Separate feathers remain distinguishable at map scale');
-assert.ok(Math.abs(full.lines[0][1][1]/(-28*.99)-.95)<1e-12,'Barb shaft is exactly 5% shorter than the last pre-vector barb setting; feather width and stroke remain unchanged');
+assert.ok(Math.abs(full.lines[0][1][1]/(-28*.9405)-1.05)<1e-12,'Barb staff is 5% longer than the previous setting; feather width and stroke remain unchanged');
 const vrb=m.combinedStationModel({...station,wind:{speedMph:7,direction:null,variable:true}}).html;
 assert.match(vrb,/>VRB<\/text>/);assert.doesNotMatch(vrb,/wind-barb"/);
 assert.doesNotThrow(()=>m.combinedStationModel({...station,wind:null}));
@@ -53,5 +53,5 @@ console.log('Combined station model passed: fixed compact quadrants, cloud cover
 for(const wind of [{speedKnots:10,direction:270},{speedMph:0}]){
  const dot=m.combinedStationModel({...station,wind},{dot:true}).html;
  assert.match(dot,/class="mesonet-dot"/);assert.doesNotMatch(dot,/plot-sky|sky-fill|plot-ceiling|wind-calm/);
- if(wind.direction)assert.match(dot,/class="wind-shaft" d="M0 0L0 -26\.334/,'The shaft starts at the exact station dot');
+ if(wind.direction)assert.match(dot,/class="wind-shaft" d="M0 0L0 -27\.6507/,'The shaft starts at the exact station dot');
 }
