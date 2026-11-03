@@ -40,6 +40,10 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.equal(rolling.sliderMax,'3');
  const partial=history(regional);partial.history.at(-1).stations=partial.history.at(-1).stations.slice(0,20);rolling.adopt(partial);
  assert.match(rolling.label,/9:00 AM CST/,'A severely partial hourly batch is staged without changing the display');
+ const below=history(regional);below.history.at(-1).stations=below.history.at(-1).stations.slice(0,89);rolling.adopt(below);
+ assert.match(rolling.label,/9:00 AM CST/,'89% coverage keeps the preceding loop');
+ const threshold=history(regional);threshold.history.at(-1).stations=threshold.history.at(-1).stations.slice(0,90);rolling.adopt(threshold);
+ assert.match(rolling.label,/10:00 AM CST/,'Exactly 90% coverage advances the loop');
  const nearly=history(regional);nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
  assert.match(rolling.label,/10:00 AM CST/,'Broadly complete data advances automatically');
  for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.ok(!rolling.ids().includes('K096'),'Individual missing reports still use strict four-hour completeness');}

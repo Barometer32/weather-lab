@@ -34,7 +34,7 @@ import re,sys
 p=Path(sys.argv[1]);html=(p/'static/index.html').read_text()
 if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('Expected the original five-tab site; no build started.')
-if 'metar-hour-hold-v1' not in html or 'function readyWindow(' not in (p/'static/metar-views.js').read_text():
+if 'metar-hour-hold-v2' not in html or 'function readyWindow(' not in (p/'static/metar-views.js').read_text():
     raise SystemExit('The METAR hour hold is missing; no build started.')
 PY
 WEATHER_IMAGE="$WEATHER_IMAGE_PATH:hour-hold-${WEATHER_COMMIT:0:12}"
@@ -58,7 +58,7 @@ def get(path):
 html=get('/').decode()
 if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
     raise SystemExit('The original tabs were not verified.')
-for name,version in [('metar-views.js','metar-hour-hold-v1'),('metar-model.js','metar-barb-staff-plus5-v1')]:
+for name,version in [('metar-views.js','metar-hour-hold-v2'),('metar-model.js','metar-barb-staff-plus5-v1')]:
     url='/static/'+name+'?v='+version
     if url not in html or get(url)!=(source/'static'/name).read_bytes():raise SystemExit('Updated asset was not verified: '+name)
 d=json.loads(get('/api/station-plots'));frames=d.get('history',[])

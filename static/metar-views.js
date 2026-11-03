@@ -34,7 +34,7 @@ window.WeatherMetars = (() => {
   }
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at
-    // least 95% of airports present in each of the previous three hours.
+    // least 90% of airports present in each of the previous three hours.
     // Missing individual airports still use the existing four-frame rule.
     for(let end=history.length;end>=historyHours;end--){
       const frames=history.slice(end-historyHours,end);
@@ -42,7 +42,7 @@ window.WeatherMetars = (() => {
           (i>0&&Date.parse(f.hour)-Date.parse(frames[i-1].hour)!==3600000)))continue;
       const sets=frames.map(f=>new Set(f.stations.map(s=>s.station)));
       const expected=[...sets[0]].filter(id=>sets[1].has(id)&&sets[2].has(id));
-      if(expected.length>=20&&expected.filter(id=>sets[3].has(id)).length/expected.length<.95)continue;
+      if(expected.length>=20&&expected.filter(id=>sets[3].has(id)).length/expected.length<.90)continue;
       if(["KFCM","KMIC","KMSP"].some(id=>expected.includes(id)&&!sets[3].has(id)))continue;
       return frames;
     }
