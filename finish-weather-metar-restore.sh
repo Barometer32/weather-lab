@@ -23,10 +23,11 @@ curl --retry 3 --retry-delay 2 -fsSL --max-time 90 \
   -o "$WEATHER_WORK/expected-model.js"
 python3 - "$WEATHER_URL" "$WEATHER_WORK/expected-model.js" <<'PY'
 import json,re,sys
+from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.request import Request,urlopen
 from urllib.parse import urlparse
-def verify(base, expected, fetch=None):
+def verify(base, expected, fetch=None, now=None):
     origin=urlparse(base)
     if origin.scheme!='https' or not origin.hostname or origin.path not in ('','/'):
         raise ValueError('Expected an HTTPS website origin.')
@@ -48,8 +49,22 @@ def verify(base, expected, fetch=None):
         raise ValueError('Unexpected location or CURRENT controls.')
     data=json.loads(fetch('/api/station-plots'))
     frames=data.get('history',[])
-    if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12 or any(not f.get('stations') for f in frames):
+    if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12:
         raise ValueError('Prepared airport history is incomplete.')
+    missing=[i for i,f in enumerate(frames) if not f.get('stations')]
+    if missing:
+        now=now or datetime.now(timezone.utc)
+        current_hour=now.replace(minute=0,second=0,microsecond=0)
+        def hour(frame):return datetime.fromisoformat(frame['hour'].replace('Z','+00:00'))
+        # The API reserves a new hourly slot before the :00/:05/:10
+        # collector has published its reports. Allow only this trailing
+        # slot through the final attempt's five-minute request deadline.
+        pending=(missing==[11] and now<current_hour+timedelta(minutes=15)
+                 and hour(frames[-1])==current_hour
+                 and hour(frames[-2])==current_hour-timedelta(hours=1))
+        if not pending:
+            raise ValueError('Missing airport hours: '+', '.join(str(frames[i].get('hour')) for i in missing))
+        print('Newest hourly slot is awaiting :00/:05/:10 collection; the previous eleven hours are populated.',flush=True)
     for frame in frames:
         for row in frame['stations']:
             if row.get('reportType')!='METAR' or not 45<=int(row['time'][14:16])<=59:
@@ -110,3 +125,4 @@ else
 fi
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='table(name,schedule,state)'
 printf '\nFinish complete. No container was rebuilt or redeployed.\nWebsite: https://weather-lab.cloud.run\nDirect URL: %s\nDiagnostics: %s\n' "$WEATHER_URL" "$WEATHER_WORK"
+
