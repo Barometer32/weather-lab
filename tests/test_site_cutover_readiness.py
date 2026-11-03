@@ -25,6 +25,23 @@ def test_checks_every_page_and_downloads_each_newest_asset():
     assert set(calls) == set(data)
 
 
+@pytest.mark.parametrize('version', ['metar-combined-v14', 'metar-barb-staff-plus5-v1', 'future-cache-version'])
+def test_station_model_cache_version_does_not_change_readiness(version):
+    data=fixture()
+    html=data['/'].decode()
+    import re
+    html=re.sub(r'metar-model\.js\?v=[^"]+', 'metar-model.js?v='+version, html)
+    data['/']=html.encode()
+    verify('https://weather.example.run.app', data.__getitem__)
+
+
+def test_missing_station_model_script_prevents_cutover():
+    data=fixture()
+    data['/']=data['/'].replace(b'/static/metar-model.js', b'/static/missing-model.js')
+    with pytest.raises(ValueError, match='station model is missing'):
+        verify('https://weather.example.run.app', data.__getitem__)
+
+
 def test_pinned_earlier_four_view_restore_is_still_verified():
     data = fixture()
     html = data['/'].decode().replace('data-station-model="combined-v1"', '').replace('metar-combined-v1', 'metar-products-v1')

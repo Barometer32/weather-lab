@@ -21,7 +21,7 @@ def verify(base, fetch=None):
     expected = ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
     if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != expected:
         raise ValueError('The saved weather tabs were not verified')
-    combined = 'data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
+    combined = 'data-station-model="combined-v1"' in html and bool(re.search(r'<script\b[^>]*\bsrc="/static/metar-model\.js(?:\?[^"]*)?"', html))
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))
     if not (combined or separate):
         raise ValueError('The saved METAR station model is missing')
