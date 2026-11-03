@@ -36,7 +36,7 @@ def verify(base, fetch=None):
             raise ValueError('The prepared 30-minute local analysis is not ready')
         if local_air_layout:
             air=json.loads(fetch('/api/local-air-quality'))
-            if not (air.get('aqi') or air.get('mix')):
+            if not any(r.get('value') is not None or r.get('aqi') is not None for r in air.get('readings', [])):
                 raise ValueError('Local air quality is not ready')
     else:
         combined='data-station-model="combined-v1"' in html

@@ -5,14 +5,17 @@ class Clock extends Date{constructor(value){super(value??now);}static now(){retu
 const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,{children:[],hidden:false,textContent:'',append(n){this.children.push(n);},replaceChildren(){this.children=[];}});return nodes.get(id);};
 const at=minute=>new Date(NOW-minute*60000).toISOString();
 const fields={temperatureF:{value:61.7,observationStart:at(15),representativeTime:at(8)},dewpointF:{value:50.3,observationStart:at(15),representativeTime:at(12)},windMph:{value:5.7,observationStart:at(15),representativeTime:at(7)}};
-let data={fields,observationStart:at(15),observationEnd:at(5),windDirection:220,stations:[],serverTime:at(0)},request,fail=false,subscriber;
-const polls=[],context={window:{WeatherSun:{elevation:()=>12.3,sync(){},now:()=>new Date(now)},WeatherLocation:{get:()=>({latitude:44.925,longitude:-93.463}),subscribe(fn){subscriber=fn;}}},document:{hidden:false,getElementById:get,createElement:()=>({append(){}}),addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},Intl,Date:Clock,Number,Math,JSON,Object,AbortSignal:{timeout:()=>undefined},setInterval(fn,ms){polls.push({fn,ms});},fetch:async(url,opts)=>{request={url,opts};if(fail)throw Error('offline');return{ok:true,json:async()=>data};}};
+let data={fields,observationStart:at(15),observationEnd:at(5),windDirection:220,stations:[{station:'HPN38',name:'Eden Prairie',time:at(5),distanceKm:2,tempF:62,dewpointF:50,wind:{speedMph:100,direction:0},weightsPct:{temperature:100,dewpoint:100}},{station:'KFCM',name:'Flying Cloud',time:at(5),distanceKm:5,wind:{speedMph:5.7,direction:220},weightsPct:{wind:100}}],windPolicy:'airports-only-v1',serverTime:at(0)},request,fail=false,subscriber;
+const polls=[],context={window:{WeatherSun:{elevation:()=>12.3,sync(){},now:()=>new Date(now)},WeatherLocation:{get:()=>({latitude:44.925,longitude:-93.463}),subscribe(fn){subscriber=fn;}}},document:{hidden:false,getElementById:get,createElement:()=>({children:[],append(n){this.children.push(n);}}),addEventListener(){}},localStorage:{getItem(){return JSON.stringify({key:'weather-current-44.9250,-93.4630',storedAt:NOW,data:{...data,windPolicy:'old-mixed-wind'}});},setItem(){}},Intl,Date:Clock,Number,Math,JSON,Object,AbortSignal:{timeout:()=>undefined},setInterval(fn,ms){polls.push({fn,ms});},fetch:async(url,opts)=>{request={url,opts};if(fail)throw Error('offline');return{ok:true,json:async()=>data};}};
 vm.runInNewContext(fs.readFileSync('static/current-views.js','utf8'),context);
+assert.equal(get('current-wind').textContent,'','An old mixed-source wind snapshot is not restored after this update');
 const flush=()=>new Promise(setImmediate);
 (async()=>{
  context.window.WeatherCurrent.select('current');await flush();
  assert.equal(request.url,'/api/current');assert.equal(request.opts.method,'POST');assert.equal(JSON.parse(request.opts.body).latitude,44.925);
  assert.equal(get('current-temperature').textContent,'62°F');assert.equal(get('current-dewpoint').textContent,'50°F');assert.equal(get('current-wind').textContent,'SW 6');assert.equal(get('current-sun').textContent,'12.3°');
+ assert.doesNotMatch(get('current-station-list').children[0].children.map(n=>n.textContent).join(' '),/Wind/,'Mesonet cards show only contributing temperature/dewpoint');
+ assert.match(get('current-station-list').children[1].children.map(n=>n.textContent).join(' '),/Wind SW 6/);
  assert.match(get('current-time').textContent,/Local estimate/);
  assert.match(get('current-time').textContent,/9:21 PM CST/,'The main time averages the three weighted measurement times, not the range endpoints');
  assert.doesNotMatch(get('current-time').textContent,/–/);

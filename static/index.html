@@ -6,19 +6,19 @@
   <meta name="description" content="Local MN/WI observation estimates, hourly airport cloud heights, MPX radar, satellite imagery, and the NWS forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=local-air-v1">
+  <link rel="stylesheet" href="/static/style.css?v=pollutants-v2">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=current-clouds-v1"></script>
   <script defer src="/static/sun-angle.js?v=current-location-v1"></script>
   <script defer src="/static/prepared-data.js?v=local-air-v1"></script>
   <script defer src="/static/location-choice.js?v=city-label-v2"></script>
-  <script defer src="/static/current-views.js?v=weighted-time-v2"></script>
+  <script defer src="/static/current-views.js?v=airport-wind-v3"></script>
   <script defer src="/static/forecast-views.js?v=selected-point-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-barb-staff-plus5-v1"></script>
   <script defer src="/static/clouds-views.js?v=clouds-only-v1"></script>
-  <script defer src="/static/local-air-views.js?v=aqhi-local-v1"></script>
+  <script defer src="/static/local-air-views.js?v=pollutants-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
   <script defer src="/static/app.js?v=local-air-v1"></script>
@@ -41,7 +41,7 @@
     <div class="current-metrics">
       <article class="current-metric"><h2>Temperature</h2><strong id="current-temperature">—</strong></article>
       <article class="current-metric"><h2>Dewpoint</h2><strong id="current-dewpoint">—</strong></article>
-      <article class="current-metric"><h2>Wind</h2><strong id="current-wind">—</strong></article>
+      <article class="current-metric"><h2>Wind</h2><strong id="current-wind" title="Weighted ASOS/AWOS airport wind">—</strong></article>
       <article class="current-metric"><h2>Sun height</h2><strong id="current-sun">—</strong></article>
     </div>
     <p id="current-time" class="current-time" aria-live="polite">Loading recent observations…</p>
@@ -49,13 +49,15 @@
     <section class="current-air" aria-labelledby="local-air-heading">
       <div class="local-air-heading"><h2 id="local-air-heading">Air quality</h2><button class="secondary" id="refresh-local-air">Refresh</button></div>
       <div class="local-air-summary">
-        <article id="local-aqi-card" class="local-air-card"><h3>U.S. AQI</h3><strong id="local-aqi-value">—</strong><p id="local-aqi-category"></p><p class="local-air-time" id="local-aqi-time"></p></article>
-        <article id="local-mix-card" class="local-air-card"><h3>Pollution mix</h3><strong id="local-mix-value">—</strong><p id="local-mix-category"></p><p class="local-air-method">Classic AQHI estimate · PM2.5 + ozone + NO₂</p><p class="local-air-time" id="local-mix-time"></p></article>
+        <article id="air-pm25-card" class="local-air-card"><h3>PM2.5</h3><div class="local-air-number"><strong id="air-pm25-value">—</strong><span>µg/m³</span></div><p id="air-pm25-aqi"></p><p class="local-air-source" id="air-pm25-source">Nearest available monitor</p><p class="local-air-time" id="air-pm25-time"></p></article>
+        <article id="air-pm10-card" class="local-air-card"><h3>PM10</h3><div class="local-air-number"><strong id="air-pm10-value">—</strong><span>µg/m³</span></div><p id="air-pm10-aqi"></p><p class="local-air-source" id="air-pm10-source">Nearest available monitor</p><p class="local-air-time" id="air-pm10-time"></p></article>
+        <article id="air-ozone-card" class="local-air-card"><h3>Ozone</h3><div class="local-air-number"><strong id="air-ozone-value">—</strong><span>ppb</span></div><p id="air-ozone-aqi"></p><p class="local-air-source" id="air-ozone-source">Nearest available monitor</p><p class="local-air-time" id="air-ozone-time"></p></article>
+        <article id="air-no2-card" class="local-air-card"><h3>NO₂</h3><div class="local-air-number"><strong id="air-no2-value">—</strong><span>ppb</span></div><p id="air-no2-aqi"></p><p class="local-air-source" id="air-no2-source">Nearest available monitor</p><p class="local-air-time" id="air-no2-time"></p></article>
       </div>
       <p id="local-air-status" class="current-message" role="status" hidden></p>
-      <details class="local-air-details"><summary>Pollutants and sources</summary><p id="local-air-area"></p><p id="local-air-pollutants"></p><div id="local-air-inputs"></div><p class="small-note">The mix estimate uses nearby monitors and three-hour pollutant concentrations. It is not an official issued AQHI or a measurement at your exact location. PM10, CO and SO₂ do not enter this formula. Missing measurements are not treated as zero. Canadian smoke overrides are not applied; U.S. AQI remains visible separately.</p><p class="small-note"><a href="https://www.canada.ca/en/environment-climate-change/services/air-quality-health-index/about.html" target="_blank" rel="noopener noreferrer">About AQHI</a> · <a href="https://www.airnow.gov/" target="_blank" rel="noopener noreferrer">AirNow</a></p></details>
+      <details class="local-air-details"><summary>Pollutant sources</summary><div id="local-air-inputs"></div><p class="small-note">Nearest available active monitor within 50 km for each pollutant; these hourly readings are a local proxy, not a measurement at your exact location. Published pollutant AQI values are shown separately when available. Missing readings show —. Small negative instrument readings display as 0.</p><p class="small-note"><a href="https://www.airnow.gov/" target="_blank" rel="noopener noreferrer">EPA AirNow</a></p></details>
     </section>
-    <details id="current-stations"><summary>Contributing stations</summary><p id="current-observation-range"></p><p id="current-method">Five-minute checks · latest reports within 30 minutes · up to five nearby stations per measurement</p><div id="current-station-list"></div></details>
+    <details id="current-stations"><summary>Contributing stations</summary><p id="current-observation-range"></p><p id="current-method">Five-minute checks · reports within 30 minutes · temperature/dewpoint: nearby stations · wind: airports only</p><div id="current-station-list"></div></details>
   </div>
 </section>
 

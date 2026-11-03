@@ -192,10 +192,15 @@ def haversine(lat,lon,lats,lons):
     return 6371*2*np.arcsin(np.sqrt(np.clip(a,0,1)))
 
 
+def airport_wind_site(row):
+    return (str(row.get('provider','')).upper() in ('AWC','HF-METAR')
+            or str(row.get('network','')).upper() in ('AIRPORT METAR','HF-METAR'))
+
+
 def analysis(data,lat,lon,now):
     lat,lon=coordinates(lat,lon)
     result=dict(latitude=lat,longitude=lon,estimated=True,available=False,gridSpacingKm=GRID_KM,
-        windowMinutes=30,checkedAt=data.get('checkedAt'),serverTime=iso(now),fields={},stations=[],
+        windowMinutes=30,windPolicy='airports-only-v1',checkedAt=data.get('checkedAt'),serverTime=iso(now),fields={},stations=[],
         sourceErrors=data.get('errors',[]),stale=not data.get('checkedAt') or now-stamp(data['checkedAt'])>timedelta(minutes=12))
     if not state_for(lat,lon):
         result['message']='Current analysis covers Minnesota and Wisconsin. Select a location in either state.';return result
@@ -219,6 +224,13 @@ def analysis(data,lat,lon,now):
     xy=np.array([[r['lon']*xscale,r['lat']*111.195] for r in rows]);tree=cKDTree(xy)
     density=np.array([len(v) for v in tree.query_ball_point(xy,2)])
     base=np.exp(-ages/30)*source_weight/np.sqrt(np.maximum(1,density))
+    airports=np.array([airport_wind_site(row) for row in rows],dtype=bool)
+    wind_base=np.exp(-ages/30)
+    airport_indices=np.flatnonzero(airports)
+    if len(airport_indices):
+        airport_xy=xy[airport_indices]
+        airport_density=np.array([len(v) for v in cKDTree(airport_xy).query_ball_point(airport_xy,2)])
+        wind_base[airport_indices]/=np.sqrt(np.maximum(1,airport_density))
     temperatures=np.array([r['tempF'] if r['tempF'] is not None else np.nan for r in rows])
     dews=np.array([r['dewpointF'] if r['dewpointF'] is not None else np.nan for r in rows])
     speeds=np.array([r['wind']['speedMph'] if r['wind']['speedMph'] is not None else np.nan for r in rows])
@@ -226,7 +238,7 @@ def analysis(data,lat,lon,now):
     directions[speeds==0]=0
     u=-speeds*np.sin(np.radians(directions));v=-speeds*np.cos(np.radians(directions))
     supports=[]
-    def estimate(values,valid=None):
+    def estimate(values,valid=None,base_weights=None):
         valid=np.isfinite(values) if valid is None else valid
         candidates=sorted(np.flatnonzero(valid&(distances<=MAX_RADIUS_KM)),key=lambda i:distances[i])[:MAX_STATIONS]
         support=np.zeros(len(rows));total=0.
@@ -235,7 +247,7 @@ def analysis(data,lat,lon,now):
         for nx,ny,blend in nodes:
             if blend<1e-10:continue
             d=haversine(ny/111.195,nx/xscale,np.array([rows[i]['lat'] for i in candidates]),np.array([rows[i]['lon'] for i in candidates]))
-            weights=base[candidates]/(d+2)**2
+            weights=(base if base_weights is None else base_weights)[candidates]/(d+2)**2
             weights/=weights.sum();total+=blend*float(np.dot(weights,values[candidates]));support[candidates]+=blend*weights
         return total,support
     def field(name,value,support):
@@ -248,9 +260,12 @@ def analysis(data,lat,lon,now):
     temperature,ts=estimate(temperatures);dewpoint,ds=estimate(dews)
     field('temperatureF',temperature,ts)
     field('dewpointF',min(dewpoint,temperature) if dewpoint is not None and temperature is not None else dewpoint,ds)
-    valid=np.isfinite(u)&np.isfinite(v);ue,us=estimate(u,valid);ve,vs=estimate(v,valid)
+    valid=airports&np.isfinite(u)&np.isfinite(v)
+    ue,us=estimate(u,valid,wind_base);ve,vs=estimate(v,valid,wind_base)
     speed=math.hypot(ue,ve) if ue is not None and ve is not None else None
     field('windMph',speed,us)
+    result['fields']['windMph']['sourcePolicy']='airports-only-v1'
+    if speed is None:result['windMessage']='Wind unavailable: at least three recent usable airport reports are needed nearby.'
     result['windDirection']=(math.degrees(math.atan2(-ue,-ve))%360) if speed is not None and speed>=.5 else None
     result['available']=any(f['value'] is not None for f in result['fields'].values())
     if supports:

@@ -5,68 +5,43 @@ RADAR, CLOUDS, SATELLITE, FORECAST. Air quality is a compact Current section;
 the retired AIR Q map tab is no longer loaded or preloaded.
 Forecast uses the same saved point as Current, without reading device location.
 
-## Local air quality and pollution mix
+## Individual local pollutants
 
-POST /api/local-air-quality uses the same saved location. No device location
-request is made by this viewer. A shared, in-memory snapshot is refreshed on
-demand at most every 30 minutes per website instance. No API key, new scheduled
-job, user-specific backend storage, or statewide image rendering is needed.
+Current displays four individual cards: PM2.5 and PM10 concentrations (µg/m³),
+ozone and NO2 (ppb). The cards also show the published monitor AQI subindex
+where available, its monitor/distance, and source time. No combined AQHI,
+pollution-mix score or overall summary AQI is calculated or displayed.
 
-The public AirNow reportingarea.dat file provides the official U.S. AQI and
-available pollutant subindices for a nearby reporting area. Prefer an area
-assigned to the nearest active monitor within 80 km; otherwise use a nearby
-reporting-area centre within 100 km. Display the area name in details: this
-does not imply an AQI sensor at the GPS point. Use one common observation hour,
-not the maximum across mismatched hours. Preserve actual source times.
+POST /api/local-air-quality uses the same saved location without requesting
+GPS. The public AirNow HourlyAQObs file supplies hourly concentrations and
+monitor AQI subindices: NowCast AQI for particles/ozone, hourly AQI for NO2.
+Each pollutant uses its nearest available active monitor within 50 km. This is
+an explicitly labelled nearest-monitor local proxy, not an invented
+high-resolution interpolation or a sensor at the selected GPS point. Prefer
+an actual hourly concentration over a score-only site. Missing concentrations
+and missing subindices remain separately unavailable; actual zero is retained.
+Small valid negative instrument concentrations display as zero with the raw
+value retained in the API for traceability. Units and actual source hour are
+validated. AirNow data remain preliminary.
 
-The separate Pollution mix card is explicitly a **classic AQHI estimate**,
-not an official issued U.S. or Canadian index. It uses three-hour mean raw
-concentrations of PM2.5 (µg/m³), ozone (ppb), and NO2 (ppb):
+Only the latest available completed source hour is downloaded, with a bounded
+lookback for file publication delays. No three-hour AQHI input series,
+reporting-area file, history archive or statewide map is downloaded. A shared
+memory cache refreshes on demand at most every 30 minutes per web instance.
+No API key, new scheduled job or per-user backend storage is needed. Source
+files are national, then filtered to active MN/WI sites. Source timestamps label
+the start of an hourly sample, so display the sample end as its observation
+hour. Values older than 3 hours are hidden and delays over 2 hours are flagged.
 
-    AQHI = (1000/10.4) * [expm1(.000487*PM2.5)
-                        + expm1(.000537*ozone) + expm1(.000871*NO2)]
+The browser retains one selected-point snapshot, invalidates the older mix
+schema and ignores late responses from a former point. Location changes clear
+all pollutant cards immediately. The retired AIR Q tab and map collector remain
+disabled. Apply update-weather-pollutants-wind.sh with a pinned source commit.
+It updates the website only, verifies airport-only wind and the four pollutants,
+and keeps the old map job paused. Current collection still checks every five
+minutes; pollutant data check every 30 minutes while Current is open.
 
-Use the nearest active monitor with all three consecutive source hours for
-each pollutant, within 50 km. Thus the inputs may come from different nearby
-sites, shown with distances. This is a local estimate, not a personal exposure
-measurement or a claim of clinical validation for the selected U.S. location.
-Coefficients come from the published national Canadian AQHI formulation; they
-are not arbitrary weights on U.S. AQI subindices. Round to a level of at least
-1 and display levels above 10 as 10+. Categories are Low 1–3, Moderate 4–6,
-High 7–10, Very high above 10. Show contribution percentages as proportions of
-this calculated index, not as estimates of a person's share of health risk.
-
-This classic formula covers **only those three pollutants**. PM10, CO and SO2
-may appear as separate recent measurements; they are not silently added to the
-mix. Canadian operational smoke overrides are not applied. Keep official U.S.
-AQI visible independently, including during particulate pollution events.
-If any input lacks a complete series, show the mix as unavailable, never zero.
-
-HourlyAQObs timestamps label the START of an hourly sample, so display its end
-as the time through which measurements were included. Source files are national;
-only active MN/WI monitors and recent reporting-area observations are retained.
-Inactive sites, unknown units, mismatched source hours and nonfinite/fill values
-are rejected. Preserve valid slight negative raw readings when forming hourly
-means, then floor the mean at zero. Do not display indices older than 3 hours;
-flag delayed sources or ages over 2 hours. AirNow values are preliminary.
-
-The browser stores only one selected-point air-quality snapshot and clears it
-on location change/reset. Late responses from the old point are ignored. Current
-weather collection, airport/mesonet choices, weights and wind remain unchanged.
-
-Apply update-weather-local-air.sh with a pinned commit. It builds only the web
-service, verifies the five tabs and local endpoint, then pauses the old
-weather-live-air-quality map-generation schedule. All other collection jobs and
-service scaling settings are retained. Existing archive files and legacy map
-endpoints are retained for backwards-compatible restoration.
-
-Sources:
-- https://docs.airnowapi.org/docs/HourlyAQObsFactSheet.pdf
-- https://docs.airnowapi.org/faq
-- https://www.canada.ca/en/environment-climate-change/services/air-quality-health-index/about.html
-- Public Health Ontario, Review of Air Quality Index and Air Quality Health
-  Index (2013), equation 2 (classic national formulation):
-  https://www.publichealthontario.ca/-/media/documents/A/2013/air-quality-health-index.pdf
+Source: https://docs.airnowapi.org/docs/HourlyAQObsFactSheet.pdf
 
 ## Selected-location Forecast
 
@@ -185,6 +160,16 @@ made that asynchronous reports were all observed at one instant.
   beyond the requested observation window.
 
 Values are whole degrees F; wind uses an integer speed, with `0` for calm.
+Wind is estimated only from ASOS/AWOS airport feeds identified as HF-METAR
+or AWC Airport METAR, using up to five nearest recent usable airport reports.
+The existing minimum of three reports within 80 km, including one within
+35 km, is retained. Wind uses spatial/age weights and vector averaging. Its
+density adjustment counts airport sites only, so mesonet winds and mesonet
+station density cannot affect the wind result. Temperature and dewpoint retain
+their existing mixed-network weights. There is no fallback to mesonet wind.
+Contributing station cards show only the measurements they actually supply,
+and browser snapshots from the prior mixed-wind policy are discarded.
+
 Zero wind is a valid numerical report and contributes a zero u/v vector if the
 supplied feed QC accepts it, even when calm has no direction. There is no local
 stuck-anemometer history test or independent wind buddy check in this version.

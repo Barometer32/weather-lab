@@ -18,8 +18,11 @@ def row(station='A',age=10,lat=44.925,lon=-93.463,temp=60,dew=50,speed=5,directi
         wind=dict(speedMph=speed,direction=direction),network='Hennepin West',provider='MesoWest',source='NOAA MADIS',**extra)
 
 
-def observations(n=7,**extra):
-    return [row(str(i),lat=44.925+i*.01,lon=-93.463+i*.005,**extra) for i in range(n)]
+def observations(n=7,airport=False,**extra):
+    rows=[row(str(i),lat=44.925+i*.01,lon=-93.463+i*.005,**extra) for i in range(n)]
+    if airport:
+        for r in rows:r.update(network="HF-METAR",provider="HF-METAR")
+    return rows
 
 
 class Store:
@@ -56,7 +59,7 @@ def test_same_airport_is_not_counted_twice_when_feed_coordinates_differ():
 
 
 def test_grid_uses_five_nearest_stations_and_exact_constant_field():
-    data=dict(stations=observations(9),checkedAt=c.iso(NOW))
+    data=dict(stations=observations(9,airport=True),checkedAt=c.iso(NOW))
     result=c.analysis(data,44.925,-93.463,NOW)
     assert result['available'] and not result['stale']
     assert result['gridSpacingKm']==5
@@ -81,7 +84,7 @@ def test_distance_and_age_weighting_favor_close_and_recent():
 
 
 def test_vector_wind_wraps_north_and_calm_needs_no_bearing():
-    rows=observations(4)
+    rows=observations(4,airport=True)
     for i,r in enumerate(rows):r['wind']=dict(speedMph=10,direction=350 if i%2 else 10)
     result=c.analysis(dict(stations=rows,checkedAt=c.iso(NOW)),44.925,-93.463,NOW)
     assert result['windDirection']<15 or result['windDirection']>345
@@ -184,3 +187,37 @@ def test_isolated_collector_publishes_only_shared_data_and_retains_failure_seman
         assert client.post('/collect/current-analysis').status_code==502
     assert private.lock.acquire(blocking=False)
     private.lock.release()
+
+
+def test_wind_uses_airports_only_while_temperature_and_dewpoint_keep_nearby_mesonet_weights():
+    mesonets=observations(5,speed=0,temp=60,dew=50)
+    airports=observations(3,airport=True,speed=12,direction=180,temp=80,dew=65)
+    for i,r in enumerate(airports):r.update(station='K'+str(i),lat=45.02+i*.01,lon=-93.50)
+    airports[0].update(provider='AWC',network='Airport METAR')
+    result=c.analysis(dict(stations=mesonets+airports,checkedAt=c.iso(NOW)),44.925,-93.463,NOW)
+    assert result['windPolicy']=='airports-only-v1'
+    assert result['fields']['windMph']['value']==12 and result['windDirection']==180
+    assert result['fields']['temperatureF']['value']==60 and result['fields']['dewpointF']['value']==50
+    for r in result['stations']:
+        if c.airport_wind_site(r):assert set(r['weightsPct'])=={'wind'}
+        else:assert set(r['weightsPct'])=={'temperature','dewpoint'}
+
+
+def test_sheltered_mesonet_winds_and_station_density_cannot_change_airport_wind():
+    airports=observations(3,airport=True)
+    for i,r in enumerate(airports):r['wind']['speedMph']=5+i*10
+    before=c.analysis(dict(stations=airports,checkedAt=c.iso(NOW)),44.925,-93.463,NOW)
+    crowd=[row('meso'+str(i),lat=44.925+(i+1)*.0003,lon=-93.463,speed=100,direction=0) for i in range(15)]
+    after=c.analysis(dict(stations=airports+crowd,checkedAt=c.iso(NOW)),44.925,-93.463,NOW)
+    assert after['fields']['windMph']['value']==before['fields']['windMph']['value']
+    assert after['windDirection']==before['windDirection']
+
+
+def test_insufficient_airports_does_not_fall_back_to_mesonet_wind():
+    airports=observations(2,airport=True)
+    mesonets=observations(5)
+    for i,r in enumerate(mesonets):r.update(station='KFAKE'+str(i),lat=44.98+i*.01)
+    result=c.analysis(dict(stations=airports+mesonets,checkedAt=c.iso(NOW)),44.925,-93.463,NOW)
+    assert result['available'] and result['fields']['temperatureF']['value']==60
+    assert result['fields']['windMph']['value'] is None and result['windMessage']
+    assert not any('wind' in r['weightsPct'] for r in result['stations'])

@@ -8,7 +8,7 @@ def fixture():
     html = (Path(__file__).resolve().parents[1] / 'static/index.html').read_bytes()
     row = {'station': 'KMSP', 'reportType': 'METAR', 'time': '2026-10-27T01:53:00Z'}
     data = {'/': html, '/api/clouds': json.dumps({'sourcePolicy': 'airport-routine-only', 'stationPolicy': 'all-airports-v1', 'history': [{'stations': [row]}] * 12}).encode()}
-    data['/api/local-air-quality']=b'{"aqi":{"value":25}}'
+    data['/api/local-air-quality']=b'{"readings":[{"pollutant":"PM2.5","value":5}]}'
     data['/api/current']=json.dumps({'windowMinutes':30,'gridSpacingKm':5,'available':True}).encode()
     for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro'):
         asset = '/api/prepared/' + endpoint.replace('?', '-').replace('/', '-')

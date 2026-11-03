@@ -28,14 +28,18 @@ window.WeatherCurrent = (()=>{
     el("current-time").textContent=time?`${saved?"Saved estimate · ":"Local estimate · "}${dateClock.format(time)}`:"No recent observations";
     el("current-time").title="Weighted observation time, rounded to the nearest minute; sun height uses the current time.";
     el("current-observation-range").textContent=`Observation range · ${range}`;
-    const status=readError||data.message||(data.stale?"Observation collection is delayed. Only reports still within 30 minutes are used.":data.sourceErrors?.length?"Some observation feeds are delayed; available recent stations are used.":"");
+    const status=readError||data.message||data.windMessage||(data.stale?"Observation collection is delayed. Only reports still within 30 minutes are used.":data.sourceErrors?.length?"Some observation feeds are delayed; available recent stations are used.":"");
     el("current-status").textContent=status;el("current-status").hidden=!status;
     const list=el("current-station-list");list.replaceChildren();
     for(const row of data.stations||[]){
       const card=document.createElement("article");card.className="contributor";
-      add("strong",`${row.name||row.station} (${row.station})`,card);
+      add("strong",row.name&&row.name!==row.station?`${row.name} (${row.station})`:row.station,card);
       add("p",`${row.network||row.provider||row.source} · ${(row.distanceKm*.621371).toFixed(1)} mi · ${clock.format(new Date(row.time))}`,card);
-      add("p",`${degree(row.tempF)} · Dew ${degree(row.dewpointF)} · Wind ${wind(row.wind?.speedMph,row.wind?.direction)}`,card);
+      const used=row.weightsPct||{},values=[];
+      if("temperature" in used)values.push(degree(row.tempF));
+      if("dewpoint" in used)values.push(`Dew ${degree(row.dewpointF)}`);
+      if("wind" in used)values.push(`Wind ${wind(row.wind?.speedMph,row.wind?.direction)}`);
+      add("p",values.join(" · "),card);
       add("p",Object.entries(row.weightsPct||{}).map(([name,value])=>`${name} ${Math.round(value)}%`).join(" · "),card);
       list.append(card);
     }
@@ -62,7 +66,7 @@ window.WeatherCurrent = (()=>{
   function restore(){
     try{
       const old=JSON.parse(localStorage.getItem("weather-current-last"));
-      if(old?.key===savedKey()&&Date.now()-old.storedAt<300000&&old.data?.observationStart&&Date.now()-Date.parse(old.data.observationStart)<=1800000){data=old.data;saved=true;render();}
+      if(old?.key===savedKey()&&old.data?.windPolicy==="airports-only-v1"&&Date.now()-old.storedAt<300000&&old.data?.observationStart&&Date.now()-Date.parse(old.data.observationStart)<=1800000){data=old.data;saved=true;render();}
     }catch(_){}
   }
   window.WeatherLocation.subscribe(()=>{
