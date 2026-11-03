@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 PROJECT='weather-lab-261024-133205'
 
 
-def run_restore(tmp_path,extra_env=None,**options):
+def run_restore(tmp_path,extra_env=None,script='restore-weather-lab-latest.sh',**options):
     binary=tmp_path/'bin';binary.mkdir();home=tmp_path/'home';home.mkdir();log=tmp_path/'calls'
     stub='''#!/usr/bin/env python3
 import json,os,pathlib,shutil,sys
@@ -18,6 +18,9 @@ if name=='git':
  if a[0]=='clone':
   dst=pathlib.Path(a[-1]);dst.mkdir(parents=True)
   for file in ['deploy.sh','ensure-weather-apis.sh','data-lifecycle.json']:shutil.copyfile(root/file,dst/file)
+  if os.environ.get('LATEST_LOWEST'):
+   shutil.copytree(root/'static',dst/'static');shutil.copyfile(root/'native_radar.py',dst/'native_radar.py')
+   (dst/'verify_lowest_radar_site.py').write_text('print("Verified mock lowest-only cutover")')
  else:print('abc1234567890000000000000000000000000000')
 elif name=='curl':
  dst=pathlib.Path(a[a.index('-o')+1])
@@ -52,7 +55,7 @@ elif a[:4]==['beta','run','domain-mappings','describe']:print(json.dumps({'spec'
         file=binary/name;file.write_text(stub);file.chmod(0o755)
     env={**os.environ,'PATH':str(binary)+os.pathsep+os.environ['PATH'],'HOME':str(home),'LATEST_ROOT':str(ROOT),'LATEST_LOG':str(log),**{'LATEST_'+k.upper():str(v) for k,v in options.items()}}
     env.update(extra_env or {})
-    result=subprocess.run(['bash',str(ROOT/'restore-weather-lab-latest.sh'),PROJECT],env=env,text=True,capture_output=True)
+    result=subprocess.run(['bash',str(ROOT/script),PROJECT],env=env,text=True,capture_output=True)
     return result,[json.loads(line) for line in log.read_text().splitlines()]
 
 
