@@ -1,0 +1,23 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const NOW=Date.parse('2026-11-03T03:30:00Z');let now=NOW;
+class Clock extends Date{constructor(value){super(value??now);}static now(){return now;}}
+const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,{children:[],hidden:false,textContent:'',append(n){this.children.push(n);},replaceChildren(){this.children=[];}});return nodes.get(id);};
+const at=minute=>new Date(NOW-minute*60000).toISOString();
+const fields={temperatureF:{value:61.7,observationStart:at(15)},dewpointF:{value:50.3,observationStart:at(15)},windMph:{value:5.7,observationStart:at(15)}};
+let data={fields,observationStart:at(15),observationEnd:at(5),windDirection:220,stations:[],serverTime:at(0)},request,fail=false,subscriber;
+const polls=[],context={window:{WeatherSun:{elevation:()=>12.3,sync(){},now:()=>new Date(now)},WeatherLocation:{get:()=>({latitude:44.925,longitude:-93.463}),subscribe(fn){subscriber=fn;}}},document:{hidden:false,getElementById:get,createElement:()=>({append(){}}),addEventListener(){}},localStorage:{getItem(){return null;},setItem(){}},Intl,Date:Clock,Number,Math,JSON,Object,AbortSignal:{timeout:()=>undefined},setInterval(fn,ms){polls.push({fn,ms});},fetch:async(url,opts)=>{request={url,opts};if(fail)throw Error('offline');return{ok:true,json:async()=>data};}};
+vm.runInNewContext(fs.readFileSync('static/current-views.js','utf8'),context);
+const flush=()=>new Promise(setImmediate);
+(async()=>{
+ context.window.WeatherCurrent.select('current');await flush();
+ assert.equal(request.url,'/api/current');assert.equal(request.opts.method,'POST');assert.equal(JSON.parse(request.opts.body).latitude,44.925);
+ assert.equal(get('current-temperature').textContent,'62°F');assert.equal(get('current-dewpoint').textContent,'50°F');assert.equal(get('current-wind').textContent,'SW 6');assert.equal(get('current-sun').textContent,'12.3°');
+ assert.match(get('current-time').textContent,/Local estimate/);
+ const refresh=polls.find(p=>p.ms===60000).fn;
+ fail=true;now=NOW+16*60000;refresh();await flush();
+ assert.equal(get('current-temperature').textContent,'—','Expired contributors are not presented as current during an outage');assert.match(get('current-status').textContent,/Could not refresh/);
+ fail=false;data={...data,fields:{...fields,windMph:{value:0,observationStart:at(0)}},observationStart:at(0),observationEnd:at(0)};refresh();await flush();assert.equal(get('current-wind').textContent,'0');
+ subscriber();await flush();assert.equal(get('current-sun').textContent,'12.3°');
+ console.log('Current passed: POST-only location, whole-degree F, cardinal integer wind, local sun, visible errors and expiry.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -6,11 +6,11 @@ function setup(fetcher,cacheFail=false){const requests=[],imageReads=[],events={
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
  cacheRows.clear();let release;const blocked=new Promise(r=>release=r);const a=setup(()=>blocked);
- const first=a.api.read('/api/station-plots'),second=a.api.read('/api/station-plots');assert.equal(a.requests.length,1,'in-flight API reads deduplicate');release(new Response(JSON.stringify({history:[{hour:'current'}]})));await Promise.all([first,second]);await a.api.read('/api/station-plots');assert.equal(a.requests.length,1,'prefetched manifest is reused');await flush();
- let fresh;const pending=new Promise(r=>fresh=r);const b=setup(()=>pending);let received;b.api.subscribe('/api/station-plots',d=>received=d);
- const saved=await b.api.read('/api/station-plots');assert.equal(saved._savedCopy,true,'repeat visit can paint a saved copy before network completes');assert.equal(received,undefined);
+ const first=a.api.read('/api/clouds'),second=a.api.read('/api/clouds');assert.equal(a.requests.length,1,'in-flight API reads deduplicate');release(new Response(JSON.stringify({history:[{hour:'current'}]})));await Promise.all([first,second]);await a.api.read('/api/clouds');assert.equal(a.requests.length,1,'prefetched manifest is reused');await flush();
+ let fresh;const pending=new Promise(r=>fresh=r);const b=setup(()=>pending);let received;b.api.subscribe('/api/clouds',d=>received=d);
+ const saved=await b.api.read('/api/clouds');assert.equal(saved._savedCopy,true,'repeat visit can paint a saved copy before network completes');assert.equal(received,undefined);
  fresh(new Response(JSON.stringify({history:[{hour:'new'}]})));await flush();assert.equal(received.history[0].hour,'new');assert.equal(received._savedCopy,undefined,'network update is no longer marked saved');
- const c=setup(()=>Promise.reject(Error('Offline')));const retained=await c.api.read('/api/station-plots');assert.equal(retained._savedCopy,true);await flush();
+ const c=setup(()=>Promise.reject(Error('Offline')));const retained=await c.api.read('/api/clouds');assert.equal(retained._savedCopy,true);await flush();
  await assert.rejects(c.api.read('/api/unknown'),/Unknown prepared/);
  const noStorage=setup(()=>Promise.resolve(new Response(JSON.stringify({periods:['forecast']}))),true);assert.equal((await noStorage.api.read('/api/forecast')).periods[0],'forecast');
  cacheRows.clear();

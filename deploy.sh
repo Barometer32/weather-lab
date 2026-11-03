@@ -88,7 +88,8 @@ weather_schedule() {
   if gcloud scheduler jobs describe "weather-live-${weather_kind}" --location="$WEATHER_REGION" >/dev/null 2>&1; then
     weather_action=update
   fi
-  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${WEATHER_COLLECTOR_URL}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$WEATHER_COLLECTOR_URL" --attempt-deadline="${weather_deadline}s" --max-retry-attempts="$weather_retries" --min-backoff=60s --max-backoff=120s
+  local weather_target="${6:-$WEATHER_COLLECTOR_URL}"
+  gcloud scheduler jobs "$weather_action" http "weather-live-${weather_kind}" --location="$WEATHER_REGION" --schedule="$weather_cron" --time-zone=Etc/UTC --uri="${weather_target}/collect/${weather_endpoint}" --http-method=POST --oidc-service-account-email="$WEATHER_SCHEDULER_SA" --oidc-token-audience="$weather_target" --attempt-deadline="${weather_deadline}s" --max-retry-attempts="$weather_retries" --min-backoff=60s --max-backoff=120s
   if [[ "${WEATHER_DEFER_COLLECTION:-false}" == true ]]; then
     gcloud scheduler jobs pause "weather-live-${weather_kind}" --location="$WEATHER_REGION"
     return
@@ -104,6 +105,10 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '0,30 * * * *'
 weather_schedule metar-clouds '0,5,10 * * * *' metar-clouds 300 0
+gcloud run deploy weather-current-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=2Gi --min-instances=0 --max-instances=1 --concurrency=1 --timeout=180 --command=gunicorn --args='--bind=0.0.0.0:8080,--workers=1,--threads=1,--timeout=180,current_collector:app'
+gcloud run services add-iam-policy-binding weather-current-collector --region="$WEATHER_REGION" --member="serviceAccount:$WEATHER_SCHEDULER_SA" --role=roles/run.invoker --quiet
+WEATHER_CURRENT_URL="$(gcloud run services describe weather-current-collector --region="$WEATHER_REGION" --format='value(status.url)')"
+weather_schedule current-analysis '*/5 * * * *' current-analysis 180 0 "$WEATHER_CURRENT_URL"
 weather_schedule air-quality '3-58/5 * * * *' air-quality 300 2
 
 

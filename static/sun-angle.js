@@ -42,5 +42,5 @@ window.WeatherSun = (() => {
   update();
   setInterval(update,10000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)update();});
-  return {elevation,geometricElevation,refraction,sync,latitude,longitude};
+  return {elevation,geometricElevation,refraction,sync,latitude,longitude,now:()=>new Date(Date.now()+clockOffset)};
 })();

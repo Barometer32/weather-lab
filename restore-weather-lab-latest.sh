@@ -66,7 +66,7 @@ PY
 )"
 python3 - "$WEATHER_WORK/jobs-before.json" >"$WEATHER_WORK/pause-before.txt" <<'PY'
 import json,sys
-managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-observation-stations'}
+managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-current-analysis','weather-live-observation-stations'}
 for job in json.load(open(sys.argv[1])):
     name=job['name'].rsplit('/',1)[-1]
     if name in managed and job.get('state')=='ENABLED':print(name)
@@ -83,7 +83,7 @@ WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/$WEATHER_REPOSITO
   cd "$WEATHER_WORK/source"
   WEATHER_APIS_VERIFIED=true WEATHER_ARTIFACT_REPOSITORY="$WEATHER_REPOSITORY" WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true WEATHER_DEFER_COLLECTION=true WEATHER_COLLECTOR_MEMORY=2Gi bash deploy.sh "$WEATHER_PROJECT"
 )
-for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality; do
+for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-forecast weather-live-metar-clouds weather-live-air-quality weather-live-current-analysis; do
   if [[ " ${WEATHER_PAUSED[*]} " != *" $WEATHER_JOB "* ]]; then WEATHER_PAUSED+=("$WEATHER_JOB"); fi
 done
 WEATHER_COLLECTOR_URL="$(gcloud run services describe weather-collector --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --format='value(status.url)')"
@@ -121,16 +121,16 @@ python3 - "$WEATHER_WORK" <<'PY'
 import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);html=(work/'page.html').read_text();clouds=json.loads((work/'clouds.json').read_text())
-if re.findall(r'<button role="tab" id="tab-([^"]+)"',html)!=['metar','radar','satellite','forecast','air-quality']:
+if re.findall(r'<button role="tab" id="tab-([^"]+)"',html) not in [['metar','radar','satellite','forecast','air-quality'],['current','radar','clouds','satellite','forecast','air-quality']]:
     raise SystemExit('Latest saved tabs were not verified.')
 if len(clouds.get('history',[]))!=12 or any(not f.get('stations') for f in clouds['history']):
     raise SystemExit('The twelve airport cloud frames are not populated.')
-combined='data-station-model="combined-v1"' in html and 'metar-model.js?v=metar-combined-' in html
+combined=('data-station-model="combined-v1"' in html or 'id="clouds-map"' in html) and 'metar-model.js?v=' in html
 if not combined and ('metar-product' not in html or 'metar-products-v1' not in html):raise SystemExit('The saved METAR station model is missing.')
-print('Verified METAR, Radar, Satellite, Forecast and Air Q with twelve airport hours.')
+print('Verified saved weather pages and twelve airport source hours.')
 PY
 
-echo 'Step 5/6: enabling all five weather collection schedules.'
+echo 'Step 5/6: enabling the weather collection schedules.'
 for WEATHER_JOB in "${WEATHER_PAUSED[@]}"; do
   gcloud scheduler jobs resume "$WEATHER_JOB" --project="$WEATHER_PROJECT" --location="$WEATHER_REGION"
 done

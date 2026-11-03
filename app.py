@@ -22,9 +22,9 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 
 app = Flask(__name__, static_folder="static", template_folder="static")
 @app.after_request
-def disable_device_location(response):
-    # None of the weather pages need access to the visitor's device location.
-    response.headers["Permissions-Policy"] = "geolocation=()"
+def allow_click_requested_location(response):
+    # Location is requested only by the explicit Use my location button.
+    response.headers["Permissions-Policy"] = "geolocation=(self)"
     return response
 
 
@@ -440,6 +440,23 @@ def live_current_payload():
     return present(saved, utcnow())
 
 
+@app.post("/api/current")
+def current_analysis_api():
+    from current_analysis import analysis, KEY
+    try:
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict):raise ValueError('Expected a location object.')
+        store=get_store()
+        data=cached('prepared-current-analysis',10,lambda:store.read_json(KEY)) if store else None
+        if data is None:return jsonify(error='Current observations are being prepared.'),503,{'Cache-Control':'no-store'}
+        return jsonify(analysis(data,body.get('latitude'),body.get('longitude'),utcnow())),200,{'Cache-Control':'no-store'}
+    except (ValueError,TypeError):
+        return jsonify(error='Choose valid coordinates in Minnesota or Wisconsin.'),400,{'Cache-Control':'no-store'}
+    except Exception:
+        app.logger.exception('Current analysis unavailable')
+        return jsonify(error='Current observations are temporarily unavailable.'),502,{'Cache-Control':'no-store'}
+
+
 @app.get("/api/forecast")
 def forecast_api():
     try:
@@ -482,9 +499,11 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
+@app.get("/api/clouds")
 @app.get("/api/station-plots")
 def station_plots_api():
     from metar_clouds import current
+    from current_analysis import state_for
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("metar-clouds")
@@ -497,12 +516,14 @@ def station_plots_api():
         result.pop("metro", None)
         for frame in result["history"]:
             frame.pop("metro", None)
+            frame["stations"]=[row for row in frame["stations"] if state_for(row["lat"],row["lon"])]
             frame["airportCount"] = len(frame["stations"])
             # Send only the values used by the four displays, rather than
             # repeating raw reports and derived cloud metadata in every row.
             frame["stations"] = [{key:row[key] for key in (
-                "station","name","lat","lon","time","reportType","tempF","dewpointF",
-                "wind","layers","skyCover","network","source") if key in row} for row in frame["stations"]]
+                "station","name","lat","lon","time","reportType",
+                "layers","skyCover","network","source") if key in row} for row in frame["stations"]]
+        result["region"]=["MN","WI"]
         result["stations"] = result["history"][-1]["stations"]
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
@@ -519,6 +540,7 @@ def station_plots_api():
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current
+    from current_analysis import state_for
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("metar-clouds")

@@ -45,7 +45,7 @@ if not web_path.startswith(f'{region}-docker.pkg.dev/{project}/') or not web_pat
     raise SystemExit('Unexpected website image; stopping to preserve existing settings.')
 for filename,value in [('web-image.txt',web_image),('image.txt',image),('account.txt',account),('bucket.txt',bucket)]:
     (work/filename).write_text(value+'\n')
-managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality'}
+managed={'weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-metar-clouds','weather-live-air-quality','weather-live-current-analysis'}
 with (work/'pause-jobs.txt').open('w') as output:
     for job in json.loads((work/'jobs-before.json').read_text()):
         name=job['name'].rsplit('/',1)[-1]
@@ -93,8 +93,8 @@ import json,re,sys
 from pathlib import Path
 work=Path(sys.argv[1]);page=(work/'page.html').read_text();data=json.loads((work/'metars.json').read_text())
 tabs=re.findall(r'<button role="tab" id="tab-([^\"]+)"',page)
-layouts=[['metar','radar','satellite','forecast','air-quality'],['metar-clouds','radar','satellite','forecast','air-quality'],['metar-clouds','radar','clouds','satellite','forecast','air-quality'],['observations','radar','clouds','satellite','forecast','air-quality']]
-if tabs not in layouts or 'metar-model.js?v=' not in page or ('clouds' in tabs and 'cloud-height-views.js?v=' not in page):
+layouts=[['current','radar','clouds','satellite','forecast','air-quality'],['metar','radar','satellite','forecast','air-quality'],['metar-clouds','radar','satellite','forecast','air-quality'],['metar-clouds','radar','clouds','satellite','forecast','air-quality'],['observations','radar','clouds','satellite','forecast','air-quality']]
+if tabs not in layouts or 'metar-model.js?v=' not in page or ('clouds' in tabs and 'cloud-height-views.js?v=' not in page and 'clouds-views.js?v=' not in page):
     raise SystemExit('The saved weather layout was not verified.')
 frames=data.get('history',[])
 if data.get('sourcePolicy')!='airport-routine-only' or data.get('stationPolicy')!='all-airports-v1' or len(frames)!=12 or any(not frame.get('stations') for frame in frames):
