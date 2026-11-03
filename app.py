@@ -473,6 +473,25 @@ def current_analysis_api():
         return jsonify(error='Current observations are temporarily unavailable.'),502,{'Cache-Control':'no-store'}
 
 
+@app.post("/api/local-air-quality")
+def local_air_quality_api():
+    from current_analysis import coordinates, state_for
+    from local_air_quality import local_air, shared_snapshot
+    try:
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            raise ValueError('Expected a location object.')
+        lat, lon = coordinates(body.get('latitude'), body.get('longitude'))
+    except (ValueError, TypeError):
+        return jsonify(error='Choose valid coordinates.'), 400, {'Cache-Control': 'no-store'}
+    now = utcnow()
+    try:
+        data = shared_snapshot(now) if state_for(lat,lon) else dict(checkedAt=iso(now), rows=[], areas=[])
+        return jsonify(local_air(data,lat,lon,now)), 200, {'Cache-Control': 'no-store'}
+    except Exception:
+        return jsonify(error='Local air quality is temporarily unavailable.'), 502, {'Cache-Control': 'no-store'}
+
+
 @app.post("/api/forecast")
 def selected_forecast_api():
     from current_analysis import coordinates

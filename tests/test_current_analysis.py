@@ -153,10 +153,10 @@ def test_current_api_requires_no_upstream_requests_and_post_coordinates():
         assert client.get('/api/current').status_code==405
 
 
-def test_navigation_has_six_tabs_no_metar_and_only_one_shot_location_calls():
+def test_navigation_has_five_tabs_no_metar_and_only_one_shot_location_calls():
     import re
     html=(Path(__file__).parents[1]/'static/index.html').read_text()
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['current','radar','clouds','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['current','radar','clouds','satellite','forecast']
     assert 'metar-product' not in html and 'id="metar"' not in html
     location=(Path(__file__).parents[1]/'static/location-choice.js').read_text()
     assert location.count('getCurrentPosition(')==1 and 'watchPosition' not in location

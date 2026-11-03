@@ -8,8 +8,9 @@ def fixture():
     html = (Path(__file__).resolve().parents[1] / 'static/index.html').read_bytes()
     row = {'station': 'KMSP', 'reportType': 'METAR', 'time': '2026-10-27T01:53:00Z'}
     data = {'/': html, '/api/clouds': json.dumps({'sourcePolicy': 'airport-routine-only', 'stationPolicy': 'all-airports-v1', 'history': [{'stations': [row]}] * 12}).encode()}
+    data['/api/local-air-quality']=b'{"aqi":{"value":25}}'
     data['/api/current']=json.dumps({'windowMinutes':30,'gridSpacingKm':5,'available':True}).encode()
-    for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'air-quality'):
+    for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro'):
         asset = '/api/prepared/' + endpoint.replace('?', '-').replace('/', '-')
         data['/api/' + endpoint] = json.dumps({'frames': [{'url': asset}]}).encode()
         data[asset] = b'image or radar bytes'
@@ -50,6 +51,8 @@ def test_legacy_five_tab_layout_remains_accepted():
     html=re.sub(r'<nav.*?</nav>', '<nav>'+''.join(f'<button role="tab" id="tab-{name}"></button>' for name in ['metar','radar','satellite','forecast','air-quality'])+'</nav>',html,flags=re.S)
     html=html.replace('<div id="clouds-map"','<div data-station-model="combined-v1" id="clouds-map"')
     data['/']=html.encode();data['/api/station-plots']=data['/api/clouds']
+    data['/api/air-quality']=b'{"frames":[{"url":"/api/prepared/air"}]}'
+    data['/api/prepared/air']=b'air map'
     verify('https://weather.example.run.app',data.__getitem__)
 
 

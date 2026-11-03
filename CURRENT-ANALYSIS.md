@@ -1,8 +1,72 @@
 # CURRENT and CLOUDS
 
 CURRENT replaces the combined METAR station-plot tab. Navigation is CURRENT,
-RADAR, CLOUDS, SATELLITE, FORECAST, AIR Q. AIR Q remains its existing product.
+RADAR, CLOUDS, SATELLITE, FORECAST. Air quality is a compact Current section;
+the retired AIR Q map tab is no longer loaded or preloaded.
 Forecast uses the same saved point as Current, without reading device location.
+
+## Local air quality and pollution mix
+
+POST /api/local-air-quality uses the same saved location. No device location
+request is made by this viewer. A shared, in-memory snapshot is refreshed on
+demand at most every 30 minutes per website instance. No API key, new scheduled
+job, user-specific backend storage, or statewide image rendering is needed.
+
+The public AirNow reportingarea.dat file provides the official U.S. AQI and
+available pollutant subindices for a nearby reporting area. Prefer an area
+assigned to the nearest active monitor within 80 km; otherwise use a nearby
+reporting-area centre within 100 km. Display the area name in details: this
+does not imply an AQI sensor at the GPS point. Use one common observation hour,
+not the maximum across mismatched hours. Preserve actual source times.
+
+The separate Pollution mix card is explicitly a **classic AQHI estimate**,
+not an official issued U.S. or Canadian index. It uses three-hour mean raw
+concentrations of PM2.5 (µg/m³), ozone (ppb), and NO2 (ppb):
+
+    AQHI = (1000/10.4) * [expm1(.000487*PM2.5)
+                        + expm1(.000537*ozone) + expm1(.000871*NO2)]
+
+Use the nearest active monitor with all three consecutive source hours for
+each pollutant, within 50 km. Thus the inputs may come from different nearby
+sites, shown with distances. This is a local estimate, not a personal exposure
+measurement or a claim of clinical validation for the selected U.S. location.
+Coefficients come from the published national Canadian AQHI formulation; they
+are not arbitrary weights on U.S. AQI subindices. Round to a level of at least
+1 and display levels above 10 as 10+. Categories are Low 1–3, Moderate 4–6,
+High 7–10, Very high above 10. Show contribution percentages as proportions of
+this calculated index, not as estimates of a person's share of health risk.
+
+This classic formula covers **only those three pollutants**. PM10, CO and SO2
+may appear as separate recent measurements; they are not silently added to the
+mix. Canadian operational smoke overrides are not applied. Keep official U.S.
+AQI visible independently, including during particulate pollution events.
+If any input lacks a complete series, show the mix as unavailable, never zero.
+
+HourlyAQObs timestamps label the START of an hourly sample, so display its end
+as the time through which measurements were included. Source files are national;
+only active MN/WI monitors and recent reporting-area observations are retained.
+Inactive sites, unknown units, mismatched source hours and nonfinite/fill values
+are rejected. Preserve valid slight negative raw readings when forming hourly
+means, then floor the mean at zero. Do not display indices older than 3 hours;
+flag delayed sources or ages over 2 hours. AirNow values are preliminary.
+
+The browser stores only one selected-point air-quality snapshot and clears it
+on location change/reset. Late responses from the old point are ignored. Current
+weather collection, airport/mesonet choices, weights and wind remain unchanged.
+
+Apply update-weather-local-air.sh with a pinned commit. It builds only the web
+service, verifies the five tabs and local endpoint, then pauses the old
+weather-live-air-quality map-generation schedule. All other collection jobs and
+service scaling settings are retained. Existing archive files and legacy map
+endpoints are retained for backwards-compatible restoration.
+
+Sources:
+- https://docs.airnowapi.org/docs/HourlyAQObsFactSheet.pdf
+- https://docs.airnowapi.org/faq
+- https://www.canada.ca/en/environment-climate-change/services/air-quality-health-index/about.html
+- Public Health Ontario, Review of Air Quality Index and Air Quality Health
+  Index (2013), equation 2 (classic national formulation):
+  https://www.publichealthontario.ca/-/media/documents/A/2013/air-quality-health-index.pdf
 
 ## Selected-location Forecast
 

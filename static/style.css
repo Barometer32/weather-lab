@@ -442,3 +442,20 @@ body.map-focus #metar .eyebrow { display:none; }
   nav { overflow-x:auto; justify-content:flex-start; }
   nav button { flex:0 0 auto; padding:8px 10px; }
 }
+
+/* Compact local air quality on Current; maps retain their existing sizing. */
+.current-air { max-width:1000px; margin:22px auto 0; }
+.local-air-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.local-air-heading h2 { font-size:18px; margin:0; }
+.local-air-heading button { padding:8px 14px; min-height:38px; }
+.local-air-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.local-air-card { --air-color:#77837d; text-align:center; border:1px solid var(--border); border-top:4px solid var(--air-color); border-radius:10px; padding:15px 10px; background:#fff; }
+.local-air-card h3 { font-size:15px; font-weight:500; margin:0 0 8px; color:var(--muted); }
+.local-air-card strong { font-size:36px; line-height:1.15; font-variant-numeric:tabular-nums; }
+.local-air-card p { margin:7px 0 0; font-size:14px; }
+.local-air-card .local-air-time,.local-air-card .local-air-method { color:var(--muted); font-size:12px; }
+.local-air-details { margin-top:13px; font-size:13px; }
+.local-air-details summary { cursor:pointer; }
+#local-air-inputs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
+#local-air-inputs>p { grid-column:1/-1; margin:2px 0; }
+@media(max-width:640px){ .local-air-summary { gap:10px; } .local-air-card strong { font-size:32px; } .local-air-card { padding:14px 8px; } #local-air-inputs { grid-template-columns:1fr; } }

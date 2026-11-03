@@ -20,7 +20,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
   return new Response(JSON.stringify(url.includes('radar')?manifests:url.includes('satellite')?{frames:[{url:'/api/prepared/sat.jpg'}]}:{history:[],frames:[]}));
  });
  await warm.api.prime();for(let i=0;i<8;i++)await flush();
- assert.ok(!warm.requests.includes('/api/forecast')&&warm.requests.includes('/api/air-quality')&&warm.requests.includes('/api/satellite/ntmicro'),'fixed products preload; Forecast uses its own location-aware loader');
+ assert.ok(!warm.requests.includes('/api/forecast')&&!warm.requests.includes('/api/air-quality')&&warm.requests.includes('/api/satellite/ntmicro'),'fixed products preload; Forecast uses its own location-aware loader');
  assert.equal(warm.requests.filter(u=>u==='/api/prepared/new.bin').length,1);
  const before=warm.requests.length;await warm.api.radar(manifests.frames[1],manifests);assert.equal(warm.requests.length,before,'tab reuses the predecoded newest radar scan');
  assert.ok(warm.imageReads.includes('/api/prepared/sat.jpg'));

@@ -13,7 +13,7 @@ def verify(base, fetch=None):
         raise ValueError('Expected an HTTPS website origin')
 
     def download(path):
-        payload=json.dumps({'latitude':44.925,'longitude':-93.463}).encode() if path=='/api/current' else None
+        payload=json.dumps({'latitude':44.925,'longitude':-93.463}).encode() if path in ('/api/current','/api/local-air-quality') else None
         headers={'User-Agent':'Weather Lab migration check'}
         if payload is not None:headers['Content-Type']='application/json'
         with urlopen(Request(base+path,data=payload,headers=headers),timeout=90) as response:
@@ -22,7 +22,8 @@ def verify(base, fetch=None):
     fetch = fetch or download
     html = fetch('/').decode()
     tabs=re.findall(r'<button role="tab" id="tab-([^"]+)"',html)
-    current_layout=tabs==['current','radar','clouds','satellite','forecast','air-quality']
+    local_air_layout=tabs==['current','radar','clouds','satellite','forecast']
+    current_layout=local_air_layout or tabs==['current','radar','clouds','satellite','forecast','air-quality']
     legacy_layout=tabs==['metar','radar','satellite','forecast','air-quality']
     if not (current_layout or legacy_layout):raise ValueError('The saved weather tabs were not verified')
     model=bool(re.search(r'<script\b[^>]*\bsrc="/static/metar-model\.js(?:\?[^"]*)?"',html))
@@ -33,6 +34,10 @@ def verify(base, fetch=None):
         point=json.loads(fetch('/api/current'))
         if point.get('windowMinutes')!=30 or point.get('gridSpacingKm')!=5 or not point.get('available'):
             raise ValueError('The prepared 30-minute local analysis is not ready')
+        if local_air_layout:
+            air=json.loads(fetch('/api/local-air-quality'))
+            if not (air.get('aqi') or air.get('mix')):
+                raise ValueError('Local air quality is not ready')
     else:
         combined='data-station-model="combined-v1"' in html
         separate=all(f'<option value="{mode}">' in html for mode in ('clouds','wind','dewpoint','temperature'))
@@ -43,7 +48,9 @@ def verify(base, fetch=None):
         raise ValueError('Twelve populated all-airport frames were not verified')
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')
-    for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
+    endpoints=['radar?site=KMPX','satellite/truecolor','satellite/dcphase','satellite/ntmicro','forecast']
+    if not local_air_layout:endpoints.append('air-quality')
+    for endpoint in endpoints:
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':
             if not data.get('periods'):
