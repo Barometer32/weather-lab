@@ -440,6 +440,22 @@ def live_current_payload():
     return present(saved, utcnow())
 
 
+@app.post("/api/location-name")
+def location_name_api():
+    from location_names import location_name
+    try:
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            raise ValueError('Expected a location object.')
+        result = location_name(body.get('latitude'), body.get('longitude'))
+        return jsonify(result), 200, {'Cache-Control': 'no-store'}
+    except (ValueError, TypeError):
+        return jsonify(error='Choose valid coordinates in Minnesota or Wisconsin.'), 400, {'Cache-Control': 'no-store'}
+    except Exception:
+        # Do not log upstream URLs containing the selected coordinates.
+        return jsonify(error='The city name is temporarily unavailable.'), 502, {'Cache-Control': 'no-store'}
+
+
 @app.post("/api/current")
 def current_analysis_api():
     from current_analysis import analysis, KEY

@@ -12,8 +12,8 @@
   <script defer src="/static/map-fullscreen.js?v=current-clouds-v1"></script>
   <script defer src="/static/sun-angle.js?v=current-location-v1"></script>
   <script defer src="/static/prepared-data.js?v=current-clouds-v1"></script>
-  <script defer src="/static/location-choice.js?v=one-shot-v1"></script>
-  <script defer src="/static/current-views.js?v=current-grid-v1"></script>
+  <script defer src="/static/location-choice.js?v=city-label-v2"></script>
+  <script defer src="/static/current-views.js?v=weighted-time-v2"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=metar-barb-staff-plus5-v1"></script>
   <script defer src="/static/clouds-views.js?v=clouds-only-v1"></script>
@@ -46,7 +46,7 @@
     </div>
     <p id="current-time" class="current-time" aria-live="polite">Loading recent observations…</p>
     <p id="current-status" class="current-message" role="status" hidden></p>
-    <details id="current-stations"><summary>Contributing stations</summary><p id="current-method">Five-minute checks · latest reports within 30 minutes · up to five nearby stations per measurement</p><div id="current-station-list"></div></details>
+    <details id="current-stations"><summary>Contributing stations</summary><p id="current-observation-range"></p><p id="current-method">Five-minute checks · latest reports within 30 minutes · up to five nearby stations per measurement</p><div id="current-station-list"></div></details>
   </div>
 </section>
 

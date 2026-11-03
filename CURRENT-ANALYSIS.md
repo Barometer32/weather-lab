@@ -20,6 +20,26 @@ prompt is controlled by browser settings. Coordinates are sent in the JSON body
 of POST /api/current, not in query strings; no travel history is stored. One
 local saved weather snapshot is replaced when the selected point changes.
 
+The selected city is looked up once through POST /api/location-name using the
+US Census Bureau geographic-coordinate lookup and retained with that selection
+on the device. An existing saved point without a name receives one lookup on
+load, without accessing device location. Actual containing incorporated places
+take priority, then census-designated places, townships/subdivisions, and counties
+for rural points. If the lookup fails, weather still loads and the label says
+city unavailable. Reset clears the selected city with the coordinates. There
+is no periodic place lookup or device-location read.
+
+The main observation timestamp is the mean of the displayed measurements'
+representative times, rounded to the nearest minute. Each measurement time
+uses its actual, unrounded spatial/age/network station weights from the analysis.
+Thus a station's overall time weight is its mean normalized contribution across
+the available temperature, dewpoint and wind estimates. Expired or unavailable
+fields do not affect this timestamp. The full source time range and individual
+station times remain under Contributing stations. Sun height uses current time.
+
+Apply city names and weighted times with update-weather-current-labels.sh;
+it builds and updates only the website, retaining all collection schedules.
+
 ## Shared collection, every five minutes
 
 The private, scale-to-zero weather-current-collector service handles
@@ -78,6 +98,11 @@ made that asynchronous reports were all observed at one instant.
   beyond the requested observation window.
 
 Values are whole degrees F; wind uses an integer speed, with `0` for calm.
+Zero wind is a valid numerical report and contributes a zero u/v vector if the
+supplied feed QC accepts it, even when calm has no direction. There is no local
+stuck-anemometer history test or independent wind buddy check in this version.
+The local spatial outlier test above applies to temperature and dewpoint only;
+it is not a guarantee that all included sensors are accurate or well exposed.
 Solar height is the existing NOAA/Meeus apparent solar-centre calculation at
 that selected position and current time. Expanding Contributing stations shows
 actual report times, distances, networks, values and per-field weights.

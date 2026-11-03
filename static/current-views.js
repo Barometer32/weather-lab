@@ -21,7 +21,13 @@ window.WeatherCurrent = (()=>{
     el(fields.dewpointF).textContent=degree(recent(f.dewpointF)?f.dewpointF.value:null);
     el(fields.windMph).textContent=wind(recent(f.windMph)?f.windMph.value:null,data.windDirection);
     const range=data.observationStart&&data.observationEnd?`${dateClock.format(new Date(data.observationStart))}–${clock.format(new Date(data.observationEnd))}`:"No recent observations";
-    el("current-time").textContent=`${saved?"Saved estimate · ":"Local estimate · "}${range}`;
+    // Each field's time uses the same unrounded station weights as its estimate.
+    // Equal weight across the displayed measurements gives one representative time.
+    const times=Object.values(f).filter(field=>recent(field)&&finite(field.value)).map(field=>Date.parse(field.representativeTime)).filter(finite);
+    const time=times.length?new Date(Math.round(times.reduce((sum,t)=>sum+t,0)/times.length/60000)*60000):null;
+    el("current-time").textContent=time?`${saved?"Saved estimate · ":"Local estimate · "}${dateClock.format(time)}`:"No recent observations";
+    el("current-time").title="Weighted observation time, rounded to the nearest minute; sun height uses the current time.";
+    el("current-observation-range").textContent=`Observation range · ${range}`;
     const status=readError||data.message||(data.stale?"Observation collection is delayed. Only reports still within 30 minutes are used.":data.sourceErrors?.length?"Some observation feeds are delayed; available recent stations are used.":"");
     el("current-status").textContent=status;el("current-status").hidden=!status;
     const list=el("current-station-list");list.replaceChildren();
