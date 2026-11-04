@@ -42,5 +42,20 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.match(clear.icon.html,/sky-outline/);assert.doesNotMatch(clear.icon.html,/sky-fill|plot-ceiling/);
  zoomed=false;callbacks.moveend();const cloudIds=ids();
  get('metar-timeline').events.input({target:{value:'0'}});assert.deepEqual(ids(),cloudIds,'cloud station density is stable across the loop');
+ const extra=(station,lat,lon,layers)=>({station,lat,lon,layers,tempF:60,dewpointF:50});
+ data={...data,history:data.history.map((frame,i)=>({...frame,stations:frame.stations.concat(
+  extra('KUNKNOWN',12,3,[]),
+  extra('KBASE',14,5,[{cover:'BKN',baseFtAGL:null}]),
+  extra('KSWITCH',16,7,i===data.history.length-4?[]:[{cover:'OVC',baseFtAGL:2000}]),
+  extra('KVALID',18,9,[{cover:'SCT',baseFtAGL:4000}])
+ )}))};subscriber(data);
+ assert.ok(ids().includes('KVALID'),'valid scattered cover needs no ceiling height');
+ for(let i=0;i<4;i++){
+  get('metar-timeline').events.input({target:{value:String(i)}});
+  for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(!ids().includes(id),'unknown cloud/ceiling station is hidden through the entire loop: '+id);
+  assert.ok(shown.every(s=>!s.icon.html.includes('?')),'no question-mark cloud markers remain');
+ }
+ get('metar-product').events.change({target:{value:'plots'}});await flush();
+ for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(ids().includes(id),'cloud availability does not remove temperature/wind plots: '+id);
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

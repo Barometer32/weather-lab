@@ -33,7 +33,7 @@ def lowest_fixture():
     radar['elevationDegrees']=.5
     radar['frames'][0]['elevationDegrees']=.5
     data['/api/radar?site=KMPX']=json.dumps(radar).encode()
-    data['/static/metar-views.js?v=cloud-cover-circle-v1']=(ROOT/'static/metar-views.js').read_bytes()
+    data['/static/metar-views.js?v=cloud-cover-circle-v2']=(ROOT/'static/metar-views.js').read_bytes()
     return data
 
 

@@ -8,6 +8,7 @@ window.WeatherMetars = (() => {
   let busy=false,sourceData;
   let suppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
+  const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
   el("metar-product").value=mode;
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
@@ -51,8 +52,11 @@ window.WeatherMetars = (() => {
     // Reserve the largest label across all four frames to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
+    // Hide unknown cloud reports across this loop, so they neither show a
+    // question mark nor flash in and out as the selected hour changes.
+    const unknownClouds=new Set(mode==="clouds"?data.history.flatMap(frame=>frame.stations.filter(station=>!cloudAvailable(station)).map(station=>station.station)):[]);
     for(const frame of data.history)for(const station of frame.stations){
-      if(suppressed.has(station.station))continue;
+      if(suppressed.has(station.station)||unknownClouds.has(station.station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }

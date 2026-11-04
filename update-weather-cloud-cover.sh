@@ -54,7 +54,7 @@ if asset not in html or get(asset)!=(source/'static/style.css').read_bytes():
     raise SystemExit('The compact phone stylesheet was not verified.')
 if 'id="radar-product"' in html:raise SystemExit('Unexpected radar product selector.')
 for name in ('metar-model.js','metar-views.js'):
-    asset='/static/'+name+'?v=cloud-cover-circle-v1'
+    asset='/static/'+name+'?v=cloud-cover-circle-v2'
     if asset not in html or get(asset)!=(source/'static'/name).read_bytes():
         raise SystemExit('The cloud-cover script was not verified: '+name)
 print('Verified cloud sky-cover circles, height labels and the original five-tab site.')

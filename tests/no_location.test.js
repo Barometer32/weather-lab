@@ -8,5 +8,5 @@ vm.runInNewContext(source.split('const $')[0],{navigator,localStorage:{removeIte
 assert.doesNotMatch(source,/WeatherRadarLocation|navigator\.geolocation|watchPosition|getCurrentPosition/);
 const html=fs.readFileSync('static/index.html','utf8');assert.doesNotMatch(html,/radar-location|My location|Location on/);
 assert.ok(html.includes('native-radar.js?v=radar-timeline-v2'));
-assert.ok(html.includes('metar-views.js?v=cloud-cover-circle-v1'));
+assert.ok(html.includes('metar-views.js?v=cloud-cover-circle-v2'));
 console.log('No-location checks passed: retired preferences cleared, blocked-storage fallback, no device-location access, no location controls, weather viewers preserved.');
