@@ -411,3 +411,27 @@ body.map-focus #metar .eyebrow { display:none; }
 }
 
 #radar-map-area { position:relative; }
+
+/* Compact phone toolbars leave more of the viewport for the map. */
+@media (max-width:600px), (max-width:950px) and (max-height:500px) and (pointer:coarse) {
+  :is(#fullscreen,#metar-fullscreen,#satellite-fullscreen) { display:none!important; }
+  :is(#metar-surface,#radar-surface,#satellite-surface) > .viewer-controls {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"time actions" "timeline timeline";
+    padding:3px 7px;
+    gap:0 8px;
+  }
+  :is(#metar-surface,#radar-surface,#satellite-surface) .viewer-frame-time {
+    justify-self:start;
+    text-align:left;
+  }
+  :is(#metar-surface,#radar-surface,#satellite-surface) .viewer-actions {
+    justify-self:end;
+    gap:5px;
+  }
+  .viewer-actions button { min-height:32px; padding:4px 7px; font-size:11px; }
+  .scan-timeline { height:36px; }
+  .section-heading { min-height:36px; }
+  .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
+  #metar-product { min-height:32px; }
+}
