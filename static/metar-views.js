@@ -8,7 +8,6 @@ window.WeatherMetars = (() => {
   let busy=false,sourceData;
   let suppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
-  const eligible=station=>mode!=="clouds"||Boolean(model.cloudHeightText(station));
   const active=new Map();
   el("metar-product").value=mode;
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
@@ -53,7 +52,7 @@ window.WeatherMetars = (() => {
     // station density as the user moves the timeline.
     const bySite=new Map();
     for(const frame of data.history)for(const station of frame.stations){
-      if(suppressed.has(station.station)||!eligible(station))continue;
+      if(suppressed.has(station.station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -70,7 +69,7 @@ window.WeatherMetars = (() => {
       if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
       boxes.push(box);keep.add(station.station);
     }
-    return stations.filter(s=>keep.has(s.station)&&eligible(s));
+    return stations.filter(s=>keep.has(s.station));
   }
   function render(){
     if(!data||el("metar").hidden||moving)return;
@@ -105,7 +104,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Lowest BKN or OVC airport cloud heights in thousands of feet":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
     el("metar-status").textContent=`${frame.stations.length} airport reports${!hours.at(-1).stations.length?" · Waiting for the newest hour":""}${data.stale?" · Background updates delayed":""}`;
   }
   function adopt(next){

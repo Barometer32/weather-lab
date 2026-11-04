@@ -58,15 +58,17 @@ window.WeatherStationModel = (() => {
     return "";
   }
   function cloudStationModel(station){
-    const label=cloudPlotLabel(station);
-    return `<svg class="metar-plot cloud-plot" width="${32*scale}" height="${24*scale}" viewBox="0 0 32 24" aria-hidden="true">${label?`<text class="${label==="?"?"plot-cloud-unknown":"plot-ceiling"}" x="16" y="12" text-anchor="middle" dominant-baseline="central">${label}</text>`:'<circle class="cloud-dot" cx="16" cy="12" r="1.9" fill="#111"/>'}</svg>`;
+    const label=skyCode(station)?cloudPlotLabel(station):"";
+    return `<svg class="metar-plot cloud-plot" width="${64*scale}" height="${24*scale}" viewBox="0 0 64 24" aria-hidden="true">${skySymbol(station,12,12)}${label?`<text class="${label==="?"?"plot-cloud-unknown":"plot-ceiling"}" x="20" y="12" text-anchor="start" dominant-baseline="central">${label}</text>`:""}</svg>`;
   }
   function cloudFootprint(station){
-    const label=cloudPlotLabel(station),half=label?textWidth(label)/2+2.5:3;
-    return {left:-half*scale,right:half*scale,top:(label?-9:-3)*scale,bottom:(label?9:3)*scale};
+    // Only reserve the painted circle and label, not the empty SVG canvas.
+    // Include the text halo so dense neighboring stations cannot cover it.
+    const label=skyCode(station)?cloudPlotLabel(station):"";
+    return {left:-6.6*scale,right:(label?8+textWidth(label)+2:6.6)*scale,top:(label?-9:-6.6)*scale,bottom:(label?9:6.6)*scale};
   }
   function singleStationModel(station,mode){
-    if(mode==="clouds")return {html:cloudStationModel(station),size:[32*scale,24*scale],anchor:[16*scale,12*scale]};
+    if(mode==="clouds")return {html:cloudStationModel(station),size:[64*scale,24*scale],anchor:[12*scale,12*scale]};
     if(mode==="wind"){
       const wind=station.wind||{},speed=windMph(wind),state=speed==null?"?":speed>=.5&&!Number.isFinite(wind.direction)?(wind.variable?"VRB":"?"):"";
       const vector=windVector(wind,speed,16,16,"M0 -12L5 -5H1.5V7H-1.5V-5H-5Z");
@@ -141,6 +143,6 @@ window.WeatherStationModel = (() => {
     return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
   }
   return {combinedStationModel,combinedFootprint,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
-    cloudIconSize:[32*scale,24*scale],cloudIconAnchor:[16*scale,12*scale],
+    cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

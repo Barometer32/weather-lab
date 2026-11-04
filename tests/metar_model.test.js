@@ -11,8 +11,10 @@ assert.match(svg,/class="plot-dew"[^>]*>41<\/text>/);
 assert.match(svg,/class="plot-speed" x="56.5" y="40" text-anchor="start">20<\/text>/);
 assert.doesNotMatch(svg,/plot-sky|plot-ceiling|sky-fill/);
 const cloudSvg=model.cloudStationModel(station);
-assert.match(cloudSvg,/class="plot-ceiling" x="16" y="12" text-anchor="middle" dominant-baseline="central">3<\/text>/);
-assert.doesNotMatch(cloudSvg,/plot-sky|sky-fill|plot-temp|plot-dew|plot-speed|wind-vector|cloud-dot/);
+assert.match(cloudSvg,/class="plot-ceiling" x="20" y="12" text-anchor="start" dominant-baseline="central">3<\/text>/);
+assert.match(cloudSvg,/class="plot-sky"/);
+assert.match(cloudSvg,/class="sky-fill"/);
+assert.doesNotMatch(cloudSvg,/plot-temp|plot-dew|plot-speed|wind-vector|cloud-dot/);
 assert.match(svg,/class="wind-vector"/);assert.doesNotMatch(svg,/wind-barb|wind-flag|wind-shaft/);
 assert.equal(Number(svg.match(/height="([^"]+)"/)[1]),model.iconSize[1],"ceiling label never changes SVG size");
 for(const [ft,label] of [[0,'1'],[999,'1'],[1000,'1'],[1499,'1'],[1500,'2'],[12000,'12'],[25000,'25']]){
@@ -27,11 +29,11 @@ assert.equal(model.cloudHeightText({...station,cloudLayers:[],layers:[{cover:'OV
 assert.equal(model.cloudHeightText({...station,cloudLayers:[{cover:'BKN',baseFtAGL:12000}]}),'12');
 for(const code of ['CLR','SKC','NSC','NCD','CAVOK','FEW','SCT','VV']){
  const dot=model.cloudStationModel({...station,skyCover:{code},layers:code==='VV'?[{cover:code,baseFtAGL:300}]:[{cover:code,baseFtAGL:1000}]});
- assert.match(dot,/class="cloud-dot" cx="16" cy="12" r="1.9"/);
- assert.doesNotMatch(dot,/plot-sky|plot-ceiling/);
+ assert.match(dot,/class="plot-sky"/);
+ assert.doesNotMatch(dot,/plot-ceiling/);
 }
 const unknown=model.cloudStationModel({...station,skyCover:null,layers:[]});
-assert.match(unknown,/plot-cloud-unknown[^>]*>\?<\/text>/);
+assert.match(unknown,/plot-sky-unknown[^>]*>\?<\/text>/);
 assert.match(model.cloudStationModel({...station,layers:[{cover:'BKN',baseFtAGL:null}]}),/plot-cloud-unknown[^>]*>\?<\/text>/);
 assert.match(model.cloudStationModel({...station,skyCover:{code:'BKN'},layers:[]}),/plot-cloud-unknown[^>]*>\?<\/text>/);
 for(const speedMph of [0,.4]){
@@ -59,4 +61,18 @@ for(const [source,destination] of [[0,180],[90,270],[180,0],[270,90]]){
 }
 assert.equal(model.stationModel({...station,skyCover:{code:'CLR'},layers:[]}),svg,'cloud changes never affect the METAR glyph');
 assert.deepEqual(model.footprint({...station,skyCover:null,layers:[]}),model.footprint(station),'cloud changes never affect METAR spacing');
+for(const code of ['CLR','SCT','BKN','OVC']){
+ const cloud={skyCover:{code},layers:[{cover:code,baseFtAGL:12000}]};
+ const plot=model.singleStationModel(cloud,'clouds'),bounds=model.cloudFootprint(cloud);
+ assert.deepEqual(Array.from(plot.anchor),[12*model.scale,12*model.scale],'sky circle stays at the exact airport');
+ assert.match(plot.html,/class="sky-outline" cx="12" cy="12"/);
+ if(code==='CLR')assert.doesNotMatch(plot.html,/sky-fill|plot-ceiling/);
+ if(code==='SCT')assert.match(plot.html,/A4.6 4.6 0 0 1/,'scattered sky is half filled');
+ if(code==='BKN')assert.match(plot.html,/A4.6 4.6 0 1 1/,'broken sky is three quarters filled');
+ if(code==='OVC')assert.match(plot.html,/<circle class="sky-fill"/,'overcast sky is fully filled');
+ assert.ok(bounds.left<=-5.6*model.scale&&bounds.top<=-5.6*model.scale&&bounds.bottom>=5.6*model.scale);
+ if(['BKN','OVC'].includes(code))assert.ok(bounds.right>=(8+17+1.5)*model.scale,'collision box contains right-aligned height and halo');
+}
+const small=model.cloudFootprint({layers:[{cover:'BKN',baseFtAGL:1000}]}),large=model.cloudFootprint({layers:[{cover:'BKN',baseFtAGL:12000}]});
+assert.ok(large.right>small.right,'reserve enough width for multi-digit heights');
 console.log('Separate station checks passed: sky cover, lowest BKN/OVC, calm/unknown wind, downwind vectors and tighter fixed values.');

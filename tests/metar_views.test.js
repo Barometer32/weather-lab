@@ -28,5 +28,19 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  get('metar-timeline').events.input({target:{value:'1'}});const hour=get('metar-time').textContent;
  data={...data,history:data.history.slice(1).concat({...data.history[11],hour:'2026-10-24T19:00:00Z'})};subscriber(data);assert.equal(get('metar-timeline').value,'0');assert.equal(get('metar-time').textContent,hour.replace('2/4','1/4'));
  const kept=ids();fail=true;get('refresh-metar').events.click();await flush();assert.deepEqual(ids(),kept);assert.match(get('metar-status').textContent,/Previous reports retained/);
+ fail=false;
+ get('metar-product').events.change({target:{value:'clouds'}});await flush();
+ assert.deepEqual(ids(),['KFCM','KMSP'],'cloud circles and heights use nonoverlapping boxes');
+ for(const marker of shown){
+  assert.match(marker.icon.html,/class="plot-sky"/);
+  assert.match(marker.icon.html,/class="plot-ceiling" x="20" y="12" text-anchor="start"/);
+  assert.doesNotMatch(marker.icon.html,/plot-temp|wind-barb/);
+ }
+ zoomed=true;callbacks.moveend();
+ const clear=shown.find(s=>s.title.startsWith('KNEAR ·'));
+ assert.ok(clear,'clear-sky airports now remain eligible in CLOUDS');
+ assert.match(clear.icon.html,/sky-outline/);assert.doesNotMatch(clear.icon.html,/sky-fill|plot-ceiling/);
+ zoomed=false;callbacks.moveend();const cloudIds=ids();
+ get('metar-timeline').events.input({target:{value:'0'}});assert.deepEqual(ids(),cloudIds,'cloud station density is stable across the loop');
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
