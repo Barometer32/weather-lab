@@ -4,9 +4,16 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>WEATHER LAB · Twin Cities</title>
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Weather Lab">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="/static/manifest.webmanifest?v=iphone-web-app-v1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png?v=iphone-web-app-v1">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=phone-controls-v1">
+  <link rel="stylesheet" href="/static/style.css?v=iphone-web-app-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -17,7 +24,7 @@
   <script defer src="/static/metar-views.js?v=metar-hour-hold-v2"></script>
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
-  <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
+  <script defer src="/static/viewport-fit.js?v=iphone-web-app-v1"></script>
   <script defer src="/static/app.js?v=satellite-three-v1"></script>
 </head>
 <body>

@@ -435,3 +435,10 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
+
+/* The installed app uses the same safe-area-aware viewport as Safari.
+   Keep the Home indicator clear and let each map use the remaining height. */
+html.installed-web-app, .installed-web-app body { overscroll-behavior:none; }
+@media (display-mode:standalone) and (max-width:600px) {
+  main { padding-top:4px; padding-bottom:4px; }
+}
