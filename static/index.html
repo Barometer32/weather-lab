@@ -6,19 +6,19 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=phone-controls-v1">
+  <link rel="stylesheet" href="/static/style.css?v=hourly-forecast-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=satellite-three-v1"></script>
+  <script defer src="/static/prepared-data.js?v=latest-first-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=cloud-cover-circle-v2"></script>
   <script defer src="/static/metar-views.js?v=cloud-cover-circle-v2"></script>
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=satellite-three-v1"></script>
+  <script defer src="/static/app.js?v=hourly-forecast-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -74,7 +74,7 @@
   <p class="notice" id="forecast-status" role="status" hidden></p>
   <div class="forecast-list" id="forecast-periods" aria-live="polite"><p>Loading the official point forecast…</p></div>
   <div class="page-notes" hidden>
-  <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
+  <p class="source">Hourly precipitation chances apply to individual hours, and intensity is shown when NWS specifies it. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
   </div>
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>

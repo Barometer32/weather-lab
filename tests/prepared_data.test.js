@@ -17,12 +17,14 @@ const flush=()=>new Promise(r=>setImmediate(r));
  const manifests={frames:[{id:'one',url:'/api/prepared/old.bin'},{id:'two',url:'/api/prepared/new.bin'}],site:'KMPX'};
  const warm=setup(async url=>{
   if(url.startsWith('/api/prepared/'))return new Response(JSON.stringify({meta:{site:'KMPX',id:url.includes('new')?'two':'one'}}));
-  return new Response(JSON.stringify(url.includes('radar')?manifests:url.includes('satellite')?{frames:[{url:'/api/prepared/sat.jpg'}]}:{history:[],frames:[]}));
+  return new Response(JSON.stringify(url.includes('radar')?manifests:url.includes('satellite')?{frames:[{url:'/api/prepared/old-sat.jpg'},{url:url.endsWith('truecolor')?'/api/prepared/sat.jpg':'/api/prepared/alternate.jpg'}]}:{history:[],frames:[]}));
  });
  await warm.api.prime();for(let i=0;i<8;i++)await flush();
  assert.ok(warm.requests.includes('/api/forecast')&&warm.requests.includes('/api/air-quality')&&warm.requests.includes('/api/satellite/ntmicro'),'all pages start loading ahead of a tab click');
  assert.equal(warm.requests.filter(u=>u==='/api/prepared/new.bin').length,1);
  const before=warm.requests.length;await warm.api.radar(manifests.frames[1],manifests);assert.equal(warm.requests.length,before,'tab reuses the predecoded newest radar scan');
  assert.ok(warm.imageReads.includes('/api/prepared/sat.jpg'));
+ assert.ok(!warm.requests.includes('/api/prepared/old.bin'), 'startup does not download the radar loop');
+ assert.ok(!warm.requests.includes('/api/prepared/old-sat.jpg') && !warm.imageReads.includes('/api/prepared/alternate.jpg'), 'startup skips satellite history and alternate imagery');
  console.log('Prepared data checks passed: shared requests, persistent saved snapshots, fresh subscriptions, failure retention, disabled storage fallback, preloading and decoded radar reuse.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

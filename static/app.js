@@ -81,8 +81,8 @@ async function loadRadar() {
     const loaded = []; let completed = 0, failures = 0;
     // Show the newest image first. Fetch only frames not already decoded.
     const queue = [...data.frames].reverse();
-    async function worker() {
-      while(queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
+    async function worker(limit = Infinity) {
+      while(completed < limit && queue.length && request === radarRequest && !document.hidden && !$("radar").hidden) {
         const frame = queue.shift(), key = `${data.site}/${data.renderVersion}/${frame.id}`;
         try {
           let entry = radarLayers.get(key);
@@ -98,6 +98,7 @@ async function loadRadar() {
         if (request === radarRequest) $("radar-status").textContent = `Latest image ready · loading loop ${completed}/${data.frames.length} scans…`;
       }
     }
+    if (showInitial) await worker(1);
     await Promise.all([worker(),worker(),worker()]);
     if (request !== radarRequest) return;
     if (!loaded.length) throw new Error("Radar scans could not be loaded. Please try Refresh scans.");
@@ -126,13 +127,49 @@ async function loadRadar() {
   }
 }
 let forecastBusy = false, forecastData, forecastError;
+const forecastClock = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"});
+const forecastDay = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",weekday:"short"});
+const forecastZone = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",timeZoneName:"short"});
+function forecastWindowTime(start, end) {
+  const from = new Date(start), to = new Date(end);
+  if (forecastZone.formatToParts(from).find(part => part.type === "timeZoneName")?.value !== forecastZone.formatToParts(to).find(part => part.type === "timeZoneName")?.value) {
+    return `${central.format(from)}–${central.format(to)}`;
+  }
+  const laterDay = forecastDay.format(from) !== forecastDay.format(to);
+  return `${forecastClock.format(from)}–${laterDay ? forecastDay.format(to) + " " : ""}${forecastClock.format(to)}`;
+}
+function forecastDetails(period, now) {
+  const detail = document.createElement("div"); detail.className = "forecast-detail";
+  const narrative = document.createElement("p"); narrative.textContent = period.detailedForecast;
+  const windows = (period.hourlyWindows || []).filter(window => Date.parse(window.endTime) > now);
+  if (!windows.length) { detail.append(narrative); return detail; }
+  const heading = document.createElement("p"); heading.className = "forecast-hourly-heading";
+  heading.textContent = "Hourly outlook";
+  const list = document.createElement("ul"); list.className = "forecast-windows";
+  for (const window of windows) {
+    const entry = document.createElement("li");
+    const time = document.createElement("strong"); time.textContent = forecastWindowTime(window.startTime, window.endTime);
+    const conditions = document.createElement("span");
+    const {minChancePct: low, maxChancePct: high} = window;
+    const chance = low == null ? "" : ` · ${low === high ? low : `${low}–${high}`}% precip chance`;
+    conditions.textContent = `${window.weather.length ? window.weather.join("; ") : window.condition}${chance}`;
+    entry.append(time, conditions); list.append(entry);
+  }
+  const official = document.createElement("details");
+  const summary = document.createElement("summary"); summary.textContent = "Official NWS wording · wind and other details";
+  official.append(summary, narrative);
+  detail.append(heading, list, official);
+  return detail;
+}
 function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
-  const periods = data.periods.filter(p => new Date(p.endTime).getTime() > Date.now());
+  const now = Date.now();
+  const periods = data.periods.filter(p => Date.parse(p.endTime) > now);
   $("forecast-updated").textContent = data.updatedAt ? `${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
+  const openNarratives = new Set([...$("forecast-periods").querySelectorAll("details[open]")].map(item=>item.parentElement.parentElement.dataset.forecastStart));
   $("forecast-periods").replaceChildren();
   periods.forEach(period => {
     const row = document.createElement("article"); row.className = "forecast-row";
@@ -141,15 +178,17 @@ function renderForecast() {
     const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
     const value = document.createElement("strong"); value.textContent = period.temperature == null ? "—" : `${period.temperature}°${period.temperatureUnit || "F"}`;
     temperature.append(label, value);
-    const detail = document.createElement("p"); detail.className = "forecast-detail"; detail.textContent = period.detailedForecast;
+    row.dataset.forecastStart = period.startTime;
+    const detail = forecastDetails(period, now), official = detail.querySelector("details");
+    if (official && openNarratives.has(period.startTime)) official.open = true;
     row.append(name,temperature,detail); $("forecast-periods").append(row);
   });
 }
-async function loadForecast() {
+async function loadForecast(force = false) {
   if (forecastBusy) return;
   forecastBusy = true; $("refresh-forecast").disabled = true;
   try {
-    forecastData = await api("/api/forecast"); forecastError = forecastData.stale ? "Background forecast updates are delayed." : null; renderForecast();
+    forecastData = await window.WeatherPrepared.read("/api/forecast",{force}); forecastError = forecastData.stale ? "Background forecast updates are delayed." : null; renderForecast();
   } catch (error) {
     forecastError = error.message; renderForecast();
     $("forecast-status").hidden = false;
@@ -286,7 +325,7 @@ for(const id of tabs) {
     selectTab(tabs[next]); $("tab-"+tabs[next]).focus();
   });
 }
-$("refresh-forecast").addEventListener("click",loadForecast);
+$("refresh-forecast").addEventListener("click",()=>loadForecast(true));
 $("refresh-radar").addEventListener("click",loadRadar);
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;
@@ -317,8 +356,6 @@ $("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
 $("satellite-product").addEventListener("change",()=>loadSatellite(true));
 $("satellite-timeline").addEventListener("input",event=>showSatelliteFrame(Number(event.target.value)));
 $("satellite-reset").addEventListener("click",fitSatelliteView);
-setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
-
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
     if (!$("metar").hidden) window.WeatherMetars?.select("metar");

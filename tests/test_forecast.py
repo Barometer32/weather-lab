@@ -113,7 +113,7 @@ class ForecastTests(unittest.TestCase):
         store=MemoryStore();older=document();newer=copy.deepcopy(older)
         for group in ("time","data"):
             for key in newer[group]:newer[group][key]=newer[group][key][1:]
-        with patch("app.download",side_effect=[json.dumps(older).encode(),json.dumps(newer).encode()]) as upstream:
+        with patch("nws_forecast.enrich_from_nws"), patch("app.download",side_effect=[json.dumps(older).encode(),json.dumps(newer).encode()]) as upstream:
             collector.collect_forecast(store,NOW)
             collector.collect_forecast(store,NOW+timedelta(minutes=5))
             self.assertEqual(upstream.call_count,2)

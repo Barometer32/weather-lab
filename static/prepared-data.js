@@ -90,12 +90,10 @@ window.WeatherPrepared = (() => {
     if(url.includes("radar")){
       const frames=data.frames||[],latest=frames.at(-1);
       if(latest)queue(latest.url,()=>radar(latest,data),true);
-      for(const frame of [...frames].reverse())queue(frame.url,()=>radar(frame,data));
-    }else if(url.includes("satellite")||url.includes("air-quality")){
+    }else if(url.endsWith("/truecolor")||url.endsWith("/air-quality")){
       const frames=data.frames||[],latest=frames.at(-1);
       if(latest)queue(latest.url,()=>image(latest.url),true);
       for(const boundary of data.boundaries||[])queue(boundary,()=>bytes(boundary),true);
-      for(const frame of [...frames].reverse())queue(frame.url,()=>bytes(frame.url));
     }
     // Keep memory bounded over a long-running page as manifests advance.
     if(queued.size>256){const active=new Set(assetQueue.map(item=>item.url));for(const key of queued)if(!active.has(key)&&queued.size>192)queued.delete(key);}

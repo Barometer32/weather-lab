@@ -1,6 +1,8 @@
 """Present the official NWS MapClick forecast without rewriting its narrative."""
 from datetime import datetime, timedelta, timezone
 import math
+import re
+from concurrent.futures import ThreadPoolExecutor
 from zoneinfo import ZoneInfo
 
 LATITUDE, LONGITUDE = 44.9244, -93.4140
@@ -8,6 +10,7 @@ SOURCE_URL = ("https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414
               "&unit=0&lg=english&FcstType=text&TextType=1")
 FORECAST_URL = ("https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414"
                 "&unit=0&lg=english&FcstType=json")
+POINT_URL = f"https://api.weather.gov/points/{LATITUDE:.4f},{LONGITUDE:.4f}"
 FORECAST_VERSION = "nws-mapclick-v1"
 CENTRAL = ZoneInfo("America/Chicago")
 
@@ -68,3 +71,123 @@ def normalize_forecast(document, now=None):
             # creationDateLocal belongs to the current observation, not the forecast.
             "updatedAt": issued.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
             "fetchedAt": now.isoformat().replace("+00:00", "Z"), "periods": periods}
+
+
+def grid_end(start, duration):
+    parts = re.fullmatch(r"P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?", duration)
+    if not parts or not any(parts.groups()):
+        raise ValueError("Invalid NWS weather interval")
+    days, hours, minutes, seconds = (int(part or 0) for part in parts.groups())
+    return start + timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+
+
+WET_TYPES = {
+    "freezing_rain": "freezing rain", "freezing_drizzle": "freezing drizzle",
+    "rain": "rain", "rain_showers": "rain showers", "drizzle": "drizzle",
+    "snow": "snow", "snow_showers": "snow showers", "sleet": "sleet",
+    "thunderstorms": "thunderstorms", "hail": "hail",
+}
+
+
+def grid_weather(document):
+    intervals = []
+    for item in document.get("properties", {}).get("weather", {}).get("values", []):
+        try:
+            start_text, duration = item["validTime"].split("/", 1)
+            start = timestamp(start_text).astimezone(timezone.utc)
+            end = grid_end(start, duration)
+            wet = [entry for entry in item["value"] if entry.get("weather") in WET_TYPES]
+            if wet:
+                intervals.append((start, end, wet))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            continue
+    return intervals
+
+
+def wet_description(start, end, intervals, condition):
+    descriptions = []
+    for left, right, entries in intervals:
+        if not left <= start < end <= right:
+            continue
+        for entry in entries:
+            kind = WET_TYPES[entry["weather"]]
+            if not re.search(r"\b" + re.escape(kind.rstrip("s")) + r"s?\b", condition.lower()):
+                continue
+            coverage = entry.get("coverage")
+            coverage = coverage.replace("_", " ") if isinstance(coverage, str) else ""
+            intensity = entry.get("intensity")
+            intensity = intensity.replace("_", " ") if intensity in ("very_light", "light", "moderate", "heavy") else ""
+            wording = (f"{coverage} of {kind}" if coverage in ("chance", "slight chance", "areas", "periods")
+                       else f"{kind} likely" if coverage == "likely"
+                       else kind if coverage == "definite" else " ".join(filter(None, (coverage, kind))))
+            descriptions.append(wording.capitalize() + (f" ({intensity})" if intensity else ""))
+    return list(dict.fromkeys(descriptions))
+
+
+def normalize_hourly(document, grid, now):
+    props = document["properties"]
+    issued = timestamp(props.get("updateTime") or props["generatedAt"])
+    intervals = grid_weather(grid)
+    # Only keep the first 48 hours; the regular NWS outlook continues beyond that.
+    limit = now + timedelta(hours=48)
+    hours = []
+    for period in props["periods"]:
+        try:
+            start, end = (timestamp(period[k]).astimezone(timezone.utc) for k in ("startTime", "endTime"))
+            condition = period["shortForecast"].strip()
+            chance = number((period.get("probabilityOfPrecipitation") or {}).get("value"), 0, 100)
+            if now < end and start < limit and end - start == timedelta(hours=1) and condition:
+                hours.append((start, end, condition, chance, wet_description(start, end, intervals, condition)))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            continue
+    if not hours:
+        raise ValueError("NWS hourly feed has no usable forecast hours")
+    return issued.isoformat(), sorted({hour[0]: hour for hour in hours}.values())
+
+
+def chance_band(chance):
+    if chance is None:
+        return None
+    return sum(chance >= threshold for threshold in (15, 30, 60, 80))
+
+
+def add_hourly_windows(forecast, hourly, grid, now):
+    issued, hours = normalize_hourly(hourly, grid, now)
+    forecast["hourlyUpdatedAt"] = issued
+    for period in forecast["periods"]:
+        left, right = (timestamp(period[k]) for k in ("startTime", "endTime"))
+        windows = []
+        for start, end, condition, chance, weather in hours:
+            start, end = max(left, start), min(right, end)
+            if start >= end:
+                continue
+            band = chance_band(chance)
+            prior = windows[-1] if windows else None
+            if (prior and timestamp(prior["endTime"]) == start and prior["condition"] == condition
+                    and prior["weather"] == weather and chance_band(prior["maxChancePct"]) == band):
+                prior["endTime"] = end.isoformat()
+                if chance is not None:
+                    prior["minChancePct"] = min(prior["minChancePct"], chance)
+                    prior["maxChancePct"] = max(prior["maxChancePct"], chance)
+            else:
+                windows.append({"startTime": start.isoformat(), "endTime": end.isoformat(),
+                                "condition": condition, "weather": weather,
+                                "minChancePct": chance, "maxChancePct": chance})
+        if windows:
+            period["hourlyWindows"] = windows
+
+
+def enrich_from_nws(forecast, fetch_json, now):
+    props = fetch_json(POINT_URL)["properties"]
+    hourly_url, grid_url = props["forecastHourly"], props["forecastGridData"]
+    if not re.fullmatch(r"https://api\.weather\.gov/gridpoints/[A-Z]{3}/\d+,\d+", grid_url) or hourly_url != grid_url + "/forecast/hourly":
+        raise ValueError("Unexpected NWS grid URLs")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        grid_work = pool.submit(fetch_json, grid_url)
+        hourly_work = pool.submit(fetch_json, hourly_url)
+        hourly = hourly_work.result()
+        try:
+            grid = grid_work.result()
+        except (OSError, ValueError):
+            grid = {}
+    add_hourly_windows(forecast, hourly, grid, now)

@@ -435,3 +435,10 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
+
+.forecast-detail p { margin: 0; }
+.forecast-hourly-heading { font-weight: 650; }
+.forecast-windows { list-style: none; margin: .25rem 0 .5rem; padding: 0; }
+.forecast-windows li { display: flex; flex-wrap: wrap; gap: 0 .65rem; padding: .15rem 0; }
+.forecast-windows strong { font-variant-numeric: tabular-nums; }
+.forecast-detail summary { cursor: pointer; color: var(--green); }
