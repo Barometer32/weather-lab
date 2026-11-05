@@ -73,7 +73,24 @@ gcloud storage buckets update "gs://${WEATHER_DATA_BUCKET}" --lifecycle-file=dat
 gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_COLLECTOR_SA}" --role=roles/storage.objectAdmin
 gcloud storage buckets add-iam-policy-binding "gs://${WEATHER_DATA_BUCKET}" --member="serviceAccount:${WEATHER_WEB_SA}" --role=roles/storage.objectViewer
 
-gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
+if [[ "${WEATHER_BUILD_METHOD:-cloud}" == shell ]]; then
+  if [[ "$WEATHER_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]; then
+    echo "Deploying the saved release image without a build."
+  else
+    echo "Building the release in Cloud Shell and pushing it to Artifact Registry."
+    (
+      set -euo pipefail
+      export DOCKER_CONFIG="$(mktemp -d)"
+      trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+      docker build --platform linux/amd64 --tag "$WEATHER_IMAGE" .
+      WEATHER_REGISTRY="${WEATHER_IMAGE%%/*}"
+      gcloud auth print-access-token | docker login --username oauth2accesstoken --password-stdin "$WEATHER_REGISTRY"
+      docker push "$WEATHER_IMAGE"
+    )
+  fi
+else
+  gcloud builds submit --tag "$WEATHER_IMAGE" --region="$WEATHER_REGION" --service-account="projects/${WEATHER_PROJECT}/serviceAccounts/${WEATHER_BUILD_SA}" --default-buckets-behavior=regional-user-owned-bucket .
+fi
 gcloud run deploy weather-collector --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --no-allow-unauthenticated --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory="${WEATHER_COLLECTOR_MEMORY:-1Gi}" --min-instances=0 --max-instances=1 --concurrency=4 --timeout=300 --command=gunicorn --args='--bind=0.0.0.0:8080,--workers=1,--threads=4,--timeout=300,collector:app'
 gcloud run services add-iam-policy-binding weather-collector --region="$WEATHER_REGION" --member="serviceAccount:${WEATHER_SCHEDULER_SA}" --role=roles/run.invoker
 for WEATHER_RETIRED_OBJECT in live/radar-KEVX.json live/radar-state-KEVX.json; do

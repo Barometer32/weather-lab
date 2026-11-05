@@ -90,6 +90,22 @@ done <"$WEATHER_WORK/pause-before.txt"
 echo 'Step 2/6: rebuilding the latest website and replacing missing weather resources.'
 WEATHER_COMMIT="$(git -C "$WEATHER_WORK/source" rev-parse HEAD)"
 WEATHER_IMAGE="$WEATHER_REGION-docker.pkg.dev/$WEATHER_PROJECT/$WEATHER_REPOSITORY/app:restore-${WEATHER_COMMIT:0:12}"
+if [[ "${WEATHER_BUILD_METHOD:-cloud}" == shell && -n "${WEATHER_REUSE_RELEASE:-}" ]]; then
+  [[ "$WEATHER_REUSE_RELEASE" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid saved release commit.' >&2; exit 1; }
+  git -C "$WEATHER_WORK/source" fetch --quiet --depth=1 origin "$WEATHER_REUSE_RELEASE"
+  # Only reuse the saved release when the application tree is the same.
+  git -C "$WEATHER_WORK/source" diff --quiet "$WEATHER_REUSE_RELEASE" HEAD -- . ':(exclude)deploy.sh' ':(exclude)restore-weather-lowest-radar.sh' ||
+    { echo 'Saved release does not match this application.' >&2; exit 1; }
+  WEATHER_IMAGE_PATH="${WEATHER_IMAGE%:*}"
+  for WEATHER_TAG in "cloud-cover-${WEATHER_REUSE_RELEASE:0:12}" "restore-${WEATHER_REUSE_RELEASE:0:12}"; do
+    if WEATHER_DIGEST="$(gcloud artifacts docker images describe "$WEATHER_IMAGE_PATH:$WEATHER_TAG" --project="$WEATHER_PROJECT" --format='value(image_summary.digest)' 2>"$WEATHER_WORK/image-$WEATHER_TAG.err")" &&
+      [[ "$WEATHER_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+      WEATHER_IMAGE="$WEATHER_IMAGE_PATH@$WEATHER_DIGEST"
+      echo "Reusing saved release image: $WEATHER_TAG"
+      break
+    fi
+  done
+fi
 (
   cd "$WEATHER_WORK/source"
   WEATHER_APIS_VERIFIED=true WEATHER_ARTIFACT_REPOSITORY="$WEATHER_REPOSITORY" WEATHER_DEPLOY_IMAGE="$WEATHER_IMAGE" WEATHER_DEFER_WEB=true WEATHER_DEFER_COLLECTION=true WEATHER_COLLECTOR_MEMORY=2Gi bash deploy.sh "$WEATHER_PROJECT"
