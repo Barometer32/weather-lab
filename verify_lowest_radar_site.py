@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from verify_weather_site import verify
 
 
-def verify_lowest(base, fetch=None):
+def verify_lowest(base, fetch=None, *, metar_hours=12):
     def download(path):
         for attempt in range(8):
             try:
@@ -23,7 +23,7 @@ def verify_lowest(base, fetch=None):
             time.sleep(min(5*(attempt+1),30))
 
     fetch=fetch or download
-    verify(base,fetch)
+    verify(base,fetch,metar_hours=metar_hours)
     html=fetch('/').decode()
     if 'id="radar-product"' in html or 'id="tab-current"' in html:
         raise ValueError('Experimental radar selector or CURRENT tab is still present')
@@ -41,4 +41,4 @@ def verify_lowest(base, fetch=None):
 
 
 if __name__=='__main__':
-    verify_lowest(sys.argv[1])
+    verify_lowest(sys.argv[1], metar_hours=int(sys.argv[2]) if len(sys.argv) > 2 else 12)

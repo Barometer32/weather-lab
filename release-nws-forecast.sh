@@ -5,9 +5,19 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 project=weather-lab-261105-184200-1a9b
 region=us-central1
 site=https://weather-lab.cloud.run
+mode="${1:-}"
+case "$mode" in ''|--resume-built) ;; *) echo 'Usage: release-nws-forecast.sh [--resume-built]' >&2; exit 2 ;; esac
 tag="nws-$(git rev-parse --short=12 HEAD)"
+if [[ "$mode" == --resume-built ]]; then tag=nws-05b95f1c2580; fi
 work="$(mktemp -d)"
-trap 'rm -rf -- "$work"' EXIT
+paused_metar=false
+cleanup() {
+  if [[ "$paused_metar" == true ]]; then
+    gcloud scheduler jobs resume weather-live-metar-clouds "${scheduler_flags[@]}" || echo 'Resume weather-live-metar-clouds in Cloud Scheduler.' >&2
+  fi
+  rm -rf -- "$work"
+}
+trap cleanup EXIT
 
 run_flags=(--project="$project" --region="$region")
 scheduler_flags=(--project="$project" --location="$region")
@@ -40,15 +50,23 @@ case "$base" in
 esac
 image="$base:$tag"
 
-echo 'Building the official NWS forecast release...'
-gcloud builds submit . --project="$project" --region="$region" --tag="$image" \
-  --service-account="projects/$project/serviceAccounts/weather-builder@$project.iam.gserviceaccount.com" \
-  --default-buckets-behavior=regional-user-owned-bucket
-
-echo 'Preparing a candidate web revision...'
-gcloud run services update weather-lab "${run_flags[@]}" --image="$image" --no-traffic --tag="$tag"
+if [[ "$mode" == --resume-built ]]; then
+  image="$region-docker.pkg.dev/$project/weather-lab/app@sha256:be78b5c3cf10140ac88a60191ed688fdccf1621bade181de548057a00f67eba7"
+  echo 'Reusing the completed build and its existing candidate.'
+else
+  echo 'Building the official NWS forecast release...'
+  gcloud builds submit . --project="$project" --region="$region" --tag="$image" \
+    --service-account="projects/$project/serviceAccounts/weather-builder@$project.iam.gserviceaccount.com" \
+    --default-buckets-behavior=regional-user-owned-bucket
+  echo 'Preparing a candidate web revision...'
+  gcloud run services update weather-lab "${run_flags[@]}" --image="$image" --no-traffic --tag="$tag"
+fi
 gcloud run services describe weather-lab "${run_flags[@]}" --format=json >"$work/service.json"
 read -r revision candidate < <(python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); t=next(t for t in s["status"]["traffic"] if t.get("tag")==sys.argv[2]); print(t["revisionName"],t["url"])' "$work/service.json" "$tag")
+
+if [[ "$mode" == --resume-built && "$revision" != weather-lab-00020-wiz ]]; then
+  echo 'The tag no longer points to the original candidate. Stopping.' >&2; exit 1
+fi
 
 check_forecast() {
   curl -fsS --retry 2 --retry-all-errors --max-time 15 "$1/api/forecast" -o "$work/forecast.json"
@@ -72,7 +90,30 @@ check_layout() {
 
 check_layout "$candidate"
 check_forecast "$candidate"
-python3 verify_lowest_radar_site.py "$candidate"
+curl -fsS --retry 2 --retry-all-errors --max-time 20 "$candidate/api/station-plots" -o "$work/metars.json"
+if ! python3 - "$work/metars.json" <<'PY'
+import json, sys
+from verify_weather_site import ready_metar_loop
+sys.exit(0 if ready_metar_loop(json.load(open(sys.argv[1])), 4) else 1)
+PY
+then
+  echo 'Backfilling METAR history from the official NOAA archive...'
+  if [[ "$(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler_flags[@]}" --format='value(state)')" == ENABLED ]]; then
+    gcloud scheduler jobs pause weather-live-metar-clouds "${scheduler_flags[@]}"
+    paused_metar=true
+  fi
+  gcloud run jobs deploy weather-nws-metar-backfill "${run_flags[@]}" --image="$image" \
+    --service-account="weather-collector@$project.iam.gserviceaccount.com" --set-env-vars="WEATHER_DATA_BUCKET=$project-weather-data" \
+    --command=python --args=-u,metar_history.py --tasks=1 --parallelism=1 --cpu=1 --memory=1Gi \
+    --max-retries=0 --task-timeout=1200s --execute-now --wait
+  if [[ "$paused_metar" == true ]]; then
+    gcloud scheduler jobs resume weather-live-metar-clouds "${scheduler_flags[@]}"
+    paused_metar=false
+  fi
+  # The service caches prepared snapshots for ten seconds.
+  sleep 12
+fi
+python3 verify_lowest_radar_site.py "$candidate" 4
 
 echo 'Switching the collector to official NWS and pausing the model schedule...'
 nbm_state="$(python3 -c 'import json,sys; print(next((j["state"] for j in json.load(open(sys.argv[1])) if j["name"].endswith("/weather-live-nbm")), ""))' "$work/schedules.json")"

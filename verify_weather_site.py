@@ -1,4 +1,5 @@
 """Verify prepared weather pages and warm their newest assets before cutover."""
+from datetime import datetime, timedelta
 import json
 import re
 import sys
@@ -6,7 +7,31 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-def verify(base, fetch=None):
+def ready_metar_loop(data, hours):
+    frames = data.get('history', [])
+    if data.get('sourcePolicy') != 'airport-routine-only' or data.get('stationPolicy') != 'all-airports-v1':
+        return False
+    if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
+        raise ValueError('An observation outside the routine airport policy reached the map')
+    if hours == 12:
+        return len(frames) == 12 and all(frame.get('stations') for frame in frames)
+    # Match the four-hour viewer, including its coverage hold and airport rule.
+    for end in range(len(frames), hours-1, -1):
+        window = frames[end-hours:end]
+        if not all(frame.get('stations') for frame in window):
+            continue
+        times = [datetime.fromisoformat(frame['hour'].replace('Z', '+00:00')) for frame in window]
+        if any(b - a != timedelta(hours=1) for a, b in zip(times, times[1:])):
+            continue
+        stations = [{row['station'] for row in frame['stations']} for frame in window]
+        prior = set.intersection(*stations[:-1])
+        kept = prior & stations[-1]
+        if kept and (len(prior) < 20 or len(kept) / len(prior) >= .90) and not ({'KFCM', 'KMIC', 'KMSP'} & (prior - kept)):
+            return True
+    return False
+
+
+def verify(base, fetch=None, *, metar_hours=12):
     base = base.rstrip('/')
     parsed = urlparse(base)
     if parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query or parsed.fragment:
@@ -29,11 +54,8 @@ def verify(base, fetch=None):
     if picker and re.findall(r'<option value="([^"]+)">', picker[1]) != ['plots', 'clouds']:
         raise ValueError('Expected only PLOTS and CLOUDS in the observation dropdown')
     metars = json.loads(fetch('/api/station-plots'))
-    frames = metars.get('history', [])
-    if metars.get('sourcePolicy') != 'airport-routine-only' or metars.get('stationPolicy') != 'all-airports-v1' or len(frames) != 12 or any(not frame.get('stations') for frame in frames):
-        raise ValueError('Twelve populated all-airport frames were not verified')
-    if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
-        raise ValueError('An observation outside the routine airport policy reached the map')
+    if not ready_metar_loop(metars, metar_hours):
+        raise ValueError(f'{metar_hours} usable all-airport METAR frames were not verified')
     for endpoint in ('radar?site=KMPX', 'satellite/truecolor', 'satellite/dcphase', 'satellite/ntmicro', 'forecast', 'air-quality'):
         data = json.loads(fetch('/api/' + endpoint))
         if endpoint == 'forecast':
@@ -48,7 +70,7 @@ def verify(base, fetch=None):
             if not fetch(asset):
                 raise ValueError('Empty prepared asset for ' + endpoint)
         print(endpoint + ': ready', flush=True)
-    print('Verified saved tabs, the METAR station model and twelve airport hours.', flush=True)
+    print(f'Verified saved tabs, the METAR station model and {metar_hours} airport hours.', flush=True)
 
 
 if __name__ == '__main__':

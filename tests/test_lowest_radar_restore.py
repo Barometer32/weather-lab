@@ -52,3 +52,23 @@ def test_verifier_rejects_experimental_radar(mode):
     if mode=='products':radar['products']=[{'id':'storm-total'}]
     data['/api/radar?site=KMPX']=json.dumps(radar).encode()
     with pytest.raises(ValueError):verify_lowest('https://weather.example.run.app',data.__getitem__)
+
+
+@pytest.mark.parametrize('hours,ready',[(3,False),(4,True)])
+def test_forecast_cutover_requires_only_the_working_four_hour_loop(hours, ready):
+    from datetime import datetime, timedelta, timezone
+
+    data = lowest_fixture()
+    metars = json.loads(data['/api/station-plots'])
+    start = datetime(2026,11,6,12,tzinfo=timezone.utc)
+    metars['history'] = [
+        {'hour':(start + timedelta(hours=i)).isoformat(),
+         'stations':[{'station':'KFCM','reportType':'METAR','time':(start + timedelta(hours=i, minutes=-7)).isoformat()}]}
+        for i in range(hours)
+    ]
+    data['/api/station-plots'] = json.dumps(metars).encode()
+    if ready:
+        verify_lowest('https://weather.example.run.app', data.__getitem__, metar_hours=4)
+    else:
+        with pytest.raises(ValueError, match='4 usable all-airport METAR frames'):
+            verify_lowest('https://weather.example.run.app', data.__getitem__, metar_hours=4)
