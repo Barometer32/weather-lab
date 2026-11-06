@@ -3,7 +3,7 @@ import json
 from unittest.mock import patch
 
 from collector import collect_forecast
-from nws_forecast import POINT_URL, FORECAST_URL, add_hourly_windows
+from nws_forecast import POINT_URL, FORECAST_URL, add_hourly_windows, enrich_from_nws, normalize_forecast
 from test_forecast import document, NOW
 from test_realtime import MemoryStore
 
@@ -23,7 +23,7 @@ def hourly():
         for offset, condition, chance in hours]}}
 
 
-def test_collector_saves_hourly_windows_without_interpolating_or_inventing_intensity():
+def test_optional_hourly_helper_does_not_interpolate_or_invent_intensity():
     grid = {"properties": {"weather": {"values": [
         {"validTime": START.isoformat() + "/PT2H",
          "value": [{"weather": "rain_showers", "coverage": "scattered", "intensity": "light"}]},
@@ -32,10 +32,8 @@ def test_collector_saves_hourly_windows_without_interpolating_or_inventing_inten
     ]}}}
     responses = {POINT_URL: {"properties": {"forecastHourly": GRID + "/forecast/hourly", "forecastGridData": GRID}},
                  FORECAST_URL: document(), GRID: grid, GRID + "/forecast/hourly": hourly()}
-    store = MemoryStore()
-    with patch("app.download", side_effect=lambda url: json.dumps(responses[url]).encode()):
-        collect_forecast(store, NOW)
-    saved = store.read_json("live/forecast.json")
+    saved = normalize_forecast(document(), NOW)
+    enrich_from_nws(saved, lambda url: responses[url], NOW)
     windows = saved["periods"][0]["hourlyWindows"]
     assert [(w["minChancePct"], w["maxChancePct"]) for w in windows] == [(30, 50), (70, 70), (70, 70), (None, None)]
     assert windows[0]["weather"] == ["Scattered rain showers (light)"]
@@ -53,12 +51,11 @@ def test_grid_failure_uses_only_the_hourly_conditions_and_missing_chance_stays_m
     assert windows[-1]["maxChancePct"] is None
 
 
-def test_hourly_failure_still_publishes_the_official_forecast():
-    def download(url):
-        if url == FORECAST_URL:
-            return json.dumps(document()).encode()
-        raise TimeoutError("hourly source timed out")
+def test_collector_fetches_only_the_official_point_forecast():
     store = MemoryStore()
-    with patch("app.download", side_effect=download):
+    with patch("app.download", return_value=json.dumps(document()).encode()) as download:
         collect_forecast(store, NOW)
-    assert store.read_json("live/forecast.json")["periods"][0]["detailedForecast"] == document()["data"]["text"][0]
+    download.assert_called_once_with(FORECAST_URL)
+    period = store.read_json("live/forecast.json")["periods"][0]
+    assert "hourlyWindows" not in period
+    assert period["detailedForecast"] == document()["data"]["text"][0]

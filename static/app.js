@@ -139,9 +139,18 @@ function renderForecast() {
   periods.forEach(period => {
     const row = document.createElement("article"); row.className = "forecast-row";
     const name = document.createElement("h2"); name.textContent = period.name;
+    const heading = document.createElement("div"); heading.className = "forecast-period-heading";
+    heading.append(name);
+    if (Number.isFinite(period.temperature)) {
+      const temperature = document.createElement("p"); temperature.className = "forecast-temperature";
+      const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
+      const value = document.createElement("strong"); value.textContent = `${period.temperature}°${period.temperatureUnit || "F"}`;
+      temperature.append(label, value);
+      heading.append(temperature);
+    }
     const detail = document.createElement("p"); detail.className = "forecast-detail";
     detail.textContent = period.detailedForecast;
-    row.append(name,detail); $("forecast-periods").append(row);
+    row.append(heading, detail); $("forecast-periods").append(row);
   });
 }
 async function loadForecast(force = false) {

@@ -197,14 +197,8 @@ def collect_observation_stations(store, now):
 
 
 def collect_forecast(store, now):
-    from nws_forecast import enrich_from_nws
-
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
-    try:
-        enrich_from_nws(data, lambda url: json.loads(weather.download(url)), now)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
-        app.logger.warning("NWS hourly detail unavailable; using official text: %s", error)
     data["checkedAt"] = weather.iso(now)
     store.write_json("live/forecast.json", data)
     return {"periods": len(data["periods"])}
