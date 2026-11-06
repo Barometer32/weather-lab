@@ -1,12 +1,11 @@
 "use strict";
-// Current hour plus the preceding three hours, with complete station history.
+// Four-hour METAR loop; each frame plots the reports available for that hour.
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   let busy=false,sourceData;
-  let cloudsSuppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
@@ -25,17 +24,10 @@ window.WeatherMetars = (() => {
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
   }
-  function incompleteCloudSites(history){
-    // A report must exist in each of the four displayed frames. Leading,
-    // trailing and whole-frame gaps count; cloud changes and spacing do not.
-    const presence=history.map(frame=>new Set(frame.stations.map(station=>station.station)));
-    const ids=new Set(history.flatMap(frame=>frame.stations.map(station=>station.station)));
-    return new Set([...ids].filter(id=>history.length!==historyHours||presence.some(frame=>!frame.has(id))));
-  }
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at
     // least 90% of airports present in each of the previous three hours.
-    // Missing individual airports still use the existing four-frame rule.
+    // An individual station only needs a report in the selected hour.
     for(let end=history.length;end>=historyHours;end--){
       const frames=history.slice(end-historyHours,end);
       if(frames.some((f,i)=>!f.stations?.length||!Number.isFinite(Date.parse(f.hour))||
@@ -52,11 +44,8 @@ window.WeatherMetars = (() => {
     // Reserve the largest label across all four frames to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
-    // Hide unknown cloud reports across this loop, so they neither show a
-    // question mark nor flash in and out as the selected hour changes.
-    const unknownClouds=new Set(mode==="clouds"?data.history.flatMap(frame=>frame.stations.filter(station=>!cloudAvailable(station)).map(station=>station.station)):[]);
     for(const frame of data.history)for(const station of frame.stations){
-      if(mode==="clouds"&&(cloudsSuppressed.has(station.station)||unknownClouds.has(station.station)))continue;
+      if(mode==="clouds"&&!cloudAvailable(station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -83,7 +72,7 @@ window.WeatherMetars = (() => {
     const hours=data.history;
     if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
     index=Math.max(0,Math.min(index,hours.length-1));
-    const frame=hours[index],drawn=visible(frame.stations);
+    const frame=hours[index],drawn=visible(mode==="clouds"?frame.stations.filter(cloudAvailable):frame.stations);
     const keep=new Set(drawn.map(s=>s.station));
     for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
     for(const station of drawn){
@@ -127,7 +116,7 @@ window.WeatherMetars = (() => {
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
     sourceData=next;data={...next,history};
-    cloudsSuppressed=incompleteCloudSites(data.history);prepareSpacing();
+    prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);

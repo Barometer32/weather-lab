@@ -22,7 +22,11 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');
- for(let i=0;i<4;i++){v.frame(i);assert.ok(!v.ids().includes('KONCE'));assert.ok(v.ids().includes('KCLOUD'),'Valid clear and broken cloud reports remain visible');}
+ for(let i=0;i<4;i++){v.frame(i);assert.equal(v.ids().includes('KONCE'),i!==1,'CLOUDS hides a missed report only in the missing hour');assert.ok(v.ids().includes('KCLOUD'),'Valid clear and broken cloud reports remain visible');}
+ const cloudGap=history();
+ cloudGap.history[10].stations.find(s=>s.station==='KUNKNOWN').layers=[{cover:'BKN',baseFtAGL:null}];
+ v.adopt(cloudGap);
+ for(let i=0;i<4;i++){v.frame(i);assert.equal(v.ids().includes('KUNKNOWN'),i!==2,'A missing ceiling is hidden only in that hour');}
  v.mode('plots');
  const complete=history(Object.fromEntries(Object.keys(masks).map(id=>[id,'111111111111'])));v.adopt(complete);v.frame(3);
  assert.ok(v.ids().includes('KONCE'),'Station remains available in a complete loop');
@@ -56,5 +60,5 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});
  assert.match(noHistory.label,/Reports unavailable/,'Cold start without a usable loop is explicit');
  assert.equal(rolling.reads,1,'Readiness uses downloaded data without new source calls');
- console.log('Four-frame METAR playback passed: per-hour PLOTS coverage, retained CLOUDS rules, rolling readiness, collision space and no extra downloads.');
+ console.log('Four-frame METAR playback passed: per-hour PLOTS and CLOUDS coverage, rolling readiness, collision space and no extra downloads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

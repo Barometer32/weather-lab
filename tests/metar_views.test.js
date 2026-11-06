@@ -52,7 +52,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.ok(ids().includes('KVALID'),'valid scattered cover needs no ceiling height');
  for(let i=0;i<4;i++){
   get('metar-timeline').events.input({target:{value:String(i)}});
-  for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(!ids().includes(id),'unknown cloud/ceiling station is hidden through the entire loop: '+id);
+  for(const id of ['KUNKNOWN','KBASE'])assert.ok(!ids().includes(id),'a station with no usable cloud data stays hidden: '+id);
+  assert.equal(ids().includes('KSWITCH'),i!==0,'valid cloud reports are visible even when a different hour is missing');
   assert.ok(shown.every(s=>!s.icon.html.includes('?')),'no question-mark cloud markers remain');
  }
  get('metar-product').events.change({target:{value:'plots'}});await flush();
