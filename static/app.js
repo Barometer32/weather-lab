@@ -127,40 +127,6 @@ async function loadRadar() {
   }
 }
 let forecastBusy = false, forecastData, forecastError;
-const forecastClock = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"});
-const forecastDay = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",weekday:"short"});
-const forecastZone = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",timeZoneName:"short"});
-function forecastWindowTime(start, end) {
-  const from = new Date(start), to = new Date(end);
-  if (forecastZone.formatToParts(from).find(part => part.type === "timeZoneName")?.value !== forecastZone.formatToParts(to).find(part => part.type === "timeZoneName")?.value) {
-    return `${central.format(from)}–${central.format(to)}`;
-  }
-  const laterDay = forecastDay.format(from) !== forecastDay.format(to);
-  return `${forecastClock.format(from)}–${laterDay ? forecastDay.format(to) + " " : ""}${forecastClock.format(to)}`;
-}
-function forecastDetails(period, now) {
-  const detail = document.createElement("div"); detail.className = "forecast-detail";
-  const narrative = document.createElement("p"); narrative.textContent = period.detailedForecast;
-  const windows = (period.hourlyWindows || []).filter(window => Date.parse(window.endTime) > now);
-  if (!windows.length) { detail.append(narrative); return detail; }
-  const heading = document.createElement("p"); heading.className = "forecast-hourly-heading";
-  heading.textContent = "Hourly outlook";
-  const list = document.createElement("ul"); list.className = "forecast-windows";
-  for (const window of windows) {
-    const entry = document.createElement("li");
-    const time = document.createElement("strong"); time.textContent = forecastWindowTime(window.startTime, window.endTime);
-    const conditions = document.createElement("span");
-    const {minChancePct: low, maxChancePct: high} = window;
-    const chance = low == null ? "" : ` · ${low === high ? low : `${low}–${high}`}% precip chance`;
-    conditions.textContent = `${window.weather.length ? window.weather.join("; ") : window.condition}${chance}`;
-    entry.append(time, conditions); list.append(entry);
-  }
-  const official = document.createElement("details");
-  const summary = document.createElement("summary"); summary.textContent = "Official NWS wording · wind and other details";
-  official.append(summary, narrative);
-  detail.append(heading, list, official);
-  return detail;
-}
 function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
@@ -169,19 +135,13 @@ function renderForecast() {
   $("forecast-updated").textContent = data.updatedAt ? `${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time";
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
-  const openNarratives = new Set([...$("forecast-periods").querySelectorAll("details[open]")].map(item=>item.parentElement.parentElement.dataset.forecastStart));
   $("forecast-periods").replaceChildren();
   periods.forEach(period => {
     const row = document.createElement("article"); row.className = "forecast-row";
     const name = document.createElement("h2"); name.textContent = period.name;
-    const temperature = document.createElement("div"); temperature.className = "forecast-temperature";
-    const label = document.createElement("span"); label.textContent = period.isDaytime ? "High" : "Low";
-    const value = document.createElement("strong"); value.textContent = period.temperature == null ? "—" : `${period.temperature}°${period.temperatureUnit || "F"}`;
-    temperature.append(label, value);
-    row.dataset.forecastStart = period.startTime;
-    const detail = forecastDetails(period, now), official = detail.querySelector("details");
-    if (official && openNarratives.has(period.startTime)) official.open = true;
-    row.append(name,temperature,detail); $("forecast-periods").append(row);
+    const detail = document.createElement("p"); detail.className = "forecast-detail";
+    detail.textContent = WeatherForecastProse.narrative(period, now);
+    row.append(name,detail); $("forecast-periods").append(row);
   });
 }
 async function loadForecast(force = false) {

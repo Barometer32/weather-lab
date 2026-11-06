@@ -121,12 +121,9 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 
 /* One compact row per NWS day/night period. */
 .forecast-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.forecast-row { display: grid; grid-template-columns: 145px 100px minmax(0,1fr); gap: 22px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: #fff; }
+.forecast-row { display: grid; grid-template-columns: 145px minmax(0,1fr); gap: 22px; align-items: baseline; padding: 16px 20px; border-bottom: 1px solid var(--border); background: #fff; }
 .forecast-row:last-child { border-bottom: 0; }
 .forecast-row h2 { font-size: 17px; line-height: 1.4; }
-.forecast-temperature { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
-.forecast-temperature span { color: var(--muted); font-size: 12px; }
-.forecast-temperature strong { font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: -.6px; }
 .forecast-detail { font-size: 15px; line-height: 1.55; margin: 0; }
 .satellite-product-row { display: flex; gap: 12px; align-items: center; }
 .satellite-product-row label { font-size: 14px; font-weight: 600; }
@@ -140,10 +137,8 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 .native-radar-canvas { position:absolute; image-rendering:pixelated; }
 .reflectivity-ticks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) {
-  .forecast-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 14px; padding: 14px 16px; }
+  .forecast-row { grid-template-columns: minmax(0,1fr); gap: 5px; padding: 14px 16px; }
   .forecast-row h2 { font-size: 17px; }
-  .forecast-temperature { flex-direction: row; align-items: baseline; gap: 7px; }
-  .forecast-temperature strong { font-size: 25px; }
   .forecast-detail { grid-column: 1 / -1; }
   #satellite-map { height: clamp(300px, 50svh, 420px); aspect-ratio: auto; }
 }
@@ -435,10 +430,3 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
-
-.forecast-detail p { margin: 0; }
-.forecast-hourly-heading { font-weight: 650; }
-.forecast-windows { list-style: none; margin: .25rem 0 .5rem; padding: 0; }
-.forecast-windows li { display: flex; flex-wrap: wrap; gap: 0 .65rem; padding: .15rem 0; }
-.forecast-windows strong { font-variant-numeric: tabular-nums; }
-.forecast-detail summary { cursor: pointer; color: var(--green); }
