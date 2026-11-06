@@ -27,6 +27,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
  data={...data,frames:[frame(1),frame(2),frame(3),frame(4)]};events.visibilitychange();await flush();
  assert.equal(options.at(-1).force,true,'returning to a visible page checks the server');
  assert.equal(get('air-quality-map').src,frame(4).url);assert.doesNotMatch(get('airq-time').textContent,/Refresh failed|previous image retained/);
+ data={...data,sourceDelayed:true};polls[0]();await flush();assert.match(get('airq-time').textContent,/AirNow map delayed/);
  data={...data,stale:true};polls[0]();await flush();assert.match(get('airq-time').textContent,/Background collection delayed/);
  get('air-quality').hidden=true;const count=reads;polls[0]();await flush();assert.equal(reads,count);
  console.log('Air Q viewer checks passed: fixed prepared images, truthful building history/source times, hourly selection and failed-source/image retention.');

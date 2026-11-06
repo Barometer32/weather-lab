@@ -15,6 +15,8 @@ VERSION = 'mn-region-v2'
 LEGACY_VERSION = 'mn-region-v1'
 MAP_STYLE = 'contours-only-no-labels'
 CHECK_MINUTES = list(range(3, 60, 5))
+ARCHIVE_FALLBACK_AFTER = timedelta(hours=2)
+SOURCE_DELAY_AFTER = timedelta(hours=3)
 HISTORY = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNow24HrCombined/FeatureServer/0'
 # Entire Minnesota, including the Northwest Angle and the Arrowhead.
 BOUNDS = [-97.65, 43.2, -89.1, 49.65]
@@ -164,8 +166,28 @@ def collect(store,now,fetch=None):
     now=now.astimezone(UTC);fetch=fetch or download
     previous=store.read_json('live/air-quality.json') or {}
     frames=recent_frames(previous,now)
-    groups=source_groups(query(CONTOURS,'gridcode,Unixtime,Timestamp',fetch),now)
-    if not groups:raise ValueError('AirNow contours are unavailable; previous snapshot retained')
+    fields='gridcode,Unixtime,Timestamp'
+    primary_error=None
+    try:
+        groups=source_groups(query(CONTOURS,fields,fetch),now)
+    except (OSError,ValueError) as error:
+        groups={}
+        primary_error=error
+
+    # The two AirNow layers can advance independently. Checking the archive
+    # only for gaps before the "latest" timestamp misses any newer archive maps.
+    if not groups or now-max(groups)>=ARCHIVE_FALLBACK_AFTER:
+        cutoff=now.replace(minute=0,second=0,microsecond=0)-timedelta(hours=13)
+        where=f"Timestamp >= timestamp '{cutoff:%Y-%m-%d %H:%M:%S}'"
+        try:
+            archive=source_groups(query(HISTORY,fields,fetch,where),now)
+        except (OSError,ValueError):
+            archive={}
+        groups={**archive,**groups}
+    if not groups:
+        if primary_error is not None:
+            raise primary_error
+        raise ValueError('AirNow contours are unavailable; previous snapshot retained')
     newest=max(groups)
     # Archive real source hours missed between collections. The public 24-hour
     # combined-contour service uses the same gridcode and Timestamp fields.
@@ -220,7 +242,8 @@ def collect(store,now,fetch=None):
 def public_manifest(data,now):
     frames=recent_frames(data,now)
     if not frames:raise ValueError('No recent Air Q snapshots have been captured yet')
-    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES}
+    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES,
+            'sourceDelayed':now-moment(frames[-1]['sourceTime'])>=SOURCE_DELAY_AFTER}
 
 
 def main():

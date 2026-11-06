@@ -218,3 +218,34 @@ def test_failed_archive_retains_current_map_without_relabeling_old_hours():
     frames=store.read_json('live/air-quality.json')['frames']
     assert len(frames)==1 and frames[0]['sourceTime']==aq.iso(SOURCE)
     assert len(result['missingHours'])==11 and result['backfillErrors']==11
+
+
+def test_stalled_latest_layer_uses_newer_archive_even_with_no_existing_gaps():
+    from copy import deepcopy
+    store=MemoryStore()
+    basic,calls=fetcher()
+    old=SOURCE-timedelta(hours=8)
+    basic.set_source(old)
+    row,_=feature_data()
+    archive=[]
+    for stamp in (old, SOURCE-timedelta(hours=1), SOURCE):
+        feature=deepcopy(row[0])
+        feature['attributes']['Timestamp']=stamp.timestamp()*1000
+        archive.append(feature)
+
+    def fetch(url):
+        if aq.HISTORY in url:
+            where=parse_qs(urlsplit(url).query)['where'][0]
+            if ' AND ' not in where:
+                calls.append(url)
+                return json.dumps({'features':archive}).encode()
+            return b'{"features":[]}'
+        return basic(url)
+
+    result=aq.collect(store,NOW,fetch)
+    assert result['sourceTime']==aq.iso(SOURCE)
+    assert sum(' AND ' not in parse_qs(urlsplit(u).query)['where'][0] for u in calls if aq.HISTORY in u)==1
+    data=store.read_json('live/air-quality.json')
+    assert data['frames'][-1]['sourceTime']==aq.iso(SOURCE)
+    assert not aq.public_manifest(data,NOW)['sourceDelayed']
+    assert aq.public_manifest(data,NOW+timedelta(hours=4))['sourceDelayed']

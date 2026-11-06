@@ -13,7 +13,7 @@ window.WeatherAirQuality = (() => {
   function updateTime(){
     if(!data){el("airq-time").textContent=notice||"Loading Air Q snapshots…";return;}
     const frame=data.frames[index];
-    const warning=notice||(data.stale?"Background collection delayed":data._savedCopy?"Saved copy":"");
+    const warning=notice||(data.stale?"Background collection delayed":data.sourceDelayed?"AirNow map delayed":data._savedCopy?"Saved copy":"");
     el("airq-time").textContent=`Data as of ${time.format(new Date(frame.sourceTime||frame.time))} · ${index+1}/${data.frames.length}${warning?" · "+warning:""}`;
     el("airq-timeline").setAttribute("aria-valuetext",el("airq-time").textContent);
   }
