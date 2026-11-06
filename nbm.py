@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 STATION = "KFCM"
 KEY = "live/nbm-kfcm.json"
 CENTRAL = ZoneInfo("America/Chicago")
-OUTLOOK_VERSION = 2
+OUTLOOK_VERSION = 3
 PRECIP_TYPES = {"rain": "rainTypePct", "snow": "snowTypePct", "freezing rain": "iceTypePct", "sleet": "sleetTypePct"}
 ARCHIVE = "https://noaa-nbm-grib2-pds.s3.amazonaws.com"
 HEADER = re.compile(rb"^\s*KFCM\s+NBM\s+(?:V[\d.]+\s+)?(NB[HSEX]) GUIDANCE\s+(\d{1,2}/\d{1,2}/\d{4})\s+(\d{4}) UTC\s*$")
@@ -220,7 +220,7 @@ def interval_cover(intervals, start, end, key, allow_shift=False):
 
 
 def daily_outlook(cycle, hourly, short, extended):
-    """Pair only complete local 6 AM–6 PM and 6 PM–6 AM periods."""
+    """Group daytime highs and the following overnight lows by local date."""
     points = {}
     intervals = []
     for cadence, rows in ((12, extended), (3, short), (1, hourly)):
@@ -253,7 +253,10 @@ def daily_outlook(cycle, hourly, short, extended):
     def round_value(value):
         return None if value is None else round(value)
 
-    def period(start, end, name):
+    def period(start, end, name, extreme_at):
+        if start < cycle < end:
+            start = cycle
+
         def span(field):
             return sample_span(series.get(field, []), start, end)
 
@@ -279,6 +282,10 @@ def daily_outlook(cycle, hourly, short, extended):
             return [row for row, _ in cover[2]] + inside, bool(cover[0])
 
         low, high = limits("temperatureF")
+        # TXN at 00Z is the preceding day's high; TXN at 12Z is
+        # the low for the night that just ended, not the upcoming night.
+        extreme = points.get(extreme_at, {}).get("extremeF")
+        temperature = (low if name == "night" else high) if extreme is None else extreme
         cloud_low, cloud_high = limits("cloudCoverPct")
         _, gust = limits("gustKnots")
         cloud_series = series.get("cloudCoverPct", [])
@@ -303,7 +310,10 @@ def daily_outlook(cycle, hourly, short, extended):
             types.add("freezing rain")
         return {
             "kind": name, "startAt": start.isoformat(), "endAt": end.isoformat(), "sparse": sparse,
-            "highF": high, "lowF": low, "cloudPct": round_value(average("cloudCoverPct")),
+            "highF": temperature if name == "day" else None,
+            "lowF": temperature if name == "night" else None,
+            "temperatureSource": "bulletin" if extreme is not None else "sampled",
+            "cloudPct": round_value(average("cloudCoverPct")),
             "cloudMinPct": cloud_low, "cloudMaxPct": cloud_high, "cloudBlocks": cloud_blocks,
             "dewPointF": round_value(average("dewPointF")), "windKnots": round_value(speed),
             "windDirectionDegrees": direction, "gustKnots": gust,
@@ -314,7 +324,8 @@ def daily_outlook(cycle, hourly, short, extended):
         }
 
     latest = datetime.fromisoformat(extended[-1]["validAt"])
-    date = cycle.astimezone(CENTRAL).date()
+    local = cycle.astimezone(CENTRAL)
+    date = local.date() - timedelta(days=local.hour < 6)
     days = []
     while len(days) < 10:
         start = datetime.combine(date, time(6), CENTRAL).astimezone(timezone.utc)
@@ -322,9 +333,13 @@ def daily_outlook(cycle, hourly, short, extended):
         end = datetime.combine(date + timedelta(days=1), time(6), CENTRAL).astimezone(timezone.utc)
         if end > latest:
             break
-        if start >= cycle:
+        if end > cycle:
+            next_date = date + timedelta(days=1)
+            high_at = datetime.combine(next_date, time(0), timezone.utc)
+            low_at = datetime.combine(next_date, time(12), timezone.utc)
             days.append({"date": date.isoformat(), "startAt": start.isoformat(), "endAt": end.isoformat(),
-                         "periods": [period(start, evening, "day"), period(evening, end, "night")]})
+                         "periods": [period(start, evening, "day", high_at),
+                                     period(evening, end, "night", low_at)]})
         date += timedelta(days=1)
     return days
 

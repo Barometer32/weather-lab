@@ -105,9 +105,9 @@ def test_complete_day_and_night_use_each_periods_samples_and_precip():
     hourly = [point(h, temperatureF=30+h, cloudCoverPct=h*5) for h in range(13)]
     short = [point(6, liquidPrecipHundredths=90), point(12, liquidPrecipHundredths=80)]
     extended = [
-        point(12, temperatureF=42, cloudCoverPct=60, precipChancePct=65,
+        point(12, temperatureF=42, extremeF=46, cloudCoverPct=60, precipChancePct=65,
               liquidPrecipHundredths=30, snowTenths=0, rainTypePct=90),
-        point(24, temperatureF=28, cloudCoverPct=100, precipChancePct=80,
+        point(24, temperatureF=28, extremeF=25, cloudCoverPct=100, precipChancePct=80,
               liquidPrecipHundredths=10, snowTenths=15, snowTypePct=80),
         point(36, temperatureF=43, cloudCoverPct=40, precipChancePct=35, snowTenths=0),
     ]
@@ -115,8 +115,8 @@ def test_complete_day_and_night_use_each_periods_samples_and_precip():
     day, night = first["periods"]
     assert first["date"] == "2026-11-06"
     assert day["endAt"] == night["startAt"] == "2026-11-07T00:00:00+00:00"
-    assert (day["highF"], day["lowF"], day["cloudPct"]) == (42, 30, 30)
-    assert (night["highF"], night["lowF"], night["cloudPct"]) == (42, 28, 80)
+    assert (day["highF"], day["lowF"], day["cloudPct"]) == (46, None, 30)
+    assert (night["highF"], night["lowF"], night["cloudPct"]) == (None, 25, 80)
     assert day["cloudBlocks"] == [8, 22, 38, 52]
     assert (day["liquidPrecipHundredths"], night["liquidPrecipHundredths"]) == (30, 10)
     assert day["precipTypes"] == ["rain"]
@@ -126,18 +126,34 @@ def test_complete_day_and_night_use_each_periods_samples_and_precip():
     assert night["sparse"] and not day["sparse"]
 
 
-def test_skips_incomplete_dates_caps_ten_and_honors_central_daylight_time():
+def test_includes_current_day_caps_ten_and_honors_central_daylight_time():
     cycle = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
     points = [{"validAt": (cycle + timedelta(hours=h)).isoformat(), "temperatureF": 50,
                "cloudCoverPct": 70, "liquidPrecipHundredths": 12, "precipChancePct": 30}
               for h in range(12, 12*24+1, 12)]
     days = daily_outlook(cycle, [], [], points)
     assert len(days) == 10
-    assert days[0]["date"] == "2026-07-02"
-    day, night = days[0]["periods"]
+    assert days[0]["date"] == "2026-07-01"
+    assert days[0]["periods"][0]["startAt"] == cycle.isoformat()
+    day, night = days[1]["periods"]
     assert day["startAt"] == "2026-07-02T11:00:00+00:00"
     assert day["endAt"] == "2026-07-02T23:00:00+00:00"
     assert night["endAt"] == "2026-07-03T11:00:00+00:00"
     assert day["liquidPrecipHundredths"] == 12 and day["amountsApproximate"]
     assert day["precipChanceApproximate"]
     assert day["snowTenths"] is None
+
+
+
+def test_current_overnight_low_uses_that_nights_samples_when_bulletin_lacks_low():
+    cycle = CYCLE.replace(hour=2)
+    hourly = [{"validAt": (cycle + timedelta(hours=h)).isoformat(), "temperatureF": 37-h}
+              for h in range(1, 11)]
+    extended = [{"validAt": (cycle + timedelta(hours=h)).isoformat(), "extremeF": value}
+                for h, value in [(22, 47), (34, 32)]]
+    overnight, tomorrow = daily_outlook(cycle, hourly, [], extended)
+    assert overnight["date"] == "2026-11-05"
+    assert overnight["periods"][1]["lowF"] == 27
+    assert overnight["periods"][1]["temperatureSource"] == "sampled"
+    assert tomorrow["periods"][0]["highF"] == 47
+    assert tomorrow["periods"][1]["lowF"] == 32

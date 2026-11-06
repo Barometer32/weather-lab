@@ -285,37 +285,59 @@ function modelElement(tag, cls, content) {
   return el;
 }
 
-function modelPeriod(period) {
+function modelSkyDescription(period, night) {
+  const names = night
+    ? ["Clear", "Mostly clear", "Partly cloudy", "Mostly cloudy", "Cloudy"]
+    : ["Sunny", "Mostly sunny", "Partly sunny", "Mostly cloudy", "Cloudy"];
+  const band = n => n <= 12 ? 0 : n <= 37 ? 1 : n <= 62 ? 2 : n <= 87 ? 3 : 4;
+  const blocks = period.cloudBlocks || [];
+  if (blocks.length === 4 && blocks.every(Number.isFinite)) {
+    const early = (blocks[0] + blocks[1]) / 2;
+    const late = (blocks[2] + blocks[3]) / 2;
+    const change = blocks[3] - blocks[0];
+    if (change >= 30 && late - early >= 15 && band(blocks[3]) > band(blocks[0])) {
+      return band(blocks[3]) >= 3
+        ? `${names[band(blocks[0])]}, then ${names[band(blocks[3])].toLowerCase()}`
+        : `${names[band(blocks[0])]}, then increasing clouds`;
+    }
+    if (change <= -30 && early - late >= 15 && band(blocks[3]) < band(blocks[0])) {
+      return band(blocks[3]) <= 1 ? `${names[band(blocks[0])]}, then clearing`
+        : `${names[band(blocks[0])]}, then ${names[band(blocks[3])].toLowerCase()}`;
+    }
+  }
+  return Number.isFinite(period.cloudPct) ? names[band(period.cloudPct)] : "Sky forecast unavailable";
+}
+
+function modelPeriod(period, label, key, expanded) {
   const make = modelElement;
   const night = period.kind === "night";
   const section = make("section", `model-period model-period-${period.kind}`);
-  section.append(make("h3", "", night ? "Night" : "Day"), make("p", "model-period-time", night ? "6 PM–6 AM" : "6 AM–6 PM"));
   const types = period.precipTypes || [];
   const winter = types.some(t => ["snow", "sleet", "freezing rain"].includes(t));
   const wet = types.length || period.peakPrecipChancePct >= 25 || period.liquidPrecipHundredths > 0;
   const cloud = period.cloudPct;
-  const sky = cloud == null ? "" : cloud < 25 ? (night ? "moon" : "sun")
-    : cloud < 70 ? (night ? "partlyNight" : "partly") : "cloudy";
+  const sky = cloud == null ? "" : cloud <= 37 ? (night ? "moon" : "sun")
+    : cloud <= 62 ? (night ? "partlyNight" : "partly") : "cloudy";
   const iconName = wet ? (winter ? "snow" : "rain") : sky;
   const icon = make("div", "model-icon");
   if (iconName) icon.innerHTML = `<svg aria-hidden="true" viewBox="0 0 48 46">${modelIcons[iconName]}</svg>`;
-  const skyText = ({sun:"Mostly sunny",moon:"Mostly clear",partly:"Partly cloudy",partlyNight:"Partly cloudy",cloudy:"Mostly cloudy"})[sky] || "Sky cover unavailable";
+  const skyText = modelSkyDescription(period, night);
   const weatherText = types.length ? types.join(" / ").replace(/^./, c => c.toUpperCase()) + " possible"
     : wet ? "Precipitation possible" : "";
-  const desc = make("p", "model-description");
-  desc.append(make("span", "", skyText));
-  if (weatherText) desc.append(make("strong", "", weatherText));
-  section.append(icon, desc);
-
-  const temps = make("div", "model-temps");
+  const desc = make("div", "model-description");
+  desc.append(make("h3", "", label), make("p", "", skyText));
+  if (weatherText) desc.append(make("p", "model-precip-description", weatherText));
   const temp = n => n == null ? "—" : `${n}°`;
-  for (const [label, value, cls] of [["High", period.highF, "model-high"], ["Low", period.lowF, "model-low"]]) {
-    const block = make("div", cls);
-    block.append(make("span", "", label), make("strong", "", temp(value)));
-    temps.append(block);
-  }
-  section.append(temps);
+  const temperature = make("div", night ? "model-temperature model-low" : "model-temperature model-high");
+  temperature.append(make("span", "", night ? "Low" : "High"), make("strong", "", temp(night ? period.lowF : period.highF)));
+  const summary = make("div", "model-summary");
+  summary.append(icon, desc, temperature);
+  section.append(summary);
 
+  const details = make("details", "model-period-details");
+  details.dataset.period = key;
+  details.open = expanded.has(key);
+  details.append(make("summary", "", `${label} details`));
   const skyBlock = make("div", "model-sky");
   const pct = n => n == null ? "—" : `${n}%`;
   const strip = make("div", "model-cloud-strip");
@@ -331,11 +353,17 @@ function modelPeriod(period) {
   if (period.cloudMinPct != null && period.cloudMaxPct > period.cloudMinPct) {
     skyBlock.append(make("small", "", `${period.cloudMinPct}–${period.cloudMaxPct}% range`));
   }
-  section.append(skyBlock);
+  details.append(skyBlock);
 
   const mph = n => Math.round(n * 1.150779);
   const wind = period.windKnots == null ? "—" : period.windKnots === 0 ? "Calm"
     : (period.windDirectionDegrees == null ? "Variable " : directions[Math.round(period.windDirectionDegrees / 45) % 8] + " ") + `${mph(period.windKnots)} mph`;
+  const preview = [];
+  if (period.windKnots != null) preview.push(wind === "Calm" ? "Calm wind" : wind);
+  if (period.peakPrecipChancePct >= 20 || wet && Number.isFinite(period.peakPrecipChancePct)) {
+    preview.push(`${period.precipChanceApproximate ? "≈" : ""}${period.peakPrecipChancePct}% precip`);
+  }
+  if (preview.length) section.append(make("p", "model-period-preview", preview.join(" · ")));
   const amount = (n, scale, decimals) => n == null ? "—" : `${(n / scale).toFixed(decimals)}″`;
   const metrics = [
     ["Precip chance", `${period.precipChanceApproximate ? "≈" : ""}${pct(period.peakPrecipChancePct)}`],
@@ -353,18 +381,24 @@ function modelPeriod(period) {
     item.append(make("dt", "", label), make("dd", "", value));
     list.append(item);
   }
-  section.append(list);
+  details.append(list);
   if (period.sparse || period.amountsApproximate) {
-    section.append(make("p", "model-estimated", [period.sparse ? "Coarse model samples" : "", period.amountsApproximate ? "Precip totals estimated" : ""].filter(Boolean).join(" · ")));
+    details.append(make("p", "model-estimated", [period.sparse ? "Sky and wind use coarse model samples" : "", period.amountsApproximate ? "Precip totals estimated" : ""].filter(Boolean).join(" · ")));
   }
+  section.append(details);
   return section;
 }
 
-function modelCard(day) {
+function modelCard(day, today, now, expanded) {
   const card = modelElement("article", "model-card");
   card.setAttribute("role", "listitem");
   const panels = modelElement("div", "model-periods");
-  panels.append(...day.periods.map(modelPeriod));
+  for (const period of day.periods) {
+    if (Date.parse(period.endAt) <= now) continue;
+    const night = period.kind === "night";
+    const label = day.date === today ? (night ? "Tonight" : "Today") : day.date < today ? "Overnight" : night ? "Night" : "Day";
+    panels.append(modelPeriod(period, label, `${day.date}-${period.kind}`, expanded));
+  }
   card.append(modelElement("h2", "", modelDate.format(new Date(day.date+"T12:00:00Z"))), panels);
   return card;
 }
@@ -373,11 +407,14 @@ function renderModels() {
   const now = Date.now();
   const rows = modelData?.hours?.filter(row => Date.parse(row.validAt) >= now) || [];
   const days = modelData?.days?.filter(day => day.periods?.length === 2 && Date.parse(day.endAt) > now) || [];
-  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))} · Up to 10 complete dates` : "Flying Cloud Airport (KFCM)";
+  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))} · 10-day outlook` : "Flying Cloud Airport (KFCM)";
   const message = modelError || (modelData?.stale ? "Showing an older NOAA model run." : "") || (!days.length ? "The full daily outlook is not available yet." : "");
   $("models-status").hidden = !message;
   $("models-status").textContent = message;
-  $("models-days").replaceChildren(...days.map(modelCard));
+  const local = new Intl.DateTimeFormat("sv-SE", {timeZone:"America/Chicago", year:"numeric", month:"2-digit", day:"2-digit"}).format(now);
+  const daysPanel = $("models-days");
+  const expanded = new Set(Array.from(daysPanel.querySelectorAll("details[open]"), el => el.dataset.period));
+  daysPanel.replaceChildren(...days.map(day => modelCard(day, local, now, expanded)));
   $("models-hourly").hidden = !rows.length;
   $("models-hours").replaceChildren(...rows.map(row => {
     const tr = document.createElement("tr");

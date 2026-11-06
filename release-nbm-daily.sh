@@ -6,7 +6,7 @@ WEATHER_PROJECT=weather-lab-261105-184200-1a9b
 WEATHER_REGION=us-central1
 WEATHER_DOMAIN=https://weather-lab.cloud.run
 WEATHER_COMMIT="$(git rev-parse --short=12 HEAD)"
-WEATHER_TAG="nbm-periods-$WEATHER_COMMIT"
+WEATHER_TAG="nbm-outlook-$WEATHER_COMMIT"
 WEATHER_WORK="$(mktemp -d)"
 trap 'rm -rf -- "$WEATHER_WORK"' EXIT
 
@@ -56,8 +56,8 @@ gcloud run services describe weather-lab "${cloud_run[@]}" --format=json > "$WEA
 WEATHER_REVISION="$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); print(next(t["revisionName"] for t in s["status"]["traffic"] if t.get("tag")==sys.argv[2]))' "$WEATHER_WORK/service.json" "$WEATHER_TAG")"
 WEATHER_CANDIDATE="$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); print(next(t["url"] for t in s["status"]["traffic"] if t.get("tag")==sys.argv[2]))' "$WEATHER_WORK/service.json" "$WEATHER_TAG")"
 check_nbm() {
-  curl -fsS --max-time 15 "$1/api/nbm" |
-    python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(not (d.get("station") == "KFCM" and d.get("product") == "NBH" and d.get("cycleAt") and d.get("hours") and d.get("outlookVersion") == 2 and 9 <= len(d.get("days", [])) <= 10 and all([p.get("kind") for p in day.get("periods", [])] == ["day", "night"] for day in d["days"]) and d.get("horizonHours", 0) >= 250 and d.get("stale") is False))'
+  curl -fsS --retry 2 --retry-all-errors --max-time 15 "$1/api/nbm" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(not (d.get("station") == "KFCM" and d.get("product") == "NBH" and d.get("cycleAt") and d.get("hours") and d.get("outlookVersion") == 3 and 9 <= len(d.get("days", [])) <= 10 and all([p.get("kind") for p in day.get("periods", [])] == ["day", "night"] for day in d["days"]) and d.get("horizonHours", 0) >= 250 and d.get("stale") is False))'
 }
 
 for weather_try in 1 2 3 4 5 6 7 8; do
@@ -70,10 +70,10 @@ for weather_try in 1 2 3 4 5 6 7 8; do
 done
 
 curl -fsS --max-time 20 "$WEATHER_CANDIDATE/" -o "$WEATHER_WORK/candidate.html"
-grep -Fq 'app.js?v=nbm-periods-v2' "$WEATHER_WORK/candidate.html"
+grep -Fq 'app.js?v=nbm-outlook-v3' "$WEATHER_WORK/candidate.html"
 python3 verify_lowest_radar_site.py "$WEATHER_CANDIDATE"
 gcloud run services update-traffic weather-lab "${cloud_run[@]}" --to-revisions="$WEATHER_REVISION=100"
 curl -fsS --retry 3 --retry-all-errors --max-time 20 "$WEATHER_DOMAIN/" -o "$WEATHER_WORK/index.html"
-grep -q 'app.js?v=nbm-periods-v2' "$WEATHER_WORK/index.html"
+grep -q 'app.js?v=nbm-outlook-v3' "$WEATHER_WORK/index.html"
 check_nbm "$WEATHER_DOMAIN"
 echo "Weather Lab update live: $WEATHER_DOMAIN"
