@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=nbm-daily-v1">
+  <link rel="stylesheet" href="/static/style.css?v=nbm-periods-v2">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -18,7 +18,7 @@
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=nbm-daily-v1"></script>
+  <script defer src="/static/app.js?v=nbm-periods-v2"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -102,7 +102,7 @@
   <p class="notice" id="models-status" role="status" hidden></p>
   <div id="models-outlook">
   <div id="models-days" role="list" aria-label="Daily model outlook"></div>
-  <p class="source">Forecast days run from about 6 AM to 6 AM Central (7 AM during daylight time). Precip chance is the highest reported interval chance; evening clouds are a snapshot. Liquid precipitation includes melted snow or ice. A dash means no value is available for that period. Highs or lows marked “hourly” use the available hourly forecast.</p>
+  <details class="model-notes"><summary>How to read this outlook</summary><p class="source">Day and night follow Central local time year-round. Only dates with both periods in the run are shown; see the hourly guidance for a partial first date. Each cloud strip shows four estimates from the start of the period to the end. Highs and lows use sampled temperatures within each period. Beyond about three days, station samples are 12 hours apart, so cloud trends and temperature ranges are approximate. Precip chance is the highest available interval probability; ≈ marks a chance based on a window that is not an exact match. Liquid precip includes melted snow and ice. A dash means a value is unavailable.</p></details>
   <details id="models-hourly"><summary>Hourly guidance</summary>
   <div id="models-guidance" tabindex="0" role="region" aria-label="Hourly model guidance">
     <table>

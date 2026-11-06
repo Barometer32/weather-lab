@@ -1,12 +1,17 @@
 """Read NOAA’s operational National Blend of Models station guidance."""
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
+import math
 import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 STATION = "KFCM"
 KEY = "live/nbm-kfcm.json"
+CENTRAL = ZoneInfo("America/Chicago")
+OUTLOOK_VERSION = 2
+PRECIP_TYPES = {"rain": "rainTypePct", "snow": "snowTypePct", "freezing rain": "iceTypePct", "sleet": "sleetTypePct"}
 ARCHIVE = "https://noaa-nbm-grib2-pds.s3.amazonaws.com"
 HEADER = re.compile(rb"^\s*KFCM\s+NBM\s+(?:V[\d.]+\s+)?(NB[HSEX]) GUIDANCE\s+(\d{1,2}/\d{1,2}/\d{4})\s+(\d{4}) UTC\s*$")
 FIELDS = {
@@ -19,6 +24,8 @@ FIELDS = {
     "P01": ("precipChancePct", 0, 100),
     "Q01": ("liquidPrecipHundredths", 0, 999),
     "S01": ("snowTenths", 0, 999),
+    "I01": ("iceHundredths", 0, 999),
+    "T01": ("thunderPct", 0, 100),
     "PRA": ("rainTypePct", 0, 100),
     "PSN": ("snowTypePct", 0, 100),
     "PZR": ("iceTypePct", 0, 100),
@@ -100,7 +107,7 @@ def collect(store, now, read=None):
     for offset in range(3):
         cycle = latest - timedelta(hours=offset)
         stamp = cycle.isoformat()
-        if previous.get("cycleAt", "") >= stamp and previous.get("hours") and previous.get("days"):
+        if previous.get("cycleAt", "") >= stamp and previous.get("hours") and previous.get("outlookVersion") == OUTLOOK_VERSION and previous.get("days"):
             return {"status": "current bulletin retained", "cycleAt": previous["cycleAt"]}
         try:
             hours, days, horizon = read(cycle)
@@ -110,7 +117,7 @@ def collect(store, now, read=None):
             continue
         store.write_json(KEY, {"product": "NBH", "station": STATION, "cycleAt": stamp,
                                "checkedAt": now.isoformat(), "sourceUrl": bulletin_url(cycle), "hours": hours,
-                               "days": days, "horizonHours": horizon})
+                               "days": days, "horizonHours": horizon, "outlookVersion": OUTLOOK_VERSION})
         return {"status": "prepared", "cycleAt": stamp, "hours": len(hours), "days": len(days)}
     raise ValueError("No usable recent NOAA NBM bulletin; saved guidance was not replaced")
 
@@ -143,105 +150,182 @@ def parse_extended(lines, cycle, product):
             raise ValueError(f"Invalid {product} UTC alignment")
         rows.append({
             "validAt": valid.isoformat(), "leadHour": hour, "interval": interval,
-            "extremeF": field("TXN", end, -100, 160), "cloudCoverPct": field("SKY", end, 0, 100),
+            **{name: field(label, end, low, high) for label, (name, low, high) in FIELDS.items()
+               if label not in {"P01", "Q01", "S01", "T01", "I01"}},
+            "extremeF": field("TXN", end, -100, 160),
+            "precip12Pct": field("P12", end, 0, 100), "liquid12Hundredths": field("Q12", end, 0, 999),
+            "thunder12Pct": field("T12", end, 0, 100),
             "precipChancePct": field(f"P{interval:02}", end, 0, 100),
             "liquidPrecipHundredths": field(f"Q{interval:02}", end, 0, 999),
             "snowTenths": field(f"S{interval:02}", end, 0, 999),
-            "rainTypePct": field("PRA", end, 0, 100), "snowTypePct": field("PSN", end, 0, 100),
-            "iceTypePct": field("PZR", end, 0, 100), "sleetTypePct": field("PPL", end, 0, 100),
+            "thunderPct": field(f"T{interval:02}", end, 0, 100),
+            "iceHundredths": field(f"I{interval:02}", end, 0, 999),
         })
     if len(rows) < {"NBS": 18, "NBE": 12, "NBX": 5}[product]:
         raise ValueError(f"Incomplete {product} station card")
     return rows
 
 
-def daily_outlook(cycle, hourly, short, extended):
-    """Summarize a NOAA day and following night, from 12 UTC to 12 UTC."""
-    times = {}
-    for interval, rows in ((1, hourly), (6, short), (12, extended)):
-        for row in rows:
-            times.setdefault(datetime.fromisoformat(row["validAt"]), {})[interval] = row
-    latest = datetime.fromisoformat(extended[-1]["validAt"])
-    first = cycle.replace(hour=12)
-    if first > cycle:
-        first -= timedelta(days=1)
+def sample_span(points, start, end):
+    """Clip forecast samples to a window, interpolating its two boundaries."""
+    if not points:
+        return None
 
-    def pick(end, key):
-        return next((row[key] for _, row in sorted(times.get(end, {}).items(), reverse=True)
-                     if row.get(key) is not None), None)
+    def at(when):
+        for i, (stamp, value) in enumerate(points):
+            if stamp == when:
+                return value
+            if stamp > when:
+                if not i:
+                    return value if stamp - when <= timedelta(hours=1) else None
+                before, earlier = points[i - 1]
+                if stamp - before > timedelta(hours=12):
+                    return None
+                return earlier + (value - earlier) * ((when - before) / (stamp - before))
+        return None
 
-    def total(start, end, key):
-        # Find a continuous cover of the requested span, preferring the longest
-        # NOAA interval at each step. Missing accumulation is never treated as zero.
-        sums = {start: 0}
-        cursor = start + timedelta(hours=1)
-        while cursor <= end:
-            for width, row in sorted(times.get(cursor, {}).items(), reverse=True):
-                previous = cursor - timedelta(hours=width)
-                if previous in sums and row.get(key) is not None:
-                    sums[cursor] = sums[previous] + row[key]
-                    break
-            cursor += timedelta(hours=1)
-        return sums.get(end)
+    first, last = at(start), at(end)
+    if first is None or last is None:
+        return None
+    inside = [(stamp, v) for stamp, v in points if start < stamp < end]
+    span = [(start, first), *inside, (end, last)]
+    return span if all(b-a <= timedelta(hours=12) for (a, _), (b, _) in zip(span, span[1:])) else None
 
-    days = []
-    while first < latest:
-        night_end = first + timedelta(days=1)
-        evening = first + timedelta(hours=12)
-        start, end = max(first, cycle), min(night_end, latest)
-        if start >= end:
-            first = night_end
+
+def sample_mean(span):
+    if not span:
+        return None
+    weighted = sum((a + b) * (end - start).total_seconds() / 2
+                   for (start, a), (end, b) in zip(span, span[1:]))
+    return weighted / (span[-1][0] - span[0][0]).total_seconds()
+
+
+def interval_cover(intervals, start, end, key, allow_shift=False):
+    """Choose a full, nonoverlapping cover, preferring the least boundary spill."""
+    best = {start: (0, 0, [])}
+    for left, right, row in sorted(intervals, key=lambda item: item[1]):
+        if row.get(key) is None or left >= end or right <= start:
             continue
-        # Use the bulletin’s forecast max/min rather than extrema of sampled temperatures.
-        high = pick(evening, "extremeF") if evening > cycle else None
-        low = pick(night_end, "extremeF")
-        def hourly_extreme(left, right, extreme):
-            samples = [times.get(left + timedelta(hours=i), {}).get(1, {}).get("temperatureF")
-                       for i in range(1, int((right-left).total_seconds()//3600)+1)]
-            return extreme(samples) if samples and all(value is not None for value in samples) else None
+        a, b = max(left, start), min(right, end)
+        spill = (a-left + right-b).total_seconds()
+        # At a clock offset, the edge may be a small portion of a long
+        # interval (e.g. the last hour of the prior UTC half-day).
+        if a not in best or (spill and (not allow_shift or min(spill, (b-a).total_seconds()) > 7200)):
+            continue
+        prev_spill, count, path = best[a]
+        score = prev_spill + spill, count + 1
+        if b not in best or score < best[b][:2]:
+            best[b] = (*score, path + [(row, (b-a)/(right-left))])
+    return best.get(end)
 
-        high_hourly = low_hourly = False
-        if high is None and start < evening <= end:
-            high = hourly_extreme(start, evening, max)
-            high_hourly = high is not None
-        if low is None and end == night_end:
-            low = hourly_extreme(max(start, evening), end, min)
-            low_hourly = low is not None
-        cloud = pick(evening, "cloudCoverPct") if evening > cycle else None
-        # Pick 12-hour PoPs where available, falling back to shorter periods
-        # only for an uncovered half-day. PoPs cannot be summed.
-        chances, types = [], set()
-        for half in (evening, night_end):
-            left, right = max(start, half - timedelta(hours=12)), min(end, half)
-            if left >= right:
-                continue
-            complete = left == half - timedelta(hours=12) and right == half
-            full = times.get(half, {}).get(12) if complete else None
-            if full and full.get("precipChancePct") is not None:
-                candidates = [full]
-            else:
-                candidates = [row for valid, by_width in times.items() if left < valid <= right
-                              for width, row in by_width.items()
-                              if width < 12 and valid - timedelta(hours=width) >= left
-                              and row.get("precipChancePct") is not None]
-            chances.extend(row["precipChancePct"] for row in candidates)
-            for row in candidates:
-                if row["precipChancePct"] >= 20:
-                    types.update(label for label, key in (
-                        ("rain", "rainTypePct"), ("snow", "snowTypePct"),
-                        ("ice", "iceTypePct"), ("sleet", "sleetTypePct")) if (row.get(key) or 0) >= 25)
-        liquid, snow = (total(start, end, key) for key in ("liquidPrecipHundredths", "snowTenths"))
+
+def daily_outlook(cycle, hourly, short, extended):
+    """Pair only complete local 6 AM–6 PM and 6 PM–6 AM periods."""
+    points = {}
+    intervals = []
+    for cadence, rows in ((12, extended), (3, short), (1, hourly)):
+        for row in rows:
+            stamp = datetime.fromisoformat(row["validAt"])
+            fields = points.setdefault(stamp, {})
+            fields.update({k: v for k, v in row.items() if v is not None})
+            width = {1: 1, 3: 6, 12: 12}[cadence]
+            intervals.append((stamp - timedelta(hours=width), stamp, row))
+            if cadence == 3:
+                intervals.append((stamp - timedelta(hours=12), stamp, {
+                    "precipChancePct": row.get("precip12Pct"), "liquidPrecipHundredths": row.get("liquid12Hundredths"),
+                    "thunderPct": row.get("thunder12Pct"), **{k: row.get(k) for k in PRECIP_TYPES.values()},
+                }))
+
+    series = {}
+    for stamp, row in sorted(points.items()):
+        for field, value in row.items():
+            if isinstance(value, (int, float)):
+                series.setdefault(field, []).append((stamp, value))
+        speed, direction = row.get("windKnots"), row.get("windDirectionTens")
+        if speed is not None and direction:
+            theta = math.radians(direction*10)
+            series.setdefault("windEast", []).append((stamp, speed * math.sin(theta)))
+            series.setdefault("windNorth", []).append((stamp, speed * math.cos(theta)))
+        elif speed == 0:
+            for field in ("windEast", "windNorth"):
+                series.setdefault(field, []).append((stamp, 0))
+
+    def round_value(value):
+        return None if value is None else round(value)
+
+    def period(start, end, name):
+        def span(field):
+            return sample_span(series.get(field, []), start, end)
+
+        def average(field):
+            return sample_mean(span(field))
+
+        def limits(field):
+            values = span(field)
+            return (round(min(v for _, v in values)), round(max(v for _, v in values))) if values else (None, None)
+
+        def accumulation(key):
+            cover = interval_cover(intervals, start, end, key, allow_shift=True)
+            if cover is None:
+                return None, False
+            total = round(sum(row[key] * fraction for row, fraction in cover[2]))
+            return total, bool(cover[0] and any(row[key] and fraction < 1 for row, fraction in cover[2]))
+
+        def chances(key):
+            cover = interval_cover(intervals, start, end, key, allow_shift=True)
+            inside = [row for a, b, row in intervals if start <= a and b <= end and row.get(key) is not None]
+            if cover is None:
+                return inside, bool(inside)
+            return [row for row, _ in cover[2]] + inside, bool(cover[0])
+
+        low, high = limits("temperatureF")
+        cloud_low, cloud_high = limits("cloudCoverPct")
+        _, gust = limits("gustKnots")
+        cloud_series = series.get("cloudCoverPct", [])
+        step = (end-start)/4
+        cloud_blocks = [round_value(sample_mean(sample_span(cloud_series, start+i*step, start+(i+1)*step))) for i in range(4)]
+        sparse = any(b - a > timedelta(hours=3) for field in ("cloudCoverPct", "temperatureF")
+                     for (a, _), (b, _) in zip(series.get(field, []), series.get(field, [])[1:])
+                     if a < end and b > start)
+        speed = average("windKnots")
+        east, north = average("windEast"), average("windNorth")
+        direction = None if east is None or north is None or math.hypot(east, north) < 1 else round(math.degrees(math.atan2(east, north))) % 360
+        pop, pop_shift = chances("precipChancePct")
+        thunder, _ = chances("thunderPct")
+        types = {label for row in pop if row["precipChancePct"] >= 20
+                 for label, key in PRECIP_TYPES.items() if (row.get(key) or 0) >= 25}
+        liquid, liquid_shift = accumulation("liquidPrecipHundredths")
+        snow, snow_shift = accumulation("snowTenths")
+        ice, ice_shift = accumulation("iceHundredths")
         if snow:
             types.add("snow")
-        days.append({
-            "date": first.date().isoformat(), "startAt": start.isoformat(), "endAt": end.isoformat(),
-            "partial": start != first or end != night_end,
-            "highF": high, "highFromHourly": high_hourly, "lowF": low, "lowFromHourly": low_hourly, "eveningCloudPct": cloud,
-            "peakPrecipChancePct": max(chances, default=None),
-            "liquidPrecipHundredths": liquid, "snowTenths": snow,
-            "precipTypes": sorted(types),
-        })
-        first = night_end
+        if ice:
+            types.add("freezing rain")
+        return {
+            "kind": name, "startAt": start.isoformat(), "endAt": end.isoformat(), "sparse": sparse,
+            "highF": high, "lowF": low, "cloudPct": round_value(average("cloudCoverPct")),
+            "cloudMinPct": cloud_low, "cloudMaxPct": cloud_high, "cloudBlocks": cloud_blocks,
+            "dewPointF": round_value(average("dewPointF")), "windKnots": round_value(speed),
+            "windDirectionDegrees": direction, "gustKnots": gust,
+            "peakPrecipChancePct": max((row["precipChancePct"] for row in pop), default=None),
+            "precipChanceApproximate": pop_shift, "thunderPct": max((row["thunderPct"] for row in thunder), default=None),
+            "liquidPrecipHundredths": liquid, "snowTenths": snow, "iceHundredths": ice,
+            "amountsApproximate": liquid_shift or snow_shift or ice_shift, "precipTypes": sorted(types),
+        }
+
+    latest = datetime.fromisoformat(extended[-1]["validAt"])
+    date = cycle.astimezone(CENTRAL).date()
+    days = []
+    while len(days) < 10:
+        start = datetime.combine(date, time(6), CENTRAL).astimezone(timezone.utc)
+        evening = datetime.combine(date, time(18), CENTRAL).astimezone(timezone.utc)
+        end = datetime.combine(date + timedelta(days=1), time(6), CENTRAL).astimezone(timezone.utc)
+        if end > latest:
+            break
+        if start >= cycle:
+            days.append({"date": date.isoformat(), "startAt": start.isoformat(), "endAt": end.isoformat(),
+                         "periods": [period(start, evening, "day"), period(evening, end, "night")]})
+        date += timedelta(days=1)
     return days
 
 

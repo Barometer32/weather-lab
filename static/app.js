@@ -270,56 +270,110 @@ let modelData, modelLoading = false, modelError = "";
 const modelTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",weekday:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
 const modelDate = new Intl.DateTimeFormat("en-US", {timeZone:"UTC", weekday:"short", month:"short", day:"numeric"});
 const modelIcons = {
+  moon: '<path d="M29 7a17 17 0 1 0 13 23A15 15 0 0 1 29 7Z" fill="#e8edfa" stroke="#586895" stroke-width="2"/><path d="M39 8v8m-4-4h8" stroke="#586895" stroke-width="1.6" stroke-linecap="round"/>',
+  partlyNight: '<path d="M21 6a13 13 0 1 0 13 16A12 12 0 0 1 21 6Z" fill="#e8edfa" stroke="#586895" stroke-width="2"/><path d="M13 35h25a7 7 0 0 0 0-14h-2a10 10 0 0 0-19 2h-4a6 6 0 0 0 0 12Z" fill="#edf4fa" stroke="#627a8d" stroke-width="2"/>',
   sun: '<g fill="none" stroke="#ca7900" stroke-width="2.4" stroke-linecap="round"><circle cx="24" cy="23" r="9" fill="#ffda71"/><path d="M24 5v4m0 28v4M6 23h4m28 0h4M11 10l3 3m20 20 3 3m0-26-3 3M14 33l-3 3"/></g>',
   partly: '<circle cx="16" cy="16" r="9" fill="#ffda71" stroke="#ca7900" stroke-width="2"/><path d="M13 35h25a7 7 0 0 0 0-14h-2a10 10 0 0 0-19 2h-4a6 6 0 0 0 0 12Z" fill="#edf4fa" stroke="#627a8d" stroke-width="2"/>',
   cloudy: '<path d="M12 34h25a8 8 0 0 0 0-16h-2a11 11 0 0 0-21 3h-2a6.5 6.5 0 0 0 0 13Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/>',
   rain: '<path d="M12 28h25a7 7 0 0 0 0-14h-2a11 11 0 0 0-21 3h-2a5.5 5.5 0 0 0 0 11Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/><path d="m16 33-3 6m13-6-3 6m13-6-3 6" stroke="#2875b2" stroke-width="2.5" stroke-linecap="round"/>',
   snow: '<path d="M12 27h25a7 7 0 0 0 0-14h-2a11 11 0 0 0-21 3h-2a5.5 5.5 0 0 0 0 11Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/><path d="M15 32v8m-4-4h8m6-4v8m-4-4h8m6-4v8m-4-4h8" stroke="#2875b2" stroke-width="1.8" stroke-linecap="round"/>'
 };
-function modelCard(day) {
-  const card = document.createElement("article"); card.className = "model-card"; card.setAttribute("role","listitem");
-  const make = (tag, cls, text) => {
-    const item = document.createElement(tag);
-    if (cls) item.className = cls;
-    if (text != null) item.textContent = text;
-    return item;
-  };
-  const types = day.precipTypes || [];
-  const snow = types.includes("snow") || types.includes("sleet") || types.includes("ice");
-  const hasPrecip = types.length || day.peakPrecipChancePct >= 25;
-  const cloud = day.eveningCloudPct;
-  const kind = hasPrecip ? (snow ? "snow" : "rain") : cloud == null ? "" : cloud < 25 ? "sun" : cloud < 70 ? "partly" : "cloudy";
-  const description = types.length ? types.map(t => t[0].toUpperCase() + t.slice(1)).join(" / ") + " possible"
-    : hasPrecip ? "Precipitation possible" : {sun:"Mostly clear evening",partly:"Partly cloudy evening",cloudy:"Cloudy evening"}[kind] || "Sky cover unavailable";
+function modelElement(tag, cls, content) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (content != null) el.textContent = content;
+  return el;
+}
+
+function modelPeriod(period) {
+  const make = modelElement;
+  const night = period.kind === "night";
+  const section = make("section", `model-period model-period-${period.kind}`);
+  section.append(make("h3", "", night ? "Night" : "Day"), make("p", "model-period-time", night ? "6 PM–6 AM" : "6 AM–6 PM"));
+  const types = period.precipTypes || [];
+  const winter = types.some(t => ["snow", "sleet", "freezing rain"].includes(t));
+  const wet = types.length || period.peakPrecipChancePct >= 25 || period.liquidPrecipHundredths > 0;
+  const cloud = period.cloudPct;
+  const sky = cloud == null ? "" : cloud < 25 ? (night ? "moon" : "sun")
+    : cloud < 70 ? (night ? "partlyNight" : "partly") : "cloudy";
+  const iconName = wet ? (winter ? "snow" : "rain") : sky;
   const icon = make("div", "model-icon");
-  if (kind) icon.innerHTML = `<svg aria-hidden="true" viewBox="0 0 48 46">${modelIcons[kind]}</svg>`;
-  const temp = n => n == null ? "—" : `${n}°`;
+  if (iconName) icon.innerHTML = `<svg aria-hidden="true" viewBox="0 0 48 46">${modelIcons[iconName]}</svg>`;
+  const skyText = ({sun:"Mostly sunny",moon:"Mostly clear",partly:"Partly cloudy",partlyNight:"Partly cloudy",cloudy:"Mostly cloudy"})[sky] || "Sky cover unavailable";
+  const weatherText = types.length ? types.join(" / ").replace(/^./, c => c.toUpperCase()) + " possible"
+    : wet ? "Precipitation possible" : "";
+  const desc = make("p", "model-description");
+  desc.append(make("span", "", skyText));
+  if (weatherText) desc.append(make("strong", "", weatherText));
+  section.append(icon, desc);
+
   const temps = make("div", "model-temps");
-  for (const [label,value,cls] of [[day.highFromHourly ? "High (hourly)" : "High",day.highF,"model-high"],[day.lowFromHourly ? "Low (hourly)" : "Night low",day.lowF,"model-low"]]) {
+  const temp = n => n == null ? "—" : `${n}°`;
+  for (const [label, value, cls] of [["High", period.highF, "model-high"], ["Low", period.lowF, "model-low"]]) {
     const block = make("div", cls);
-    block.append(make("span","",label), make("strong","",temp(value)));
+    block.append(make("span", "", label), make("strong", "", temp(value)));
     temps.append(block);
   }
-  const measures = make("dl", "model-measures");
-  for (const [label, value] of [
-    ["Peak precip chance", day.peakPrecipChancePct == null ? "—" : `${day.peakPrecipChancePct}%`],
-    ["Liquid precip", day.liquidPrecipHundredths == null ? "—" : `${(day.liquidPrecipHundredths/100).toFixed(2)}″`],
-    ["Snow", day.snowTenths == null ? "—" : `${(day.snowTenths/10).toFixed(1)}″`],
-    ["Evening clouds", cloud == null ? "—" : `${cloud}%`]
-  ]) {
-    const metric = make("div"); metric.append(make("dt","",label), make("dd","",value)); measures.append(metric);
+  section.append(temps);
+
+  const skyBlock = make("div", "model-sky");
+  const pct = n => n == null ? "—" : `${n}%`;
+  const strip = make("div", "model-cloud-strip");
+  strip.setAttribute("role", "img");
+  strip.setAttribute("aria-label", `Estimated cloud cover in four successive parts of the period: ${period.cloudBlocks.map(pct).join(", ")}`);
+  for (const cover of period.cloudBlocks) {
+    const segment = make("span", cover == null ? "model-cloud-missing" : "");
+    segment.title = cover == null ? "Cloud cover unavailable" : `${cover}% cloud cover`;
+    if (cover != null) segment.style.setProperty("--cloud", cover / 100);
+    strip.append(segment);
   }
-  card.append(make("h2","",modelDate.format(new Date(day.date+"T12:00:00Z"))), icon,
-    make("p","model-description",description), temps, measures);
-  if (day.partial) card.append(make("p","model-partial","Partial day"));
+  skyBlock.append(make("span", "", "Avg. clouds"), make("strong", "", pct(cloud)), strip);
+  if (period.cloudMinPct != null && period.cloudMaxPct > period.cloudMinPct) {
+    skyBlock.append(make("small", "", `${period.cloudMinPct}–${period.cloudMaxPct}% range`));
+  }
+  section.append(skyBlock);
+
+  const mph = n => Math.round(n * 1.150779);
+  const wind = period.windKnots == null ? "—" : period.windKnots === 0 ? "Calm"
+    : (period.windDirectionDegrees == null ? "Variable " : directions[Math.round(period.windDirectionDegrees / 45) % 8] + " ") + `${mph(period.windKnots)} mph`;
+  const amount = (n, scale, decimals) => n == null ? "—" : `${(n / scale).toFixed(decimals)}″`;
+  const metrics = [
+    ["Precip chance", `${period.precipChanceApproximate ? "≈" : ""}${pct(period.peakPrecipChancePct)}`],
+    ["Liquid precip", amount(period.liquidPrecipHundredths, 100, 2)],
+    ["Snow", amount(period.snowTenths, 10, 1)],
+    ["Wind", wind],
+    ["Peak gust", period.gustKnots == null ? "—" : `${mph(period.gustKnots)} mph`],
+    ["Avg. dew point", temp(period.dewPointF)]
+  ];
+  if (period.thunderPct > 0) metrics.push(["Thunder chance", pct(period.thunderPct)]);
+  if (period.iceHundredths > 0) metrics.push(["Ice", amount(period.iceHundredths, 100, 2)]);
+  const list = make("dl", "model-measures");
+  for (const [label, value] of metrics) {
+    const item = make("div");
+    item.append(make("dt", "", label), make("dd", "", value));
+    list.append(item);
+  }
+  section.append(list);
+  if (period.sparse || period.amountsApproximate) {
+    section.append(make("p", "model-estimated", [period.sparse ? "Coarse model samples" : "", period.amountsApproximate ? "Precip totals estimated" : ""].filter(Boolean).join(" · ")));
+  }
+  return section;
+}
+
+function modelCard(day) {
+  const card = modelElement("article", "model-card");
+  card.setAttribute("role", "listitem");
+  const panels = modelElement("div", "model-periods");
+  panels.append(...day.periods.map(modelPeriod));
+  card.append(modelElement("h2", "", modelDate.format(new Date(day.date+"T12:00:00Z"))), panels);
   return card;
 }
 
 function renderModels() {
   const now = Date.now();
   const rows = modelData?.hours?.filter(row => Date.parse(row.validAt) >= now) || [];
-  const days = modelData?.days?.filter(day => Date.parse(day.endAt) > now) || [];
-  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))}${modelData.horizonHours ? ` · ${modelData.horizonHours}-hour outlook` : ""}` : "Flying Cloud Airport (KFCM)";
+  const days = modelData?.days?.filter(day => day.periods?.length === 2 && Date.parse(day.endAt) > now) || [];
+  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))} · Up to 10 complete dates` : "Flying Cloud Airport (KFCM)";
   const message = modelError || (modelData?.stale ? "Showing an older NOAA model run." : "") || (!days.length ? "The full daily outlook is not available yet." : "");
   $("models-status").hidden = !message;
   $("models-status").textContent = message;

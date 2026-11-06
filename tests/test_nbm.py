@@ -96,27 +96,48 @@ def test_far_range_columns_keep_blanks_and_ignore_climatology():
     assert rows[-1]["validAt"] == "2026-11-17T00:00:00+00:00"
 
 
-def test_daily_outlook_keeps_overnight_low_and_never_double_counts_precip():
+def test_complete_day_and_night_use_each_periods_samples_and_precip():
     cycle = CYCLE.replace(hour=12)
 
     def point(hours, **fields):
         return {"validAt": (cycle + timedelta(hours=hours)).isoformat(), **fields}
 
+    hourly = [point(h, temperatureF=30+h, cloudCoverPct=h*5) for h in range(13)]
     short = [point(6, liquidPrecipHundredths=90), point(12, liquidPrecipHundredths=80)]
     extended = [
-        point(12, extremeF=48, cloudCoverPct=76, precipChancePct=65,
+        point(12, temperatureF=42, cloudCoverPct=60, precipChancePct=65,
               liquidPrecipHundredths=30, snowTenths=0, rainTypePct=90),
-        point(24, extremeF=28, precipChancePct=80,
+        point(24, temperatureF=28, cloudCoverPct=100, precipChancePct=80,
               liquidPrecipHundredths=10, snowTenths=15, snowTypePct=80),
-        point(36, extremeF=43, cloudCoverPct=40, precipChancePct=35, snowTenths=0),
+        point(36, temperatureF=43, cloudCoverPct=40, precipChancePct=35, snowTenths=0),
     ]
-    first, last = daily_outlook(cycle, [], short, extended)
+    [first] = daily_outlook(cycle, hourly, short, extended)
+    day, night = first["periods"]
     assert first["date"] == "2026-11-06"
-    assert (first["highF"], first["lowF"], first["eveningCloudPct"]) == (48, 28, 76)
-    assert (first["liquidPrecipHundredths"], first["snowTenths"]) == (40, 15)
-    assert first["peakPrecipChancePct"] == 80
-    assert first["precipTypes"] == ["rain", "snow"]
-    assert last["partial"]
-    assert last["liquidPrecipHundredths"] is None
-    assert last["snowTenths"] == 0
-    assert last["lowF"] is None
+    assert day["endAt"] == night["startAt"] == "2026-11-07T00:00:00+00:00"
+    assert (day["highF"], day["lowF"], day["cloudPct"]) == (42, 30, 30)
+    assert (night["highF"], night["lowF"], night["cloudPct"]) == (42, 28, 80)
+    assert day["cloudBlocks"] == [8, 22, 38, 52]
+    assert (day["liquidPrecipHundredths"], night["liquidPrecipHundredths"]) == (30, 10)
+    assert day["precipTypes"] == ["rain"]
+    assert night["precipTypes"] == ["snow"]
+    assert (day["peakPrecipChancePct"], night["peakPrecipChancePct"]) == (65, 80)
+    assert night["snowTenths"] == 15
+    assert night["sparse"] and not day["sparse"]
+
+
+def test_skips_incomplete_dates_caps_ten_and_honors_central_daylight_time():
+    cycle = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
+    points = [{"validAt": (cycle + timedelta(hours=h)).isoformat(), "temperatureF": 50,
+               "cloudCoverPct": 70, "liquidPrecipHundredths": 12, "precipChancePct": 30}
+              for h in range(12, 12*24+1, 12)]
+    days = daily_outlook(cycle, [], [], points)
+    assert len(days) == 10
+    assert days[0]["date"] == "2026-07-02"
+    day, night = days[0]["periods"]
+    assert day["startAt"] == "2026-07-02T11:00:00+00:00"
+    assert day["endAt"] == "2026-07-02T23:00:00+00:00"
+    assert night["endAt"] == "2026-07-03T11:00:00+00:00"
+    assert day["liquidPrecipHundredths"] == 12 and day["amountsApproximate"]
+    assert day["precipChanceApproximate"]
+    assert day["snowTenths"] is None
