@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta, timezone
-import json
 from unittest.mock import patch
 
 from collector import collect_forecast
-from nws_forecast import POINT_URL, FORECAST_URL, add_hourly_windows, enrich_from_nws, normalize_forecast
-from test_forecast import document, NOW
+from nws_forecast import POINT_URL, FORECAST_URL, SOURCE_URL, add_hourly_windows, enrich_from_nws, normalize_forecast
+from test_forecast import document, text_page, NOW
 from test_realtime import MemoryStore
 
 
@@ -53,9 +52,10 @@ def test_grid_failure_uses_only_the_hourly_conditions_and_missing_chance_stays_m
 
 def test_collector_fetches_only_the_official_point_forecast():
     store = MemoryStore()
-    with patch("app.download", return_value=json.dumps(document()).encode()) as download:
+    narrative = "Sunny, with a high near 74."
+    with patch("app.download", return_value=text_page(periods=[("This Afternoon", narrative)]).encode()) as download:
         collect_forecast(store, NOW)
-    download.assert_called_once_with(FORECAST_URL)
+    download.assert_called_once_with(SOURCE_URL)
     period = store.read_json("live/forecast.json")["periods"][0]
     assert "hourlyWindows" not in period
-    assert period["detailedForecast"] == document()["data"]["text"][0]
+    assert period["detailedForecast"] == narrative
