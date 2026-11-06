@@ -17,40 +17,44 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){
   v.frame(i);
   assert.match(v.label,new RegExp((7+i)+':00 AM CST'),'10 AM includes 7, 8, 9 and 10 AM');
-  assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'Any single missing report in the latest four suppresses the whole station; older gaps do not count');
+  assert.deepEqual(v.ids(),data.history[8+i].stations.map(s=>s.station).sort(),'PLOTS shows every nonoverlapping airport that reported in this hour');
  }
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');
- for(let i=0;i<4;i++){v.frame(i);assert.ok(!v.ids().includes('KONCE'));assert.equal(v.ids().includes('KCLOUD'),i%2===0,'Changing ceiling is weather, not missing METAR data');}
+ for(let i=0;i<4;i++){v.frame(i);assert.ok(!v.ids().includes('KONCE'));assert.ok(v.ids().includes('KCLOUD'),'Valid clear and broken cloud reports remain visible');}
  v.mode('plots');
  const complete=history(Object.fromEntries(Object.keys(masks).map(id=>[id,'111111111111'])));v.adopt(complete);v.frame(3);
- assert.ok(v.ids().includes('KONCE'),'Station returns once all four frames have a report');
+ assert.ok(v.ids().includes('KONCE'),'Station remains available in a complete loop');
  const outage=history({KSTEADY:'111111111111'});outage.history[8].stations=[];v.adopt(outage);
  for(let i=0;i<4;i++){v.frame(i);assert.ok(v.ids().length,'A wholly missing source hour cannot erase the last usable loop');}
  const short=history({KSTEADY:'111111111111'});short.history=short.history.slice(-3);v.adopt(short);assert.ok(v.ids().length,'An incomplete response retains the already displayed loop');
  const neighbor=history({KAAA:'111111110111',KZZZ:'111111111111'});for(const f of neighbor.history)for(const s of f.stations)s.lat=5;
- v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KZZZ'],'Suppressed stations reserve no collision space');}
+ v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),[i===0?'KZZZ':'KAAA'],'Only reporting airports reserve collision space for the selected hour');}
  assert.ok(neighbor.history[9].stations.some(s=>s.station==='KAAA'),'Original reports remain intact');
  const regional=Object.fromEntries(['KFCM','KMIC','KMSP',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
- const rolling=viewer(),pending=history(regional);pending.history.at(-1).stations=[];
+ function regionalHistory(){
+  const data=history(regional);for(const frame of data.history)for(const station of frame.stations)if(station.station==='K096'){station.lat=7;station.lon=4;}
+  return data;
+ }
+ const rolling=viewer(),pending=regionalHistory();pending.history.at(-1).stations=[];
  await rolling.load(pending);
  assert.match(rolling.label,/9:00 AM CST/,'Cold opening at the hour boundary uses the preceding populated loop');
  assert.ok(rolling.ids().includes('KFCM'));
  assert.equal(rolling.sliderMax,'3');
- const partial=history(regional);partial.history.at(-1).stations=partial.history.at(-1).stations.slice(0,20);rolling.adopt(partial);
+ const partial=regionalHistory();partial.history.at(-1).stations=partial.history.at(-1).stations.slice(0,20);rolling.adopt(partial);
  assert.match(rolling.label,/9:00 AM CST/,'A severely partial hourly batch is staged without changing the display');
- const below=history(regional);below.history.at(-1).stations=below.history.at(-1).stations.slice(0,89);rolling.adopt(below);
+ const below=regionalHistory();below.history.at(-1).stations=below.history.at(-1).stations.slice(0,89);rolling.adopt(below);
  assert.match(rolling.label,/9:00 AM CST/,'89% coverage keeps the preceding loop');
- const threshold=history(regional);threshold.history.at(-1).stations=threshold.history.at(-1).stations.slice(0,90);rolling.adopt(threshold);
+ const threshold=regionalHistory();threshold.history.at(-1).stations=threshold.history.at(-1).stations.slice(0,90);rolling.adopt(threshold);
  assert.match(rolling.label,/10:00 AM CST/,'Exactly 90% coverage advances the loop');
- const nearly=history(regional);nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
+ const nearly=regionalHistory();nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
  assert.match(rolling.label,/10:00 AM CST/,'Broadly complete data advances automatically');
- for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.ok(!rolling.ids().includes('K096'),'Individual missing reports still use strict four-hour completeness');}
+ for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.equal(rolling.ids().includes('K096'),i!==3,'A missing report hides the airport only in that hour');}
  const back=history(regional);back.history.at(-1).stations=[];rolling.adopt(back);
  assert.match(rolling.label,/10:00 AM CST/,'An incomplete later response cannot roll the accepted loop backwards');
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});
  assert.match(noHistory.label,/Reports unavailable/,'Cold start without a usable loop is explicit');
  assert.equal(rolling.reads,1,'Readiness uses downloaded data without new source calls');
- console.log('Four-frame METAR continuity passed: one missing report suppresses a station, old gaps ignored, all four frames stable, rolling recovery, cloud state, empty hours, collision space and no extra downloads.');
+ console.log('Four-frame METAR playback passed: per-hour PLOTS coverage, retained CLOUDS rules, rolling readiness, collision space and no extra downloads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

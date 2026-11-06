@@ -6,7 +6,7 @@ window.WeatherMetars = (() => {
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   let busy=false,sourceData;
-  let suppressed=new Set();
+  let cloudsSuppressed=new Set();
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
@@ -25,7 +25,7 @@ window.WeatherMetars = (() => {
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
   }
-  function incompleteSites(history){
+  function incompleteCloudSites(history){
     // A report must exist in each of the four displayed frames. Leading,
     // trailing and whole-frame gaps count; cloud changes and spacing do not.
     const presence=history.map(frame=>new Set(frame.stations.map(station=>station.station)));
@@ -56,7 +56,7 @@ window.WeatherMetars = (() => {
     // question mark nor flash in and out as the selected hour changes.
     const unknownClouds=new Set(mode==="clouds"?data.history.flatMap(frame=>frame.stations.filter(station=>!cloudAvailable(station)).map(station=>station.station)):[]);
     for(const frame of data.history)for(const station of frame.stations){
-      if(suppressed.has(station.station)||unknownClouds.has(station.station))continue;
+      if(mode==="clouds"&&(cloudsSuppressed.has(station.station)||unknownClouds.has(station.station)))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -67,8 +67,10 @@ window.WeatherMetars = (() => {
   }
   function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
-    const boxes=[],keep=new Set();
+    const boxes=[],keep=new Set(),present=new Set(stations.map(station=>station.station));
     for(const {station,f} of sites){
+      // An airport without a report in this frame must not block its neighbor.
+      if(!present.has(station.station))continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
       if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
       boxes.push(box);keep.add(station.station);
@@ -125,7 +127,7 @@ window.WeatherMetars = (() => {
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
     sourceData=next;data={...next,history};
-    suppressed=incompleteSites(data.history);prepareSpacing();
+    cloudsSuppressed=incompleteCloudSites(data.history);prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
