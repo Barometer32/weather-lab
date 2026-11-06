@@ -1,7 +1,9 @@
 """Twin Cities observations and MPX radar. Run locally: python app.py."""
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
+from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
 import json
 import gzip
 import logging
@@ -15,6 +17,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from flask import Flask, Response, jsonify, request, send_from_directory, render_template
+from werkzeug.security import safe_join
 import numpy as np
 from PIL import Image
 from realtime import get_store
@@ -25,6 +28,43 @@ app = Flask(__name__, static_folder="static", template_folder="static")
 def disable_device_location(response):
     # None of the weather pages need access to the visitor's device location.
     response.headers["Permissions-Policy"] = "geolocation=()"
+    return response
+
+
+@lru_cache(maxsize=40)
+def compressed_static(path, modified):
+    encoded = gzip.compress(Path(path).read_bytes(), compresslevel=6, mtime=0)
+    return encoded, sha256(encoded).hexdigest()
+
+
+@app.before_request
+def serve_compressed_scripts_and_styles():
+    filename = (request.view_args or {}).get("filename", "")
+    suffix = Path(filename).suffix
+    if request.endpoint != "static" or request.method not in ("GET", "HEAD") or request.headers.get("Range"):
+        return None
+    mimetypes = {".js": "text/javascript", ".css": "text/css"}
+    if suffix not in mimetypes or request.accept_encodings["gzip"] <= 0:
+        return None
+    path = safe_join(app.static_folder, filename)
+    if path is None:
+        return None
+    try:
+        encoded, etag = compressed_static(path, Path(path).stat().st_mtime_ns)
+    except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+        return None
+    response = Response(encoded, mimetype=mimetypes[suffix])
+    response.headers["Content-Encoding"] = "gzip"
+    response.headers["Cache-Control"] = "public, max-age=86400" if request.args.get("v") else "no-cache"
+    response.set_etag(etag)
+    return response.make_conditional(request)
+
+
+@app.after_request
+def vary_static_encoding(response):
+    filename = (request.view_args or {}).get("filename", "")
+    if request.endpoint == "static" and Path(filename).suffix in {".js", ".css"}:
+        response.vary.add("Accept-Encoding")
     return response
 
 
@@ -484,7 +524,7 @@ def satellite_api(product):
 
 @app.get("/api/station-plots")
 def station_plots_api():
-    from metar_clouds import current
+    from metar_clouds import current, ready_plot_frames
     try:
         now = utcnow()
         data = prepared_hourly_snapshot("metar-clouds")
@@ -493,6 +533,10 @@ def station_plots_api():
         result = current(data, now)
         result["sourcePolicy"] = "airport-routine-only"
         result["serverTime"] = iso(now)
+        compact = request.args.get("view") == "loop"
+        if compact:
+            # Do not send the archive hours the interactive four-frame viewer never uses.
+            result["history"] = ready_plot_frames(result["history"])
         # No mesonet merge or synthetic three-airport plot in this map.
         result.pop("metro", None)
         for frame in result["history"]:
@@ -503,7 +547,10 @@ def station_plots_api():
             frame["stations"] = [{key:row[key] for key in (
                 "station","name","lat","lon","time","reportType","tempF","dewpointF",
                 "wind","layers","skyCover","network","source") if key in row} for row in frame["stations"]]
-        result["stations"] = result["history"][-1]["stations"]
+        if compact:
+            result.pop("stations", None)
+        else:
+            result["stations"] = result["history"][-1]["stations"]
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Vary"] = "Accept-Encoding"

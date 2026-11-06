@@ -45,3 +45,39 @@ def test_missing_prepared_asset_does_not_flush_other_warmed_images():
         assert [c.args[0] for c in reads.call_args_list].count(existing)==1
         store.write(missing,b'now ready','image/jpeg')
         assert client.get('/api/prepared/'+missing).status_code==200
+
+
+def test_startup_requests_only_four_usable_hours_without_waiting_on_noaa():
+    from datetime import timedelta
+    from metar_clouds import iso
+
+    # The newest hour is populated, but not complete enough to replace the loop.
+    now = NOW.replace(minute=0)
+    rows = [{'station': f'K{i:03}', 'lat': 43.27, 'lon': -91.74, 'time': iso(now-timedelta(hours=h, minutes=7)),
+             'reportType': 'METAR', 'rawOb': f'K{i:03} 241753Z 27005KT 10SM CLR 20/10 A3000'}
+            for h in range(12) for i in range(1 if h == 0 else 25)]
+    saved = snapshot(rows, now)
+    with patch('app.prepared_hourly_snapshot', return_value=saved), patch('app.utcnow', return_value=now), patch('app.download') as source:
+        client = app.app.test_client()
+        full = client.get('/api/station-plots').json
+        compact = client.get('/api/station-plots?view=loop').json
+    assert len(full['history']) == 12
+    assert compact['history'] == full['history'][-5:-1]
+    assert 'stations' not in compact
+    assert compact['sourcePolicy'] == 'airport-routine-only'
+    source.assert_not_called()
+
+
+def test_static_gzip_and_identity_cache_entries_are_separate():
+    import gzip
+    client = app.app.test_client()
+    path = '/static/vendor/leaflet.js?v=1.9.4'
+    zipped = client.get(path, headers={'Accept-Encoding': 'gzip'})
+    plain = client.get(path)
+    assert zipped.status_code == plain.status_code == 200
+    assert zipped.headers['Content-Encoding'] == 'gzip'
+    assert gzip.decompress(zipped.data) == plain.data
+    assert len(zipped.data) < len(plain.data) // 2
+    assert all('Accept-Encoding' in r.headers['Vary'] for r in (zipped, plain))
+    assert client.get(path, headers={'Accept-Encoding': 'gzip', 'If-None-Match': zipped.headers['ETag']}).status_code == 304
+    assert client.get(path, headers={'If-None-Match': zipped.headers['ETag']}).status_code == 200

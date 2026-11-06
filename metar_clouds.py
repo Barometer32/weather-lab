@@ -165,6 +165,26 @@ def snapshot(rows, now, checked_at=None):
             "source": "NOAA Aviation Weather Center", "sourceUrl": "https://aviationweather.gov/data/api/"}
 
 
+def ready_plot_frames(history):
+    """Return the newest complete four-hour loop accepted by the viewer."""
+    for end in range(len(history), 3, -1):
+        frames = history[end-4:end]
+        if not all(frame.get("stations") for frame in frames):
+            continue
+        hours = [datetime.fromisoformat(frame["hour"].replace("Z", "+00:00")) for frame in frames]
+        if any(b - a != timedelta(hours=1) for a, b in zip(hours, hours[1:])):
+            continue
+        station_ids = [{s["station"] for s in frame["stations"]} for frame in frames]
+        expected = set.intersection(*station_ids[:3])
+        seen = expected & station_ids[3]
+        if len(expected) >= 20 and len(seen) / len(expected) < .90:
+            continue
+        if {"KFCM", "KMIC", "KMSP"} & (expected - seen):
+            continue
+        return frames
+    return []
+
+
 def current(data, now):
     rows = [row for hour in data.get("history", []) for row in hour["stations"]]
     # A legacy latest-only snapshot cannot supply the requested hourly history.

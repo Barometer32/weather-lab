@@ -3,9 +3,9 @@
 // Imagery URLs are immutable and use the browser's existing HTTP cache.
 window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
-  const images=new Map(),radars=new Map(),assetQueue=[],queued=new Set();
-  let warming=false,workers=0;
-  const paths=["/api/station-plots","/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const images=new Map(),radars=new Map();
+  const metarLoop="/api/station-plots?view=loop";
+  const paths=[metarLoop,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -25,7 +25,6 @@ window.WeatherPrepared = (() => {
         const response=await fetch(url,{cache:"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
-        if(warming)warmManifest(url,data);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
         return data;
       }finally{pending.delete(url);}
@@ -39,7 +38,8 @@ window.WeatherPrepared = (() => {
     if(force)return work;
     if(old&&Date.now()-old.stamp<maxSavedAge(url))return {...old.data,_savedCopy:true};
     try{
-      const cache=await disk(),response=await cache?.match(url);
+      const cache=await disk();
+      const response=await cache?.match(url)||(url===metarLoop?await cache?.match("/api/station-plots"):null);
       const stamp=Number(response?.headers.get("X-Weather-Saved-At"));
       if(response&&Number.isFinite(stamp)&&Date.now()-stamp<maxSavedAge(url)){
         // A faster network response must never be overwritten by the disk copy.
@@ -76,34 +76,11 @@ window.WeatherPrepared = (() => {
     }
     return images.get(url);
   }
-  function queue(url,work,priority=false){
-    if(!url?.startsWith("/api/prepared/")||queued.has(url))return;
-    queued.add(url);const item={url,work};priority?assetQueue.unshift(item):assetQueue.push(item);drain();
-  }
-  function drain(){
-    while(workers<2&&assetQueue.length&&!document.hidden){
-      const item=assetQueue.shift();workers++;
-      Promise.resolve().then(item.work).catch(()=>queued.delete(item.url)).finally(()=>{workers--;drain();});
-    }
-  }
-  function warmManifest(url,data){
-    if(url.includes("radar")){
-      const frames=data.frames||[],latest=frames.at(-1);
-      if(latest)queue(latest.url,()=>radar(latest,data),true);
-    }else if(url.endsWith("/truecolor")||url.endsWith("/air-quality")){
-      const frames=data.frames||[],latest=frames.at(-1);
-      if(latest)queue(latest.url,()=>image(latest.url),true);
-      for(const boundary of data.boundaries||[])queue(boundary,()=>bytes(boundary),true);
-    }
-    // Keep memory bounded over a long-running page as manifests advance.
-    if(queued.size>256){const active=new Set(assetQueue.map(item=>item.url));for(const key of queued)if(!active.has(key)&&queued.size>192)queued.delete(key);}
-  }
   async function prime(){
-    warming=true;
-    // Give the initial METAR display priority before older imagery transfers.
-    try{await read("/api/station-plots");}catch(_){}
-    return Promise.allSettled(paths.slice(1).map(async url=>{const data=await read(url);warmManifest(url,data);}));
+    // Prime the default tabs' small manifests. Images and radar scans
+    // start loading when the visitor opens the corresponding tab.
+    try{await read(metarLoop);}catch(_){}
+    return Promise.allSettled(paths.filter(url=>url!==metarLoop&&!url.endsWith("/dcphase")&&!url.endsWith("/ntmicro")).map(url=>read(url)));
   }
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)drain();});
   return {read,subscribe,prime,radar,image};
 })();

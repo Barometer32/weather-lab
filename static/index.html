@@ -7,14 +7,15 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css?v=nws-temperature-v1">
-  <script defer src="/static/vendor/leaflet.js"></script>
+  <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
+  <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=latest-first-v1"></script>
+  <script defer src="/static/prepared-data.js?v=compact-start-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=cloud-cover-circle-v2"></script>
-  <script defer src="/static/metar-views.js?v=metar-per-hour-v1"></script>
+  <script defer src="/static/metar-views.js?v=metar-compact-start-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>

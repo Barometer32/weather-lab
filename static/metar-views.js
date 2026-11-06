@@ -135,11 +135,11 @@ window.WeatherMetars = (() => {
   }
   async function load(force=false){
     if(busy)return;busy=true;el("refresh-metar").disabled=true;
-    try{adopt(await window.WeatherPrepared.read("/api/station-plots",{force}));}
+    try{adopt(await window.WeatherPrepared.read("/api/station-plots?view=loop",{force}));}
     catch(error){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="Reports unavailable · try Refresh";}
     finally{busy=false;el("refresh-metar").disabled=false;}
   }
-  window.WeatherPrepared.subscribe("/api/station-plots",adopt);
+  window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
   el("metar-product").addEventListener("change",event=>{
     wantedHour=data?.history[index]?.hour||wantedHour;
     mode=event.target.value;
