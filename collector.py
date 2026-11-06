@@ -16,7 +16,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "observation-stations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "observation-stations", "nbm")}
 
 
 def collect_radar_legacy(store, now):
@@ -217,7 +217,9 @@ def health():
 
 @app.post("/collect/<kind>")
 def collect(kind):
-    jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
+    from nbm import collect as collect_nbm
+    jobs = {"nbm": collect_nbm,
+            "radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,

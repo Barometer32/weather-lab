@@ -266,13 +266,51 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar","radar","satellite","forecast","air-quality"];
+let modelData, modelLoading = false, modelError = "";
+const modelTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",weekday:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+function renderModels() {
+  const rows = modelData?.hours?.filter(row => Date.parse(row.validAt) >= Date.now()) || [];
+  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))}` : "Flying Cloud Airport (KFCM)";
+  const message = modelError || (modelData?.stale ? "Showing an older NOAA model run." : "") || (!rows.length ? "No upcoming model hours are available." : "");
+  $("models-status").hidden = !message;
+  $("models-status").textContent = message;
+  $("models-hours").replaceChildren(...rows.map(row => {
+    const tr = document.createElement("tr");
+    const time = document.createElement("th");
+    time.scope = "row";
+    time.textContent = modelTime.format(new Date(row.validAt));
+    tr.append(time);
+    const mph = n => n == null ? "—" : Math.round(n * 1.150779);
+    const pct = n => n == null ? "—" : `${n}%`;
+    const direction = row.windDirectionTens ? directions[Math.round(row.windDirectionTens * 10 / 45) % 8] + " " : "";
+    const windText = row.windKnots == null ? "—" : row.windKnots === 0 ? "Calm" : direction + mph(row.windKnots);
+    for (const value of [row.temperatureF ?? "—", row.dewPointF ?? "—", windText,
+      mph(row.gustKnots), pct(row.cloudCoverPct), pct(row.precipChancePct),
+      row.liquidPrecipHundredths == null ? "—" : (row.liquidPrecipHundredths / 100).toFixed(2)]) cell(tr, value);
+    return tr;
+  }));
+}
+async function loadModels(force = false) {
+  if (modelLoading) return;
+  modelLoading = true; $("refresh-models").disabled = true;
+  try {
+    modelData = await window.WeatherPrepared.read("/api/nbm", {force});
+    modelError = modelData._savedCopy ? "Showing saved guidance while checking for a newer run." : "";
+  } catch (error) {
+    modelError = error.message;
+  } finally {
+    modelLoading = false; $("refresh-models").disabled = false; renderModels();
+  }
+}
+
+const tabs = ["metar","radar","satellite","forecast","models","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   window.WeatherMetars?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
+  if(id === "models") loadModels();
   window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
@@ -286,6 +324,7 @@ for(const id of tabs) {
   });
 }
 $("refresh-forecast").addEventListener("click",()=>loadForecast(true));
+$("refresh-models").addEventListener("click",()=>loadModels(true));
 $("refresh-radar").addEventListener("click",loadRadar);
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;
@@ -309,6 +348,7 @@ setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
+setInterval(()=>{if(!document.hidden&&!$("models").hidden)loadModels();},300000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},30000);
 
@@ -323,6 +363,7 @@ document.addEventListener("visibilitychange",()=>{
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();
     if (!$("forecast").hidden) loadForecast();
+    if (!$("models").hidden) loadModels();
   }
 });
 
@@ -333,6 +374,7 @@ window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
 for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
 });
+window.WeatherPrepared.subscribe("/api/nbm",data=>{modelData=data;modelError="";if(!$("models").hidden)renderModels();});
 window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});
 
 window.addEventListener("weather-layout-resize",()=>{

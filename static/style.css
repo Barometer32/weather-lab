@@ -430,3 +430,12 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
+
+#models-guidance { flex:1 1 0; min-height:0; overflow:auto; border:1px solid var(--border); border-radius:8px; }
+#models-guidance table { width:100%; min-width:590px; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+#models-guidance th,#models-guidance td { padding:9px 10px; white-space:nowrap; }
+#models-guidance thead th { position:sticky; top:0; z-index:1; background:var(--surface, #fff); }
+#models-guidance tbody th { font-weight:500; text-align:left; }
+#models-cycle { font-size:12px; }
+#models-status { margin:0 0 8px; }
+#models .source { margin-top:8px; }

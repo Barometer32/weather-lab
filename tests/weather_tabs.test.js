@@ -6,10 +6,10 @@ function get(id){assert.ok(!['current','tab-current','metar-clouds','tab-metar-c
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,window:{addEventListener(){},WeatherAirQuality:{select(id){airSelections.push(id);}},WeatherCloudHeights:{select(id){cloudSelections.push(id);}},WeatherFullscreen:{attach(){}},WeatherMetars:{select(id){selected.push("metar:"+id);}},WeatherPrepared:{subscribe(){},prime(){}}},WeatherCloudViews:{select(id){selected.push(id);}},fetch(){sourceFetches++;throw Error('No non-METAR startup fetch');},setTimeout(){},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
 assert.equal(selected[0],'metar:metar');assert.equal(get('metar').hidden,false);
-for(const id of ['radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
+for(const id of ['radar','satellite','forecast','models','air-quality'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
 get('tab-air-quality').events.click();assert.equal(get('air-quality').hidden,false);assert.equal(airSelections.at(-1),'air-quality');
 assert.equal(sourceFetches,0);
 get('tab-satellite').events.keydown({key:'Home',preventDefault(){}});
 assert.equal(selected.at(-1),'metar:metar');assert.equal(get('tab-metar').focused,true);
-console.log('Weather tab checks passed: METAR first/default with four products, independent tab handlers, preserved keyboard navigation.');
+console.log('Weather tab checks passed: METAR first/default with the Models tab, independent tab handlers, preserved keyboard navigation.');

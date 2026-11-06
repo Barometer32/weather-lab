@@ -19,6 +19,8 @@ def verify(base, fetch=None):
     fetch = fetch or download
     html = fetch('/').decode()
     expected = ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
+    if 'data-model-source="noaa-nbh"' in html:
+        expected.insert(-1, 'models')
     if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != expected:
         raise ValueError('The saved weather tabs were not verified')
     combined = 'data-station-model="combined-v1"' in html and bool(re.search(r'<script\b[^>]*\bsrc="/static/metar-model\.js(?:\?[^"]*)?"', html))

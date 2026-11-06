@@ -440,6 +440,27 @@ def live_current_payload():
     return present(saved, utcnow())
 
 
+@app.get("/api/nbm")
+def nbm_api():
+    try:
+        data = prepared_snapshot("nbm-kfcm", 7200)
+        if not data or data.get("station") != "KFCM" or data.get("product") != "NBH":
+            raise ValueError("Missing NBM station snapshot")
+        now = utcnow()
+        def stamp(value):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        hours = [row for row in data["hours"] if stamp(row["validAt"]) >= now]
+        if not hours:
+            raise ValueError("No future NBM guidance in the saved bulletin")
+        data["stale"] = data["stale"] or now - stamp(data["cycleAt"]) > timedelta(hours=2)
+        return jsonify({**data, "hours": hours}), 200, {"Cache-Control": "no-store"}
+    except (KeyError, ValueError, TypeError):
+        return jsonify(error="Hourly NOAA model guidance is not available yet."), 503, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("NBM guidance read failed")
+        return jsonify(error="Hourly NOAA model guidance is temporarily unavailable."), 502, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/forecast")
 def forecast_api():
     try:
