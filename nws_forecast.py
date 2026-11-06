@@ -1,5 +1,6 @@
 """Present the official NWS MapClick forecast without rewriting its narrative."""
 from datetime import datetime, timedelta, timezone
+from html import unescape
 import math
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +14,8 @@ FORECAST_URL = ("https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.4
 POINT_URL = f"https://api.weather.gov/points/{LATITUDE:.4f},{LONGITUDE:.4f}"
 FORECAST_VERSION = "nws-mapclick-v1"
 CENTRAL = ZoneInfo("America/Chicago")
+TEXT_FEED = "nws-mapclick-text"
+JSON_FEED = "nws-mapclick-json"
 
 
 def timestamp(value):
@@ -71,6 +74,72 @@ def normalize_forecast(document, now=None):
             # creationDateLocal belongs to the current observation, not the forecast.
             "updatedAt": issued.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
             "fetchedAt": now.isoformat().replace("+00:00", "Z"), "periods": periods}
+
+
+def plain_text(markup):
+    return " ".join(unescape(re.sub(r"<[^>]+>", "", markup)).split())
+
+
+def is_daytime(name):
+    return not re.search(r"\b(?:night|tonight|overnight|evening)\b", name, re.I)
+
+
+def text_period_start(name, issued):
+    # MapClick text has period names but no boundaries. Use the named local
+    # day/night windows to expire saved text; keep the NWS name verbatim.
+    day = is_daytime(name)
+    anchor = issued.replace(hour=6 if day else 18, minute=0, second=0, microsecond=0)
+    weekday = re.match(r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b", name, re.I)
+    if weekday:
+        if not day and issued.hour < 6 and (anchor-timedelta(days=1)).strftime("%A").lower() == weekday[0].lower():
+            return anchor-timedelta(days=1)
+        return next(anchor + timedelta(days=i) for i in range(7)
+                    if (anchor + timedelta(days=i)).strftime("%A").lower() == weekday[0].lower())
+    if not day and issued.hour < 6 and re.search(r"\b(?:overnight|rest of tonight)\b", name, re.I):
+        return anchor-timedelta(days=1)
+    return anchor
+
+
+def normalize_text_forecast(html, now):
+    # Extract only the forecast cell that follows the Hopkins issuance, not
+    # other bold labels (e.g. advisories or footer links).
+    match = re.search(r"NWS Forecast for:\s*Hopkins\s+MN\s*</b>.*?"
+                      r"Last Update:\s*</b>\s*</a>\s*([^<]+)</td>.*?"
+                      r"</table>\s*<table\b[^>]*>\s*<tr\b[^>]*>\s*<td\b[^>]*>(.*?)</td>",
+                      html, re.I | re.S)
+    if not match:
+        raise ValueError("NWS text page did not contain the Hopkins forecast")
+    issued_match = re.fullmatch(r"(\d{1,2}:\d{2}\s*[AP]M)\s+(CST|CDT)\s+(.+)", plain_text(match[1]), re.I)
+    if not issued_match:
+        raise ValueError("NWS text page did not provide an issuance time")
+    stamp, zone, date = issued_match.groups()
+    offset = {"CST": -6, "CDT": -5}[zone.upper()]
+    issued = datetime.strptime(f"{stamp.upper()} {date}", "%I:%M %p %b %d, %Y")
+    issued = issued.replace(tzinfo=timezone(timedelta(hours=offset))).astimezone(CENTRAL)
+    rows = re.findall(r"<b\b[^>]*>([^<]+):\s*</b>(.*?)<br\s*/?>", match[2], re.I | re.S)
+    if not rows:
+        raise ValueError("NWS text page did not provide forecast periods")
+    start = text_period_start(plain_text(rows[0][0]), issued)
+    names, starts, labels, temperatures, narratives = [], [], [], [], []
+    for label, narrative in rows:
+        name, narrative = plain_text(label), plain_text(narrative)
+        day = is_daytime(name)
+        if not name or not narrative or day != (start.hour == 6):
+            raise ValueError("NWS text forecast periods did not alternate day and night")
+        kind = "high" if day else "low"
+        temp = re.search(rf"\b{kind}\s+(?:near|around|of)\s+(-?\d+)\b", narrative, re.I)
+        names.append(name)
+        starts.append(start.isoformat())
+        labels.append(kind.title())
+        temperatures.append(temp[1] if temp else None)
+        narratives.append(narrative)
+        start += timedelta(hours=12)
+    forecast = normalize_forecast(
+        {"creationDate": issued.isoformat(),
+         "time": {"startPeriodName": names, "startValidTime": starts, "tempLabel": labels},
+         "data": {"temperature": temperatures, "text": narratives}}, now)
+    forecast["forecastFeed"] = TEXT_FEED
+    return forecast
 
 
 def grid_end(start, duration):

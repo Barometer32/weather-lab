@@ -7,7 +7,7 @@ from unittest.mock import patch
 import app as weather
 import collector
 from app import app, _cache
-from nws_forecast import normalize_forecast, FORECAST_URL, FORECAST_VERSION
+from nws_forecast import JSON_FEED, SOURCE_URL, TEXT_FEED, normalize_forecast, normalize_text_forecast, FORECAST_URL, FORECAST_VERSION
 from satellite import parse_loop, page_url, BASE
 from test_realtime import MemoryStore
 
@@ -25,6 +25,17 @@ def document():
                     "text":["Sunny, with a high near 75.",
                             "Partly cloudy, with a low around 61. Southeast wind 5 to 10 mph. ",
                             "Sunny, with a high near 87. Breezy, with a south wind 10 to 20 mph, with gusts as high as 35 mph. "]}}
+
+
+def text_page(issued="11:56 am CDT Oct 9, 2026", periods=None):
+    if periods is None:
+        periods = (("This Afternoon", "Sunny, with a high near 74. Wind from the west &amp; southwest."),
+                   ("Tonight", "Partly cloudy, with a low around 61."),
+                   ("Saturday", "Sunny, with a high near 87."))
+    rows = "".join(f"<b>{name}: </b>{text} <br>\n<br>" for name, text in periods)
+    return (f"<table><tr><td><b>NWS Forecast for: Hopkins MN</b><br>Issued by: NWS<br>"
+            f"<a href='/glossary'><b>Last Update: </b></a>{issued}</td></tr></table>"
+            f"<table><tr><td>{rows}<hr></td></tr><tr><td><b>Other:</b> footer<br></td></tr></table>")
 
 
 class ForecastTests(unittest.TestCase):
@@ -82,15 +93,41 @@ class ForecastTests(unittest.TestCase):
         data=normalize_forecast(upstream,datetime(2026,10,31,23,tzinfo=timezone.utc))
         self.assertEqual(data["periods"][0]["endTime"],"2026-11-01T06:00:00-06:00")
 
-    def test_api_uses_mapclick_directly_and_caches_upstream(self):
-        with patch("app.get_store",return_value=None),patch("app.utcnow",return_value=NOW),patch("app.download",return_value=json.dumps(document()).encode()) as download:
+    def test_api_uses_the_official_text_page_and_caches_upstream(self):
+        with patch("app.get_store",return_value=None),patch("app.utcnow",return_value=NOW),patch("app.download",return_value=text_page().encode()) as download:
             client=app.test_client()
             response=client.get("/api/forecast")
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.headers["Cache-Control"],"no-store")
+            self.assertEqual(response.json["forecastFeed"], TEXT_FEED)
+            self.assertEqual(response.json["updatedAt"], "2026-10-09T16:56:00Z")
+            self.assertEqual(response.json["periods"][0]["detailedForecast"],
+                             "Sunny, with a high near 74. Wind from the west & southwest.")
+            self.assertEqual(response.json["periods"][0]["temperature"], 74)
             self.assertEqual(client.get("/api/forecast").status_code,200)
             self.assertEqual(download.call_count,1)
-            self.assertEqual(download.call_args.args[0],FORECAST_URL)
+            self.assertEqual(download.call_args.args[0],SOURCE_URL)
+
+    def test_text_overnight_period_crosses_the_fall_clock_change(self):
+        data = normalize_text_forecast(text_page("1:35 am CST Nov 1, 2026", (
+            ("Overnight", "Clear, with a low around 30."),
+            ("Sunday", "Sunny, with a high near 50."),
+            ("Sunday Night", "Clear, with a low around 32."))),
+            datetime(2026, 11, 1, 8, tzinfo=timezone.utc))
+        first = data["periods"][0]
+        self.assertEqual(data["updatedAt"], "2026-11-01T07:35:00Z")
+        self.assertEqual(first["startTime"], "2026-10-31T18:00:00-05:00")
+        self.assertEqual(first["endTime"], "2026-11-01T06:00:00-06:00")
+        self.assertFalse(first["isDaytime"])
+
+    def test_malformed_text_uses_json_without_regressing_to_older_issuance(self):
+        store = MemoryStore()
+        existing = normalize_text_forecast(text_page("5:00 pm CDT Oct 9, 2026"), NOW)
+        store.write_json("live/forecast.json", existing)
+        with patch("app.download", side_effect=[b"<html>Unavailable</html>", json.dumps(document()).encode()]) as download:
+            collector.collect_forecast(store, NOW)
+        self.assertEqual([call.args[0] for call in download.call_args_list], [SOURCE_URL, FORECAST_URL])
+        self.assertEqual(store.read_json("live/forecast.json")["forecastFeed"], TEXT_FEED)
 
     def test_saved_forecast_is_filtered_at_request_time_without_upstream_calls(self):
         store=MemoryStore();data=normalize_forecast(document(),NOW);data["checkedAt"]="2026-10-09T22:55:00Z"
@@ -113,11 +150,12 @@ class ForecastTests(unittest.TestCase):
         store=MemoryStore();older=document();newer=copy.deepcopy(older)
         for group in ("time","data"):
             for key in newer[group]:newer[group][key]=newer[group][key][1:]
-        with patch("nws_forecast.enrich_from_nws"), patch("app.download",side_effect=[json.dumps(older).encode(),json.dumps(newer).encode()]) as upstream:
+        with patch("app.download",side_effect=[b"", json.dumps(older).encode(), b"", json.dumps(newer).encode()]) as upstream:
             collector.collect_forecast(store,NOW)
             collector.collect_forecast(store,NOW+timedelta(minutes=5))
-            self.assertEqual(upstream.call_count,2)
+            self.assertEqual(upstream.call_count,4)
         saved=store.read_json("live/forecast.json")
+        self.assertEqual(saved["forecastFeed"], JSON_FEED)
         self.assertEqual(saved["updatedAt"],"2026-10-09T21:56:41Z")
         self.assertEqual(saved["periods"][0]["name"],"Tonight")
 

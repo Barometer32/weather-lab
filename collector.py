@@ -197,11 +197,19 @@ def collect_observation_stations(store, now):
 
 
 def collect_forecast(store, now):
+    from nws_forecast import current_periods, timestamp
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
+    previous = store.read_json("live/forecast.json")
+    if (previous and previous.get("forecastVersion") == data["forecastVersion"]
+            and current_periods(previous["periods"], now)
+            and timestamp(previous["updatedAt"]).replace(second=0, microsecond=0) >
+            timestamp(data["updatedAt"]).replace(second=0, microsecond=0)):
+        # NWS's two formats can briefly disagree. Keep the newer forecast.
+        data = previous
     data["checkedAt"] = weather.iso(now)
     store.write_json("live/forecast.json", data)
-    return {"periods": len(data["periods"])}
+    return {"periods": len(data["periods"]), "feed": data.get("forecastFeed")}
 
 
 @app.get("/healthz")

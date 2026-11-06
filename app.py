@@ -408,11 +408,18 @@ def local_hourly_metars(now):
 
 
 def get_forecast(now=None):
-    from nws_forecast import FORECAST_URL, normalize_forecast
-    # Use MapClick's structured feed so wording and period selection match the
-    # linked NWS webpage. Do not mix its issuance timestamp with another feed.
-    document = cached("nws-forecast", 300, lambda: json.loads(download(FORECAST_URL)))
-    return normalize_forecast(document, now or utcnow())
+    from nws_forecast import FORECAST_URL, JSON_FEED, SOURCE_URL, normalize_forecast, normalize_text_forecast
+    now = now or utcnow()
+
+    def fetch():
+        try:
+            return normalize_text_forecast(download(SOURCE_URL).decode("utf-8"), now)
+        except (OSError, ValueError) as error:
+            app.logger.warning("NWS text forecast unavailable; using MapClick JSON: %s", error)
+            return {**normalize_forecast(json.loads(download(FORECAST_URL)), now),
+                    "forecastFeed": JSON_FEED}
+
+    return cached("nws-forecast", 300, fetch)
 
 
 @app.get("/")
