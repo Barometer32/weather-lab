@@ -450,10 +450,11 @@ def nbm_api():
         def stamp(value):
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         hours = [row for row in data["hours"] if stamp(row["validAt"]) >= now]
-        if not hours:
+        days = [day for day in data.get("days", []) if stamp(day["endAt"]) > now]
+        if not hours and not days:
             raise ValueError("No future NBM guidance in the saved bulletin")
         data["stale"] = data["stale"] or now - stamp(data["cycleAt"]) > timedelta(hours=2)
-        return jsonify({**data, "hours": hours}), 200, {"Cache-Control": "no-store"}
+        return jsonify({**data, "hours": hours, "days": days}), 200, {"Cache-Control": "no-store"}
     except (KeyError, ValueError, TypeError):
         return jsonify(error="Hourly NOAA model guidance is not available yet."), 503, {"Cache-Control": "no-store"}
     except Exception:

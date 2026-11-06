@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app import app
-from nbm import KEY, collect, parse_station
+from nbm import KEY, collect, daily_outlook, parse_extended, parse_station
 
 CYCLE = datetime(2026, 11, 6, 23, tzinfo=timezone.utc)
 
@@ -53,7 +53,7 @@ def test_hourly_station_parser_keeps_column_alignment_and_rolls_dates():
 def test_unavailable_new_cycle_retains_prepared_bulletin():
     store = Store()
     rows = parse_station(station_card(), CYCLE)
-    collect(store, CYCLE + timedelta(minutes=50), lambda _: rows)
+    collect(store, CYCLE + timedelta(minutes=50), lambda _: (rows, [{"endAt": (CYCLE + timedelta(days=1)).isoformat()}], 264))
     before = store.read_json(KEY).copy()
 
     def unavailable(_):
@@ -65,10 +65,58 @@ def test_unavailable_new_cycle_retains_prepared_bulletin():
 
 def test_api_hides_expired_rows_and_marks_old_cycle():
     store = Store()
-    collect(store, CYCLE + timedelta(minutes=50), lambda _: parse_station(station_card(), CYCLE))
+    days = [{"endAt": (CYCLE + timedelta(hours=1)).isoformat()},
+            {"endAt": (CYCLE + timedelta(days=1)).isoformat()}]
+    collect(store, CYCLE + timedelta(minutes=50), lambda _: (parse_station(station_card(), CYCLE), days, 264))
     with patch("app.prepared_snapshot", return_value={**store.read_json(KEY), "stale": False}), patch("app.utcnow", return_value=CYCLE+timedelta(hours=2, minutes=5)):
         response = app.test_client().get("/api/nbm")
     assert response.status_code == 200
     assert response.json["station"] == "KFCM"
     assert response.json["stale"] is True
     assert response.json["hours"][0]["validAt"] == "2026-11-07T02:00:00+00:00"
+    assert response.json["days"] == days[1:]
+
+
+def test_far_range_columns_keep_blanks_and_ignore_climatology():
+    cycle = CYCLE.replace(hour=0)
+    labels = {
+        "FHR": [192, 204, 216, 228, 240, 252, 264, ""],
+        "UTC": ["00", "12", "00", "12", "00", "12", "00", ""],
+        "TXN": [44, "", 43, 28, 45, 29, 41, 77],
+        "Q12": [15, 0, "", 100, 0, 0, 0, 77],
+        "S12": [0, 2, 0, 19, 0, 0, 0, 77],
+    }
+    lines = [b" KFCM   NBM V5.1 NBX GUIDANCE    11/06/2026  0000 UTC"]
+    lines.extend(f" {label}  ".encode() + b"".join(f"{v:>4}".encode() for v in values)
+                 for label, values in labels.items())
+    rows = parse_extended(lines, cycle, "NBX")
+    assert [r["extremeF"] for r in rows] == [44, None, 43, 28, 45, 29, 41]
+    assert rows[2]["liquidPrecipHundredths"] is None
+    assert rows[3]["snowTenths"] == 19
+    assert rows[-1]["validAt"] == "2026-11-17T00:00:00+00:00"
+
+
+def test_daily_outlook_keeps_overnight_low_and_never_double_counts_precip():
+    cycle = CYCLE.replace(hour=12)
+
+    def point(hours, **fields):
+        return {"validAt": (cycle + timedelta(hours=hours)).isoformat(), **fields}
+
+    short = [point(6, liquidPrecipHundredths=90), point(12, liquidPrecipHundredths=80)]
+    extended = [
+        point(12, extremeF=48, cloudCoverPct=76, precipChancePct=65,
+              liquidPrecipHundredths=30, snowTenths=0, rainTypePct=90),
+        point(24, extremeF=28, precipChancePct=80,
+              liquidPrecipHundredths=10, snowTenths=15, snowTypePct=80),
+        point(36, extremeF=43, cloudCoverPct=40, precipChancePct=35, snowTenths=0),
+    ]
+    first, last = daily_outlook(cycle, [], short, extended)
+    assert first["date"] == "2026-11-06"
+    assert (first["highF"], first["lowF"], first["eveningCloudPct"]) == (48, 28, 76)
+    assert (first["liquidPrecipHundredths"], first["snowTenths"]) == (40, 15)
+    assert first["peakPrecipChancePct"] == 80
+    assert first["precipTypes"] == ["rain", "snow"]
+    assert last["partial"]
+    assert last["liquidPrecipHundredths"] is None
+    assert last["snowTenths"] == 0
+    assert last["lowF"] is None

@@ -268,12 +268,63 @@ async function loadSatellite(force = false) {
 
 let modelData, modelLoading = false, modelError = "";
 const modelTime = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago",weekday:"short",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+const modelDate = new Intl.DateTimeFormat("en-US", {timeZone:"UTC", weekday:"short", month:"short", day:"numeric"});
+const modelIcons = {
+  sun: '<g fill="none" stroke="#ca7900" stroke-width="2.4" stroke-linecap="round"><circle cx="24" cy="23" r="9" fill="#ffda71"/><path d="M24 5v4m0 28v4M6 23h4m28 0h4M11 10l3 3m20 20 3 3m0-26-3 3M14 33l-3 3"/></g>',
+  partly: '<circle cx="16" cy="16" r="9" fill="#ffda71" stroke="#ca7900" stroke-width="2"/><path d="M13 35h25a7 7 0 0 0 0-14h-2a10 10 0 0 0-19 2h-4a6 6 0 0 0 0 12Z" fill="#edf4fa" stroke="#627a8d" stroke-width="2"/>',
+  cloudy: '<path d="M12 34h25a8 8 0 0 0 0-16h-2a11 11 0 0 0-21 3h-2a6.5 6.5 0 0 0 0 13Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/>',
+  rain: '<path d="M12 28h25a7 7 0 0 0 0-14h-2a11 11 0 0 0-21 3h-2a5.5 5.5 0 0 0 0 11Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/><path d="m16 33-3 6m13-6-3 6m13-6-3 6" stroke="#2875b2" stroke-width="2.5" stroke-linecap="round"/>',
+  snow: '<path d="M12 27h25a7 7 0 0 0 0-14h-2a11 11 0 0 0-21 3h-2a5.5 5.5 0 0 0 0 11Z" fill="#dce6ee" stroke="#627a8d" stroke-width="2"/><path d="M15 32v8m-4-4h8m6-4v8m-4-4h8m6-4v8m-4-4h8" stroke="#2875b2" stroke-width="1.8" stroke-linecap="round"/>'
+};
+function modelCard(day) {
+  const card = document.createElement("article"); card.className = "model-card"; card.setAttribute("role","listitem");
+  const make = (tag, cls, text) => {
+    const item = document.createElement(tag);
+    if (cls) item.className = cls;
+    if (text != null) item.textContent = text;
+    return item;
+  };
+  const types = day.precipTypes || [];
+  const snow = types.includes("snow") || types.includes("sleet") || types.includes("ice");
+  const hasPrecip = types.length || day.peakPrecipChancePct >= 25;
+  const cloud = day.eveningCloudPct;
+  const kind = hasPrecip ? (snow ? "snow" : "rain") : cloud == null ? "" : cloud < 25 ? "sun" : cloud < 70 ? "partly" : "cloudy";
+  const description = types.length ? types.map(t => t[0].toUpperCase() + t.slice(1)).join(" / ") + " possible"
+    : hasPrecip ? "Precipitation possible" : {sun:"Mostly clear evening",partly:"Partly cloudy evening",cloudy:"Cloudy evening"}[kind] || "Sky cover unavailable";
+  const icon = make("div", "model-icon");
+  if (kind) icon.innerHTML = `<svg aria-hidden="true" viewBox="0 0 48 46">${modelIcons[kind]}</svg>`;
+  const temp = n => n == null ? "—" : `${n}°`;
+  const temps = make("div", "model-temps");
+  for (const [label,value,cls] of [[day.highFromHourly ? "High (hourly)" : "High",day.highF,"model-high"],[day.lowFromHourly ? "Low (hourly)" : "Night low",day.lowF,"model-low"]]) {
+    const block = make("div", cls);
+    block.append(make("span","",label), make("strong","",temp(value)));
+    temps.append(block);
+  }
+  const measures = make("dl", "model-measures");
+  for (const [label, value] of [
+    ["Peak precip chance", day.peakPrecipChancePct == null ? "—" : `${day.peakPrecipChancePct}%`],
+    ["Liquid precip", day.liquidPrecipHundredths == null ? "—" : `${(day.liquidPrecipHundredths/100).toFixed(2)}″`],
+    ["Snow", day.snowTenths == null ? "—" : `${(day.snowTenths/10).toFixed(1)}″`],
+    ["Evening clouds", cloud == null ? "—" : `${cloud}%`]
+  ]) {
+    const metric = make("div"); metric.append(make("dt","",label), make("dd","",value)); measures.append(metric);
+  }
+  card.append(make("h2","",modelDate.format(new Date(day.date+"T12:00:00Z"))), icon,
+    make("p","model-description",description), temps, measures);
+  if (day.partial) card.append(make("p","model-partial","Partial day"));
+  return card;
+}
+
 function renderModels() {
-  const rows = modelData?.hours?.filter(row => Date.parse(row.validAt) >= Date.now()) || [];
-  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))}` : "Flying Cloud Airport (KFCM)";
-  const message = modelError || (modelData?.stale ? "Showing an older NOAA model run." : "") || (!rows.length ? "No upcoming model hours are available." : "");
+  const now = Date.now();
+  const rows = modelData?.hours?.filter(row => Date.parse(row.validAt) >= now) || [];
+  const days = modelData?.days?.filter(day => Date.parse(day.endAt) > now) || [];
+  $("models-cycle").textContent = modelData ? `Flying Cloud Airport (KFCM) · Run ${modelTime.format(new Date(modelData.cycleAt))}${modelData.horizonHours ? ` · ${modelData.horizonHours}-hour outlook` : ""}` : "Flying Cloud Airport (KFCM)";
+  const message = modelError || (modelData?.stale ? "Showing an older NOAA model run." : "") || (!days.length ? "The full daily outlook is not available yet." : "");
   $("models-status").hidden = !message;
   $("models-status").textContent = message;
+  $("models-days").replaceChildren(...days.map(modelCard));
+  $("models-hourly").hidden = !rows.length;
   $("models-hours").replaceChildren(...rows.map(row => {
     const tr = document.createElement("tr");
     const time = document.createElement("th");

@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=nbm-models-v1">
+  <link rel="stylesheet" href="/static/style.css?v=nbm-daily-v1">
   <script defer src="/static/vendor/leaflet.js"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -18,7 +18,7 @@
   <script defer src="/static/air-quality-views.js?v=airq-freshness-v2"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=nbm-models-v1"></script>
+  <script defer src="/static/app.js?v=nbm-daily-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -100,13 +100,19 @@
 <section id="models" role="tabpanel" aria-labelledby="tab-models" data-model-source="noaa-nbh" hidden>
   <div class="section-heading"><div><p class="eyebrow">NOAA MODEL GUIDANCE · FLYING CLOUD AIRPORT</p><h1>National Blend of Models</h1><p id="models-cycle">Loading the latest NOAA model run…</p></div><button class="secondary" id="refresh-models">Refresh</button></div>
   <p class="notice" id="models-status" role="status" hidden></p>
+  <div id="models-outlook">
+  <div id="models-days" role="list" aria-label="Daily model outlook"></div>
+  <p class="source">Forecast days run from about 6 AM to 6 AM Central (7 AM during daylight time). Precip chance is the highest reported interval chance; evening clouds are a snapshot. Liquid precipitation includes melted snow or ice. A dash means no value is available for that period. Highs or lows marked “hourly” use the available hourly forecast.</p>
+  <details id="models-hourly"><summary>Hourly guidance</summary>
   <div id="models-guidance" tabindex="0" role="region" aria-label="Hourly model guidance">
     <table>
       <thead><tr><th scope="col">Valid (CT)</th><th scope="col">Temp (°F)</th><th scope="col">Dew point (°F)</th><th scope="col">Wind (mph)</th><th scope="col">Gust (mph)</th><th scope="col">Cloud cover</th><th scope="col">Precip chance</th><th scope="col">Liquid (in)</th></tr></thead>
       <tbody id="models-hours"></tbody>
     </table>
   </div>
-  <p class="source">KFCM is a nearby model point, not the Hopkins point forecast. Precipitation values cover the hour ending at the listed time. <a href="https://vlab.noaa.gov/web/mdl/nbm-text-products" target="_blank" rel="noopener">NOAA hourly bulletin details</a></p>
+  <p class="source">Hourly precipitation covers the hour ending at the listed time. KFCM is a nearby model point, separate from the official Hopkins forecast. <a href="https://vlab.noaa.gov/web/mdl/nbm-text-products" target="_blank" rel="noopener">NOAA station bulletin details</a></p>
+  </details>
+  </div>
 </section>
 <section id="air-quality" role="tabpanel" aria-labelledby="tab-air-quality" hidden>
   <div class="section-heading"><div><p class="eyebrow">MINNESOTA POLLUTION CONTROL AGENCY</p><h1>Air quality</h1></div><button class="secondary" id="refresh-air-quality">Refresh map</button></div>
