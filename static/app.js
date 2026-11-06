@@ -140,7 +140,7 @@ function renderForecast() {
     const row = document.createElement("article"); row.className = "forecast-row";
     const name = document.createElement("h2"); name.textContent = period.name;
     const detail = document.createElement("p"); detail.className = "forecast-detail";
-    detail.textContent = WeatherForecastProse.narrative(period, now);
+    detail.textContent = period.detailedForecast;
     row.append(name,detail); $("forecast-periods").append(row);
   });
 }
