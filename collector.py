@@ -144,12 +144,12 @@ def collect_satellite(store, now):
 
 
 def collect_metar_clouds(store, now):
-    from metar_clouds import collect
+    from metar_clouds import STATION_POLICY, collect
     previous = store.read_json("live/metar-clouds.json")
     target = weather.iso(now.replace(minute=0, second=0, microsecond=0))
     ready = (previous and previous.get("collectionMode") == "official-hourly-archive"
              and previous.get("hourlyTarget") == target and previous.get("stations")
-             and previous.get("stationPolicy") == "all-airports-v1")
+             and previous.get("stationPolicy") == STATION_POLICY)
     if ready:
         # Retry through :20 even after a partial batch arrives. Afterwards a
         # populated hour is stable; an entirely missing hour keeps retrying.

@@ -1,5 +1,5 @@
 "use strict";
-// Four-hour METAR loop; each frame plots the reports available for that hour.
+// Four-hour METAR loop with a fixed station roster per map.
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
@@ -27,7 +27,6 @@ window.WeatherMetars = (() => {
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at
     // least 90% of airports present in each of the previous three hours.
-    // An individual station only needs a report in the selected hour.
     for(let end=history.length;end>=historyHours;end--){
       const frames=history.slice(end-historyHours,end);
       if(frames.some((f,i)=>!f.stations?.length||!Number.isFinite(Date.parse(f.hour))||
@@ -41,11 +40,19 @@ window.WeatherMetars = (() => {
     return null;
   }
   function prepareSpacing(){
+    // Eligibility is computed separately for PLOTS and CLOUDS, before overlap
+    // checks. An airport missing any frame must not displace a steady neighbor.
+    const reports=data.history.map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
+    const eligible=new Set(reports[0].map(station=>station.station));
+    for(const stations of reports.slice(1)){
+      const present=new Set(stations.map(station=>station.station));
+      for(const id of eligible)if(!present.has(id))eligible.delete(id);
+    }
     // Reserve the largest label across all four frames to avoid flickering
     // station density as the user moves the timeline.
     const bySite=new Map();
-    for(const frame of data.history)for(const station of frame.stations){
-      if(mode==="clouds"&&!cloudAvailable(station))continue;
+    for(const stations of reports)for(const station of stations){
+      if(!eligible.has(station.station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -56,10 +63,8 @@ window.WeatherMetars = (() => {
   }
   function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
-    const boxes=[],keep=new Set(),present=new Set(stations.map(station=>station.station));
+    const boxes=[],keep=new Set();
     for(const {station,f} of sites){
-      // An airport without a report in this frame must not block its neighbor.
-      if(!present.has(station.station))continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
       if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
       boxes.push(box);keep.add(station.station);
@@ -72,7 +77,7 @@ window.WeatherMetars = (() => {
     const hours=data.history;
     if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
     index=Math.max(0,Math.min(index,hours.length-1));
-    const frame=hours[index],drawn=visible(mode==="clouds"?frame.stations.filter(cloudAvailable):frame.stations);
+    const frame=hours[index],drawn=visible(frame.stations);
     const keep=new Set(drawn.map(s=>s.station));
     for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
     for(const station of drawn){
@@ -100,13 +105,14 @@ window.WeatherMetars = (() => {
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
-    el("metar-status").textContent=`${frame.stations.length} airport reports${!hours.at(-1).stations.length?" · Waiting for the newest hour":""}${data.stale?" · Background updates delayed":""}`;
+    el("metar-status").textContent=`${sites.length} airports with data in all four hours${data.stale?" · Background updates delayed":""}`;
   }
   function adopt(next){
     if(!next.history?.length)throw Error("Hourly reports are not ready");
     if(sourceData===next)return;
     if(next._savedCopy&&data&&!data._savedCopy&&next.checkedAt<=data.checkedAt)return;
-    const history=readyWindow(next.history);
+    // Older saved copies in the browser can still include the excluded airport.
+    const history=readyWindow(next.history.map(frame=>({...frame,stations:frame.stations?.filter(s=>s.station!=="KCFE")})));
     if(!history){
       if(data){el("metar-status").textContent="Waiting for a complete hourly batch; previous reports retained.";return;}
       throw Error("Four consecutive populated airport hours are not ready");

@@ -10,9 +10,9 @@ SOURCE_URL = "https://aviationweather.gov/data/cache/metars.cache.xml.gz"
 # Original regional extent, shared by cloud ceilings and weather plots.
 BOUNDS = [[40, -100], [50, -85]]
 COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
-# All valid airport IDs are eligible; no user-maintained blacklist.
-EXCLUDED_STATIONS = frozenset()
-STATION_POLICY = "all-airports-v1"
+# KCFE is excluded from Weather Lab because of suspect recurring cloud reports.
+EXCLUDED_STATIONS = frozenset({"KCFE"})
+STATION_POLICY = "airport-exclude-kcfe-v1"
 
 
 def included_station(station):
@@ -194,7 +194,7 @@ def current(data, now):
     # Reading the page must not invent an empty current-hour frame before
     # collection succeeds. Keep real timestamps and the previous loop intact.
     available = [datetime.fromisoformat(frame["hour"].replace("Z", "+00:00"))
-                 for frame in data.get("history", []) if frame.get("stations")]
+                 for frame in data.get("history", []) if any(in_region(row) for row in frame.get("stations", []))]
     available = [hour for hour in available if hour <= target]
     requested = target
     if available:

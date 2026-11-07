@@ -9,7 +9,7 @@ function viewer(){
  for(const path of ['static/metar-model.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
  return {async load(data){initial=data;context.window.WeatherMetars.select('metar');await new Promise(setImmediate);},adopt(data){subscriber(data);},ids(){return [...shown.keys()].map(s=>s.split(' · ')[0]).sort();},frame(i){get('metar-timeline').events.input({target:{value:String(i)}});},mode(value){get('metar-product').events.change({target:{value}});},get label(){return get('metar-time').textContent;},get sliderMax(){return get('metar-timeline').max;},get reads(){return reads;}};
 }
-const masks={KSTEADY:'111111111111',KOLDGAP:'101010101111',KONCE:'111111111011',KLEAD:'111111110111',KTRAIL:'111111111110',KABSENT:'000000000000',KCLOUD:'111111111111',KUNKNOWN:'111111111111'};
+const masks={KSTEADY:'111111111111',KOLDGAP:'101010101111',KONCE:'111111111011',KLEAD:'111111110111',KTRAIL:'111111111110',KABSENT:'000000000000',KCLOUD:'111111111111',KUNKNOWN:'111111111111',KCFE:'111111111111'};
 function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,10,1,5+i)).toISOString(),stations:Object.entries(patterns).filter(([,mask])=>mask[i]==='1').map(([station])=>({station,lat:Object.keys(patterns).indexOf(station)+1,lon:2,time:new Date(Date.UTC(2026,10,1,4+i,53)).toISOString(),tempF:station==='KUNKNOWN'?null:50,dewpointF:40,wind:{speedKnots:10,direction:i*30},layers:[{cover:station==='KCLOUD'&&i%2?'CLR':'BKN',baseFtAGL:2000}]}))}))};}
 (async()=>{
  const v=viewer(),data=history();await v.load(data);
@@ -17,16 +17,16 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){
   v.frame(i);
   assert.match(v.label,new RegExp((7+i)+':00 AM CST'),'10 AM includes 7, 8, 9 and 10 AM');
-  assert.deepEqual(v.ids(),data.history[8+i].stations.map(s=>s.station).sort(),'PLOTS shows every nonoverlapping airport that reported in this hour');
+  assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'PLOTS hides KCFE and any airport missing in the four displayed hours');
  }
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');
- for(let i=0;i<4;i++){v.frame(i);assert.equal(v.ids().includes('KONCE'),i!==1,'CLOUDS hides a missed report only in the missing hour');assert.ok(v.ids().includes('KCLOUD'),'Valid clear and broken cloud reports remain visible');}
+ for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'CLOUDS hides incomplete airports; valid clear and broken reports remain eligible');}
  const cloudGap=history();
  cloudGap.history[10].stations.find(s=>s.station==='KUNKNOWN').layers=[{cover:'BKN',baseFtAGL:null}];
  v.adopt(cloudGap);
- for(let i=0;i<4;i++){v.frame(i);assert.equal(v.ids().includes('KUNKNOWN'),i!==2,'A missing ceiling is hidden only in that hour');}
+ for(let i=0;i<4;i++){v.frame(i);assert.ok(!v.ids().includes('KUNKNOWN'),'A missing cloud ceiling hides that airport throughout the loop');}
  v.mode('plots');
  const complete=history(Object.fromEntries(Object.keys(masks).map(id=>[id,'111111111111'])));v.adopt(complete);v.frame(3);
  assert.ok(v.ids().includes('KONCE'),'Station remains available in a complete loop');
@@ -34,7 +34,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){v.frame(i);assert.ok(v.ids().length,'A wholly missing source hour cannot erase the last usable loop');}
  const short=history({KSTEADY:'111111111111'});short.history=short.history.slice(-3);v.adopt(short);assert.ok(v.ids().length,'An incomplete response retains the already displayed loop');
  const neighbor=history({KAAA:'111111110111',KZZZ:'111111111111'});for(const f of neighbor.history)for(const s of f.stations)s.lat=5;
- v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),[i===0?'KZZZ':'KAAA'],'Only reporting airports reserve collision space for the selected hour');}
+ v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KZZZ'],'An incomplete airport never blocks a steady neighbor');}
  assert.ok(neighbor.history[9].stations.some(s=>s.station==='KAAA'),'Original reports remain intact');
  const regional=Object.fromEntries(['KFCM','KMIC','KMSP',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
  function regionalHistory(){
@@ -54,11 +54,11 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.match(rolling.label,/10:00 AM CST/,'Exactly 90% coverage advances the loop');
  const nearly=regionalHistory();nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
  assert.match(rolling.label,/10:00 AM CST/,'Broadly complete data advances automatically');
- for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.equal(rolling.ids().includes('K096'),i!==3,'A missing report hides the airport only in that hour');}
+ for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.ok(!rolling.ids().includes('K096'),'A missing latest report hides the airport in all four hours');}
  const back=history(regional);back.history.at(-1).stations=[];rolling.adopt(back);
  assert.match(rolling.label,/10:00 AM CST/,'An incomplete later response cannot roll the accepted loop backwards');
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});
  assert.match(noHistory.label,/Reports unavailable/,'Cold start without a usable loop is explicit');
  assert.equal(rolling.reads,1,'Readiness uses downloaded data without new source calls');
- console.log('Four-frame METAR playback passed: per-hour PLOTS and CLOUDS coverage, rolling readiness, collision space and no extra downloads.');
+ console.log('Four-frame METAR playback passed: stable PLOTS and CLOUDS rosters, rolling readiness, collision space and no extra downloads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

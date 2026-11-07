@@ -15,7 +15,7 @@
   <script defer src="/static/prepared-data.js?v=compact-start-v1"></script>
   <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
   <script defer src="/static/metar-model.js?v=cloud-cover-circle-v2"></script>
-  <script defer src="/static/metar-views.js?v=metar-clouds-per-hour-v1"></script>
+  <script defer src="/static/metar-views.js?v=metar-four-hour-stations-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -42,7 +42,7 @@
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show knots. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Both maps use reports from the selected hour. CLOUDS only plots airports with usable sky information in that hour. More stations appear as you zoom in and labels have room.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show knots. CLOUDS shows the lowest BKN/OVC height in thousands of feet. PLOTS requires a report in all four displayed hours; CLOUDS requires usable sky information in all four. More stations appear as you zoom in and labels have room.</p></div>
 </section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>

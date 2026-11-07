@@ -9,7 +9,7 @@ from urllib.request import Request, urlopen
 
 def ready_metar_loop(data, hours):
     frames = data.get('history', [])
-    if data.get('sourcePolicy') != 'airport-routine-only' or data.get('stationPolicy') != 'all-airports-v1':
+    if data.get('sourcePolicy') != 'airport-routine-only' or data.get('stationPolicy') not in ('all-airports-v1', 'airport-exclude-kcfe-v1'):
         return False
     if any(row.get('reportType') != 'METAR' or not 45 <= int(row['time'][14:16]) <= 59 for frame in frames for row in frame['stations']):
         raise ValueError('An observation outside the routine airport policy reached the map')

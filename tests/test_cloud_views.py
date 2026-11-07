@@ -123,7 +123,7 @@ class HourlyCloudTests(unittest.TestCase):
         self.assertEqual(row['mapLayer'],{'cover':'VV','baseFtAGL':300,'heightType':'verticalVisibility'})
 
     def test_previously_excluded_airports_survive_new_reports_and_saved_history(self):
-        for restored in ('KCFE','KFCE','KSGS','KDEH'):
+        for restored in ('KFCE','KSGS','KDEH'):
             with self.subTest(station=restored):
                 self.assertEqual({r['station'] for r in self.rows(self.report(station=restored),self.report())},{restored,'KAAA'})
                 old=snapshot(self.rows(*(self.report(7+60*i) for i in range(12))),NOW)
@@ -149,9 +149,25 @@ class HourlyCloudTests(unittest.TestCase):
         with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as fetch:
             response=weather.app.test_client().get('/api/metar-clouds')
         self.assertEqual(response.status_code,200)
-        self.assertEqual([r['station'] for r in response.json['stations']],['KAAA','KCFE','KDEH'])
+        self.assertEqual([r['station'] for r in response.json['stations']],['KAAA','KDEH'])
         self.assertEqual(response.json['stations'][0]['mapLayer']['baseFtAGL'],6000)
         fetch.assert_not_called()
+
+    def test_kcfe_is_excluded_in_new_reports_and_old_plot_history(self):
+        reports = [self.report(7+60*i, station=station) for i in range(4)
+                   for station in ('KCFE','KAAA')]
+        fresh = self.rows(*reports)
+        self.assertEqual({r['station'] for r in fresh}, {'KAAA'})
+        old = snapshot(fresh,NOW)
+        for frame in old['history'][-4:]:
+            frame['stations'].append({**frame['stations'][0], 'station':'KCFE'})
+        store=MemoryStore();store.write_json('live/metar-clouds.json',old)
+        weather._cache.clear()
+        with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW):
+            response=weather.app.test_client().get('/api/station-plots?view=loop')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(len(response.json['history']),4)
+        self.assertTrue(all([r['station'] for r in f['stations']]==['KAAA'] for f in response.json['history']))
 
     def test_exactly_twelve_hours_and_same_routine_rule_as_main_observations(self):
         items=[self.report(7+60*i) for i in range(13)]
@@ -181,8 +197,10 @@ class HourlyCloudTests(unittest.TestCase):
         data=snapshot(self.rows(self.report(7),self.report(67,station='KBBB')),NOW)
         self.assertEqual([r['station'] for r in data['stations']],['KAAA'])
         later=current(data,NOW+timedelta(hours=1))
-        self.assertEqual(later['stations'],[])
-        self.assertEqual([r['station'] for r in later['history'][-2]['stations']],['KAAA'])
+        self.assertEqual(later['pendingHour'], '2026-10-10T03:00:00Z')
+        self.assertEqual(later['history'][-1]['hour'], data['history'][-1]['hour'])
+        self.assertEqual([r['station'] for r in later['stations']],['KAAA'])
+        self.assertEqual([r['station'] for r in later['history'][-2]['stations']],['KBBB'])
         self.assertEqual(later['checkedAt'],data['checkedAt'])
 
     def test_rounded_hour_can_appear_ahead_of_clock_just_like_observations(self):

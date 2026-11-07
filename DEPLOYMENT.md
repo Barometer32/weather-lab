@@ -29,13 +29,10 @@ are retained. Sun elevation remains current for Hopkins on the METAR page,
 independent of the selected history frame. Radar and satellite retain two-hour
 loops. NWS forecast and MPCA air quality retain their existing sources.
 
-The airport map includes all available eligible official routine METARs in the
-existing Upper Midwest extent: 40–50°N and 100–85°W. There is no station blacklist:
-KCFE, KFCE, KSGS and KDEH are eligible again when NOAA supplies reports. KFCM,
-KMIC and KMSP appear individually. No plots are removed to avoid label overlap;
-zoom in to separate neighboring station models. The searchable list includes
-all eligible airports for the selected hour, even outside the current view.
-Missing measurements do not remove otherwise usable station plots.
+The airport map uses eligible official routine METARs in the Upper Midwest
+(40–50°N and 100–85°W). KCFE is excluded. PLOTS requires a routine report
+in each of the four displayed hours; CLOUDS also requires usable sky
+information in each hour. Zoom in to separate neighboring station models.
 
 Only NOAA Aviation Weather Center airport METARs feed this map. There is no
 MADIS/mesonet merge, rapid airport feed or SPECI substitution. Select the routine
@@ -70,7 +67,8 @@ instead of accepting truncated results, and validates every hourly frame before
 publishing the prepared object. Browser reads only use the prepared object;
 opening the page or refreshing it does not start upstream collection.
 
-Prepared data is `live/metar-clouds.json`, with `stationPolicy=all-airports-v1`.
+Prepared data is `live/metar-clouds.json`. The viewer also applies the KCFE
+exclusion when reading snapshots prepared by an older collector.
 The map reads `/api/station-plots`, marked `sourcePolicy=airport-routine-only`.
 Historical Current modules and read APIs remain as compatibility code but are
 not part of the UI or collection schedule. Older deployment helpers describe
