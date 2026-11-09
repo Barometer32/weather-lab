@@ -96,7 +96,7 @@ window.WeatherStationModel = (() => {
     if(!Number.isFinite(wind.direction))return {kind:"unknown",speed,state:wind.variable?"VRB":"?",points:[]};
     const featherSpeed=mphBarbs?5*Math.floor((speed+2)/5):5*Math.round(knots/5);
     const units=mphBarbs?{roundedMph:featherSpeed}:{roundedKnots:featherSpeed};
-    if(featherSpeed===0&&!mphBarbs)return {kind:"calm",speed,...units,points:[]};
+    if(featherSpeed===0)return {kind:"calm",speed,...units,points:[]};
     const flags=Math.floor(featherSpeed/50),full=Math.floor((featherSpeed%50)/10),half=featherSpeed%10>=5;
     // Extend the staff 5%; feather dimensions and spacing stay unchanged.
     const length=1.05*Math.max(28,6+flags*8+full*5+(half?5:0));

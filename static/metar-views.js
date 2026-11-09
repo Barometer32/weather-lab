@@ -8,6 +8,7 @@ window.WeatherMetars = (() => {
   let busy=false,sourceData;
   const mesonetUrl="/api/observation-stations?view=mesonet";
   let mesonet,mesonetBusy=false,mesonetError,mesonetFitted=false;
+  let mesonetRoads;
   const views={};
   const viewGroup=product=>product==="mesonet"?"mesonet":"airports";
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap(),mesonet:new WeakMap()};
@@ -39,6 +40,13 @@ window.WeatherMetars = (() => {
     markers=L.layerGroup().addTo(map);
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
+    syncRoads();
+  }
+  function syncRoads(){
+    if(!map)return;
+    if(mode!=="mesonet"){mesonetRoads?.remove();return;}
+    if(mesonetRoads)mesonetRoads.addTo(map);
+    else mesonetRoads=window.WeatherRadarRoads?.addTo(map);
   }
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at
@@ -206,6 +214,7 @@ window.WeatherMetars = (() => {
     mode=next;
     el("metar-product").value=mode;
     showProduct();
+    if(changedGroup)syncRoads();
     el("refresh-metar").disabled=mode==="mesonet"?mesonetBusy:busy;
     if(mode!=="mesonet"&&data)prepareSpacing();
     if(map&&(changedGroup||window.WeatherDefaultViews?.savedMetar?.(mode))){

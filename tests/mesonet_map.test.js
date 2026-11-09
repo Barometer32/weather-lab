@@ -18,11 +18,14 @@ let mesonet={stations:[station('HPN20'),station('HPN38',3.03,{wind:{speedMph:1,d
   bounds:[[1,1],[9,9]],checkedAt:at(1),serverTime:at(0)};
 const airport={history:Array.from({length:4},(_,i)=>({hour:at((3-i)*60),stations:[station('KFCM')]}))};
 let fits=0, zoom=9;
+let roadsMounted=false,roadLayers=0;
+const roads={addTo(){roadsMounted=true;return this;},remove(){roadsMounted=false;return this;}};
 const map={fitBounds(points){fits++;this.points=points;zoom=11;return this;},setView(_center,z){zoom=z;return this;},
   getZoom(){return zoom;},getCenter(){return{lat:4,lng:2};},getSize(){return{x:1000,y:800};},
   latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},on(){},invalidateSize(){}};
 const context={window:{WeatherPrepared:{async read(url){requests.push(url);return url===urls.mesonet?mesonet:airport;},
-  subscribe(url,fn){subs.set(url,fn);}},WeatherFullscreen:{attach(){}},addEventListener(){}},
+  subscribe(url,fn){subs.set(url,fn);}},WeatherFullscreen:{attach(){}},
+  WeatherRadarRoads:{addTo(target){assert.equal(target,map);roadLayers++;return roads.addTo(target);}},addEventListener(){}},
   document:{getElementById:get,createElement:()=>get(Symbol()),hidden:false},
   setInterval:(callback,ms)=>timers.set(ms,callback),setTimeout(){},
   L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title);}}),
@@ -40,7 +43,9 @@ const flush=()=>new Promise(setImmediate),select=value=>get('metar-product').eve
   assert.match(marker.icon.html,/plot-temp/);
   assert.match(marker.icon.html,/plot-dew/);
   assert.match(marker.icon.html,/rotate\(270\)/);
-  assert.match(shown.get('HPN38 · MESONET').icon.html,/data-mph="0"[^>]+rotate\(180\)/);
+  assert.match(shown.get('HPN38 · MESONET').icon.html,/mesonet-dot/);
+  assert.doesNotMatch(shown.get('HPN38 · MESONET').icon.html,/wind-shaft|wind-barb/);
+  assert.ok(roadsMounted);
   assert.ok(marker.popup.children.some(n=>n.textContent.includes('Hopkins (HPN20)')));
   const originalFits=fits;
   mesonet={...mesonet,stations:[station('HPN20',3,{tempF:48}),station('HPN38',4)]};
@@ -49,12 +54,15 @@ const flush=()=>new Promise(setImmediate),select=value=>get('metar-product').eve
   assert.match(shown.get('HPN20 · MESONET').icon.html,/>48</);
   assert.equal(fits,originalFits,'Refreshing readings does not reset zoom');
   select('plots');await flush();
+  assert.equal(roadsMounted,false,'Roads stay exclusive to the Mesonet map');
   assert.deepEqual([...shown.keys()],['KFCM · METAR']);
   assert.equal(get('metar-history').hidden,false);
   assert.equal(get('metar-timeline').max,'3');
   const count=requests.length;timers.get(300000)();await flush();
   assert.equal(requests.length,count,'Mesonet polling stops in the airport mode');
   select('mesonet');await flush();
+  assert.ok(roadsMounted);
+  assert.equal(roadLayers,1,'Reusing the same layer avoids duplicate panes');
   assert.deepEqual([...shown.keys()],['HPN20 · MESONET','HPN38 · MESONET']);
   assert.equal(map.getZoom(),11,'The local view is restored after switching');
   console.log('Default Mesonet map, station plots, polling, and airport-mode isolation verified.');

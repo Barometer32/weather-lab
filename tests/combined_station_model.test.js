@@ -30,14 +30,20 @@ assert.equal(m.combinedWind({speedMph:11.50779,direction:90}).roundedKnots,10,'F
 for(const [knots,rounded] of [[2,0],[3,5],[7,5],[8,10],[12,10],[13,15]]){
  const w=m.combinedWind({speedKnots:knots,direction:0});assert.equal(w.roundedKnots,rounded);
 }
-for(const [speedMph,rounded,feathers] of [[2.9,0,[]],[3,5,[4.75]],[7.9,5,[4.75]],[8,10,[9.5]],
+for(const [speedMph,rounded,feathers] of [[3,5,[4.75]],[7.9,5,[4.75]],[8,10,[9.5]],
  [12.9,10,[9.5]],[13,15,[9.5,4.75]],[15,15,[9.5,4.75]],[18,20,[9.5,9.5]]]){
  const w=m.combinedWind({speedMph,direction:270},true);
  assert.equal(w.roundedMph,rounded);
  assert.equal(w.rotation,270);
  assert.deepEqual(Array.from(w.lines.slice(1),line=>line[1][0]),feathers);
 }
-assert.equal(m.combinedWind({speedMph:0,direction:270},true).kind,'calm');
+for(const speedMph of [0,1,2,2.9]){
+ const row={...station,wind:{speedMph,direction:270}};
+ assert.equal(m.combinedWind(row.wind,true).kind,'calm');
+ const html=m.combinedStationModel(row,{dot:true,mphBarbs:true}).html;
+ assert.match(html,/mesonet-dot/);
+ assert.doesNotMatch(html,/wind-barb|wind-shaft|wind-calm/);
+}
 const calm=m.combinedStationModel({...station,wind:{speedMph:0,speedKnots:0}}).html;
 assert.match(calm,/wind-calm/);assert.doesNotMatch(calm,/plot-speed|Calm|calm<|wind-barb"/);
 const short=m.combinedWind({speedKnots:5,direction:0}),full=m.combinedWind({speedKnots:10,direction:0}),double=m.combinedWind({speedKnots:20,direction:0});
