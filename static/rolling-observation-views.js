@@ -27,9 +27,8 @@ window.WeatherRollingObservations = (() => {
     el("observations-wind").textContent=windText(current?.wind);
     const rows=(data?.history||[]).map(slot=>{
       const row=document.createElement("tr"),heading=document.createElement("th");
-      const sun=window.WeatherSun?.elevation(new Date(slot.time));
       heading.scope="row";heading.textContent=formatTime(slot.time);row.append(heading);
-      for(const value of [degrees(slot.reading?.tempF),degrees(slot.reading?.dewpointF),windText(slot.reading?.wind),Number.isFinite(sun)?`${sun.toFixed(1)}°`:"—"]){
+      for(const value of [degrees(slot.reading?.tempF),degrees(slot.reading?.dewpointF),windText(slot.reading?.wind)]){
         const cell=document.createElement("td");cell.textContent=value;row.append(cell);
       }
       return row;

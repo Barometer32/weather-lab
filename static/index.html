@@ -19,7 +19,7 @@
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/rolling-observation-views.js?v=1"></script>
+  <script defer src="/static/rolling-observation-views.js?v=2"></script>
   <script defer src="/static/app.js?v=rolling-observations-v1"></script>
 </head>
 <body>
@@ -62,7 +62,7 @@
     </div>
     <div class="history-heading"><h2>12-hour history</h2><span>Top of each hour · Central time</span></div>
     <div class="table-wrap rolling-observation-table">
-      <table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew point</th><th scope="col">Wind</th><th scope="col">Sun angle</th></tr></thead>
+      <table><thead><tr><th scope="col">Time</th><th scope="col">Temp</th><th scope="col">Dew point</th><th scope="col">Wind</th></tr></thead>
       <tbody id="rolling-observation-history"></tbody></table>
     </div>
     <p class="method">Temperature and dew point average all three airports at the same time. If the three airports don’t all report at the top of an hour, that row uses the closest matched reading from the preceding hour.</p>

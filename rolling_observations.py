@@ -37,8 +37,10 @@ def summary(stamp, stations):
         "observedAt": iso(stamp), "tempF": fahrenheit("temp"), "dewpointF": fahrenheit("dewp"),
         "wind": {
             "speedMph": round(wind["speedMph"]) if wind["speedCount"] == len(STATIONS) else None,
-            "direction": wind["direction"] if wind["directionCount"] == len(STATIONS) else None,
-            "variable": wind["directionCount"] == len(STATIONS) and wind["direction"] is None,
+            # wind_mean leaves variable and missing bearings out of its
+            # vector mean while retaining their valid scalar speeds.
+            "direction": wind["direction"],
+            "variable": wind["direction"] is None and (wind["variable"] or wind["directionCount"] == len(STATIONS)),
         },
     }
 

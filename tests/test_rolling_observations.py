@@ -55,3 +55,21 @@ def test_partial_top_of_hour_advances_history_with_previous_matched_set():
         response = client.get("/api/observations/rolling")
         assert response.status_code == 200 and response.json["current"]["observedAt"] == obs.iso(t)
         assert client.get("/api/hrmetar").status_code == 404
+
+
+def test_variable_wind_keeps_its_speed_but_not_its_direction():
+    base = {"temp": 10, "dewp": 2}
+    for no_bearing in ("VRB", None):
+        reading = obs.summary(0, {
+            "KFCM": {**base, "wspd": 5, "wdir": 350},
+            "KMIC": {**base, "wspd": 5, "wdir": 10},
+            "KMSP": {**base, "wspd": 20, "wdir": no_bearing},
+        })
+        assert reading["wind"]["speedMph"] == 12
+        assert reading["wind"]["direction"] in (0, 360)
+        assert not reading["wind"]["variable"]
+
+    reading = obs.summary(0, {
+        code: {**base, "wspd": 10, "wdir": "VRB"} for code in obs.STATIONS
+    })
+    assert reading["wind"] == {"speedMph": 12, "direction": None, "variable": True}
