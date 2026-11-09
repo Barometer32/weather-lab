@@ -570,19 +570,17 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/hrmetar")
-def hrmetar_api():
-    from hrmetar import KEY, present
+@app.get("/api/observations/rolling")
+def rolling_observation_api():
+    from rolling_observations import KEY, present
     headers = {"Cache-Control": "no-store"}
     try:
         store = get_store()
-        snapshot = cached("prepared-hrmetar", 10, lambda: store.read_json(KEY)) if store else None
-        if snapshot is None:
-            return jsonify(error="Upper Midwest five-minute ASOS reports are being prepared."), 503, headers
+        snapshot = cached("prepared-three-airport-observations", 10, lambda: store.read_json(KEY)) if store else None
         return jsonify(present(snapshot, utcnow())), 200, headers
     except Exception:
-        app.logger.exception("Prepared HRMETAR observations unavailable")
-        return jsonify(error="Upper Midwest five-minute ASOS reports are temporarily unavailable."), 502, headers
+        app.logger.exception("Prepared three-airport observations unavailable")
+        return jsonify(error="Three-airport observations are temporarily unavailable."), 502, headers
 
 
 @app.get("/api/metar-clouds")

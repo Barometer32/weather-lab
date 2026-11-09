@@ -16,7 +16,7 @@ def test_all_website_responses_disable_device_location():
         response=client.get(path)
         assert response.headers.get('Permissions-Policy')=='geolocation=()'
     html=client.get('/').get_data(as_text=True)
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','radar','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','observations','radar','satellite','forecast','air-quality']
     assert 'id="radar-location"' not in html and 'radar-location.js' not in html
     assert client.get('/static/radar-location.js').status_code==404
     assert client.get('/api/test/location?q=Shakopee').status_code==404
@@ -39,6 +39,8 @@ if name=='git':
  elif 'rev-parse' in a:print('a'*40)
 elif name=='curl':
  target=pathlib.Path(a[a.index('-o')+1]);target.write_bytes((root/('static/index.html' if target.name=='page.html' else 'static/'+target.name)).read_bytes())
+ if target.name=='page.html':
+  target.write_text('\\n'.join(line for line in target.read_text().splitlines() if 'id="tab-observations"' not in line).replace('airq-source-fallback-v1','airq-freshness-v2'))
  if '--dump-header' in a:pathlib.Path(a[a.index('--dump-header')+1]).write_text('HTTP/2 200\\nPermissions-Policy: geolocation=()\\n')
 elif a[:3]==['run','services','describe']:
  if '--format=value(status.url)' in a:print('https://weather.example.run.app')

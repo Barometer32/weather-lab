@@ -192,7 +192,7 @@ def collect_air_quality(store, now):
 
 def collect_mn_asos_audit(store, now):
     from mn_asos_audit import collect
-    return collect(store, now, publish_map=True)
+    return collect(store, now, publish_observations=True)
 
 
 def collect_forecast(store, now):

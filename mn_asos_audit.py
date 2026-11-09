@@ -39,7 +39,7 @@ def parse_timing(payload):
             yield station, int(obs), arrival
 
 
-def collect(store, now, download=None, *, publish_map=False):
+def collect(store, now, download=None, *, publish_observations=False):
     from madis_observations import fetch_file, file_url
 
     download = download or fetch_file
@@ -58,8 +58,9 @@ def collect(store, now, download=None, *, publish_map=False):
         except (HTTPError, TimeoutError, OSError, ValueError, KeyError) as error:
             return [], f"{target:%Y%m%d_%H} UTC: {error}"[:200], None
 
+    targets = (hour, hour - timedelta(hours=1))
     with ThreadPoolExecutor(max_workers=2) as pool:
-        batches = list(pool.map(read, (hour, hour - timedelta(hours=1))))
+        batches = list(pool.map(read, targets))
     errors = [error for _, error, _ in batches if error]
     for batch, _, _ in batches:
         for station, obs, received in batch:
@@ -76,9 +77,9 @@ def collect(store, now, download=None, *, publish_map=False):
         raise RuntimeError("Neither MADIS hour file was available: " + "; ".join(errors))
     result = {"stations": len({row[0] for row in data["reports"] if row[1] >= stamp - 3600}),
               "reports": len(reports), "fileErrors": errors}
-    if publish_map:
-        from hrmetar import prepare
-        result["mapStations"] = prepare(store, now, (p for _, _, p in reversed(batches) if p is not None))
+    if publish_observations:
+        from rolling_observations import prepare
+        result["observations"] = prepare(store, now, ((h, p) for h, (_, _, p) in reversed(list(zip(targets, batches))) if p is not None))
     return result
 
 

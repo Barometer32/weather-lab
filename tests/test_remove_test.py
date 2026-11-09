@@ -42,7 +42,7 @@ def test_removed_routes_return_404_without_touching_data(monkeypatch):
     assert collector.app.test_client().post('/collect/test-weather').status_code==404
     html=(ROOT/'static/index.html').read_text()
     import re
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','radar','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','observations','radar','satellite','forecast','air-quality']
     assert 'id="radar-location"' not in html and 'radar-location.js' not in html
     assert 'const historyHours=4;' in (ROOT/'static/metar-views.js').read_text()
     assert "weather_schedule metar-clouds '0,5,10 * * * *'" in (ROOT/'deploy.sh').read_text()

@@ -44,7 +44,7 @@ def verify(base, fetch=None, *, metar_hours=12):
     fetch = fetch or download
     html = fetch('/').decode()
     expected = ['metar', 'radar', 'satellite', 'forecast', 'air-quality']
-    if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) != expected:
+    if re.findall(r'<button role="tab" id="tab-([^"]+)"', html) not in (expected, [expected[0], 'observations', *expected[1:]]):
         raise ValueError('The saved weather tabs were not verified')
     combined = 'data-station-model="combined-v1"' in html and bool(re.search(r'<script\b[^>]*\bsrc="/static/metar-model\.js(?:\?[^"]*)?"', html))
     separate = all(f'<option value="{mode}">' in html for mode in ('clouds', 'wind', 'dewpoint', 'temperature'))

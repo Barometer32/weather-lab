@@ -300,3 +300,13 @@ in Minnesota, North Dakota, South Dakota, Iowa, and Wisconsin. Temperature and
 dew point are whole degrees Celsius from the HF-ASOS fields. Routine METARs
 and tenths-degree remarks do not fill the map. The existing Minnesota timing
 audit, 30-minute display cutoff, and five-minute schedule remain in place.
+
+
+`release-rolling-observations.sh` replaces HRMETAR with the Observations page.
+The existing five-minute collector publishes an exact-time, three-airport ASOS
+summary and keeps twelve top-of-hour slots, using the closest matched reading
+from the preceding hour if the :00 set is incomplete. It seeds the hours still available
+from the live NOAA feed; earlier gaps fill as new hourly readings arrive.
+Temperature and dew point use the mean of the native whole-degree Celsius
+values, converted to whole Fahrenheit only after averaging. Current readings
+expire at 30 minutes. Wind is available when all three stations report it.
