@@ -17,6 +17,7 @@ assert.equal(get("observations-wind").textContent,"NW 10 mph");
 const heading=get("rolling-observation-history").children[0].children[0];
 assert.match(heading.textContent,/12:00 PM CST/);
 assert.equal(heading.children.length,0);
+assert.equal(get("rolling-observation-history").children[0].children.length,4);
 assert.match(get("rolling-observation-time").textContent,/11:55 AM CST/);
 adopt({current:{...reading,observedAt:utc(now-31*60000)},lastCompleteAt:utc(now-31*60000),history:[]});
 assert.equal(get("observations-temperature").textContent,"—");

@@ -10,6 +10,11 @@ import numpy as np
 from scipy.io import netcdf_file
 
 SOURCE = "https://madis-data.ncep.noaa.gov/madisPublic1/data/LDAD/hfmetar/netCDF/"
+# NOAA MADIS surface QC results: master, validity, and comparison checks.
+QC_MASTER = 1
+QC_VALIDITY = 2
+QC_WIND_COMPARISONS = 16 | 32 | 64  # temporal, statistical spatial, spatial
+WIND_LIMITS = {"windDir": 360, "windSpeed": 200 * (1852 / 3600)}
 _files = {}
 
 
@@ -40,7 +45,7 @@ def fetch_file(url):
     return payload
 
 
-def parse_file(payload, stations, now, *, high_frequency_only=False):
+def parse_file(payload, stations, now, *, high_frequency_only=False, allow_advisory_wind=False):
     with gzip.GzipFile(fileobj=BytesIO(payload)) as stream:
         content = stream.read(30_000_001)
     if len(content) > 30_000_000:
@@ -61,21 +66,35 @@ def parse_file(payload, stations, now, *, high_frequency_only=False):
             number = float(field[index])
             if not math.isfinite(number) or number in (getattr(field, "_FillValue", None), getattr(field, "missing_value", None)):
                 return None
-            for suffix in ("QCR", "ICR"):
-                check = variables.get(name + suffix)
-                if check is not None and int(check[index]) != 0:
+            descriptor = variables.get(name + "DD")
+            dd = descriptor[index].tobytes().strip(b"\x00 ") if descriptor is not None else b""
+            result = variables.get(name + "QCR")
+            qcr = int(result[index]) if result is not None else 0
+            internal = variables.get(name + "ICR")
+            if internal is not None and int(internal[index]) != 0:
+                return None
+            scoped_wind = allow_advisory_wind and name in WIND_LIMITS
+            if scoped_wind and (dd in (b"X", b"B") or not 0 <= number <= WIND_LIMITS[name]):
+                return None
+            if qcr:
+                # Only waive comparison failures, and only when MADIS explicitly
+                # ran and passed the validity check. Master is a summary bit.
+                applied = variables.get(name + "QCA")
+                if not (scoped_wind and dd == b"Q" and qcr & QC_WIND_COMPARISONS
+                        and not qcr & ~(QC_MASTER | QC_WIND_COMPARISONS)
+                        and applied is not None and int(applied[index]) & QC_VALIDITY):
                     return None
             status = variables.get(name + "Status")
+            if scoped_wind and qcr and status is None:
+                return None
             if status is not None and int(status[index]) not in (0, 16):
                 # Reserved sensor-status codes do not establish a fault. Keep
                 # them only with affirmative MADIS QC (V/S/G) and a clear QC
                 # results word. Explicit sensor faults and missing/unknown
                 # codes remain excluded, even if a numeric value is present.
-                descriptor = variables.get(name + "DD")
-                qc_result = variables.get(name + "QCR")
-                passed = descriptor is not None and descriptor[index].tobytes().strip(b"\x00 ") in (b"V", b"S", b"G")
+                passed = dd in (b"V", b"S", b"G")
                 reserved = int(status[index]) in (1, 4, 11, 13, 14, 15)
-                if not (reserved and passed and qc_result is not None and int(qc_result[index]) == 0):
+                if not (reserved and passed and result is not None and qcr == 0):
                     return None
             return number
         for index, identifier in enumerate(variables["stationId"][:]):

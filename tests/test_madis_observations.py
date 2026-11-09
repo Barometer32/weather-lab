@@ -15,7 +15,8 @@ from rapid_observations import current_snapshot
 NOW=datetime(2026,10,11,23,55,tzinfo=timezone.utc)
 
 
-def fixture(qc_failure=False, invalid_unit=False, future=False, wind_status=0, wind_qc=0, wind_dd=b'V', wind_missing=False):
+def fixture(qc_failure=False, invalid_unit=False, future=False, wind_status=0, wind_qc=0, wind_dd=b'V', wind_missing=False,
+            wind_icr=0, wind_applied=115):
     stream=BytesIO()
     with netcdf_file(stream,'w') as dataset:
         dataset.createDimension('record',3);dataset.createDimension('idlen',6)
@@ -36,6 +37,8 @@ def fixture(qc_failure=False, invalid_unit=False, future=False, wind_status=0, w
             field=dataset.createVariable(name,'f',('record',));field.units=b'Fahrenheit' if invalid_unit and name=='temperature' else unit
             field._FillValue=np.float32(3.4028235e38);field.missing_value=np.float32(-9999);field[:]=values
             check=dataset.createVariable(name+'QCR','i',('record',));check[:]=[0,wind_qc if name in ('windSpeed','windDir') else int(qc_failure and name=='temperature'),0]
+            dataset.createVariable(name+'QCA','i',('record',))[:]=[115,wind_applied,115]
+            dataset.createVariable(name+'ICR','i',('record',))[:]=[0,wind_icr if name in ('windSpeed','windDir') else 0,0]
             status=dataset.createVariable(name+'Status','i',('record',));status[:]=[0,wind_status if name in ('windSpeed','windDir') else 0,0]
             descriptor=dataset.createVariable(name+'DD','c',('record',));descriptor[:]=np.array([b'V',wind_dd,b'V'],dtype='S1')
             if wind_missing and name=='windSpeed':field[1]=-9999
@@ -115,6 +118,22 @@ class MadisTests(unittest.TestCase):
                 rows=madis.parse_file(fixture(wind_status=status),app.STATIONS,NOW)
                 self.assertIsNone(rows[1]['wspd'])
                 self.assertFalse(current_snapshot(rows,NOW)['available'])
+
+    def test_observations_waives_only_wind_comparison_failures(self):
+        sample=fixture(wind_qc=65,wind_dd=b'Q',qc_failure=True)
+        self.assertIsNone(madis.parse_file(sample,app.STATIONS,NOW)[1]['wspd'])
+        row=madis.parse_file(sample,app.STATIONS,NOW,allow_advisory_wind=True)[1]
+        self.assertAlmostEqual(row['wspd'],5,places=4)
+        self.assertEqual(row['wdir'],10)
+        self.assertIsNone(row['temp'])
+        for change in (dict(wind_qc=67),dict(wind_qc=73),dict(wind_qc=193),
+                       dict(wind_icr=1),dict(wind_applied=65),dict(wind_status=2),
+                       dict(wind_dd=b'B'),dict(wind_dd=b'X',wind_qc=0)):
+            with self.subTest(change=change):
+                sample=fixture(**({'wind_qc':65,'wind_dd':b'Q'} | change))
+                row=madis.parse_file(sample,app.STATIONS,NOW,allow_advisory_wind=True)[1]
+                self.assertIsNone(row['wspd'])
+                self.assertIsNone(row['wdir'])
 
 
 if __name__=='__main__':unittest.main()

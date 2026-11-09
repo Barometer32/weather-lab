@@ -13,6 +13,9 @@ def test_metar_default_and_separate_rolling_observations():
     satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
     assert 'id="sun-angle"' in metar and 'sun-angle' not in satellite
     assert html.count('id="sun-angle"')==1
+    observations=html.split('<section id="observations"')[1].split('</section>')[0]
+    assert 'id="observations-sun"' in observations
+    assert re.findall(r'<th scope="col">([^<]+)</th>',observations)==['Time','Temp','Dew point','Wind']
     assert re.findall(r'<option value="([^"]+)"',metar)==['plots','clouds']
     assert 'id="metar-timeline"' in metar and ':45–:59' in metar
     assert 'tab-clouds' not in html and 'rolling-observation-history' in html

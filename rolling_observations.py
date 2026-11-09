@@ -9,6 +9,7 @@ STATIONS = {"KFCM": "Flying Cloud", "KMIC": "Crystal", "KMSP": "Minneapolis–St
 HOUR = 3600
 HISTORY_HOURS = 12
 MAX_AGE = 1800
+WIND_QC_VERSION = "madis-advisory-wind-v1"
 
 
 def iso(stamp):
@@ -37,8 +38,10 @@ def summary(stamp, stations):
         "observedAt": iso(stamp), "tempF": fahrenheit("temp"), "dewpointF": fahrenheit("dewp"),
         "wind": {
             "speedMph": round(wind["speedMph"]) if wind["speedCount"] == len(STATIONS) else None,
-            "direction": wind["direction"] if wind["directionCount"] == len(STATIONS) else None,
-            "variable": wind["directionCount"] == len(STATIONS) and wind["direction"] is None,
+            # wind_mean leaves variable and missing bearings out of its
+            # vector mean while retaining their valid scalar speeds.
+            "direction": wind["direction"],
+            "variable": wind["direction"] is None and (wind["variable"] or wind["directionCount"] == len(STATIONS)),
         },
     }
 
@@ -66,6 +69,7 @@ def present(saved, now):
         "lastCompleteAt": iso(latest) if latest is not None else None,
         "history": history, "checkedAt": saved.get("checkedAt"), "serverTime": iso(stamp),
         "stationNames": STATIONS, "windowMinutes": MAX_AGE // 60,
+        "windQcVersion": saved.get("windQcVersion"),
     }
 
 
@@ -89,7 +93,7 @@ def prepare(store, now, payloads, archive_download=None):
                if lower <= t <= stamp}
 
     def merge(payload, as_of):
-        for row in parse_file(payload, STATIONS, as_of, high_frequency_only=True):
+        for row in parse_file(payload, STATIONS, as_of, high_frequency_only=True, allow_advisory_wind=True):
             t, code = row["obsTime"], row["icaoId"]
             if code not in STATIONS or row["metarType"] != "HFMETAR" or not lower <= t <= stamp or t % 300:
                 continue
@@ -102,7 +106,10 @@ def prepare(store, now, payloads, archive_download=None):
         merge(payload, min(now, target + timedelta(hours=1)))
     # Seed the nearby hours the public live endpoint still retains. Older
     # slots fill from scheduled collection rather than another report feed.
-    scanned = {t for t in saved.get("scannedHours", []) if t >= lower}
+    # Re-read available archive files once after the QC change. Keep saved
+    # reports for hours that have already fallen out of the public feed.
+    scanned = ({t for t in saved.get("scannedHours", []) if t >= lower}
+               if saved.get("windQcVersion") == WIND_QC_VERSION else set())
     missing = [hour - timedelta(hours=i) for i in range(2, 5)
                if int(hour.timestamp()) - i * HOUR not in scanned]
     archive_download = archive_download or fetch_archive
@@ -128,7 +135,7 @@ def prepare(store, now, payloads, archive_download=None):
             except (OSError, ValueError, KeyError):
                 continue
             scanned.add(int(target.timestamp()))
-    state = {"checkedAt": iso(stamp), "scannedHours": sorted(scanned),
+    state = {"checkedAt": iso(stamp), "scannedHours": sorted(scanned), "windQcVersion": WIND_QC_VERSION,
              "reports": [[t, code, r] for (t, code), r in reports.items()]}
     store.write_json(KEY, state)
     result = present(state, now)
