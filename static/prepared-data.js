@@ -7,7 +7,7 @@ window.WeatherPrepared = (() => {
   const metarLoop="/api/station-plots?view=loop";
   const mesonetMap="/api/observation-stations?view=mesonet";
   // Keep old Mesonet rosters out of the map without discarding other saved weather.
-  const cacheKey=url=>url===mesonetMap?url+"&roster=hanover-orono-v1":url;
+  const cacheKey=url=>url===mesonetMap?url+"&roster=hanover-orono-v2":url;
   const paths=[metarLoop,mesonetMap,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;

@@ -5,6 +5,7 @@ window.WeatherMetars = (() => {
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=el("metar-product").value||"plots",wantedHour=null;
   const historyHours=4;
+  const windPlotOptions={dot:true,mphBarbs:true};
   let busy=false,sourceData;
   const mesonetUrl="/api/observation-stations?view=mesonet";
   let mesonet,mesonetBusy=false,mesonetError,mesonetFitted=false;
@@ -77,7 +78,7 @@ window.WeatherMetars = (() => {
     const bySite=new Map();
     for(const stations of reports)for(const station of stations){
       if(!eligible.has(station.station))continue;
-      const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,{dot:true}),old=bySite.get(station.station);
+      const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,windPlotOptions),old=bySite.get(station.station);
       bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
     const preferred=["KFCM","KMIC","KMSP"],rank=s=>{
@@ -121,18 +122,18 @@ window.WeatherMetars = (() => {
       const plots=plotCaches[mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{dot:true,mphBarbs:mode==="mesonet"}),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",mode==="mesonet"&&station.displayName?`${station.displayName} (${station.station})`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
-      const wind=station.wind||{},barb=model.combinedWind(wind,mode==="mesonet"),layer=model.firstCloudLayer(station);
+      const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
       if(mode!=="mesonet"){
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
         popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
       }
       if(barb.kind==="barb"){
-        if(mode==="mesonet"&&barb.roundedMph>0)popup.append(node("p",`Barb feathers: ${barb.roundedMph} mph`));
-        else if(barb.roundedKnots>0)popup.append(node("p",`Barb feathers: ${barb.roundedKnots} kt (nearest 5 kt)`));
+        const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
+        popup.append(node("p",`Barb feathers: ${feathers}`));
       }
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);

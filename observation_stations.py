@@ -9,7 +9,7 @@ from urllib.error import HTTPError
 
 VERSION = "hennepin-west-station-list-v1"
 COVERAGE = "hennepin-west-no-dakota-v1"
-MAP_STATION_POLICY = "hanover-orono-no-dayton-v1"
+MAP_STATION_POLICY = "west-metro-roster-v2"
 # MADIS coordinates (lat, lon) of the two stations that anchor the west edge.
 HANOVER = (45.167701721191406, -93.63433074951172)
 ORONO = (44.93629837036133, -93.62004852294922)
@@ -94,9 +94,9 @@ def present(saved, now):
 
 def included_on_map(row):
     station = row["station"]
-    if station == "HPN27":  # Dayton
+    if station in ("HPN04", "HPN27", "HPN42"):  # Hanover, Dayton, Minneapolis-Camden
         return False
-    if station in ("HPN04", "HPN08", "HPN31"):  # Hanover, Orono and Blaine
+    if station in ("HPN08", "HPN31"):  # Orono and Blaine
         return True
     # Follow the line between Hanover and Orono and extend their respective
     # longitudes north and south. This keeps Long Lake, east of the line.

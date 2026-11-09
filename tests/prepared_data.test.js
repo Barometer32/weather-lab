@@ -15,7 +15,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
  const noStorage=setup(()=>Promise.resolve(new Response(JSON.stringify({periods:['forecast']}))),true);assert.equal((await noStorage.api.read('/api/forecast')).periods[0],'forecast');
  cacheRows.clear();
  const mesonet='/api/observation-stations?view=mesonet';
- await cache.put(mesonet,new Response(JSON.stringify({stations:['Dayton']}),{headers:{'X-Weather-Saved-At':String(Date.now())}}));
+ await cache.put(mesonet+'&roster=hanover-orono-v1',new Response(JSON.stringify({stations:['Hanover','Minneapolis-Camden']}),{headers:{'X-Weather-Saved-At':String(Date.now())}}));
  let newRoster;
  const roster=setup(()=>new Promise(resolve=>{newRoster=resolve;}));
  let displayed=false;

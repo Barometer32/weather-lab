@@ -7,10 +7,10 @@ function viewer(){
  const context={window:{WeatherPrepared:{read:async()=>{reads++;return initial;},subscribe(url,fn){if(url.includes('station-plots'))subscriber=fn;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:()=>get(Symbol()),hidden:false},Intl,Math,Number,Date,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(marker){shown.delete(marker.title);}}),divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(){return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(pos){this.position=pos;return this;},setPopupContent(){return this;}})}};
  let initial;
  for(const path of ['static/metar-model.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
- return {async load(data){initial=data;context.window.WeatherMetars.select('metar');await new Promise(setImmediate);},adopt(data){subscriber(data);},ids(){return [...shown.keys()].map(s=>s.split(' · ')[0]).sort();},frame(i){get('metar-timeline').events.input({target:{value:String(i)}});},mode(value){get('metar-product').events.change({target:{value}});},get label(){return get('metar-time').textContent;},get sliderMax(){return get('metar-timeline').max;},get reads(){return reads;}};
+ return {async load(data){initial=data;context.window.WeatherMetars.select('metar');await new Promise(setImmediate);},adopt(data){subscriber(data);},icon(id){return shown.get(id+" · METAR").icon.html;},ids(){return [...shown.keys()].map(s=>s.split(' · ')[0]).sort();},frame(i){get('metar-timeline').events.input({target:{value:String(i)}});},mode(value){get('metar-product').events.change({target:{value}});},get label(){return get('metar-time').textContent;},get sliderMax(){return get('metar-timeline').max;},get reads(){return reads;}};
 }
 const masks={KSTEADY:'111111111111',KOLDGAP:'101010101111',KONCE:'111111111011',KLEAD:'111111110111',KTRAIL:'111111111110',KABSENT:'000000000000',KCLOUD:'111111111111',KUNKNOWN:'111111111111',KCFE:'111111111111'};
-function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,10,1,5+i)).toISOString(),stations:Object.entries(patterns).filter(([,mask])=>mask[i]==='1').map(([station])=>({station,lat:Object.keys(patterns).indexOf(station)+1,lon:2,time:new Date(Date.UTC(2026,10,1,4+i,53)).toISOString(),tempF:station==='KUNKNOWN'?null:50,dewpointF:40,wind:{speedKnots:10,direction:i*30},layers:[{cover:station==='KCLOUD'&&i%2?'CLR':'BKN',baseFtAGL:2000}]}))}))};}
+function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,10,1,5+i)).toISOString(),stations:Object.entries(patterns).filter(([,mask])=>mask[i]==='1').map(([station])=>({station,lat:Object.keys(patterns).indexOf(station)+1,lon:2,time:new Date(Date.UTC(2026,10,1,4+i,53)).toISOString(),tempF:station==='KUNKNOWN'?null:50,dewpointF:40,wind:station==='KUNKNOWN'?{speedKnots:2,direction:null,variable:true}:{speedKnots:7,direction:i*30},layers:[{cover:station==='KCLOUD'&&i%2?'CLR':'BKN',baseFtAGL:2000}]}))}))};}
 (async()=>{
  const v=viewer(),data=history();await v.load(data);
  assert.equal(v.sliderMax,'3','Only four hourly frames are exposed');
@@ -19,6 +19,9 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
   assert.match(v.label,new RegExp((7+i)+':00 AM CST'),'10 AM includes 7, 8, 9 and 10 AM');
   assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'PLOTS hides KCFE and any airport missing in the four displayed hours');
  }
+ assert.match(v.icon("KSTEADY"),/data-mph="10"/,'Seven knots is about 8 mph, so PLOTS draws one full feather');
+ assert.match(v.icon("KUNKNOWN"),/mesonet-dot/);
+ assert.doesNotMatch(v.icon("KUNKNOWN"),/wind-barb|wind-shaft|wind-calm|>VRB</,'Light airport winds have a dot even with variable direction');
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');

@@ -142,6 +142,8 @@ def test_mesonet_map_trims_west_edge_and_dayton_without_changing_inventory():
         "HPN31": (45.16541, -93.22459),  # Blaine
         "HPN37": (44.99254, -93.62081),  # Long Lake
         "HPN03": (44.84944, -93.56417),  # Chanhassen
+        "HPN42": (45.03149, -93.30293),  # Camden
+        "HPN21": (45.04889, -93.27611),  # Fridley
         "HPN27": (45.20420, -93.48487),  # Dayton
         "HPN44": (45.04616, -93.78015),  # Delano
         "HPN19": (45.08797, -93.69137),  # Greenfield
@@ -153,6 +155,6 @@ def test_mesonet_map_trims_west_edge_and_dayton_without_changing_inventory():
     saved = {"version": obs.VERSION, "coverage": obs.COVERAGE, "checkedAt": obs.iso(NOW),
              "stations": [sample(code, lat=lat, lon=lon) for code, (lat, lon) in sites.items()]}
     result = obs.present_map(saved, NOW)
-    assert {row["station"] for row in result["stations"]} == {"HPN04", "HPN08", "HPN31", "HPN37", "HPN03"}
-    assert result["bounds"][0][1] == obs.HANOVER[1]
+    assert {row["station"] for row in result["stations"]} == {"HPN08", "HPN31", "HPN37", "HPN03", "HPN21"}
+    assert result["bounds"][0][1] == sites["HPN37"][1]
     assert {row["station"] for row in obs.present(saved, NOW)["stations"]} == set(sites)

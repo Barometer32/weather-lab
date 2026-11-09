@@ -91,8 +91,8 @@ window.WeatherStationModel = (() => {
     wind=wind||{};
     const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
     const knots=Number.isFinite(wind.speedKnots)&&wind.speedKnots>=0?wind.speedKnots:speed==null?null:speed/1.150779;
-    if(knots==null)return {kind:"unknown",speed,state:"?",points:[]};
-    if(knots===0)return {kind:"calm",speed,points:[]};
+    if(knots==null||mphBarbs&&speed==null)return {kind:"unknown",speed,state:"?",points:[]};
+    if(mphBarbs?speed<3:knots===0)return {kind:"calm",speed,points:[]};
     if(!Number.isFinite(wind.direction))return {kind:"unknown",speed,state:wind.variable?"VRB":"?",points:[]};
     const featherSpeed=mphBarbs?5*Math.floor((speed+2)/5):5*Math.round(knots/5);
     const units=mphBarbs?{roundedMph:featherSpeed}:{roundedKnots:featherSpeed};
@@ -128,8 +128,8 @@ window.WeatherStationModel = (() => {
     const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
-  function combinedFootprint(station,{mesonet=false,dot=false}={}){
-    const c=combined,w=combinedWind(station.wind),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+  function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false}={}){
+    const c=combined,w=combinedWind(station.wind,mphBarbs),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     let left=dot?-3:-8.5,right=dot?3:8.5,top=dot?-3:-8.5,bottom=dot?3:8.5;
     function include(x,y,width,anchor){
       const start=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
