@@ -7,7 +7,7 @@ window.WeatherRadarRoads = (() => {
       labelingInfo:[],renderer:{type:"simple",symbol:{type:"esriSLS",
         style:"esriSLSSolid",color:[100,110,118,255],width}}}};
   }
-  function addTo(map,onError) {
+  function addTo(map,onError,{primaryOnly=false}={}) {
     map.createPane("roads");
     const pane=map.getPane("roads");pane.style.zIndex=390;pane.style.pointerEvents="none";
     const Roads=L.TileLayer.extend({
@@ -20,7 +20,7 @@ window.WeatherRadarRoads = (() => {
         const primary=z<8?0:z<10?1:2;
         const secondary=z<8?null:z<10?3:z<11?4:z<13?5:6;
         const layers=[roadStyle(primary,.8*(96/dpi))];
-        if(secondary!=null)layers.push(roadStyle(secondary,.55*(96/dpi)));
+        if(!primaryOnly&&secondary!=null)layers.push(roadStyle(secondary,.55*(96/dpi)));
         const params=new URLSearchParams({f:"image",format:"png32",transparent:"true",
           bbox:[left,top-span,left+span,top].join(","),bboxSR:"3857",imageSR:"3857",
           size:"256,256",dpi:String(dpi),layers:`show:${layers.map(l=>l.id).join(",")}`,dynamicLayers:JSON.stringify(layers)});

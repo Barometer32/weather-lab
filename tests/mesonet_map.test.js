@@ -25,7 +25,7 @@ const map={fitBounds(points){fits++;this.points=points;zoom=11;return this;},set
   latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},on(){},invalidateSize(){}};
 const context={window:{WeatherPrepared:{async read(url){requests.push(url);return url===urls.mesonet?mesonet:airport;},
   subscribe(url,fn){subs.set(url,fn);}},WeatherFullscreen:{attach(){}},
-  WeatherRadarRoads:{addTo(target){assert.equal(target,map);roadLayers++;return roads.addTo(target);}},addEventListener(){}},
+  WeatherRadarRoads:{addTo(target,_onError,options){assert.equal(target,map);assert.equal(options?.primaryOnly,true);roadLayers++;return roads.addTo(target);}},addEventListener(){}},
   document:{getElementById:get,createElement:()=>get(Symbol()),hidden:false},
   setInterval:(callback,ms)=>timers.set(ms,callback),setTimeout(){},
   L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title);}}),

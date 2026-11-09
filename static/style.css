@@ -401,16 +401,6 @@ body.map-focus #metar .eyebrow { display:none; }
   :is(#metar-surface,#radar-surface) .viewer-frame-time{justify-self:center;}
 }
 
-/* Phone timelines are centered at 80% of the available width.
-   Keep the desktop rules above unchanged, including full-screen desktop. */
-@media(max-width:600px){
-  .viewer-controls .timeline-control,
-  .airq-controls .timeline-control,
-  :is(#radar-surface,#metar-surface,#clouds-surface,#satellite-surface):is(:fullscreen,.expanded) .timeline-control {
-    width:80%; justify-self:center; align-self:center;
-  }
-}
-
 #radar-map-area { position:relative; }
 
 /* Compact phone toolbars leave more of the viewport for the map. */
@@ -429,6 +419,12 @@ body.map-focus #metar .eyebrow { display:none; }
   :is(#metar-surface,#radar-surface,#satellite-surface) .viewer-actions {
     justify-self:end;
     gap:5px;
+  }
+  .airq-controls { grid-template-columns:1fr; grid-template-areas:"time" "timeline"; gap:0; }
+  .viewer-controls .timeline-control,
+  .airq-controls .timeline-control,
+  :is(#radar-surface,#metar-surface,#clouds-surface,#satellite-surface):is(:fullscreen,.expanded) .timeline-control {
+    width:70vw; max-width:100%; justify-self:center; align-self:center;
   }
   .viewer-actions button { min-height:32px; padding:4px 7px; font-size:11px; }
   .scan-timeline { height:36px; }

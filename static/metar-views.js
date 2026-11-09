@@ -46,7 +46,7 @@ window.WeatherMetars = (() => {
     if(!map)return;
     if(mode!=="mesonet"){mesonetRoads?.remove();return;}
     if(mesonetRoads)mesonetRoads.addTo(map);
-    else mesonetRoads=window.WeatherRadarRoads?.addTo(map);
+    else mesonetRoads=window.WeatherRadarRoads?.addTo(map,undefined,{primaryOnly:true});
   }
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at

@@ -38,4 +38,10 @@ const west=box[0]/20037508.342789244*180;
 assert.ok(west>-94&&west<-93,"metro tile is projected in Minnesota");
 layer.tileerror();assert.ok(failed,"road failures have a separate nonblocking notice");
 if(process.env.ROAD_TEST_URL)fs.writeFileSync(process.env.ROAD_TEST_URL,url.href);
-console.log("Radar road checks passed: label-free major roads, faint styling, aligned tiles and independent failure notice.");
+context.window.WeatherRadarRoads.addTo(map,undefined,{primaryOnly:true});
+for(const [z,id] of [[7,0],[9,1],[10,2],[13,2]]){
+ const q=new URL(layer.getTileUrl({x:1,y:1,z})).searchParams;
+ assert.equal(q.get("layers"),`show:${id}`);
+ assert.deepEqual(JSON.parse(q.get("dynamicLayers")).map(l=>l.source.mapLayerId),[id],"Mesonet requests only primary roads");
+}
+console.log("Radar and Mesonet road checks passed: separate coverage, faint styling, aligned tiles and independent failure notice.");
