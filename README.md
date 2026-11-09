@@ -274,3 +274,21 @@ and removes TEST caches and history through a temporary scoped cleanup job.
 The cleanup job is deleted after completion. The five weather tabs, their
 schedules and service configuration remain. Device location is disabled on all
 weather pages.
+
+The public METAR view now offers airport PLOTS and CLOUDS. The retired MESONET
+map and its collector route are no longer served. The release script
+`release-airport-asos-audit.sh` starts a separate private Minnesota HFMETAR
+timing check every five minutes. It retains 48 hours of report timestamps and
+poll results and does not supply observations to the public maps.
+
+From this checkout, read the audit with:
+
+```sh
+gcloud storage cat gs://weather-lab-261105-184200-1a9b-weather-data/live/mn-asos-audit-v1.json | python3 mn_asos_audit.py
+```
+
+The report separates time between observations, MADIS receipt lag, and the first
+poll that saw a report. The first poll's older observations are excluded from
+latency statistics. The station list in the report contains airports that
+actually appeared in HFMETAR; the broader Minnesota airport inventory also
+contains AWOS stations without this feed.

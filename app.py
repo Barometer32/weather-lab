@@ -608,20 +608,6 @@ def observation_api():
         return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
 
 
-@app.get("/api/observation-stations")
-def observation_stations_api():
-    from observation_stations import KEY, present, present_map
-    try:
-        store = get_store()
-        saved = cached("prepared-observation-stations",10,lambda:store.read_json(KEY)) if store else None
-        presenter = present_map if request.args.get("view") == "mesonet" else present
-        result = presenter(saved,utcnow())
-        return jsonify(result),200,{"Cache-Control":"no-store"}
-    except Exception:
-        app.logger.exception("Prepared observation station list unavailable")
-        return jsonify(error="Observations unavailable. Previous readings are retained."),502,{"Cache-Control":"no-store"}
-
-
 @app.get("/api/radar")
 def radar_api():
     try:

@@ -82,18 +82,9 @@ def test_current_hour_404_is_normal_and_never_creates_fake_station_data():
     assert data['stations'][0]['time']==sample()['time']
 
 
-def test_public_route_only_reads_saved_data_and_private_route_collects_inventory():
-    store=Store({obs.KEY:{'version':obs.VERSION,'stations':[sample()],'checkedAt':obs.iso(NOW)}})
-    app._cache.pop('prepared-observation-stations',None)
-    with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('regional_madis.fetch') as fetch:
-        response=app.app.test_client().get('/api/observation-stations')
-    assert response.status_code==200 and response.json['average'] is None
-    assert response.json['stations'][0]['station']=='HPN20'
-    assert response.headers['Cache-Control']=='no-store'
-    fetch.assert_not_called()
-    with patch('collector.get_store',return_value=store),patch('collector.weather.utcnow',return_value=NOW),patch('observation_stations.collect',return_value={'stations':[sample()],'sourceFailures':[]}):
-        result=collector.app.test_client().post('/collect/observation-stations')
-    assert result.status_code==200 and result.json['result']['stations']==1
+def test_retired_station_endpoints_are_unavailable():
+    assert app.app.test_client().get('/api/observation-stations?view=mesonet').status_code == 404
+    assert collector.app.test_client().post('/collect/observation-stations').status_code == 404
 
 
 def test_mesonet_map_shows_recent_network_reports_except_dakota():
@@ -109,11 +100,7 @@ def test_mesonet_map_shows_recent_network_reports_except_dakota():
         sample("HPN28",tempF=None,dewpointF=None,wind={}),
         sample("HPN38",lat=44.83196,lon=-93.47098,dewpointF=None),
     ]}
-    app._cache.pop('prepared-observation-stations',None)
-    with patch('app.get_store',return_value=Store({obs.KEY:saved})),patch('app.utcnow',return_value=NOW):
-        response=app.app.test_client().get('/api/observation-stations?view=mesonet')
-    assert response.status_code==200
-    result=response.json
+    result=obs.present_map(saved, NOW)
     assert {r['station'] for r in result['stations']}=={'HPN03','HPN20','HPN30','HPN38','HPN45'}
     assert result['checkedAt']==obs.iso(NOW)
     assert all(not obs.in_county(r['lat'],r['lon'],'dakota') for r in result['stations'])

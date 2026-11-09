@@ -7,30 +7,14 @@ window.WeatherMetars = (() => {
   const historyHours=4;
   const windPlotOptions={dot:true,mphBarbs:true};
   let busy=false,sourceData;
-  const mesonetUrl="/api/observation-stations?view=mesonet";
-  let mesonet,mesonetBusy=false,mesonetError,mesonetFitted=false;
-  let mesonetRoads;
-  const views={};
-  const viewGroup=product=>product==="mesonet"?"mesonet":"airports";
-  const plotCaches={plots:new WeakMap(),clouds:new WeakMap(),mesonet:new WeakMap()};
+  const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
   el("metar-product").value=mode;
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
-  function showProduct(){
-    const local=mode==="mesonet";
-    el("metar-history").hidden=local;
-    el("metar-eyebrow").textContent=local?"HENNEPIN WEST MESONET":"AIRPORT METARS · UPPER MIDWEST";
-  }
-  showProduct();
   function reset(){
     if(!map)return;
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
-    if(mode==="mesonet"&&!saved){
-      const points=mesonet?.stations.map(s=>[s.lat,s.lon])||[];
-      map.fitBounds(points.length>1?points:mesonet?.bounds||[[44.78,-93.78],[45.25,-93.18]],{padding:[42,42],maxZoom:12,animate:false});
-      return;
-    }
     const view=saved||window.WeatherDefaultViews?.metar(sites,map.getSize())||{center:[44.945,-93.343],zoom:9};
     map.setView(view.center,view.zoom,{animate:false});
   }
@@ -41,13 +25,6 @@ window.WeatherMetars = (() => {
     markers=L.layerGroup().addTo(map);
     map.on("movestart",()=>{moving=true;});
     map.on("moveend",()=>{moving=false;render();});
-    syncRoads();
-  }
-  function syncRoads(){
-    if(!map)return;
-    if(mode!=="mesonet"){mesonetRoads?.remove();return;}
-    if(mesonetRoads)mesonetRoads.addTo(map);
-    else mesonetRoads=window.WeatherRadarRoads?.addTo(map,undefined,{primaryOnly:true});
   }
   function readyWindow(history){
     // Stage partial arrivals outside the viewer. A new batch must retain at
@@ -98,7 +75,6 @@ window.WeatherMetars = (() => {
   }
   function render(){
     if(el("metar").hidden||moving)return;
-    if(mode==="mesonet"){renderMesonet();return;}
     if(!data)return;
     init();
     const hours=data.history;
@@ -123,14 +99,12 @@ window.WeatherMetars = (() => {
       let cached=plots.get(station);
       if(!cached){
       const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",mode==="mesonet"&&station.displayName?`${station.displayName} (${station.station})`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
-      if(mode!=="mesonet"){
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
         popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
-      }
       if(barb.kind==="barb"){
         const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
         popup.append(node("p",`Barb feathers: ${feathers}`));
@@ -139,37 +113,8 @@ window.WeatherMetars = (() => {
       cached={icon,popup};plots.set(station,cached);
       }
       if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · ${mode==="mesonet"?"MESONET":"METAR"}`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
     }
-  }
-  function renderMesonet(){
-    init();
-    const stations=(mesonet?.stations||[]).filter(s=>Date.now()-Date.parse(s.time)<=3600000);
-    if(!mesonetFitted&&stations.length){mesonetFitted=true;reset();}
-    // Keep every reporting network site available even when labels are close.
-    draw(stations);
-    const newest=Math.max(...stations.map(s=>Date.parse(s.time)));
-    const delayed=mesonetError||mesonet?.stale||mesonet?._savedCopy||Date.now()-newest>1200000;
-    el("metar-time").textContent=stations.length?`Newest: ${time.format(new Date(newest))}${delayed?" · Delayed":""}`
-      :mesonetBusy?"Loading Mesonet readings…":"No recent Mesonet readings";
-    el("metar-status").textContent=mesonetError||`${stations.length} Hennepin West stations · checked every 5 minutes`;
-    el("metar-map").setAttribute("aria-label","Hennepin West Mesonet temperature, dewpoint and wind barbs");
-  }
-  function adoptMesonet(next){
-    if(!Array.isArray(next?.stations)||next===mesonet||next._savedCopy&&mesonet&&!mesonet._savedCopy)return;
-    mesonet=next;mesonetError=null;
-    if(mode==="mesonet"){
-      if(next.serverTime&&!next._savedCopy)window.WeatherSun?.sync(next.serverTime);
-      render();
-    }
-  }
-  async function loadMesonet(force=false){
-    if(mesonetBusy)return;
-    mesonetBusy=true;el("refresh-metar").disabled=true;
-    render();
-    try{adoptMesonet(await window.WeatherPrepared.read(mesonetUrl,{force}));}
-    catch(error){mesonetError=error.message;}
-    finally{mesonetBusy=false;if(mode==="mesonet"){el("refresh-metar").disabled=false;render();}}
   }
   function adopt(next){
     if(!next.history?.length)throw Error("Hourly reports are not ready");
@@ -186,43 +131,24 @@ window.WeatherMetars = (() => {
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
     sourceData=next;data={...next,history};
-    if(mode!=="mesonet")prepareSpacing();
+    prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
-    if(mode!=="mesonet"){
-      if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
-      render();
-    }
+    if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
+    render();
   }
   async function load(force=false){
-    if(mode==="mesonet")return loadMesonet(force);
     if(busy)return;busy=true;el("refresh-metar").disabled=true;
     try{adopt(await window.WeatherPrepared.read("/api/station-plots?view=loop",{force}));}
-    catch(error){if(mode!=="mesonet"){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="Reports unavailable · try Refresh";}}
-    finally{busy=false;if(mode!=="mesonet")el("refresh-metar").disabled=false;}
+    catch(error){el("metar-status").textContent=`${error.message}${data?" Previous reports retained.":""}`;if(!data)el("metar-time").textContent="Reports unavailable · try Refresh";}
+    finally{busy=false;el("refresh-metar").disabled=false;}
   }
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
-  window.WeatherPrepared.subscribe(mesonetUrl,adoptMesonet);
   el("metar-product").addEventListener("change",event=>{
-    const previous=mode;
-    const next=["plots","clouds","mesonet"].includes(event.target.value)?event.target.value:"plots";
-    const changedGroup=viewGroup(previous)!==viewGroup(next);
-    if(map&&changedGroup){
-      const center=map.getCenter();views[viewGroup(previous)]={center:[center.lat,center.lng],zoom:map.getZoom()};
-      draw([]);
-    }
-    if(previous!=="mesonet")wantedHour=data?.history[index]?.hour||wantedHour;
-    mode=next;
+    mode=event.target.value==="clouds"?"clouds":"plots";
     el("metar-product").value=mode;
-    showProduct();
-    if(changedGroup)syncRoads();
-    el("refresh-metar").disabled=mode==="mesonet"?mesonetBusy:busy;
-    if(mode!=="mesonet"&&data)prepareSpacing();
-    if(map&&(changedGroup||window.WeatherDefaultViews?.savedMetar?.(mode))){
-      const view=changedGroup&&!window.WeatherDefaultViews?.savedMetar?.(mode)&&views[viewGroup(mode)];
-      if(view)map.setView(view.center,view.zoom,{animate:false});else reset();
-    }
-    if(mode!=="mesonet"&&!data)el("metar-time").textContent="Loading hourly METARs…";
+    if(data)prepareSpacing();
+    if(map&&window.WeatherDefaultViews?.savedMetar?.(mode))reset();
     render();
     load();
   });
@@ -237,8 +163,7 @@ window.WeatherMetars = (() => {
   });
   el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);wantedHour=data.history[index]?.hour;followLatest=index===data.history.length-1;render();});
   window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
-  setInterval(()=>{if(mode!=="mesonet"&&!document.hidden&&!el("metar").hidden)load();},30000);
-  setInterval(()=>{if(mode==="mesonet"&&!document.hidden&&!el("metar").hidden)load();},300000);
+  setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){render();load();setTimeout(()=>map?.invalidateSize({pan:false}),0);}}};
 })();
