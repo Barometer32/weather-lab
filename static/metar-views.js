@@ -18,7 +18,7 @@ window.WeatherMetars = (() => {
   function showProduct(){
     const local=mode==="mesonet";
     el("metar-history").hidden=local;
-    el("metar-eyebrow").textContent=local?"HENNEPIN WEST · HENNEPIN COUNTY":"AIRPORT METARS · UPPER MIDWEST";
+    el("metar-eyebrow").textContent=local?"HENNEPIN WEST MESONET":"AIRPORT METARS · UPPER MIDWEST";
   }
   showProduct();
   function reset(){
@@ -77,10 +77,10 @@ window.WeatherMetars = (() => {
     };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
-  function visible(stations,layout=sites){
+  function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
     const boxes=[],keep=new Set();
-    for(const {station,f} of layout){
+    for(const {station,f} of sites){
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
       if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
       boxes.push(box);keep.add(station.station);
@@ -113,7 +113,7 @@ window.WeatherMetars = (() => {
       const plots=plotCaches[mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{dot:true,showLightDirection:mode==="mesonet"}),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{dot:true,mphBarbs:mode==="mesonet"}),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",mode==="mesonet"&&station.displayName?`${station.displayName} (${station.station})`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode==="mesonet"),layer=model.firstCloudLayer(station);
@@ -122,7 +122,10 @@ window.WeatherMetars = (() => {
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
         popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
       }
-      if(barb.kind==="barb"&&barb.roundedKnots>0)popup.append(node("p",`Barb feathers: ${barb.roundedKnots} kt (nearest 5 kt)`));
+      if(barb.kind==="barb"){
+        if(mode==="mesonet"&&barb.roundedMph>0)popup.append(node("p",`Barb feathers: ${barb.roundedMph} mph`));
+        else if(barb.roundedKnots>0)popup.append(node("p",`Barb feathers: ${barb.roundedKnots} kt (nearest 5 kt)`));
+      }
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);
       }
@@ -134,13 +137,14 @@ window.WeatherMetars = (() => {
     init();
     const stations=(mesonet?.stations||[]).filter(s=>Date.now()-Date.parse(s.time)<=3600000);
     if(!mesonetFitted&&stations.length){mesonetFitted=true;reset();}
-    draw(visible(stations,stations.map(station=>({station,f:model.combinedFootprint(station,{dot:true,showLightDirection:true})}))));
+    // Keep every reporting network site available even when labels are close.
+    draw(stations);
     const newest=Math.max(...stations.map(s=>Date.parse(s.time)));
     const delayed=mesonetError||mesonet?.stale||mesonet?._savedCopy||Date.now()-newest>1200000;
     el("metar-time").textContent=stations.length?`Newest: ${time.format(new Date(newest))}${delayed?" · Delayed":""}`
       :mesonetBusy?"Loading Mesonet readings…":"No recent Mesonet readings";
     el("metar-status").textContent=mesonetError||`${stations.length} Hennepin West stations · checked every 5 minutes`;
-    el("metar-map").setAttribute("aria-label","Hennepin West Mesonet temperature, dewpoint and wind barbs in Hennepin County");
+    el("metar-map").setAttribute("aria-label","Hennepin West Mesonet temperature, dewpoint and wind barbs");
   }
   function adoptMesonet(next){
     if(!Array.isArray(next?.stations)||next===mesonet||next._savedCopy&&mesonet&&!mesonet._savedCopy)return;

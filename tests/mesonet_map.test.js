@@ -14,7 +14,7 @@ get('metar-product').value='mesonet';
 const now=Date.now(),at=(minutes)=>new Date(now-minutes*60000).toISOString();
 const station=(id,lat=3,extra={})=>({station:id,displayName:'Hopkins',time:at(10),lat,lon:2,
   tempF:40,dewpointF:35,wind:{speedMph:12,direction:270},layers:[{cover:'CLR'}],...extra});
-let mesonet={stations:[station('HPN20'),station('HPN38',4,{wind:{speedMph:1,direction:180}}),station('HPN26',5,{time:at(61)})],
+let mesonet={stations:[station('HPN20'),station('HPN38',3.03,{wind:{speedMph:1,direction:180}}),station('HPN26',5,{time:at(61)})],
   bounds:[[1,1],[9,9]],checkedAt:at(1),serverTime:at(0)};
 const airport={history:Array.from({length:4},(_,i)=>({hour:at((3-i)*60),stations:[station('KFCM')]}))};
 let fits=0, zoom=9;
@@ -33,14 +33,14 @@ const flush=()=>new Promise(setImmediate),select=value=>get('metar-product').eve
 (async()=>{
   context.window.WeatherMetars.select('metar');await flush();
   assert.deepEqual(requests,[urls.mesonet]);
-  assert.deepEqual([...shown.keys()],['HPN20 · MESONET','HPN38 · MESONET']);
+  assert.deepEqual([...shown.keys()],['HPN20 · MESONET','HPN38 · MESONET'],'Nearby Mesonet stations are still plotted');
   assert.ok(get('metar-history').hidden);
   assert.equal(map.points.length,3); // Fit the available station extent before hiding overlapping labels.
   const marker=shown.get('HPN20 · MESONET');
   assert.match(marker.icon.html,/plot-temp/);
   assert.match(marker.icon.html,/plot-dew/);
   assert.match(marker.icon.html,/rotate\(270\)/);
-  assert.match(shown.get('HPN38 · MESONET').icon.html,/data-knots="0"[^>]+rotate\(180\)/);
+  assert.match(shown.get('HPN38 · MESONET').icon.html,/data-mph="0"[^>]+rotate\(180\)/);
   assert.ok(marker.popup.children.some(n=>n.textContent.includes('Hopkins (HPN20)')));
   const originalFits=fits;
   mesonet={...mesonet,stations:[station('HPN20',3,{tempF:48}),station('HPN38',4)]};

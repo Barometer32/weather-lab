@@ -96,10 +96,14 @@ def test_public_route_only_reads_saved_data_and_private_route_collects_inventory
     assert result.status_code==200 and result.json['result']['stations']==1
 
 
-def test_mesonet_map_shows_only_recent_county_network_reports():
+def test_mesonet_map_shows_recent_network_reports_except_dakota():
     saved = {'version':obs.VERSION,'checkedAt':obs.iso(NOW),'stations':[
         sample(), sample("HPN29",lat=44.74,lon=-93.12),  # Rosemount, Dakota County.
-        sample("HPN03",lat=44.86,lon=-93.53),  # Chanhassen, outside Hennepin County.
+        sample("HPN50",lat=44.74,lon=-93.12),  # Any other Dakota County site is also excluded.
+        sample("HPN03",lat=44.86,lon=-93.53),  # Chanhassen.
+        sample("HPN30",lat=44.99026,lon=-93.17990),  # Falcon Heights.
+        sample("HPN45",lat=44.94161,lon=-93.09879),  # Science Museum in St. Paul.
+        sample("HPN47",network="CWOP"),
         sample("KMSP",network="Airport ASOS (5 min)"),
         sample("HPN26",time=obs.iso(NOW-timedelta(minutes=61))),
         sample("HPN28",tempF=None,dewpointF=None,wind={}),
@@ -110,6 +114,22 @@ def test_mesonet_map_shows_only_recent_county_network_reports():
         response=app.app.test_client().get('/api/observation-stations?view=mesonet')
     assert response.status_code==200
     result=response.json
-    assert {r['station'] for r in result['stations']}=={'HPN20','HPN38'}
+    assert {r['station'] for r in result['stations']}=={'HPN03','HPN20','HPN30','HPN38','HPN45'}
     assert result['checkedAt']==obs.iso(NOW)
-    assert all(obs.in_county(r['lat'],r['lon']) for r in result['stations'])
+    assert all(not obs.in_county(r['lat'],r['lon'],'dakota') for r in result['stations'])
+
+
+def test_expanded_collection_ignores_old_conditional_metadata():
+    key = 'mesonet/20261024_1800.gz'
+    store = Store({obs.KEY:{'version':obs.VERSION,'stations':[sample()],
+                           'files':{key:{'metadata':{'etag':'old'}}}}})
+    calls = []
+    def download(url, metadata):
+        calls.append(metadata)
+        return b'data', {'etag':'new'}
+    with patch('regional_madis.parse_file',return_value=[sample("HPN45",lat=44.94161,lon=-93.09879)]) as parse:
+        obs.collect(store,NOW,download)
+    assert calls==[None,None]
+    assert all(call.kwargs['station_prefix']=='HPN' for call in parse.call_args_list)
+    assert store.read_json(obs.KEY)['coverage']==obs.COVERAGE
+    assert {r['station'] for r in store.read_json(obs.KEY)['stations']}=={'HPN20','HPN45'}

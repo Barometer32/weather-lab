@@ -44,7 +44,7 @@ def fetch(url, previous=None, timeout=60):
         raise
 
 
-def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, include_invalid=False, sensor_status_checks=False, derive_dewpoint=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
+def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=None, station_prefix=None, include_invalid=False, sensor_status_checks=False, derive_dewpoint=False, excluded_stations=("KCFE", "KFCE", "KSGS", "KDEH")):
     """Return local usable measurements without copying the national arrays."""
     v = dataset.variables
     required = {"stationId", "observationTime", "latitude", "longitude"}
@@ -92,6 +92,9 @@ def parse_dataset(dataset, now, *, window_start=None, window_end=None, bounds=No
     end = window_end.timestamp() if window_end else target.timestamp()
     indices = np.flatnonzero((lat >= south) & (lat <= north) & (lon >= west) & (lon <= east)
                              & (stamp >= start) & (stamp < end))
+    if station_prefix:
+        prefix = np.frombuffer(station_prefix.encode("ascii"), dtype="S1")
+        indices = indices[np.all(v["stationId"][indices, :len(prefix)] == prefix, axis=1)]
     rows = []
     for i in indices:
         station = text("stationId", i)

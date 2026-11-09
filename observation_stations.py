@@ -1,4 +1,4 @@
-"""Latest public Hennepin West stations in Hennepin County; no averaging."""
+"""Latest public Hennepin West stations, excluding Dakota County."""
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import json
@@ -8,6 +8,8 @@ import re
 from urllib.error import HTTPError
 
 VERSION = "hennepin-west-station-list-v1"
+COVERAGE = "hennepin-west-no-dakota-v1"
+FALLBACK_BOUNDS = [[44.70,-94.00],[45.35,-92.95]]
 KEY = "live/observation-stations.json"
 UTC = timezone.utc
 
@@ -16,9 +18,9 @@ def iso(moment):
     return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-@lru_cache(maxsize=1)
-def county_geometry():
-    return json.loads((Path(__file__).parent / "static/hennepin-county.geojson").read_text())["features"][0]["geometry"]
+@lru_cache(maxsize=2)
+def county_geometry(county):
+    return json.loads((Path(__file__).parent / "static" / f"{county}-county.geojson").read_text())["features"][0]["geometry"]
 
 
 def inside_ring(lon, lat, ring):
@@ -32,19 +34,22 @@ def inside_ring(lon, lat, ring):
     return inside
 
 
-def in_county(lat, lon):
+def in_county(lat, lon, county="hennepin"):
     if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (lat,lon)):
         return False
-    geometry = county_geometry()
+    geometry = county_geometry(county)
     polygons = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
     return any(inside_ring(lon,lat,polygon[0]) and not any(inside_ring(lon,lat,hole) for hole in polygon[1:]) for polygon in polygons)
 
 
-def bounds():
-    geometry = county_geometry()
-    polygons = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
-    points = [point for polygon in polygons for ring in polygon for point in ring]
-    return min(p[1] for p in points),min(p[0] for p in points),max(p[1] for p in points),max(p[0] for p in points)
+def included_site(row):
+    station = row.get("station")
+    lat, lon = row.get("lat"), row.get("lon")
+    return (row.get("network") == "Hennepin West" and isinstance(station, str)
+            and re.fullmatch(r"HPN[0-9]+", station) is not None and station != "HPN29"
+            and isinstance(lat, (float, int)) and -90 <= lat <= 90
+            and isinstance(lon, (float, int)) and -180 <= lon <= 180
+            and not in_county(lat, lon, "dakota"))
 
 
 def latest(rows, now):
@@ -52,7 +57,7 @@ def latest(rows, now):
     selected = {}
     for source in rows:
         row = dict(source)
-        if row.get("network") != "Hennepin West" or not row.get("station") or not in_county(row.get("lat"),row.get("lon")):
+        if not included_site(row):
             continue
         try:
             stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
@@ -76,7 +81,7 @@ def present(saved, now):
         stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
         row["ageMinutes"] = round((now-stamp).total_seconds()/60,1)
     checked = saved.get("checkedAt")
-    return {"version":VERSION,"region":"Hennepin County","stations":stations,
+    return {"version":VERSION,"region":"Hennepin West, excluding Dakota County","stations":stations,"coverage":saved.get("coverage"),
             "networks":sorted({row.get("network") or "Other" for row in stations}),
             "checkedAt":checked,"serverTime":iso(now),"sourceFailures":saved.get("sourceFailures",[]),
             "collectorDelayed":not checked or (now-datetime.fromisoformat(checked.replace("Z", "+00:00"))).total_seconds()>360,
@@ -87,13 +92,14 @@ def present_map(saved, now):
     result = present(saved, now)
     rows = []
     for row in result["stations"]:
-        if (not re.fullmatch(r"HPN[0-9]+", row["station"]) or row["ageMinutes"] > 60
+        if (row["ageMinutes"] > 60
                 or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
             continue
         rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
                     "ageMinutes", "tempF", "dewpointF", "wind") if key in row})
-    south, west, north, east = bounds()
-    return {"stations":rows,"bounds":[[south,west],[north,east]],"checkedAt":result["checkedAt"],
+    bounds = [[min(r["lat"] for r in rows),min(r["lon"] for r in rows)],
+              [max(r["lat"] for r in rows),max(r["lon"] for r in rows)]] if len(rows) > 1 else FALLBACK_BOUNDS
+    return {"stations":rows,"bounds":bounds,"checkedAt":result["checkedAt"],"coverage":result["coverage"],
             "serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
             "source":"NOAA MADIS · Hennepin West"}
 
@@ -109,14 +115,16 @@ def collect(store, now, download=None):
     for offset in (0,1):
         filename = (hour-timedelta(hours=offset)).strftime("%Y%m%d_%H00.gz")
         key = "mesonet/"+filename
-        old = previous.get("files",{}).get(key,{})
+        # Re-read the source after a coverage change, even with unchanged ETags.
+        old = previous.get("files",{}).get(key,{}) if previous.get("coverage") == COVERAGE else {}
         try:
             payload, meta = download(regional_madis.SOURCE+filename,old.get("metadata"))
             if payload is None:
                 fresh = old.get("stations",[])
             else:
                 parsed = regional_madis.parse_file(payload,now,window_start=now-timedelta(hours=2),
-                    window_end=now+timedelta(microseconds=1),bounds=bounds(),include_invalid=True,excluded_stations=())
+                    window_end=now+timedelta(microseconds=1),bounds=(-90,-180,90,180),station_prefix="HPN",
+                    include_invalid=True,excluded_stations=())
                 fresh = latest(parsed,now)
             files[key] = {"metadata":meta,"stations":fresh}
             rows.extend(fresh)
@@ -127,7 +135,7 @@ def collect(store, now, download=None):
             if old:
                 files[key] = old
                 rows.extend(old.get("stations",[]))
-    saved = {"version":VERSION,"stations":latest(rows,now),"files":files,"checkedAt":iso(now),"sourceFailures":errors}
+    saved = {"version":VERSION,"coverage":COVERAGE,"stations":latest(rows,now),"files":files,"checkedAt":iso(now),"sourceFailures":errors}
     if not saved["stations"]:
         raise ValueError("No public Hennepin West observations are available; previous inventory retained")
     store.write_json(KEY,saved)
@@ -140,4 +148,4 @@ if __name__ == "__main__":
     if store is None:
         raise ValueError("WEATHER_DATA_BUCKET is required")
     result = collect(store,datetime.now(UTC))
-    print(len(result["stations"]),"public Hennepin County stations; average not selected",flush=True)
+    print(len(result["stations"]),"public Hennepin West stations outside Dakota County",flush=True)
