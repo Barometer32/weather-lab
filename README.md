@@ -275,11 +275,12 @@ The cleanup job is deleted after completion. The five weather tabs, their
 schedules and service configuration remain. Device location is disabled on all
 weather pages.
 
-The public METAR view now offers airport PLOTS and CLOUDS. The retired MESONET
-map and its collector route are no longer served. The release script
-`release-airport-asos-audit.sh` starts a separate private Minnesota HFMETAR
-timing check every five minutes. It retains 48 hours of report timestamps and
-poll results and does not supply observations to the public maps.
+The public METAR view offers hourly airport PLOTS and CLOUDS plus HRMETAR.
+`release-hrmetar.sh` adds the public map to the existing five-minute audit.
+HRMETAR shows each airport's latest report within the last 30 minutes, with its
+actual observation time. The timing audit uses the same downloads and retains
+48 hours of report timestamps and poll results. The retired MESONET map and its
+collector route are no longer served.
 
 From this checkout, read the audit with:
 

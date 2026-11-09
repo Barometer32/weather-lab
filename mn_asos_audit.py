@@ -1,4 +1,4 @@
-"""Private Minnesota HFMETAR timing audit. The public maps do not use this data."""
+"""Minnesota HFMETAR timing audit and shared source downloads."""
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -39,7 +39,7 @@ def parse_timing(payload):
             yield station, int(obs), arrival
 
 
-def collect(store, now, download=None):
+def collect(store, now, download=None, *, publish_map=False):
     from madis_observations import fetch_file, file_url
 
     download = download or fetch_file
@@ -53,14 +53,15 @@ def collect(store, now, download=None):
 
     def read(target):
         try:
-            return list(parse_timing(download(file_url(target)))), None
+            payload = download(file_url(target))
+            return list(parse_timing(payload)), None, payload
         except (HTTPError, TimeoutError, OSError, ValueError, KeyError) as error:
-            return [], f"{target:%Y%m%d_%H} UTC: {error}"[:200]
+            return [], f"{target:%Y%m%d_%H} UTC: {error}"[:200], None
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         batches = list(pool.map(read, (hour, hour - timedelta(hours=1))))
-    errors = [error for _, error in batches if error]
-    for batch, _ in batches:
+    errors = [error for _, error, _ in batches if error]
+    for batch, _, _ in batches:
         for station, obs, received in batch:
             if not stamp - WINDOW <= obs <= stamp:
                 continue
@@ -73,8 +74,12 @@ def collect(store, now, download=None):
     store.write_json(KEY, data)
     if len(errors) == len(batches):
         raise RuntimeError("Neither MADIS hour file was available: " + "; ".join(errors))
-    return {"stations": len({row[0] for row in data["reports"] if row[1] >= stamp - 3600}),
-            "reports": len(reports), "fileErrors": errors}
+    result = {"stations": len({row[0] for row in data["reports"] if row[1] >= stamp - 3600}),
+              "reports": len(reports), "fileErrors": errors}
+    if publish_map:
+        from hrmetar import prepare
+        result["mapStations"] = prepare(store, now, (p for _, _, p in reversed(batches) if p is not None))
+    return result
 
 
 def summarize(data):

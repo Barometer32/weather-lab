@@ -5,7 +5,8 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const paths=[metarLoop,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const hrmetar="/api/hrmetar";
+  const paths=[metarLoop,hrmetar,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -83,7 +84,7 @@ window.WeatherPrepared = (() => {
     // Prime the default tabs' small manifests. Images and radar scans
     // start loading when the visitor opens the corresponding tab.
     try{await read(metarLoop);}catch(_){}
-    return Promise.allSettled(paths.filter(url=>url!==metarLoop&&!url.endsWith("/dcphase")&&!url.endsWith("/ntmicro")).map(url=>read(url)));
+    return Promise.allSettled(paths.filter(url=>url!==metarLoop&&url!==hrmetar&&!url.endsWith("/dcphase")&&!url.endsWith("/ntmicro")).map(url=>read(url)));
   }
   return {read,subscribe,prime,radar,image};
 })();

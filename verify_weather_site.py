@@ -51,7 +51,7 @@ def verify(base, fetch=None, *, metar_hours=12):
     if not (combined or separate):
         raise ValueError('The saved METAR station model is missing')
     picker = re.search(r'<select id="metar-product"[^>]*>(.*?)</select>', html)
-    if picker and re.findall(r'<option value="([^"]+)"[^>]*>', picker[1]) not in (['plots', 'clouds'], ['mesonet', 'plots', 'clouds']):
+    if picker and re.findall(r'<option value="([^"]+)"[^>]*>', picker[1]) not in (['plots', 'clouds'], ['plots', 'clouds', 'hrmetar'], ['mesonet', 'plots', 'clouds']):
         raise ValueError('Unexpected observation dropdown options')
     metars = json.loads(fetch('/api/station-plots'))
     if not ready_metar_loop(metars, metar_hours):

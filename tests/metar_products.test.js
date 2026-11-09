@@ -7,18 +7,25 @@ const station=(id,lat,layers=[])=>({station:id,name:id==='HPN20'?'Hopkins MN US 
 const make=stations=>({checkedAt:'2026-10-31T04:00:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,30,17+i)).toISOString(),stations}))});
 let airports=make([station('KFCM',2,[{cover:'BKN',baseFtAGL:4000}]),station('KMIC',4,[{cover:'OVC',baseFtAGL:25000}]),station('KMSP',6,[{cover:'SCT',baseFtAGL:1000}]),station('KCLEAR',8,[{cover:'CLR',baseFtAGL:null}])]);
 let viewCalls=[],savedViews={};
-const map={getCenter(){return{lat:44.91,lng:-93.4};},getZoom(){return 10.25;},setView(center,zoom){viewCalls.push({center,zoom});return this;},getSize(){return{x:1000,y:700};},on(k,f){callbacks[k]=f;},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},invalidateSize(){}};
+const map={fitBounds(){return this;},getCenter(){return{lat:44.91,lng:-93.4};},getZoom(){return 10.25;},setView(center,zoom){viewCalls.push({center,zoom});return this;},getSize(){return{x:1000,y:700};},on(k,f){callbacks[k]=f;},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},invalidateSize(){}};
 const group={addTo(){return this;},removeLayer(m){shown=shown.filter(s=>s!==m);}};
-const context={window:{WeatherPrepared:{subscribe(url,fn){subscribers.set(url,fn);},async read(url,options){reads.push([url,options]);if(fail)throw Error('Offline');assert.equal(url,'/api/station-plots?view=loop');return airports;}},WeatherDefaultViews:{metar(){return{center:[44,-93],zoom:9};},savedMetar(mode){return savedViews[mode];},saveMetar(mode,center,zoom){savedViews[mode]={center,zoom};return true;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Math,Number,Date,Intl,Map,Set,WeakMap,setTimeout(){},setInterval(){},L:{map(){return map;},tileLayer(){return{addTo(){}};},layerGroup(){return group;},divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(p){this.position=p;return this;},setPopupContent(p){this.popup=p;return this;}})}};
+const context={window:{WeatherPrepared:{subscribe(url,fn){subscribers.set(url,fn);},async read(url,options){reads.push([url,options]);if(fail)throw Error('Offline');if(url==='/api/hrmetar')return{stations:[
+  {...station('KMSP',6),time:new Date(Date.now()-5*60000).toISOString()},
+  {...station('KOLD',7),time:new Date(Date.now()-31*60000).toISOString()},
+ ]};assert.equal(url,'/api/station-plots?view=loop');return airports;}},WeatherDefaultViews:{metar(){return{center:[44,-93],zoom:9};},savedMetar(mode){return savedViews[mode];},saveMetar(mode,center,zoom){savedViews[mode]={center,zoom};return true;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Math,Number,Date,Intl,Map,Set,WeakMap,setTimeout(){},setInterval(){},L:{map(){return map;},tileLayer(){return{addTo(){}};},layerGroup(){return group;},divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(p){this.position=p;return this;},setPopupContent(p){this.popup=p;return this;}})}};
 for(const f of ['metar-model','metar-views'])vm.runInNewContext(fs.readFileSync('static/'+f+'.js','utf8'),context);
 const flush=()=>new Promise(r=>setImmediate(r));
 const select=async mode=>{get('metar-product').value=mode;get('metar-product').events.change({target:{value:mode}});await flush();};
 (async()=>{
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(get('metar-product').value,'plots');assert.equal(shown.length,4);
+ assert.equal(get('metar-history').hidden,false,'PLOTS displays the four-hour slider');
+ assert.equal(get('metar-timeline').max,'3');
  assert.ok(shown[0].icon.html.includes('wind-barb'));assert.doesNotMatch(shown[0].icon.html,/plot-sky|plot-ceiling/);
  get('metar-timeline').events.input({target:{value:'3'}});const hour=get('metar-time').textContent;
- await select('clouds');assert.equal(shown.length,4);assert.ok(shown.every(m=>/plot-sky/.test(m.icon.html)&&!/plot-temp|plot-dew|wind-barb/.test(m.icon.html)));
+ await select('clouds');assert.equal(shown.length,4);
+ assert.equal(get('metar-history').hidden,false,'CLOUDS displays the same four-hour slider');
+ assert.equal(get('metar-timeline').max,'3');assert.ok(shown.every(m=>/plot-sky/.test(m.icon.html)&&!/plot-temp|plot-dew|wind-barb/.test(m.icon.html)));
  assert.ok(shown.some(m=>/plot-ceiling[^>]*>4</.test(m.icon.html)));assert.ok(shown.some(m=>/plot-ceiling[^>]*>25</.test(m.icon.html)));
  assert.equal(get('metar-time').textContent,hour,'Changing product preserves the selected hour');
  get('metar-set-default').events.click();assert.equal(savedViews.clouds.zoom,10.25);
@@ -28,7 +35,15 @@ const select=async mode=>{get('metar-product').value=mode;get('metar-product').e
  assert.deepEqual(shown.map(m=>m.title),old);assert.match(get('metar-status').textContent,/Previous reports retained/);
  fail=false;await select('madis');assert.equal(get('metar-product').value,'plots','Retired mode cannot be selected');
  assert.ok(reads.every(([url])=>url==='/api/station-plots?view=loop'),'Only airport data is read');
- assert.deepEqual([...subscribers.keys()],['/api/station-plots?view=loop'],'No MADIS subscription remains');
+ assert.deepEqual([...subscribers.keys()],['/api/station-plots?view=loop','/api/hrmetar'],'The only separate map is Minnesota ASOS');
+ await select('hrmetar');
+ assert.deepEqual(shown.map(m=>m.title),['KMSP · HRMETAR'],'HRMETAR expires stale cached plots and clears hourly markers');
+ assert.equal(get('metar-history').hidden,true);
+ assert.match(get('metar-time').textContent,/Newest.*1 airport/);
+ await select('plots');
+ assert.equal(get('metar-history').hidden,false);
+ assert.equal(shown.length,4);
+ assert.equal(get('metar-timeline').value,'3');
  const html=fs.readFileSync('static/index.html','utf8');assert.doesNotMatch(html,/<option value="madis">/);
  console.log('Airport choices passed: dot/barb plots, numeric clouds, hourly selection, saved defaults, failed refresh retention and no MADIS reads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
