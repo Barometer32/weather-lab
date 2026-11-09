@@ -9,6 +9,10 @@ from urllib.error import HTTPError
 
 VERSION = "hennepin-west-station-list-v1"
 COVERAGE = "hennepin-west-no-dakota-v1"
+MAP_STATION_POLICY = "hanover-orono-no-dayton-v1"
+# MADIS coordinates (lat, lon) of the two stations that anchor the west edge.
+HANOVER = (45.167701721191406, -93.63433074951172)
+ORONO = (44.93629837036133, -93.62004852294922)
 FALLBACK_BOUNDS = [[44.70,-94.00],[45.35,-92.95]]
 KEY = "live/observation-stations.json"
 UTC = timezone.utc
@@ -88,11 +92,24 @@ def present(saved, now):
             "average":None}
 
 
+def included_on_map(row):
+    station = row["station"]
+    if station == "HPN27":  # Dayton
+        return False
+    if station in ("HPN04", "HPN08", "HPN31"):  # Hanover, Orono and Blaine
+        return True
+    # Follow the line between Hanover and Orono and extend their respective
+    # longitudes north and south. This keeps Long Lake, east of the line.
+    fraction = max(0, min(1, (row["lat"] - ORONO[0]) / (HANOVER[0] - ORONO[0])))
+    west_edge = ORONO[1] + fraction * (HANOVER[1] - ORONO[1])
+    return row["lon"] >= west_edge
+
+
 def present_map(saved, now):
     result = present(saved, now)
     rows = []
     for row in result["stations"]:
-        if (row["ageMinutes"] > 60
+        if (not included_on_map(row) or row["ageMinutes"] > 60
                 or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
             continue
         rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
@@ -100,7 +117,7 @@ def present_map(saved, now):
     bounds = [[min(r["lat"] for r in rows),min(r["lon"] for r in rows)],
               [max(r["lat"] for r in rows),max(r["lon"] for r in rows)]] if len(rows) > 1 else FALLBACK_BOUNDS
     return {"stations":rows,"bounds":bounds,"checkedAt":result["checkedAt"],"coverage":result["coverage"],
-            "serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
+            "stationPolicy":MAP_STATION_POLICY,"serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
             "source":"NOAA MADIS · Hennepin West"}
 
 

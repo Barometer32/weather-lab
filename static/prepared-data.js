@@ -5,14 +5,17 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const paths=[metarLoop,"/api/observation-stations?view=mesonet","/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const mesonetMap="/api/observation-stations?view=mesonet";
+  // Keep old Mesonet rosters out of the map without discarding other saved weather.
+  const cacheKey=url=>url===mesonetMap?url+"&roster=hanover-orono-v1":url;
+  const paths=[metarLoop,mesonetMap,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   // Drop the retired product manifest without disturbing other saved weather.
   disk().then(cache=>cache?.delete("/api/satellite/13")).catch(()=>{});
   async function remember(url,data,stamp){
-    try{const cache=await disk();if(cache)await cache.put(url,new Response(JSON.stringify(data),{headers:{"Content-Type":"application/json","X-Weather-Saved-At":String(stamp)}}));}catch(_){}
+    try{const cache=await disk();if(cache)await cache.put(cacheKey(url),new Response(JSON.stringify(data),{headers:{"Content-Type":"application/json","X-Weather-Saved-At":String(stamp)}}));}catch(_){}
   }
   function subscribe(url,callback){
     if(!listeners.has(url))listeners.set(url,new Set());listeners.get(url).add(callback);
@@ -39,7 +42,7 @@ window.WeatherPrepared = (() => {
     if(old&&Date.now()-old.stamp<maxSavedAge(url))return {...old.data,_savedCopy:true};
     try{
       const cache=await disk();
-      const response=await cache?.match(url)||(url===metarLoop?await cache?.match("/api/station-plots"):null);
+      const response=await cache?.match(cacheKey(url))||(url===metarLoop?await cache?.match("/api/station-plots"):null);
       const stamp=Number(response?.headers.get("X-Weather-Saved-At"));
       if(response&&Number.isFinite(stamp)&&Date.now()-stamp<maxSavedAge(url)){
         // A faster network response must never be overwritten by the disk copy.

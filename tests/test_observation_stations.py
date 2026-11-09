@@ -133,3 +133,26 @@ def test_expanded_collection_ignores_old_conditional_metadata():
     assert all(call.kwargs['station_prefix']=='HPN' for call in parse.call_args_list)
     assert store.read_json(obs.KEY)['coverage']==obs.COVERAGE
     assert {r['station'] for r in store.read_json(obs.KEY)['stations']}=={'HPN20','HPN45'}
+
+
+def test_mesonet_map_trims_west_edge_and_dayton_without_changing_inventory():
+    sites = {
+        "HPN04": obs.HANOVER,
+        "HPN08": obs.ORONO,
+        "HPN31": (45.16541, -93.22459),  # Blaine
+        "HPN37": (44.99254, -93.62081),  # Long Lake
+        "HPN03": (44.84944, -93.56417),  # Chanhassen
+        "HPN27": (45.20420, -93.48487),  # Dayton
+        "HPN44": (45.04616, -93.78015),  # Delano
+        "HPN19": (45.08797, -93.69137),  # Greenfield
+        "HPN06": (44.97219, -93.68444),  # Minnetrista
+        "HPN10": (45.09689, -93.74369),  # Rockford
+        "HPN11": (44.89792, -93.73461),  # Saint Bonifacius
+        "HPN60": (45.25, -93.75),        # A future site northwest of Hanover
+    }
+    saved = {"version": obs.VERSION, "coverage": obs.COVERAGE, "checkedAt": obs.iso(NOW),
+             "stations": [sample(code, lat=lat, lon=lon) for code, (lat, lon) in sites.items()]}
+    result = obs.present_map(saved, NOW)
+    assert {row["station"] for row in result["stations"]} == {"HPN04", "HPN08", "HPN31", "HPN37", "HPN03"}
+    assert result["bounds"][0][1] == obs.HANOVER[1]
+    assert {row["station"] for row in obs.present(saved, NOW)["stations"]} == set(sites)
