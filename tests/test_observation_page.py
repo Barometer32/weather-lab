@@ -3,22 +3,25 @@ from unittest.mock import patch
 import app
 
 
-def test_metar_default_and_separate_rolling_observations():
+def test_observations_is_the_current_only_home_page():
     with patch('app.get_store') as store,patch('app.download') as source:
         response=app.app.test_client().get('/')
     source.assert_not_called();store.assert_not_called()
     html=response.get_data(as_text=True)
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','observations','radar','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['observations','metar','radar','satellite','forecast','air-quality']
+    assert 'id="tab-observations" aria-selected="true"' in html
     metar=html.split('<section id="metar"')[1].split('</section>')[0]
     satellite=html.split('<section id="satellite"')[1].split('</section>')[0]
     assert 'id="sun-angle"' in metar and 'sun-angle' not in satellite
     assert html.count('id="sun-angle"')==1
     observations=html.split('<section id="observations"')[1].split('</section>')[0]
-    assert 'id="observations-sun"' in observations
-    assert re.findall(r'<th scope="col">([^<]+)</th>',observations)==['Time','Temp','Dew point','Wind']
+    assert ' hidden' not in observations.split('>',1)[0]
+    assert ' hidden' in metar.split('>',1)[0]
+    assert re.findall(r'<h2>([^<]+)</h2>',observations)==['Temperature','Dew point','Wind','Sun angle']
+    assert '<table' not in observations and 'history' not in observations
     assert re.findall(r'<option value="([^"]+)"',metar)==['plots','clouds']
     assert 'id="metar-timeline"' in metar and ':45–:59' in metar
-    assert 'tab-clouds' not in html and 'rolling-observation-history' in html
+    assert 'tab-clouds' not in html
     for retired in ('observation-views.js','cloud-height-views.js','current-views.js','model-views.js'):assert '/static/'+retired not in html
     assert 'metar-views.js' in html and 'prepared-data.js' in html
     assert response.headers['Cache-Control']=='no-store'

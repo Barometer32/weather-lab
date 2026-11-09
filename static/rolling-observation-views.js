@@ -25,18 +25,9 @@ window.WeatherRollingObservations = (() => {
     el("observations-temperature").textContent=degrees(current?.tempF);
     el("observations-dewpoint").textContent=degrees(current?.dewpointF);
     el("observations-wind").textContent=windText(current?.wind);
-    const rows=(data?.history||[]).map(slot=>{
-      const row=document.createElement("tr"),heading=document.createElement("th");
-      heading.scope="row";heading.textContent=formatTime(slot.time);row.append(heading);
-      for(const value of [degrees(slot.reading?.tempF),degrees(slot.reading?.dewpointF),windText(slot.reading?.wind)]){
-        const cell=document.createElement("td");cell.textContent=value;row.append(cell);
-      }
-      return row;
-    });
-    el("rolling-observation-history").replaceChildren(...rows);
   }
   function adopt(next){
-    if(next===data||!Array.isArray(next?.history)||next._savedCopy&&data&&!data._savedCopy)return;
+    if(next===data||!Object.hasOwn(next??{},"current")||next._savedCopy&&data&&!data._savedCopy)return;
     data=next;error=null;
     if(!el("observations").hidden&&next.serverTime&&!next._savedCopy)window.WeatherSun?.sync(next.serverTime);
     render();

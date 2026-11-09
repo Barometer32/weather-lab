@@ -275,7 +275,7 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar","observations","radar","satellite","forecast","air-quality"];
+const tabs = ["observations","metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
@@ -313,7 +313,8 @@ $("radar-reset-view").addEventListener("click",()=>{
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen",label:"radar",onResize:()=>map?.invalidateSize({pan:false})});
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});
-selectTab("metar");
+selectTab(tabs[0]);
+window.addEventListener("pageshow",event=>{if(event.persisted)selectTab(tabs[0]);});
 setTimeout(()=>window.WeatherPrepared.prime(),0);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
