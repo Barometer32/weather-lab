@@ -4,6 +4,7 @@ from functools import lru_cache
 import json
 import math
 from pathlib import Path
+import re
 from urllib.error import HTTPError
 
 VERSION = "hennepin-west-station-list-v1"
@@ -80,6 +81,21 @@ def present(saved, now):
             "checkedAt":checked,"serverTime":iso(now),"sourceFailures":saved.get("sourceFailures",[]),
             "collectorDelayed":not checked or (now-datetime.fromisoformat(checked.replace("Z", "+00:00"))).total_seconds()>360,
             "average":None}
+
+
+def present_map(saved, now):
+    result = present(saved, now)
+    rows = []
+    for row in result["stations"]:
+        if (not re.fullmatch(r"HPN[0-9]+", row["station"]) or row["ageMinutes"] > 60
+                or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
+            continue
+        rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
+                    "ageMinutes", "tempF", "dewpointF", "wind") if key in row})
+    south, west, north, east = bounds()
+    return {"stations":rows,"bounds":[[south,west],[north,east]],"checkedAt":result["checkedAt"],
+            "serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
+            "source":"NOAA MADIS · Hennepin West"}
 
 
 def collect(store, now, download=None):

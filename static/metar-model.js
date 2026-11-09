@@ -87,7 +87,7 @@ window.WeatherStationModel = (() => {
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
   const barbScale=1.1448,barbLengthScale=.9405;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
-  function combinedWind(wind={}){
+  function combinedWind(wind={},showLightDirection=false){
     wind=wind||{};
     const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
     const knots=Number.isFinite(wind.speedKnots)&&wind.speedKnots>=0?wind.speedKnots:speed==null?null:speed/1.150779;
@@ -95,7 +95,7 @@ window.WeatherStationModel = (() => {
     if(knots===0)return {kind:"calm",speed,points:[]};
     if(!Number.isFinite(wind.direction))return {kind:"unknown",speed,state:wind.variable?"VRB":"?",points:[]};
     const roundedKnots=5*Math.round(knots/5);
-    if(roundedKnots===0)return {kind:"calm",speed,roundedKnots,points:[]};
+    if(roundedKnots===0&&!showLightDirection)return {kind:"calm",speed,roundedKnots,points:[]};
     const flags=Math.floor(roundedKnots/50),full=Math.floor((roundedKnots%50)/10),half=roundedKnots%10>=5;
     // Extend the staff 5%; feather dimensions and spacing stay unchanged.
     const length=1.05*Math.max(28,6+flags*8+full*5+(half?5:0));
@@ -120,15 +120,15 @@ window.WeatherStationModel = (() => {
     const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
     return `<g class="wind-barb" data-knots="${wind.roundedKnots}" transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation}) scale(${barbScale})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
   }
-  function combinedStationModel(station,{mesonet=false,dot=false}={}){
-    const w=combinedWind(station.wind),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+  function combinedStationModel(station,{mesonet=false,dot=false,showLightDirection=false}={}){
+    const w=combinedWind(station.wind,showLightDirection),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
     const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
     const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
-  function combinedFootprint(station,{mesonet=false,dot=false}={}){
-    const c=combined,w=combinedWind(station.wind),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+  function combinedFootprint(station,{mesonet=false,dot=false,showLightDirection=false}={}){
+    const c=combined,w=combinedWind(station.wind,showLightDirection),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     let left=dot?-3:-8.5,right=dot?3:8.5,top=dot?-3:-8.5,bottom=dot?3:8.5;
     function include(x,y,width,anchor){
       const start=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;

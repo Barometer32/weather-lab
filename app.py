@@ -610,11 +610,12 @@ def observation_api():
 
 @app.get("/api/observation-stations")
 def observation_stations_api():
-    from observation_stations import KEY, present
+    from observation_stations import KEY, present, present_map
     try:
         store = get_store()
         saved = cached("prepared-observation-stations",10,lambda:store.read_json(KEY)) if store else None
-        result = present(saved,utcnow())
+        presenter = present_map if request.args.get("view") == "mesonet" else present
+        result = presenter(saved,utcnow())
         return jsonify(result),200,{"Cache-Control":"no-store"}
     except Exception:
         app.logger.exception("Prepared observation station list unavailable")

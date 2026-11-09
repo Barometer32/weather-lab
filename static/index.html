@@ -12,10 +12,10 @@
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=airport-hourly-all-v1"></script>
-  <script defer src="/static/prepared-data.js?v=compact-start-v1"></script>
-  <script defer src="/static/default-views.js?v=metar-saved-v3"></script>
-  <script defer src="/static/metar-model.js?v=cloud-cover-circle-v2"></script>
-  <script defer src="/static/metar-views.js?v=metar-four-hour-stations-v1"></script>
+  <script defer src="/static/prepared-data.js?v=mesonet-v1"></script>
+  <script defer src="/static/default-views.js?v=mesonet-v1"></script>
+  <script defer src="/static/metar-model.js?v=mesonet-wind-v1"></script>
+  <script defer src="/static/metar-views.js?v=hennepin-mesonet-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=weather-readability-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -33,12 +33,12 @@
 </header>
 <main>
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar">
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">HENNEPIN WEST · HENNEPIN COUNTY</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="mesonet" selected>MESONET</option><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
-      <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
-      <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
+      <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading Mesonet readings…</span>
+      <div class="timeline-control" id="metar-history" hidden><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>

@@ -94,3 +94,22 @@ def test_public_route_only_reads_saved_data_and_private_route_collects_inventory
     with patch('collector.get_store',return_value=store),patch('collector.weather.utcnow',return_value=NOW),patch('observation_stations.collect',return_value={'stations':[sample()],'sourceFailures':[]}):
         result=collector.app.test_client().post('/collect/observation-stations')
     assert result.status_code==200 and result.json['result']['stations']==1
+
+
+def test_mesonet_map_shows_only_recent_county_network_reports():
+    saved = {'version':obs.VERSION,'checkedAt':obs.iso(NOW),'stations':[
+        sample(), sample("HPN29",lat=44.74,lon=-93.12),  # Rosemount, Dakota County.
+        sample("HPN03",lat=44.86,lon=-93.53),  # Chanhassen, outside Hennepin County.
+        sample("KMSP",network="Airport ASOS (5 min)"),
+        sample("HPN26",time=obs.iso(NOW-timedelta(minutes=61))),
+        sample("HPN28",tempF=None,dewpointF=None,wind={}),
+        sample("HPN38",lat=44.83196,lon=-93.47098,dewpointF=None),
+    ]}
+    app._cache.pop('prepared-observation-stations',None)
+    with patch('app.get_store',return_value=Store({obs.KEY:saved})),patch('app.utcnow',return_value=NOW):
+        response=app.app.test_client().get('/api/observation-stations?view=mesonet')
+    assert response.status_code==200
+    result=response.json
+    assert {r['station'] for r in result['stations']}=={'HPN20','HPN38'}
+    assert result['checkedAt']==obs.iso(NOW)
+    assert all(obs.in_county(r['lat'],r['lon']) for r in result['stations'])
