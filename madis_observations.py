@@ -40,7 +40,7 @@ def fetch_file(url):
     return payload
 
 
-def parse_file(payload, stations, now):
+def parse_file(payload, stations, now, *, high_frequency_only=False):
     with gzip.GzipFile(fileobj=BytesIO(payload)) as stream:
         content = stream.read(30_000_001)
     if len(content) > 30_000_000:
@@ -49,6 +49,8 @@ def parse_file(payload, stations, now):
     with netcdf_file(BytesIO(content), mmap=False) as dataset:
         variables = dataset.variables
         required = {"stationId", "observationTime", "temperature", "dewpoint", "windDir", "windSpeed"}
+        if high_frequency_only:
+            required.add("stationType")
         if not required <= variables.keys():
             raise ValueError("MADIS file missing required variables")
         expected_units = {"temperature": b"kelvin", "dewpoint": b"kelvin", "windDir": b"degree", "windSpeed": b"meter/sec"}
@@ -79,6 +81,8 @@ def parse_file(payload, stations, now):
         for index, identifier in enumerate(variables["stationId"][:]):
             station = identifier.tobytes().decode("ascii").strip("\x00 ")
             if stations is not None and station not in stations:
+                continue
+            if high_frequency_only and variables["stationType"][index].tobytes().strip(b"\x00 ") != b"HF-METAR":
                 continue
             lat = float(variables["latitude"][index]) if "latitude" in variables else None
             lon = float(variables["longitude"][index]) if "longitude" in variables else None

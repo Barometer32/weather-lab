@@ -293,3 +293,10 @@ poll that saw a report. The first poll's older observations are excluded from
 latency statistics. The station list in the report contains airports that
 actually appeared in HFMETAR; the broader Minnesota airport inventory also
 contains AWOS stations without this feed.
+
+
+`release-hrmetar-celsius.sh` extends HRMETAR to active five-minute ASOS stations
+in Minnesota, North Dakota, South Dakota, Iowa, and Wisconsin. Temperature and
+dew point are whole degrees Celsius from the HF-ASOS fields. Routine METARs
+and tenths-degree remarks do not fill the map. The existing Minnesota timing
+audit, 30-minute display cutoff, and five-minute schedule remain in place.

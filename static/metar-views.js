@@ -6,7 +6,7 @@ window.WeatherMetars = (() => {
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=el("metar-product").value||"plots",wantedHour=null;
   const historyHours=4;
   const windPlotOptions={dot:true,mphBarbs:true};
-  const hrmetarUrl="/api/hrmetar",isHigh=()=>mode==="hrmetar",viewGroup=m=>m==="hrmetar"?"hrmetar":"hourly";
+  const hrmetarUrl="/api/hrmetar?units=c",isHigh=()=>mode==="hrmetar",viewGroup=m=>m==="hrmetar"?"hrmetar":"hourly";
   const views={};
   let busy=false,sourceData,high,highBusy=false,highError;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap(),hrmetar:new WeakMap()};
@@ -19,7 +19,7 @@ window.WeatherMetars = (() => {
     if(!map)return;
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
     if(isHigh()&&!saved){
-      map.fitBounds([[43.43,-97.30],[49.43,-89.38]],{padding:[22,22],animate:false});return;
+      map.fitBounds([[40.30,-104.20],[49.45,-86.65]],{padding:[22,22],animate:false});return;
     }
     const view=saved||window.WeatherDefaultViews?.metar(sites,map.getSize())||{center:[44.945,-93.343],zoom:9};
     map.setView(view.center,view.zoom,{animate:false});
@@ -103,13 +103,13 @@ window.WeatherMetars = (() => {
     });
     draw(stations);
     const newest=stations.length?time.format(new Date(Math.max(...stations.map(s=>Date.parse(s.time))))):null;
-    el("metar-time").textContent=newest?`Newest ${newest} · ${stations.length} airport${stations.length===1?"":"s"}${high.stale||highError||high._savedCopy?" · Delayed":""}`:
-      highBusy?"Loading Minnesota ASOS…":highError?"ASOS reports unavailable · try Refresh":"No ASOS reports in the past 30 minutes";
-    el("metar-status").textContent=highError||(high?.checkedAt?`Checked ${time.format(new Date(high.checkedAt))} · 30-minute window`:"Minnesota five-minute ASOS");
-    el("metar-map").setAttribute("aria-label","Latest Minnesota five-minute airport ASOS reports within 30 minutes");
+    el("metar-time").textContent=newest?`Newest ${newest} · ${stations.length} airport${stations.length===1?"":"s"} · °C${high.stale||highError||high._savedCopy?" · Delayed":""}`:
+      highBusy?"Loading five-minute ASOS…":highError?"ASOS reports unavailable · try Refresh":"No ASOS reports in the past 30 minutes";
+    el("metar-status").textContent=highError||(high?.checkedAt?`Checked ${time.format(new Date(high.checkedAt))} · 30-minute window`:"Upper Midwest five-minute ASOS");
+    el("metar-map").setAttribute("aria-label","Latest Upper Midwest five-minute airport ASOS reports within 30 minutes, temperatures in Celsius");
   }
   function adoptHigh(next){
-    if(!Array.isArray(next?.stations)||next===high||next._savedCopy&&high&&!high._savedCopy)return;
+    if(next?.temperatureUnit!=="C"||!Array.isArray(next.stations)||next===high||next._savedCopy&&high&&!high._savedCopy)return;
     high=next;highError=null;
     if(isHigh()){
       if(next.serverTime&&!next._savedCopy)window.WeatherSun?.sync(next.serverTime);
@@ -136,9 +136,13 @@ window.WeatherMetars = (() => {
       const plots=plotCaches[mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{...windPlotOptions,celsius:isHigh()}),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",isHigh()&&station.name?`${station.station} · ${station.name}`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
-      for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
+      const temperatures=isHigh()?[station.tempC,station.dewpointC]:[station.tempF,station.dewpointF];
+      for(const [i,label] of ["Temperature","Dewpoint"].entries()){
+        const value=temperatures[i],display=Number.isFinite(value)?(isHigh()?`${value}°C`:`${value.toFixed(1)}°F`):"unavailable";
+        popup.append(node("p",`${label}: ${display}`));
+      }
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
@@ -198,7 +202,7 @@ window.WeatherMetars = (() => {
     mode=next;
     el("metar-product").value=mode;
     el("metar-history").hidden=isHigh();
-    el("metar-eyebrow").textContent=isHigh()?"MINNESOTA · FIVE-MINUTE ASOS":"AIRPORT METARS · UPPER MIDWEST";
+    el("metar-eyebrow").textContent=isHigh()?"UPPER MIDWEST · FIVE-MINUTE ASOS · °C":"AIRPORT METARS · UPPER MIDWEST";
     el("refresh-metar").disabled=isHigh()?highBusy:busy;
     if(!isHigh()&&data)prepareSpacing();
     if(map&&(changedGroup||window.WeatherDefaultViews?.savedMetar?.(mode))){

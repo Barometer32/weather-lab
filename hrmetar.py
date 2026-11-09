@@ -1,8 +1,10 @@
-"""Prepared latest-observation map for Minnesota's MADIS HFMETAR stations."""
+"""Prepared latest-observation map for five-state MADIS HFMETAR stations."""
 from datetime import datetime, timezone
 import math
 
-KEY = "live/hrmetar-mn-v1.json"
+from hrmetar_stations import STATION_STATES
+
+KEY = "live/hrmetar-upper-midwest-c-v2.json"
 WINDOW_SECONDS = 30 * 60
 
 
@@ -14,17 +16,24 @@ def eligible(stamp, now):
     return isinstance(stamp, (int, float)) and math.isfinite(stamp) and now - WINDOW_SECONDS <= stamp <= now
 
 
+def whole_celsius(c):
+    # The HF-ASOS fields are native integer Celsius encoded in Kelvin.
+    # Allow float conversion noise only; never promote a tenths value.
+    if c is not None and -90 <= c <= 65 and abs(c - round(c)) < .001:
+        return round(c)
+    return None
+
+
 def present(snapshot, now):
     stamp = now.timestamp()
     return {"stations": [row for row in snapshot.get("stations", []) if eligible(row["observedEpoch"], stamp)],
             "checkedAt": snapshot["checkedAt"], "serverTime": iso(stamp),
-            "source": "NOAA MADIS · Minnesota five-minute ASOS",
+            "source": "NOAA MADIS · Upper Midwest five-minute ASOS", "temperatureUnit": "C",
             "windowMinutes": 30, "stale": stamp - snapshot["checkedEpoch"] > 8 * 60}
 
 
 def prepare(store, now, payloads):
     from madis_observations import parse_file
-    from mn_asos_audit import STATIONS
 
     stamp = now.timestamp()
     previous = store.read_json(KEY) or {}
@@ -33,7 +42,7 @@ def prepare(store, now, payloads):
     errors = []
     for payload in payloads:
         try:
-            rows = parse_file(payload, STATIONS - {"KCFE"}, now)
+            rows = parse_file(payload, STATION_STATES.keys() - {"KCFE"}, now, high_frequency_only=True)
         except (ValueError, OSError, KeyError) as error:
             errors.append(str(error)[:160])
             continue
@@ -45,7 +54,7 @@ def prepare(store, now, payloads):
             station, lat, lon = row["icaoId"], row["lat"], row["lon"]
             if not all(isinstance(v, (float, int)) and math.isfinite(v) for v in (lat, lon)):
                 continue
-            if not 43 <= lat <= 50 or not -98 <= lon <= -89:
+            if not 40 <= lat <= 50 or not -105 <= lon <= -86:
                 continue
             old = latest.get(station)
             if old and old["observedEpoch"] > t:
@@ -53,12 +62,10 @@ def prepare(store, now, payloads):
             speed = row["wspd"]
             direction = row["wdir"]
             temp, dew = row["temp"], row["dewp"]
-            def fahrenheit(c):
-                return round(c * 1.8 + 32, 1) if c is not None and -90 <= c <= 65 else None
             latest[station] = {
-                "station": station, "name": row["name"], "lat": lat, "lon": lon,
+                "station": station, "name": row["name"], "state": STATION_STATES[station], "lat": lat, "lon": lon,
                 "time": iso(t), "observedEpoch": t,
-                "tempF": fahrenheit(temp), "dewpointF": fahrenheit(dew),
+                "tempC": whole_celsius(temp), "dewpointC": whole_celsius(dew),
                 "wind": {"speedMph": round(speed * 1.150779, 1) if speed is not None and 0 <= speed <= 250 else None,
                          "direction": direction if direction is not None and 0 <= direction <= 360 else None},
                 "layers": row["layers"],

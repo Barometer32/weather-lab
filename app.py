@@ -578,11 +578,11 @@ def hrmetar_api():
         store = get_store()
         snapshot = cached("prepared-hrmetar", 10, lambda: store.read_json(KEY)) if store else None
         if snapshot is None:
-            return jsonify(error="Minnesota five-minute ASOS reports are being prepared."), 503, headers
+            return jsonify(error="Upper Midwest five-minute ASOS reports are being prepared."), 503, headers
         return jsonify(present(snapshot, utcnow())), 200, headers
     except Exception:
         app.logger.exception("Prepared HRMETAR observations unavailable")
-        return jsonify(error="Minnesota five-minute ASOS reports are temporarily unavailable."), 502, headers
+        return jsonify(error="Upper Midwest five-minute ASOS reports are temporarily unavailable."), 502, headers
 
 
 @app.get("/api/metar-clouds")
