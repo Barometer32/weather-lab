@@ -51,9 +51,9 @@
 </section>
 
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots" selected>PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="clouds" selected>CLOUDS</option><option value="plots">METARS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
+    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
