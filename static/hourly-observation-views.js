@@ -1,6 +1,6 @@
 "use strict";
 window.WeatherHourlyObservations = (() => {
-  const el=id=>document.getElementById(id),url="/api/observations/hourly";
+  const el=id=>document.getElementById(id),url="/api/observations/hourly?view=table";
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   const compass=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   let data,busy=false,error;
@@ -33,7 +33,7 @@ window.WeatherHourlyObservations = (() => {
     const pending=data?.pendingHour;
     let status=pending?`Waiting for the ${formatTime(pending)} reports.`:
       !data&&busy?"Loading hourly airport observations…":"";
-    if(error||data?._savedCopy)status=[status,"Update delayed."].filter(Boolean).join(" ");
+    if(error||data?._savedCopy)status=[status,error?"Update delayed.":"Showing saved observations."].filter(Boolean).join(" ");
     const notice=el("hourly-observation-time");
     notice.textContent=status;
     notice.hidden=!status;
@@ -54,6 +54,11 @@ window.WeatherHourlyObservations = (() => {
   }
   window.WeatherPrepared.subscribe(url,adopt);
   el("refresh-observations").addEventListener("click",()=>load(true));
-  setInterval(()=>{if(!document.hidden&&!el("observations").hidden)load();},60000);
+  function refreshVisible(){
+    if(!document.hidden&&!el("observations").hidden)load();
+  }
+  document.addEventListener("visibilitychange",refreshVisible);
+  setInterval(refreshVisible,60000);
+  refreshVisible();
   return {select(id){if(id==="observations"){load();render();}}};
 })();

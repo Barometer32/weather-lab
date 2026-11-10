@@ -5,8 +5,9 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const observations="/api/observations/hourly";
-  const paths=[metarLoop,observations,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const observations="/api/observations/hourly?view=table";
+  const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/truecolor";
+  const paths=[metarLoop,observations,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url===observations?3600000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -29,7 +30,8 @@ window.WeatherPrepared = (() => {
     if(pending.has(url))return pending.get(url);
     const work=(async()=>{
       try{
-        const response=await fetch(url,{cache:"no-store"}),data=await response.json();
+        // The table endpoint sets no-store itself, and default mode can reuse its HTML preload.
+        const response=await fetch(url,{cache:url===observations?"default":"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
@@ -46,7 +48,8 @@ window.WeatherPrepared = (() => {
     if(old&&Date.now()-old.stamp<maxSavedAge(url))return {...old.data,_savedCopy:true};
     try{
       const cache=await disk();
-      const response=await cache?.match(url)||(url===metarLoop?await cache?.match("/api/station-plots"):null);
+      const previousUrl=url===observations?"/api/observations/hourly":url===metarLoop?"/api/station-plots":null;
+      const response=await cache?.match(url)||(previousUrl?await cache?.match(previousUrl):null);
       const stamp=Number(response?.headers.get("X-Weather-Saved-At"));
       if(response&&Number.isFinite(stamp)&&Date.now()-stamp<maxSavedAge(url)){
         // A faster network response must never be overwritten by the disk copy.
@@ -84,10 +87,20 @@ window.WeatherPrepared = (() => {
     return images.get(url);
   }
   async function prime(){
-    // Prime the default tabs' small manifests. Images and radar scans
-    // start loading when the visitor opens the corresponding tab.
-    try{await read(metarLoop);}catch(_){}
-    return Promise.allSettled(paths.filter(url=>url!==metarLoop&&url!==observations&&!url.endsWith("/dcphase")&&!url.endsWith("/ntmicro")).map(url=>read(url)));
+    // Do not put these small manifests behind the larger METAR map request.
+    const imagery=Promise.allSettled([radarManifest,satelliteManifest].map(url=>read(url,{force:true})));
+    for(const url of ["/api/forecast","/api/air-quality"])read(url).catch(()=>{});
+    await imagery;
+    read(metarLoop).catch(()=>{});
   }
-  return {read,subscribe,prime,radar,image};
+  function warmLatest(){
+    const connection=window.navigator?.connection;
+    if(document.hidden||connection?.saveData||["slow-2g","2g"].includes(connection?.effectiveType))return;
+    const radarData=memory.get(radarManifest)?.data;
+    const satelliteData=memory.get(satelliteManifest)?.data;
+    const radarFrame=radarData?.frames?.at(-1),satelliteFrame=satelliteData?.frames?.at(-1);
+    if(radarFrame)radar(radarFrame,radarData).catch(()=>{});
+    if(satelliteFrame)image(satelliteFrame.url).catch(()=>{});
+  }
+  return {read,subscribe,prime,warmLatest,radar,image};
 })();

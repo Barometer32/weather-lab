@@ -126,6 +126,12 @@ def test_official_archive_backfills_twelve_hours_and_retires_realtime_routes():
             assert result.headers["Cache-Control"] == "no-store"
             assert len(result.json["history"]) == 12
             assert all(hour["count"] == 3 and hour["tempF"] == 34 for hour in result.json["history"])
+            compact = public.get("/api/observations/hourly?view=table")
+            assert compact.headers["Cache-Control"] == "no-store"
+            assert len(compact.json["history"]) == 12
+            assert compact.json["history"][0]["tempF"] == result.json["history"][0]["tempF"]
+            assert "stations" not in compact.json["history"][0]
+            assert len(compact.data) < len(result.data) / 3
             assert public.get("/api/observations/mesonet").status_code == 404
             assert public.get("/api/observations/rolling").status_code == 404
     finally:

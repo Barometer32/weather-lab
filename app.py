@@ -605,7 +605,14 @@ def observation_api():
     try:
         store = get_store()
         snapshot = cached("prepared-hourly-airport-observations", 10, lambda: store.read_json(KEY)) if store else None
-        return jsonify(present(snapshot, utcnow())), 200, headers
+        result = present(snapshot, utcnow())
+        if request.args.get("view") == "table":
+            result = {
+                "history": [{key: row[key] for key in ("hour", "complete", "tempF", "dewpointF", "wind")}
+                            for row in result["history"]],
+                "pendingHour": result["pendingHour"], "serverTime": result["serverTime"],
+            }
+        return jsonify(result), 200, headers
     except Exception:
         app.logger.exception("Hourly airport observations unavailable")
         return jsonify(error="Hourly airport observations are temporarily unavailable."), 502, headers

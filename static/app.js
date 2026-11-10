@@ -315,7 +315,12 @@ window.WeatherFullscreen.attach({surfaceId:"radar-surface",buttonId:"fullscreen"
 window.WeatherFullscreen.attach({surfaceId:"satellite-surface",buttonId:"satellite-fullscreen",label:"satellite",onResize:()=>satelliteMap?.invalidateSize({pan:false})});
 selectTab(tabs[0]);
 window.addEventListener("pageshow",event=>{if(event.persisted)selectTab(tabs[0]);});
-setTimeout(()=>window.WeatherPrepared.prime(),0);
+setTimeout(async()=>{
+  await window.WeatherPrepared.prime();
+  const warm=()=>window.WeatherPrepared.warmLatest();
+  if(window.requestIdleCallback)window.requestIdleCallback(warm,{timeout:1500});
+  else setTimeout(warm,250);
+},0);
 setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("satellite").hidden)loadSatellite();},60000);
 

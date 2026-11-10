@@ -39,12 +39,16 @@ import re, sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
-assert "style.css?v=hourly-airport-v4" in s and "hourly-observation-views.js?v=3" in s
+assert "style.css?v=hourly-airport-v4" in s and "hourly-observation-views.js?v=4" in s
 assert "Last 12 hours" in s and "observations-temperature" not in s
+assert s.index("hourly-observation-views.js") < s.index("vendor/leaflet.js")
+assert "/api/observations/hourly?view=table" in s
 assert "count toward the following hour" not in s
 assert "<th scope=\"col\">Airports</th>" not in s
 assert "<option value=\"clouds\" selected>" in s and "id=\"observations-sun\"" in s
 '
+  curl -fsS --max-time 15 "$1/api/observations/hourly?view=table" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); assert len(d["history"]) == 12 and "stations" not in d["history"][0]'
 }
 
 check_data() {
@@ -73,12 +77,12 @@ print(f"Verified {complete} complete hourly three-airport METAR sets.")
 
 read -r revision candidate < <(stage weather-lab)
 check_layout "$candidate"
-if [[ "$live_html" == *'hourly-observation-views.js?v=3"'* ]]; then
+if [[ "$live_html" == *'hourly-observation-views.js?v=3"'* || "$live_html" == *'hourly-observation-views.js?v=4"'* ]]; then
   check_data "$candidate" 11
   gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$revision=100"
   check_layout "$site"
   check_data "$site" 11
-  echo "The simplified hourly Observations table is live at $site"
+  echo "The faster Weather Lab startup is live at $site"
   exit 0
 fi
 read -r collector_revision _ < <(stage weather-collector)

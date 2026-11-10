@@ -1,14 +1,17 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
-const nodes=new Map(),handlers={};
+const nodes=new Map(),handlers={},events={};
+const reads=[];
 function element(){return{children:[],append(node){this.children.push(node);},
   replaceChildren(...nodes){this.children=nodes;},addEventListener(){}};}
 const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
-const context={document:{getElementById:get,createElement:element},Intl,Date,Number,Math,setInterval(){},
-  window:{WeatherPrepared:{subscribe(url,fn){handlers[url]=fn;}}}};
+const context={document:{getElementById:get,createElement:element,addEventListener(name,fn){events[name]=fn;}},Intl,Date,Number,Math,setInterval(){},
+  window:{WeatherPrepared:{subscribe(url,fn){handlers[url]=fn;},async read(url){reads.push(url);return null;}}}};
 vm.runInNewContext(fs.readFileSync("static/hourly-observation-views.js","utf8"),context);
 const reading={hour:"2026-11-09T18:00:00Z",count:3,complete:true,tempF:58.2,dewpointF:39,wind:{direction:315,speedMph:10.6}};
-const adopt=handlers["/api/observations/hourly"];
+const url="/api/observations/hourly?view=table";
+const adopt=handlers[url];
+assert.deepEqual(reads,[url],"Observations start loading before the main map app");
 const pending={hour:"2026-11-09T19:00:00Z",count:2,complete:false};
 adopt({current:reading,history:[pending,reading],pendingHour:pending.hour,stationCount:3});
 assert.match(get("hourly-observation-time").textContent,/Waiting for the .*1:00 PM CST/);
@@ -21,3 +24,8 @@ assert.equal(rows[0].children[3].textContent,"NW 11 mph");
 adopt({current:reading,history:[reading],pendingHour:null,stationCount:3});
 assert.equal(get("hourly-observation-time").hidden,true);
 assert.equal(get("hourly-observation-history").children.length,1);
+
+setImmediate(()=>{
+  events.visibilitychange();
+  assert.deepEqual(reads,[url,url],"Reopening the page checks for saved updates immediately");
+});
