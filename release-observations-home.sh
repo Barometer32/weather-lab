@@ -5,7 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 project=weather-lab-261105-184200-1a9b
 region=us-central1
 site=https://weather-lab.cloud.run
-tag="obs-cards-$(git rev-parse --short=12 HEAD)"
+tag="metar-clouds-$(git rev-parse --short=12 HEAD)"
 flags=(--project="$project" --region="$region")
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$project"
 [[ -z "$(git status --porcelain)" ]] || { echo 'Run from a clean checkout.' >&2; exit 1; }
@@ -32,10 +32,13 @@ import re,sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s
-assert "style.css?v=observations-cards-v2" in s and "rolling-observation-views.js?v=3" in s
+assert "style.css?v=observations-cards-v3" in s and "rolling-observation-views.js?v=3" in s
 section=s.split("<section id=\"observations\"",1)[1].split("</section>",1)[0]
 assert " hidden" not in section.split(">",1)[0] and "<table" not in section
 assert re.findall(r"<h2>([^<]+)</h2>",section)==["Temperature","Dew point","Wind","Sun angle"]
+assert re.findall(r"<article class=\"([^\"]+)\">",section)==["metric"]*4
+picker=re.search(r"<select id=\"metar-product\"[^>]*>(.*?)</select>",s)[1]
+assert re.findall(r"<option value=\"([^\"]+)\"( selected)?>([^<]+)</option>",picker)==[("clouds"," selected","CLOUDS"),("plots","","METARS")]
 '
   curl -fsS --retry 2 --max-time 15 "$1/api/observations/rolling" |
     python3 -c 'import json,sys; d=json.load(sys.stdin); assert "current" in d and d["windQcVersion"]=="madis-advisory-wind-v1"'
@@ -44,4 +47,4 @@ assert re.findall(r"<h2>([^<]+)</h2>",section)==["Temperature","Dew point","Wind
 check_home "$candidate"
 gcloud run services update-traffic weather-lab "${flags[@]}" --to-revisions="$revision=100"
 check_home "$site"
-echo "The updated Observations cards are live at $site."
+echo "The updated Observations cards and default CLOUDS view are live at $site."

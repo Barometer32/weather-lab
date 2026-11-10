@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-cards-v2">
+  <link rel="stylesheet" href="/static/style.css?v=observations-cards-v3">
   <link rel="preload" href="/api/observations/rolling" as="fetch" crossorigin="anonymous">
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
@@ -42,7 +42,7 @@
   <div class="rolling-observations-content">
     <p id="rolling-observation-time" class="rolling-observation-status" role="status">Loading three-airport observations…</p>
     <div class="metrics rolling-observation-metrics">
-      <article class="metric featured"><h2>Temperature</h2><p class="metric-value" id="observations-temperature">—</p></article>
+      <article class="metric"><h2>Temperature</h2><p class="metric-value" id="observations-temperature">—</p></article>
       <article class="metric"><h2>Dew point</h2><p class="metric-value" id="observations-dewpoint">—</p></article>
       <article class="metric"><h2>Wind</h2><p class="metric-value" id="observations-wind">—</p></article>
       <article class="metric"><h2>Sun angle</h2><p class="metric-value" id="observations-sun">—</p></article>
@@ -51,9 +51,9 @@
 </section>
 
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots" selected>PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="clouds" selected>CLOUDS</option><option value="plots">METARS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
+    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>

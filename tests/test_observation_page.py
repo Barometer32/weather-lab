@@ -19,7 +19,9 @@ def test_observations_is_the_current_only_home_page():
     assert ' hidden' in metar.split('>',1)[0]
     assert re.findall(r'<h2>([^<]+)</h2>',observations)==['Temperature','Dew point','Wind','Sun angle']
     assert '<table' not in observations and 'history' not in observations
-    assert re.findall(r'<option value="([^"]+)"',metar)==['plots','clouds']
+    assert re.findall(r'<option value="([^"]+)"( selected)?>([^<]+)</option>',metar)==[
+        ('clouds',' selected','CLOUDS'),('plots','','METARS')
+    ]
     assert 'id="metar-timeline"' in metar and ':45–:59' in metar
     assert 'tab-clouds' not in html
     for retired in ('observation-views.js','cloud-height-views.js','current-views.js','model-views.js'):assert '/static/'+retired not in html
