@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=hourly-airport-v3">
+  <link rel="stylesheet" href="/static/style.css?v=hourly-airport-v4">
   <link rel="preload" href="/api/observations/hourly" as="fetch" crossorigin="anonymous">
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
@@ -44,7 +44,6 @@
   </div>
   <section class="hourly-observation-history" aria-labelledby="hourly-history-heading">
     <h2 id="hourly-history-heading">Last 12 hours</h2>
-    <p>Reports from :50–:59 count toward the following hour. Temperature and dew point use the METAR T remark.</p>
     <p id="hourly-observation-time" class="hourly-observation-status" role="status">Loading hourly airport observations…</p>
     <div class="table-wrap">
       <table aria-labelledby="hourly-history-heading">

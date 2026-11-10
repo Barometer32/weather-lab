@@ -18,7 +18,7 @@ def test_observations_is_the_hourly_home_page():
     assert ' hidden' not in observations.split('>',1)[0]
     assert ' hidden' in metar.split('>',1)[0]
     assert 'id="observations-sun"' in observations and 'observations-temperature' not in observations
-    assert '<table' in observations and 'Last 12 hours' in observations and ':50–:59' in observations
+    assert '<table' in observations and 'Last 12 hours' in observations and 'count toward the following hour' not in observations
     assert '/api/observations/hourly' in html
     assert re.findall(r'<option value="([^"]+)"( selected)?>([^<]+)</option>',metar)==[
         ('clouds',' selected','CLOUDS'),('plots','','METARS')

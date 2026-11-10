@@ -12,6 +12,7 @@ job=weather-live-hourly-observations
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$project"
 [[ -z "$(git status --porcelain)" ]] || { echo 'Run from a clean checkout.' >&2; exit 1; }
 
+live_html="$(curl -fsS --retry 2 --max-time 20 "$site/")"
 base="$(gcloud run services describe weather-lab "${run[@]}" --format=json |
   python3 -c 'import json,sys; s=json.load(sys.stdin); print(s["spec"]["template"]["spec"]["containers"][0]["image"].split("@",1)[0].split(":",1)[0])')"
 case "$base" in
@@ -38,8 +39,9 @@ import re, sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
-assert "style.css?v=hourly-airport-v3" in s and "hourly-observation-views.js?v=3" in s
+assert "style.css?v=hourly-airport-v4" in s and "hourly-observation-views.js?v=3" in s
 assert "Last 12 hours" in s and "observations-temperature" not in s
+assert "count toward the following hour" not in s
 assert "<th scope=\"col\">Airports</th>" not in s
 assert "<option value=\"clouds\" selected>" in s and "id=\"observations-sun\"" in s
 '
@@ -71,6 +73,14 @@ print(f"Verified {complete} complete hourly three-airport METAR sets.")
 
 read -r revision candidate < <(stage weather-lab)
 check_layout "$candidate"
+if [[ "$live_html" == *'hourly-observation-views.js?v=3"'* ]]; then
+  check_data "$candidate" 11
+  gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$revision=100"
+  check_layout "$site"
+  check_data "$site" 11
+  echo "The simplified hourly Observations table is live at $site"
+  exit 0
+fi
 read -r collector_revision _ < <(stage weather-collector)
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 

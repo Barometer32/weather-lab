@@ -449,9 +449,9 @@ main > #observations {
 .hourly-observation-history h2 { margin-bottom:6px; font-size:20px; }
 .hourly-observation-history p { margin:0 0 10px; color:var(--muted); font-size:13px; }
 .hourly-observation-history th,.hourly-observation-history td { padding:10px 14px; }
-.hourly-observation-history tbody th { background:transparent; font-weight:500; }
-.hourly-observation-history tbody tr:first-child { background:#eef7f1; }
-.hourly-observation-history tbody tr:first-child > * { font-weight:700; }
+.hourly-observation-history th,.hourly-observation-history tbody tr { background:#fff; }
+.hourly-observation-history tbody th { font-weight:400; }
+.hourly-observation-history thead th { font-weight:700; }
 @media(max-width:600px) {
   .hourly-observation-actions { gap:8px; }
   .hourly-observation-actions .sun-angle-readout { font-size:12px; }
