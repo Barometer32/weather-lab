@@ -39,7 +39,8 @@ import re, sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
-assert "hourly-observation-views.js?v=2" in s and "Last 12 hours" in s
+assert "style.css?v=hourly-airport-v2" in s and "hourly-observation-views.js?v=2" in s
+assert "Last 12 hours" in s
 assert "<th scope=\"col\">Airports</th>" not in s
 assert "<option value=\"clouds\" selected>" in s and "id=\"observations-sun\"" in s
 '

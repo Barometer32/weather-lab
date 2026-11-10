@@ -433,15 +433,14 @@ body.map-focus #metar .eyebrow { display:none; }
   #metar-product { min-height:32px; }
 }
 
-#observations {
+/* Observations uses document scrolling. Map tabs keep their viewport layout. */
+html:has(#observations:not([hidden])) { height:auto; overflow:visible; }
+body:has(#observations:not([hidden])) { height:auto; min-height:var(--app-height,100dvh); overflow:visible; }
+main:has(> #observations:not([hidden])) { flex:1 0 auto; overflow:visible; }
+main > #observations {
+  flex:0 0 auto;
   width:min(100%,920px);
   align-self:center;
-}
-.hourly-observations-content {
-  flex:1 1 0;
-  min-height:0;
-  overflow:auto;
-  overscroll-behavior:contain;
 }
 .hourly-observation-status { margin:4px 0 14px; color:var(--muted); font-size:14px; }
 .hourly-observation-metrics {
