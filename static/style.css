@@ -473,3 +473,22 @@ body.map-focus #metar .eyebrow { display:none; }
   .rolling-observation-metrics .metric h2 { font-size:15px; }
   .rolling-observation-metrics .metric-value { font-size:clamp(24px,6.7vw,36px); }
 }
+
+/* Experimental Hopkins point forecast */
+.models-picker { display:flex; align-items:center; gap:.5rem; font-size:.875rem; color:var(--muted); }
+.models-picker select { max-width:100%; }
+main > [role="tabpanel"] > .models-scroll { flex:0 1 auto; min-height:0; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+.models-table { border-collapse:separate; border-spacing:0; width:100%; font-size:.92rem; }
+.models-table th,.models-table td { padding:.58rem .7rem; text-align:center; white-space:nowrap; border-bottom:1px solid var(--border); }
+.models-table thead th { position:sticky; top:0; z-index:1; background:#edf3ef; }
+.models-utc { margin-left:.45rem; color:var(--muted); font-weight:400; }
+.models-table th:first-child { text-align:left; }
+.models-table tbody tr:nth-child(even) { background:#f6f9f7; }
+.models-table tbody tr:last-child > * { border-bottom:0; }
+#models .source { margin:.65rem 0 0; }
+@media(max-width:640px) {
+  .models-table { font-size:.81rem; }
+  .models-table th,.models-table td { padding:.47rem .52rem; }
+  .models-picker { flex-direction:column; align-items:flex-end; gap:.25rem; }
+  #models .section-heading { align-items:flex-start; }
+}

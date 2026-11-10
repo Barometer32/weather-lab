@@ -310,3 +310,37 @@ from the live NOAA feed; earlier gaps fill as new hourly readings arrive.
 Temperature and dew point use the mean of the native whole-degree Celsius
 values, converted to whole Fahrenheit only after averaging. Current readings
 expire at 30 minutes. Wind is available when all three stations report it.
+
+### Hopkins MODELS experiment
+
+The MODELS tab displays a fixed, one-point snapshot at 44.9244° N, 93.414° W.
+The November 9, 2026 23Z RAP, HRRR and RRFS cycles supply the surface
+forecast. The RRFS 18Z cycle supplies pressure-level temperature and
+humidity for all rows: 23Z has no public CONUS profile, and the 21Z
+profile ends before the final 16Z row. The snapshot displays valid times
+02Z to 16Z on November 10. Each row uses the one-hour precipitation
+accumulation ending at the following hour (or the difference of two
+verified run accumulations if a one-hour field isn't provided).
+
+All three cloud estimates are derived independently from temperature
+and relative humidity at the same selected pressure levels. The
+calculation uses a gradual transition from water saturation at 0°C to
+ice saturation at −38°C. It applies a Sundqvist-style humidity-to-fraction
+curve with provisional thresholds (82%, 78%, 75%) and takes the maximum
+within each pressure band (surface–642, 642–350, 350–150 hPa). These
+percentages are experimental and have not been calibrated with
+observations. Published model cloud-cover percentages are not used.
+
+To reproduce the saved snapshot in a Python environment with
+`eccodes` and `requests` installed:
+
+```sh
+python build_hopkins_models.py \
+  --run 2026-11-09T23:00:00Z \
+  --rrfs-cloud-run 2026-11-09T18:00:00Z
+python verify_hopkins_models.py < static/hopkins-models.json
+```
+
+The browser reads the small checked-in JSON only when MODELS is opened.
+The official NWS Forecast tab and the background collectors are unchanged.
+The snapshot is not a recurring forecast.

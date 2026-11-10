@@ -1,0 +1,699 @@
+{
+  "location": "Hopkins, MN",
+  "latitude": 44.9244,
+  "longitude": -93.414,
+  "run": "2026-11-09T23:00:00+00:00",
+  "rrfsCloudRun": "2026-11-09T18:00:00+00:00",
+  "rows": [
+    {
+      "valid": "2026-11-10T02:00:00+00:00",
+      "precipEnds": "2026-11-10T03:00:00+00:00",
+      "blend": {
+        "tempF": 50.177,
+        "dewF": 37.901,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 6.65,
+        "windDegrees": 290.4
+      },
+      "models": {
+        "RAP": {
+          "tempF": 49.3545,
+          "dewF": 38.4214,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.31,
+          "windDegrees": 288.4
+        },
+        "HRRR": {
+          "tempF": 51.8964,
+          "dewF": 35.0195,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 7.1,
+          "windDegrees": 297.4
+        },
+        "RRFS": {
+          "tempF": 49.28,
+          "dewF": 40.262,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.64,
+          "windDegrees": 284.8
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T03:00:00+00:00",
+      "precipEnds": "2026-11-10T04:00:00+00:00",
+      "blend": {
+        "tempF": 48.6144,
+        "dewF": 37.8573,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 6.74,
+        "windDegrees": 295.0
+      },
+      "models": {
+        "RAP": {
+          "tempF": 47.7198,
+          "dewF": 38.7393,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.23,
+          "windDegrees": 288.4
+        },
+        "HRRR": {
+          "tempF": 50.2655,
+          "dewF": 35.2006,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.97,
+          "windDegrees": 302.3
+        },
+        "RRFS": {
+          "tempF": 47.858,
+          "dewF": 39.632,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 7.11,
+          "windDegrees": 293.6
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T04:00:00+00:00",
+      "precipEnds": "2026-11-10T05:00:00+00:00",
+      "blend": {
+        "tempF": 47.2128,
+        "dewF": 37.0844,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 2.1192,
+        "high": 0.0,
+        "windMph": 6.46,
+        "windDegrees": 302.8
+      },
+      "models": {
+        "RAP": {
+          "tempF": 46.2989,
+          "dewF": 38.7547,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.13,
+          "windDegrees": 296.6
+        },
+        "HRRR": {
+          "tempF": 48.6154,
+          "dewF": 34.0366,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.33,
+          "windDegrees": 309.0
+        },
+        "RRFS": {
+          "tempF": 46.724,
+          "dewF": 38.462,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 6.3576,
+          "high": 0,
+          "windMph": 7.0,
+          "windDegrees": 302.5
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T05:00:00+00:00",
+      "precipEnds": "2026-11-10T06:00:00+00:00",
+      "blend": {
+        "tempF": 46.1029,
+        "dewF": 36.4887,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.9521,
+        "high": 0.0,
+        "windMph": 6.61,
+        "windDegrees": 309.0
+      },
+      "models": {
+        "RAP": {
+          "tempF": 45.125,
+          "dewF": 38.3363,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.1,
+          "windDegrees": 303.0
+        },
+        "HRRR": {
+          "tempF": 47.3236,
+          "dewF": 33.4959,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.6,
+          "windDegrees": 310.2
+        },
+        "RRFS": {
+          "tempF": 45.86,
+          "dewF": 37.634,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 2.8562,
+          "high": 0,
+          "windMph": 7.18,
+          "windDegrees": 313.2
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T06:00:00+00:00",
+      "precipEnds": "2026-11-10T07:00:00+00:00",
+      "blend": {
+        "tempF": 45.0123,
+        "dewF": 36.2327,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 3.4559,
+        "high": 0.0,
+        "windMph": 6.63,
+        "windDegrees": 312.8
+      },
+      "models": {
+        "RAP": {
+          "tempF": 44.0854,
+          "dewF": 37.871,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.82,
+          "windDegrees": 309.3
+        },
+        "HRRR": {
+          "tempF": 46.1535,
+          "dewF": 33.5531,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.51,
+          "windDegrees": 314.3
+        },
+        "RRFS": {
+          "tempF": 44.798,
+          "dewF": 37.274,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 10.3676,
+          "high": 0,
+          "windMph": 7.56,
+          "windDegrees": 314.2
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T07:00:00+00:00",
+      "precipEnds": "2026-11-10T08:00:00+00:00",
+      "blend": {
+        "tempF": 44.0835,
+        "dewF": 35.8606,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 6.83,
+        "windDegrees": 314.1
+      },
+      "models": {
+        "RAP": {
+          "tempF": 43.0804,
+          "dewF": 37.4088,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.95,
+          "windDegrees": 312.9
+        },
+        "HRRR": {
+          "tempF": 44.8221,
+          "dewF": 33.5471,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.42,
+          "windDegrees": 313.8
+        },
+        "RRFS": {
+          "tempF": 44.348,
+          "dewF": 36.626,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 8.12,
+          "windDegrees": 315.3
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T08:00:00+00:00",
+      "precipEnds": "2026-11-10T09:00:00+00:00",
+      "blend": {
+        "tempF": 43.2705,
+        "dewF": 35.5097,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 6.43,
+        "windDegrees": 317.4
+      },
+      "models": {
+        "RAP": {
+          "tempF": 41.8602,
+          "dewF": 36.9854,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.1,
+          "windDegrees": 307.2
+        },
+        "HRRR": {
+          "tempF": 43.5674,
+          "dewF": 33.5477,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.15,
+          "windDegrees": 311.5
+        },
+        "RRFS": {
+          "tempF": 44.384,
+          "dewF": 35.996,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 8.31,
+          "windDegrees": 328.1
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T09:00:00+00:00",
+      "precipEnds": "2026-11-10T10:00:00+00:00",
+      "blend": {
+        "tempF": 42.0733,
+        "dewF": 35.3583,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 6.24,
+        "windDegrees": 309.9
+      },
+      "models": {
+        "RAP": {
+          "tempF": 40.6178,
+          "dewF": 36.4301,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.18,
+          "windDegrees": 307.3
+        },
+        "HRRR": {
+          "tempF": 42.1902,
+          "dewF": 33.6309,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.9,
+          "windDegrees": 302.9
+        },
+        "RRFS": {
+          "tempF": 43.412,
+          "dewF": 36.014,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 7.76,
+          "windDegrees": 316.9
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T10:00:00+00:00",
+      "precipEnds": "2026-11-10T11:00:00+00:00",
+      "blend": {
+        "tempF": 40.9043,
+        "dewF": 35.2666,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 5.85,
+        "windDegrees": 305.3
+      },
+      "models": {
+        "RAP": {
+          "tempF": 39.5318,
+          "dewF": 35.9739,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.1,
+          "windDegrees": 298.0
+        },
+        "HRRR": {
+          "tempF": 41.1192,
+          "dewF": 33.8838,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.88,
+          "windDegrees": 298.1
+        },
+        "RRFS": {
+          "tempF": 42.062,
+          "dewF": 35.942,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.8,
+          "windDegrees": 317.2
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T11:00:00+00:00",
+      "precipEnds": "2026-11-10T12:00:00+00:00",
+      "blend": {
+        "tempF": 39.753,
+        "dewF": 35.3566,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 5.37,
+        "windDegrees": 293.5
+      },
+      "models": {
+        "RAP": {
+          "tempF": 38.4431,
+          "dewF": 35.5276,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 4.62,
+          "windDegrees": 284.1
+        },
+        "HRRR": {
+          "tempF": 40.2298,
+          "dewF": 34.4201,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.0,
+          "windDegrees": 299.2
+        },
+        "RRFS": {
+          "tempF": 40.586,
+          "dewF": 36.122,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.58,
+          "windDegrees": 295.1
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T12:00:00+00:00",
+      "precipEnds": "2026-11-10T13:00:00+00:00",
+      "blend": {
+        "tempF": 38.8152,
+        "dewF": 35.3707,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0,
+        "windMph": 5.08,
+        "windDegrees": 288.8
+      },
+      "models": {
+        "RAP": {
+          "tempF": 37.4236,
+          "dewF": 35.1254,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 4.49,
+          "windDegrees": 288.2
+        },
+        "HRRR": {
+          "tempF": 39.6601,
+          "dewF": 34.4868,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 6.24,
+          "windDegrees": 300.4
+        },
+        "RRFS": {
+          "tempF": 39.362,
+          "dewF": 36.5,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 4.8,
+          "windDegrees": 274.2
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T13:00:00+00:00",
+      "precipEnds": "2026-11-10T14:00:00+00:00",
+      "blend": {
+        "tempF": 38.0858,
+        "dewF": 35.1406,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 1.5834,
+        "windMph": 4.86,
+        "windDegrees": 286.8
+      },
+      "models": {
+        "RAP": {
+          "tempF": 36.7874,
+          "dewF": 34.6172,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 4.7503,
+          "windMph": 4.34,
+          "windDegrees": 294.7
+        },
+        "HRRR": {
+          "tempF": 39.0619,
+          "dewF": 34.1786,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 5.8,
+          "windDegrees": 295.1
+        },
+        "RRFS": {
+          "tempF": 38.408,
+          "dewF": 36.626,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 4.75,
+          "windDegrees": 269.3
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T14:00:00+00:00",
+      "precipEnds": "2026-11-10T15:00:00+00:00",
+      "blend": {
+        "tempF": 39.3386,
+        "dewF": 35.3854,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 5.7327,
+        "windMph": 3.62,
+        "windDegrees": 281.4
+      },
+      "models": {
+        "RAP": {
+          "tempF": 37.917,
+          "dewF": 34.7546,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 9.4136,
+          "windMph": 3.11,
+          "windDegrees": 284.0
+        },
+        "HRRR": {
+          "tempF": 40.1968,
+          "dewF": 34.5415,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 4.2044,
+          "windMph": 3.78,
+          "windDegrees": 280.8
+        },
+        "RRFS": {
+          "tempF": 39.902,
+          "dewF": 36.86,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 3.58,
+          "windMph": 3.96,
+          "windDegrees": 279.9
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T15:00:00+00:00",
+      "precipEnds": "2026-11-10T16:00:00+00:00",
+      "blend": {
+        "tempF": 44.5726,
+        "dewF": 36.4675,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 5.2737,
+        "windMph": 3.53,
+        "windDegrees": 291.6
+      },
+      "models": {
+        "RAP": {
+          "tempF": 43.6031,
+          "dewF": 36.5215,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "windMph": 2.95,
+          "windDegrees": 312.6
+        },
+        "HRRR": {
+          "tempF": 45.5868,
+          "dewF": 35.6969,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 0.5839,
+          "windMph": 3.58,
+          "windDegrees": 272.9
+        },
+        "RRFS": {
+          "tempF": 44.528,
+          "dewF": 37.184,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 15.2373,
+          "windMph": 4.45,
+          "windDegrees": 292.7
+        }
+      }
+    },
+    {
+      "valid": "2026-11-10T16:00:00+00:00",
+      "precipEnds": "2026-11-10T17:00:00+00:00",
+      "blend": {
+        "tempF": 48.8312,
+        "dewF": 37.6534,
+        "precipIn": 0.0,
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 8.5107,
+        "windMph": 3.01,
+        "windDegrees": 267.6
+      },
+      "models": {
+        "RAP": {
+          "tempF": 48.1203,
+          "dewF": 38.3072,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 7.5608,
+          "windMph": 2.18,
+          "windDegrees": 289.2
+        },
+        "HRRR": {
+          "tempF": 50.2634,
+          "dewF": 36.5689,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 10.1551,
+          "windMph": 4.04,
+          "windDegrees": 258.0
+        },
+        "RRFS": {
+          "tempF": 48.11,
+          "dewF": 38.084,
+          "precipIn": 0.0,
+          "low": 0,
+          "mid": 0,
+          "high": 7.8164,
+          "windMph": 3.03,
+          "windDegrees": 265.2
+        }
+      }
+    }
+  ]
+}

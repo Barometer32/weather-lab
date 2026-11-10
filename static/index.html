@@ -6,7 +6,7 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-cards-v3">
+  <link rel="stylesheet" href="/static/style.css?v=hopkins-models-v1">
   <link rel="preload" href="/api/observations/rolling" as="fetch" crossorigin="anonymous">
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
@@ -20,7 +20,8 @@
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
   <script defer src="/static/rolling-observation-views.js?v=3"></script>
-  <script defer src="/static/app.js?v=observations-home-v1"></script>
+  <script defer src="/static/hopkins-models.js?v=1"></script>
+  <script defer src="/static/app.js?v=hopkins-models-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -30,6 +31,7 @@
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
+    <button role="tab" id="tab-models" aria-selected="false" aria-controls="models" tabindex="-1">MODELS</button>
     <button role="tab" id="tab-air-quality" aria-selected="false" aria-controls="air-quality" tabindex="-1">AIR Q</button>
   </nav>
 </header>
@@ -115,6 +117,28 @@
 </section>
 
 
+<section id="models" role="tabpanel" aria-labelledby="tab-models" hidden>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">EXPERIMENTAL MODEL GUIDANCE · HOPKINS, MN</p>
+      <h1>Hourly model forecast</h1>
+      <p id="models-run" aria-live="polite">Preparing forecast…</p>
+    </div>
+    <label class="models-picker">View
+      <select id="models-source">
+        <option value="blend">Equal blend</option><option>RAP</option><option>HRRR</option><option>RRFS</option>
+      </select>
+    </label>
+  </div>
+  <div class="models-scroll" role="region" aria-label="Hourly forecast table" tabindex="0">
+    <table class="models-table">
+      <thead><tr><th scope="col">Valid time</th><th scope="col">Temp</th><th scope="col">Dew point</th><th scope="col">Wind</th>
+      <th scope="col">Low cloud</th><th scope="col">Mid cloud</th><th scope="col">High cloud</th><th scope="col">Precip next hour</th></tr></thead>
+      <tbody id="models-rows"></tbody>
+    </table>
+  </div>
+  <p class="source" id="models-note">Temperature and dew point are at 2 m; wind is at 10 m. Precipitation is the liquid equivalent for the hour starting at the listed time.</p>
+</section>
 <section id="air-quality" role="tabpanel" aria-labelledby="tab-air-quality" hidden>
   <div class="section-heading"><div><p class="eyebrow">MINNESOTA POLLUTION CONTROL AGENCY</p><h1>Air quality</h1></div><button class="secondary" id="refresh-air-quality">Refresh map</button></div>
   <div class="airq-viewer">

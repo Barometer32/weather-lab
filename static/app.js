@@ -275,7 +275,7 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["observations","metar","radar","satellite","forecast","air-quality"];
+const tabs = ["observations","metar","radar","satellite","forecast","models","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
@@ -283,6 +283,7 @@ function selectTab(id) {
   window.WeatherRollingObservations?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
+  if(id === "models") window.WeatherHopkinsModels?.load();
   window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
