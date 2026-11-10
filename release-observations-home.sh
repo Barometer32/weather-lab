@@ -32,7 +32,7 @@ import re,sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s
-assert "style.css?v=observations-cards-v1" in s and "rolling-observation-views.js?v=3" in s
+assert "style.css?v=observations-cards-v2" in s and "rolling-observation-views.js?v=3" in s
 section=s.split("<section id=\"observations\"",1)[1].split("</section>",1)[0]
 assert " hidden" not in section.split(">",1)[0] and "<table" not in section
 assert re.findall(r"<h2>([^<]+)</h2>",section)==["Temperature","Dew point","Wind","Sun angle"]
@@ -44,4 +44,4 @@ assert re.findall(r"<h2>([^<]+)</h2>",section)==["Temperature","Dew point","Wind
 check_home "$candidate"
 gcloud run services update-traffic weather-lab "${flags[@]}" --to-revisions="$revision=100"
 check_home "$site"
-echo "The larger Observations cards are live at $site."
+echo "The updated Observations cards are live at $site."
