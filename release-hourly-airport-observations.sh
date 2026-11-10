@@ -37,6 +37,7 @@ check_layout() {
     python3 -c '
 import re, sys
 s=sys.stdin.read()
+assert "<title>Weather Lab</title>" in s and "class=\"brand\" href=\"/\">Weather Lab</a>" in s
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
 assert "style.css?v=hourly-airport-v4" in s and "hourly-observation-views.js?v=4" in s

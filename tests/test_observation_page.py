@@ -8,6 +8,8 @@ def test_observations_is_the_hourly_home_page():
         response=app.app.test_client().get('/')
     source.assert_not_called();store.assert_not_called()
     html=response.get_data(as_text=True)
+    assert "<title>Weather Lab</title>" in html
+    assert '<a class="brand" href="/">Weather Lab</a>' in html
     assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['observations','metar','radar','satellite','forecast','air-quality']
     assert 'id="tab-observations" aria-selected="true"' in html
     metar=html.split('<section id="metar"')[1].split('</section>')[0]
