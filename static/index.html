@@ -6,21 +6,21 @@
   <meta name="description" content="Compact hourly airport station plots, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-cards-v3">
-  <link rel="preload" href="/api/observations/mesonet" as="fetch" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/style.css?v=hourly-airport-v1">
+  <link rel="preload" href="/api/observations/hourly" as="fetch" crossorigin="anonymous">
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
   <script defer src="/static/sun-angle.js?v=rolling-observations-v1"></script>
-  <script defer src="/static/prepared-data.js?v=mesonet-average-v1"></script>
+  <script defer src="/static/prepared-data.js?v=hourly-airport-v1"></script>
   <script defer src="/static/default-views.js?v=rolling-observations-v1"></script>
   <script defer src="/static/metar-model.js?v=hrmetar-celsius-v1"></script>
   <script defer src="/static/metar-views.js?v=rolling-observations-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/rolling-observation-views.js?v=mesonet-average-v1"></script>
-  <script defer src="/static/app.js?v=observations-home-v1"></script>
+  <script defer src="/static/hourly-observation-views.js?v=1"></script>
+  <script defer src="/static/app.js?v=hourly-airport-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">WEATHER LAB <span>Twin Cities</span></a></div>
@@ -36,17 +36,27 @@
 <main>
 <section id="observations" role="tabpanel" aria-labelledby="tab-observations">
   <div class="section-heading">
-    <div><p class="eyebrow">HENNEPIN WEST MESONET</p><h1>Observations</h1><p>Regional averages · refreshed every five minutes</p></div>
+    <div><p class="eyebrow">TWIN CITIES · HOURLY METAR</p><h1>Observations</h1><p>KFCM · KMSP · KMIC</p></div>
     <button class="secondary" id="refresh-observations">Refresh</button>
   </div>
-  <div class="rolling-observations-content">
-    <p id="rolling-observation-time" class="rolling-observation-status" role="status">Loading Hennepin West Mesonet observations…</p>
-    <div class="metrics rolling-observation-metrics">
+  <div class="hourly-observations-content">
+    <p id="hourly-observation-time" class="hourly-observation-status" role="status">Loading hourly airport observations…</p>
+    <div class="metrics hourly-observation-metrics">
       <article class="metric"><h2>Temperature</h2><p class="metric-value" id="observations-temperature">—</p></article>
       <article class="metric"><h2>Dew point</h2><p class="metric-value" id="observations-dewpoint">—</p></article>
       <article class="metric"><h2>Wind</h2><p class="metric-value" id="observations-wind">—</p></article>
       <article class="metric"><h2>Sun angle</h2><p class="metric-value" id="observations-sun">—</p></article>
     </div>
+    <section class="hourly-observation-history" aria-labelledby="hourly-history-heading">
+      <h2 id="hourly-history-heading">Last 12 hours</h2>
+      <p>Reports from :50–:59 count toward the following hour. Temperature and dew point use the METAR T remark.</p>
+      <div class="table-wrap">
+        <table aria-labelledby="hourly-history-heading">
+          <thead><tr><th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dew point</th><th scope="col">Wind</th><th scope="col">Airports</th></tr></thead>
+          <tbody id="hourly-observation-history"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </section>
 

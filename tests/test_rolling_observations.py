@@ -52,8 +52,7 @@ def test_partial_top_of_hour_advances_history_with_previous_matched_set():
     app._cache.pop("prepared-three-airport-observations", None)
     with patch("app.get_store", return_value=store), patch("app.utcnow", return_value=now):
         client = app.app.test_client()
-        response = client.get("/api/observations/rolling")
-        assert response.status_code == 200 and response.json["current"]["observedAt"] == obs.iso(t)
+        assert client.get("/api/observations/rolling").status_code == 404
         assert client.get("/api/hrmetar").status_code == 404
 
 

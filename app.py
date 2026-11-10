@@ -184,7 +184,7 @@ def wind_mean(reports):
             "direction": direction, "speedCount": len(speeds), "directionCount": len(vectors)}
 
 
-def routine_hour(report, as_of):
+def routine_hour(report, as_of, *, first_minute=45):
     """Label the scheduled :53 METAR with the following hour; exclude SPECIs."""
     if report.get("metarType") != "METAR" or str(report.get("rawOb", "")).startswith("SPECI"):
         return None
@@ -193,7 +193,7 @@ def routine_hour(report, as_of):
         return None
     observed = datetime.fromtimestamp(stamp, UTC)
     # Permit small changes in the routine reporting minute, never other reports.
-    if not 45 <= observed.minute <= 59:
+    if not first_minute <= observed.minute <= 59:
         return None
     return (observed + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
@@ -205,6 +205,11 @@ def receipt_timestamp(report):
         return 0
 
 
+def routine_report_rank(report, target):
+    expected = (target - timedelta(minutes=7)).timestamp()
+    return abs(report["obsTime"] - expected), -report["obsTime"], -receipt_timestamp(report)
+
+
 def hourly_snapshot(reports, target, as_of):
     chosen = []
     for station in STATIONS:
@@ -212,15 +217,15 @@ def hourly_snapshot(reports, target, as_of):
                     and routine_hour(r, as_of) == target]
         # Prefer :53, then newest report/correction receipt at the same timestamp.
         if eligible:
-            expected = (target - timedelta(minutes=7)).timestamp()
-            chosen.append(metar_precision(min(eligible, key=lambda r: (abs(r["obsTime"] - expected),
-                -r["obsTime"], -receipt_timestamp(r)))))
+            chosen.append(metar_precision(min(eligible, key=lambda r: routine_report_rank(r, target))))
     return summarize(chosen, target)
 
 
-def metar_precision(report):
-    """Prefer the actual METAR T remark over its whole-degree body group."""
+def metar_precision(report, *, fallback=True):
+    """Read the METAR T remark, optionally retaining body values when absent."""
     result = dict(report)
+    if not fallback:
+        result.update(temp=None, dewp=None)
     remarks = str(report.get("rawOb", "")).partition(" RMK")[2]
     match = re.search(r"\bT([01])(\d{3})(?:([01])(\d{3}))?\b", remarks)
     if match:
@@ -480,13 +485,6 @@ def observation_payload(saved_only=False):
     return result
 
 
-def live_current_payload():
-    from local_current import present
-    store = get_store()
-    saved = cached("prepared-current", 10, lambda: store.read_json("live/current.json")) if store else None
-    return present(saved, utcnow())
-
-
 @app.get("/api/forecast")
 def forecast_api():
     try:
@@ -570,32 +568,6 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/observations/rolling")
-def rolling_observation_api():
-    from rolling_observations import KEY, present
-    headers = {"Cache-Control": "no-store"}
-    try:
-        store = get_store()
-        snapshot = cached("prepared-three-airport-observations", 10, lambda: store.read_json(KEY)) if store else None
-        return jsonify(present(snapshot, utcnow())), 200, headers
-    except Exception:
-        app.logger.exception("Prepared three-airport observations unavailable")
-        return jsonify(error="Three-airport observations are temporarily unavailable."), 502, headers
-
-
-@app.get("/api/observations/mesonet")
-def mesonet_observation_api():
-    from observation_stations import KEY, present_average
-    headers = {"Cache-Control": "no-store"}
-    try:
-        store = get_store()
-        snapshot = cached("prepared-hennepin-west-observations", 10, lambda: store.read_json(KEY)) if store else None
-        return jsonify(present_average(snapshot, utcnow())), 200, headers
-    except Exception:
-        app.logger.exception("Prepared Hennepin West Mesonet observations unavailable")
-        return jsonify(error="Hennepin West Mesonet observations are temporarily unavailable."), 502, headers
-
-
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current
@@ -625,13 +597,18 @@ def health():
 
 
 @app.get("/api/observations")
+@app.get("/api/observations/hourly")
 def observation_api():
+    from hourly_airport_observations import KEY, present
+
+    headers = {"Cache-Control": "no-store"}
     try:
-        result = live_current_payload()
-        return jsonify(result), 200, {"Cache-Control": "no-store"}
+        store = get_store()
+        snapshot = cached("prepared-hourly-airport-observations", 10, lambda: store.read_json(KEY)) if store else None
+        return jsonify(present(snapshot, utcnow())), 200, headers
     except Exception:
-        app.logger.exception("Observation feed failed")
-        return jsonify(error="Observation feed unavailable. Please try again shortly."), 502
+        app.logger.exception("Hourly airport observations unavailable")
+        return jsonify(error="Hourly airport observations are temporarily unavailable."), 502, headers
 
 
 @app.get("/api/radar")

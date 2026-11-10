@@ -145,11 +145,11 @@ def test_api_does_not_reuse_the_retired_three_airport_average():
     app._cache.clear()
     with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as upstream,patch('regional_madis.fetch') as binary_fetch:
         client=app.app.test_client();data=client.get('/api/observations').json
-        assert data['current'] is None and 'history' not in data
-        assert data['version']=='madis-hopkins-ten-mile-v1'
+        assert data['current'] is None and len(data['history']) == 12
+        assert data['source'] == 'NOAA Aviation Weather Center'
         html=client.get('/').get_data(as_text=True)
         assert 'tab-current' not in html and 'current-views.js' not in html
-        assert 'id="sun-angle"' in html and 'tab-metar-clouds' in html
+        assert 'id="sun-angle"' in html and 'tab-observations' in html
         assert client.get('/api/models').status_code==404
         upstream.assert_not_called();binary_fetch.assert_not_called()
 

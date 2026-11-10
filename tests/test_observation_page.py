@@ -3,7 +3,7 @@ from unittest.mock import patch
 import app
 
 
-def test_observations_is_the_current_only_home_page():
+def test_observations_is_the_hourly_home_page():
     with patch('app.get_store') as store,patch('app.download') as source:
         response=app.app.test_client().get('/')
     source.assert_not_called();store.assert_not_called()
@@ -18,7 +18,8 @@ def test_observations_is_the_current_only_home_page():
     assert ' hidden' not in observations.split('>',1)[0]
     assert ' hidden' in metar.split('>',1)[0]
     assert re.findall(r'<h2>([^<]+)</h2>',observations)==['Temperature','Dew point','Wind','Sun angle']
-    assert '<table' not in observations and 'history' not in observations
+    assert '<table' in observations and 'Last 12 hours' in observations and ':50–:59' in observations
+    assert '/api/observations/hourly' in html
     assert re.findall(r'<option value="([^"]+)"( selected)?>([^<]+)</option>',metar)==[
         ('clouds',' selected','CLOUDS'),('plots','','METARS')
     ]

@@ -5,9 +5,9 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const observations="/api/observations/mesonet";
+  const observations="/api/observations/hourly";
   const paths=[metarLoop,observations,"/api/radar?site=KMPX","/api/forecast","/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
-  const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
+  const maxSavedAge=url=>url===observations?3600000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   // Drop retired product manifests without disturbing other saved weather.
@@ -15,6 +15,8 @@ window.WeatherPrepared = (() => {
     cache.delete("/api/satellite/13"),
     cache.delete("/api/hrmetar",{ignoreSearch:true}),
     cache.delete("/api/observation-stations?view=mesonet",{ignoreSearch:true}),
+    cache.delete("/api/observations/mesonet"),
+    cache.delete("/api/observations/rolling"),
   ])).catch(()=>{});
   async function remember(url,data,stamp){
     try{const cache=await disk();if(cache)await cache.put(url,new Response(JSON.stringify(data),{headers:{"Content-Type":"application/json","X-Weather-Saved-At":String(stamp)}}));}catch(_){}

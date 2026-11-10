@@ -84,6 +84,7 @@ def test_current_hour_404_is_normal_and_never_creates_fake_station_data():
 
 def test_retired_station_endpoints_are_unavailable():
     assert app.app.test_client().get('/api/observation-stations?view=mesonet').status_code == 404
+    assert collector.app.test_client().post('/collect/observation-stations').status_code == 404
 
 
 def test_mesonet_map_shows_recent_network_reports_except_dakota():
@@ -144,45 +145,3 @@ def test_mesonet_map_trims_west_edge_and_dayton_without_changing_inventory():
     assert {row["station"] for row in result["stations"]} == {"HPN08", "HPN31", "HPN37", "HPN03", "HPN21"}
     assert result["bounds"][0][1] == sites["HPN37"][1]
     assert {row["station"] for row in obs.present(saved, NOW)["stations"]} == set(sites)
-
-
-
-def test_live_average_uses_only_one_fresh_report_per_retained_station():
-    def row(code, minutes, **changes):
-        return sample(code, time=obs.iso(NOW-timedelta(minutes=minutes)), **changes)
-
-    saved = {"version": obs.VERSION, "coverage": obs.COVERAGE, "checkedAt": obs.iso(NOW), "stations": [
-        row("HPN20", 10, tempF=65, dewpointF=42, wind={"speedMph": 10, "direction": 350}),
-        row("HPN20", 11, tempF=5),
-        row("HPN24", 11, tempF=63, dewpointF=None, wind={"speedMph": 10, "direction": 10}),
-        row("HPN29", 1, tempF=5), row("HPN42", 1, tempF=5), row("HPN26", 31, tempF=5),
-    ]}
-    result = obs.present_average(saved, NOW)
-    assert result["stationCount"] == 19
-    assert result["current"] == {
-        "observedAt": obs.iso(NOW-timedelta(minutes=10)),
-        "oldestObservedAt": obs.iso(NOW-timedelta(minutes=11)),
-        "tempF": 64, "dewpointF": 42, "wind": {"speedMph": 10, "direction": 0, "variable": False},
-        "stationIds": ["HPN20", "HPN24"],
-        "sampleCounts": {"temperature": 2, "dewpoint": 1, "windSpeed": 2, "windDirection": 2},
-    }
-    assert obs.present_average(saved, NOW+timedelta(minutes=21))["current"] is None
-
-
-def test_mesonet_scheduler_and_site_share_the_prepared_snapshot():
-    store = Store()
-    with patch("collector.get_store", return_value=store), patch("collector.weather.utcnow", return_value=NOW), \
-            patch("regional_madis.fetch", return_value=(b"data", {})), \
-            patch("regional_madis.parse_file", return_value=[sample()]):
-        response = collector.app.test_client().post("/collect/observation-stations")
-    assert response.status_code == 200
-    cache_key = "prepared-hennepin-west-observations"
-    app._cache.pop(cache_key, None)
-    try:
-        with patch("app.get_store", return_value=store), patch("app.utcnow", return_value=NOW):
-            response = app.app.test_client().get("/api/observations/mesonet")
-        assert response.status_code == 200
-        assert response.headers["Cache-Control"] == "no-store"
-        assert response.json["current"]["stationIds"] == ["HPN20"]
-    finally:
-        app._cache.pop(cache_key, None)

@@ -115,14 +115,14 @@ def test_minimum_counts_hold_last_complete_group_and_timestamp():
     assert not result['candidate']['available']
 
 
-def test_api_and_initial_page_only_read_saved_local_state():
+def test_hourly_observations_ignore_legacy_saved_local_state():
     import app
     app._cache.clear();store=Store({local.KEY:saved()})
     with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('regional_madis.fetch') as source,patch('app.download') as other:
         client=app.app.test_client();response=client.get('/api/observations');page=client.get('/').get_data(as_text=True)
-    assert response.status_code==200 and response.json['version']==local.VERSION
-    assert response.json['current']['stationCount']==3
-    assert 'tab-metar-clouds' in page and 'cloud-views.js' in page
+    assert response.status_code==200 and response.json['current'] is None
+    assert len(response.json['history'])==12
+    assert 'tab-metar' in page and 'hourly-observation-views.js' in page
     assert 'local-station-details' not in page and '10-MILE RADIUS' not in page
     assert 'id="sun-angle"' in page and 'id="history"' not in page
     source.assert_not_called();other.assert_not_called()

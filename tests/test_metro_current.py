@@ -46,7 +46,7 @@ class MetroCurrentTests(unittest.TestCase):
         self.assertFalse(result['metro']['available'])
         self.assertEqual(result['metro']['qa']['checks']['dewpoint'],2)
 
-    def test_local_current_average_is_separate_from_legacy_hourly_cloud_history(self):
+    def test_hourly_observations_are_separate_from_cloud_and_legacy_local_data(self):
         import local_current
         app._cache.clear()
         saved=metar_clouds.snapshot(reports(),NOW)
@@ -64,9 +64,7 @@ class MetroCurrentTests(unittest.TestCase):
             page=client.get('/').get_data(as_text=True)
         download.assert_not_called()
         self.assertEqual(metro['tempF'],68.5)
-        self.assertEqual(summary['current']['tempF'],68.0)
-        self.assertAlmostEqual(summary['current']['wind']['direction'],225.)
-        self.assertEqual(summary['current']['wind']['speedMph'],10.)
+        self.assertIsNone(summary['current'])
+        self.assertEqual(len(summary['history']),12)
         self.assertNotIn('current-views.js',page)
-        self.assertIn('tab-metar-clouds',page)
-        self.assertNotIn('history',summary)
+        self.assertIn('tab-metar',page)
