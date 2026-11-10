@@ -5,6 +5,8 @@ from io import BytesIO
 from hashlib import sha256
 import json
 import math
+import xml.etree.ElementTree as ET
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -20,6 +22,7 @@ SOURCE_DELAY_AFTER = timedelta(hours=3)
 HISTORY = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNow24HrCombined/FeatureServer/0'
 # Entire Minnesota, including the Northwest Angle and the Arrowhead.
 BOUNDS = [-97.65, 43.2, -89.1, 49.65]
+DIRECT_CONTOURS = 'https://files.airnowtech.org/airnow/today/cur_aqi_combined.kml'
 CONTOURS = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/AirNowLatestContoursCombined/FeatureServer/0'
 BASE = 'https://utility.arcgis.com/usrsvcs/servers/6907e02ec8474c6580e269c2b3f68d81/rest/services/base/aqi_base_bg_light/MapServer'
 OVERLAY = 'https://utility.arcgis.com/usrsvcs/servers/b4b392805417402d8d0510c586b89d87/rest/services/base/aqi_basemap/MapServer'
@@ -51,6 +54,65 @@ def download(url):
     if len(result)>8_000_000:
         raise ValueError('Air quality response exceeded its size limit')
     return result
+
+
+def download_direct(etag):
+    headers = {'User-Agent':'J-Weather (https://github.com/Barometer32/weather-lab)'}
+    if etag:
+        headers['If-None-Match'] = etag
+    try:
+        with urlopen(Request(DIRECT_CONTOURS, headers=headers), timeout=20) as response:
+            result = response.read(8_000_001)
+            if len(result) > 8_000_000:
+                raise ValueError('AirNow contour file exceeded its size limit')
+            return result, response.headers.get('ETag')
+    except HTTPError as error:
+        if error.code == 304 and etag:
+            return None, etag
+        raise
+
+
+def parse_direct(raw, now):
+    """Convert the official hourly combined KML to the existing contour format."""
+    root = ET.fromstring(raw)
+    folder = root.find('./{*}Document/{*}Folder')
+    prefix = '1hr_Combined_AQI_USA_'
+    name = folder.findtext('{*}name', '') if folder is not None else ''
+    if not name.startswith(prefix):
+        raise ValueError('AirNow KML has no hourly combined map timestamp')
+    source = datetime.strptime(name.removeprefix(prefix), '%Y%m%d%H').replace(tzinfo=UTC)
+    if not now-timedelta(days=1) <= source <= now:
+        raise ValueError('AirNow KML map timestamp is outside the recent window')
+    categories = {'#Good':1,'#Moderate':2,'#UnhealthySG':3,'#Unhealthy':4,'#VeryUnhealthy':5,'#Hazardous':6}
+    west,south,east,north = BOUNDS
+    features = []
+    for placemark in folder.findall('{*}Placemark'):
+        code = categories.get(placemark.findtext('{*}styleUrl','').strip())
+        if not code:
+            continue
+        for polygon in placemark.findall('.//{*}Polygon'):
+            outer = polygon.find('./{*}outerBoundaryIs/{*}LinearRing/{*}coordinates')
+            if outer is None:
+                continue
+            rings = []
+            for node in [outer,*polygon.findall('./{*}innerBoundaryIs/{*}LinearRing/{*}coordinates')]:
+                points = [tuple(map(float, point.split(',')[:2])) for point in (node.text or '').split()]
+                if any(not (-180 <= lon <= 180 and -85 <= lat <= 85) for lon,lat in points):
+                    raise ValueError('AirNow KML has invalid contour coordinates')
+                if len(points) >= 3:
+                    rings.append(points)
+                elif node is outer:
+                    break
+            if not rings:
+                continue
+            lon,lat = zip(*rings[0])
+            if max(lon)<west or min(lon)>east or max(lat)<south or min(lat)>north:
+                continue
+            features.append({'attributes':{'gridcode':code,'Timestamp':int(source.timestamp()*1000)},
+                             'geometry':{'rings':[[mercator(*point) for point in ring] for ring in rings]}})
+    if not features:
+        raise ValueError('AirNow KML has no Minnesota-area AQI contours')
+    return source, features
 
 
 def query(service, fields, fetch, where='1=1'):
@@ -162,17 +224,36 @@ def source_groups(rows,now):
     return groups
 
 
-def collect(store,now,fetch=None):
-    now=now.astimezone(UTC);fetch=fetch or download
+def collect(store,now,fetch=None,*,fetch_direct=None):
+    now=now.astimezone(UTC)
+    if fetch is None:
+        fetch=download
+        fetch_direct=fetch_direct or download_direct
     previous=store.read_json('live/air-quality.json') or {}
     frames=recent_frames(previous,now)
     fields='gridcode,Unixtime,Timestamp'
     primary_error=None
-    try:
-        groups=source_groups(query(CONTOURS,fields,fetch),now)
-    except (OSError,ValueError) as error:
-        groups={}
-        primary_error=error
+    direct_etag=previous.get('directETag')
+    direct_checked=previous.get('directCheckedAt')
+    direct_slot=None
+    direct_features=None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        direct=pool.submit(fetch_direct,direct_etag) if fetch_direct else None
+        try:
+            groups=source_groups(query(CONTOURS,fields,fetch),now)
+        except (OSError,ValueError) as error:
+            groups={}
+            primary_error=error
+        if direct:
+            try:
+                raw, etag=direct.result()
+                if raw is not None:
+                    direct_slot,direct_features=parse_direct(raw,now)
+                if raw is not None or etag:
+                    direct_etag=etag
+                    direct_checked=iso(now)
+            except (OSError,ValueError,ET.ParseError):
+                pass
 
     # The two AirNow layers can advance independently. Checking the archive
     # only for gaps before the "latest" timestamp misses any newer archive maps.
@@ -184,14 +265,15 @@ def collect(store,now,fetch=None):
         except (OSError,ValueError):
             archive={}
         groups={**archive,**groups}
-    if not groups:
+    if direct_features and direct_slot not in groups:
+        groups[direct_slot]=direct_features
+    if not groups and not (frames and direct_checked==iso(now)):
         if primary_error is not None:
             raise primary_error
         raise ValueError('AirNow contours are unavailable; previous snapshot retained')
-    newest=max(groups)
     # Archive real source hours missed between collections. The public 24-hour
     # combined-contour service uses the same gridcode and Timestamp fields.
-    latest=max([newest]+[moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames])
+    latest=max([*groups]+[moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames])
     wanted=[latest-timedelta(hours=n) for n in range(12)]
     present={moment(frame['sourceTime']).replace(minute=0,second=0,microsecond=0) for frame in frames}|set(groups)
     missing=[hour for hour in wanted if hour not in present]
@@ -228,6 +310,8 @@ def collect(store,now,fetch=None):
         key=f'air-quality/{VERSION}/{source.strftime("%Y%m%d%H%M%S")}-{digest[:16]}.png'
         frame=dict(version=VERSION,time=iso(source),sourceTime=iso(source),capturedAt=iso(now),
                    url='/api/prepared/'+key,dataHash=digest,style=MAP_STYLE)
+        if contours is direct_features:
+            frame['sourceProduct']='airnow-combined-kml'
         store.write(key,png,'image/png')
         frames=[f for f in frames if moment(f['sourceTime']).replace(minute=0,second=0,microsecond=0)!=slot]+[frame]
     frames=recent_frames({'frames':frames},now)
@@ -235,14 +319,15 @@ def collect(store,now,fetch=None):
     missing=[iso(hour) for hour in reversed(wanted) if hour not in present]
     store.write_json('live/air-quality.json',dict(version=VERSION,timeBasis='source',checkedAt=iso(now),bounds=BOUNDS,
         width=WIDTH,height=HEIGHT,frames=frames,source='EPA AirNow combined AQI contours used by MPCA',
-        checkMinutes=CHECK_MINUTES,backfillCheckedAt=last_backfill,missingHours=missing,backfillErrors=backfill_errors))
-    return {'frames':len(frames),'sourceTime':iso(newest),'missingHours':missing,'backfillErrors':backfill_errors}
+        checkMinutes=CHECK_MINUTES,backfillCheckedAt=last_backfill,missingHours=missing,backfillErrors=backfill_errors,
+        directETag=direct_etag,directCheckedAt=direct_checked))
+    return {'frames':len(frames),'sourceTime':frames[-1]['sourceTime'],'missingHours':missing,'backfillErrors':backfill_errors}
 
 
 def public_manifest(data,now):
     frames=recent_frames(data,now)
     if not frames:raise ValueError('No recent Air Q snapshots have been captured yet')
-    return {**data,'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES,
+    return {**{k:v for k,v in data.items() if k!='directETag'},'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES,
             'sourceDelayed':now-moment(frames[-1]['sourceTime'])>=SOURCE_DELAY_AFTER}
 
 

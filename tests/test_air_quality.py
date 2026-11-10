@@ -249,3 +249,37 @@ def test_stalled_latest_layer_uses_newer_archive_even_with_no_existing_gaps():
     assert data['frames'][-1]['sourceTime']==aq.iso(SOURCE)
     assert not aq.public_manifest(data,NOW)['sourceDelayed']
     assert aq.public_manifest(data,NOW+timedelta(hours=4))['sourceDelayed']
+
+
+def test_direct_airnow_file_advances_beyond_stalled_contours_and_reuses_etag():
+    store=MemoryStore()
+    basic,_=fetcher()
+    latest=SOURCE+timedelta(hours=1)
+    kml=f'''<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Folder>
+      <name>1hr_Combined_AQI_USA_{latest:%Y%m%d%H}</name>
+      <Placemark><styleUrl>#Moderate</styleUrl><Polygon>
+        <outerBoundaryIs><LinearRing><coordinates>-98,43 -98,50 -89,50 -89,43 -98,43</coordinates></LinearRing></outerBoundaryIs>
+        <innerBoundaryIs><LinearRing><coordinates>-94,44 -94,45 -93,45 -93,44 -94,44</coordinates></LinearRing></innerBoundaryIs>
+        <innerBoundaryIs><LinearRing><coordinates>-92,45 -92,45</coordinates></LinearRing></innerBoundaryIs>
+      </Polygon></Placemark></Folder></Document></kml>'''.encode()
+    seen=[]
+    def direct(etag):
+        seen.append(etag)
+        return (kml,'test-tag') if etag is None else (None,etag)
+
+    aq.collect(store,NOW,basic,fetch_direct=direct)
+    data=store.read_json('live/air-quality.json')
+    frame=data['frames'][-1]
+    assert frame['sourceTime']==aq.iso(latest) and frame['sourceProduct']=='airnow-combined-kml'
+    image_key=frame['url'].removeprefix('/api/prepared/')
+    with Image.open(BytesIO(store.read(image_key))) as image:
+        x,y=aq.xy(aq.mercator(-93.5,44.5))
+        assert image.getpixel((round(x),round(y)))==(255,255,255)
+        x,y=aq.xy(aq.mercator(-92,46))
+        assert image.getpixel((round(x),round(y)))==(255,255,0)
+    aq.collect(store,NOW+timedelta(minutes=5),basic,fetch_direct=direct)
+    data=store.read_json('live/air-quality.json')
+    assert seen==[None,'test-tag']
+    assert data['frames'][-1]==frame
+    assert data['directCheckedAt']==aq.iso(NOW+timedelta(minutes=5))
+    assert 'directETag' not in aq.public_manifest(data,NOW+timedelta(minutes=5))
