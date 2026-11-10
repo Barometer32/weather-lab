@@ -12,6 +12,7 @@ job=weather-live-hourly-observations
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$project"
 [[ -z "$(git status --porcelain)" ]] || { echo 'Run from a clean checkout.' >&2; exit 1; }
 
+live_html="$(curl -fsS --retry 2 --max-time 20 "$site/")"
 base="$(gcloud run services describe weather-lab "${run[@]}" --format=json |
   python3 -c 'import json,sys; s=json.load(sys.stdin); print(s["spec"]["template"]["spec"]["containers"][0]["image"].split("@",1)[0].split(":",1)[0])')"
 case "$base" in
@@ -38,7 +39,8 @@ import re, sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
-assert "hourly-observation-views.js?v=1" in s and "Last 12 hours" in s
+assert "hourly-observation-views.js?v=2" in s and "Last 12 hours" in s
+assert "<th scope=\"col\">Airports</th>" not in s
 assert "<option value=\"clouds\" selected>" in s and "id=\"observations-sun\"" in s
 '
 }
@@ -61,7 +63,7 @@ for h in history:
             assert datetime.fromisoformat(s["observedAt"]).minute in range(50,60)
             assert not s["rawMetar"].startswith("SPECI")
             assert s["tempF"] is None or re.search(r"\bT[01][0-9]{3}(?:[01][0-9]{3})?\b",s["rawMetar"].partition(" RMK")[2])
-complete=sum(h["count"] == 3 and h["tempF"] is not None for h in history)
+complete=sum(h["complete"] for h in history)
 assert d["current"] and complete >= int(sys.argv[1])
 print(f"Verified {complete} complete hourly three-airport METAR sets.")
 ' "$2"
@@ -69,6 +71,15 @@ print(f"Verified {complete} complete hourly three-airport METAR sets.")
 
 read -r revision candidate < <(stage weather-lab)
 check_layout "$candidate"
+if [[ "$live_html" == *'/api/observations/hourly'* ]]; then
+  # An existing hourly collector already writes the same raw report snapshot.
+  check_data "$candidate" 11
+  gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$revision=100"
+  check_layout "$site"
+  check_data "$site" 11
+  echo "The updated hourly Observations display is live at $site"
+  exit 0
+fi
 read -r collector_revision _ < <(stage weather-collector)
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 

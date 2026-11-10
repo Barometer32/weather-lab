@@ -5,18 +5,19 @@ window.WeatherHourlyObservations = (() => {
   const compass=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   let data,busy=false,error;
   const formatTime=stamp=>time.format(new Date(stamp));
-  const degrees=value=>Number.isFinite(value)?`${value.toFixed(1)}°F`:"—";
+  const degrees=value=>Number.isFinite(value)?`${value.toFixed(0)}°F`:"—";
   function windText(wind){
     if(!Number.isFinite(wind?.speedMph))return "—";
-    if(wind.speedMph===0)return "Calm";
+    const speed=wind.speedMph.toFixed(0);
+    if(speed==="0")return "Calm";
     const direction=Number.isFinite(wind.direction)?compass[Math.round(wind.direction/22.5)%16]:wind.variable?"Variable":"";
-    return `${direction?direction+" ":""}${wind.speedMph} mph`;
+    return `${direction?direction+" ":""}${speed} mph`;
   }
   function renderHistory(){
-    const rows=(data?.history||[]).map(hour=>{
+    const rows=(data?.history||[]).filter(hour=>hour.complete).map(hour=>{
       const row=document.createElement("tr");
       const values=[formatTime(hour.hour),degrees(hour.tempF),degrees(hour.dewpointF),
-        windText(hour.wind),`${hour.count}/${data.stationCount}`];
+        windText(hour.wind)];
       values.forEach((value,index)=>{
         const cell=document.createElement(index?"td":"th");
         if(!index)cell.scope="row";
@@ -31,8 +32,8 @@ window.WeatherHourlyObservations = (() => {
     if(el("observations").hidden)return;
     const current=data?.current;
     const pending=current&&data.history[0].hour!==current.hour;
-    let status=current?`${formatTime(current.hour)} · ${current.count}/${data.stationCount} airports`:
-      !data&&busy?"Loading hourly airport observations…":"Waiting for all three airports to report";
+    let status=current?formatTime(current.hour):
+      !data&&busy?"Loading hourly airport observations…":"Waiting for a complete hourly report";
     if(pending)status+=" · New hour pending";
     if(error||data?._savedCopy)status+=" · Update delayed";
     el("hourly-observation-time").textContent=status;

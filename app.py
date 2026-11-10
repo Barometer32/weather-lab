@@ -160,7 +160,7 @@ def average(values):
     return round(sum(values) / len(values), 1) if values else None
 
 
-def wind_mean(reports):
+def wind_mean(reports, *, speed_digits=1):
     speeds = [r["wspd"] for r in reports if valid_number(r.get("wspd"), 0, 200)]
     vectors = []
     for r in reports:
@@ -178,7 +178,7 @@ def wind_mean(reports):
         u, v = (sum(x[i] for x in vectors) for i in range(2))
         if math.hypot(u, v) > 0.01:
             direction = round(math.degrees(math.atan2(u, v)) % 360)
-    return {"speedMph": round(sum(speeds) / len(speeds) * 1.150779, 1) if speeds else None,
+    return {"speedMph": round(sum(speeds) / len(speeds) * 1.150779, speed_digits) if speeds else None,
             "speedKnots": round(sum(speeds) / len(speeds), 1) if speeds else None,
             "variable": any(r.get("wdir") == "VRB" for r in reports),
             "direction": direction, "speedCount": len(speeds), "directionCount": len(vectors)}
@@ -235,7 +235,7 @@ def metar_precision(report, *, fallback=True):
     return result
 
 
-def summarize(chosen, target):
+def summarize(chosen, target, *, mean_digits=1):
     temps = [r["temp"] for r in chosen if valid_number(r.get("temp"), -90, 60)]
     dewpoints = [r["dewp"] for r in chosen if valid_dewpoint(r)]
     temp_c = sum(temps) / len(temps) if temps else None
@@ -251,9 +251,9 @@ def summarize(chosen, target):
             "cloudCover": r.get("cover") if r else None, "weather": r.get("wxString") if r else None,
             "rawMetar": r.get("rawOb") if r else None})
     return {"hour": iso(target), "tempC": temp_c, "dewpointC": dew_c,
-            "tempF": round(temp_c * 9 / 5 + 32, 1) if temp_c is not None else None,
-            "dewpointF": round(dew_c * 9 / 5 + 32, 1) if dew_c is not None else None,
-            "pressureHpa": average(pressure), "wind": wind_mean(chosen), "count": len(chosen),
+            "tempF": round(temp_c * 9 / 5 + 32, mean_digits) if temp_c is not None else None,
+            "dewpointF": round(dew_c * 9 / 5 + 32, mean_digits) if dew_c is not None else None,
+            "pressureHpa": average(pressure), "wind": wind_mean(chosen, speed_digits=mean_digits), "count": len(chosen),
             "tempCount": len(temps), "dewpointCount": len(dewpoints), "stations": stations,
             "qa": quality_summary(chosen)}
 

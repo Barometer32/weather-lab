@@ -41,18 +41,33 @@ def test_strict_report_window_correction_and_t_remark():
     assert data["current"] is data["history"][0]
     assert data["current"]["hour"] == app.iso(HOUR)
     assert data["current"]["count"] == 3
-    assert (data["current"]["tempF"], data["current"]["dewpointF"]) == (32.5, 30.2)
+    assert (data["current"]["tempF"], data["current"]["dewpointF"]) == (33, 30)
     assert data["current"]["wind"]["direction"] == 3
     assert [s["observedAt"][14:16] for s in data["current"]["stations"]] == ["59", "53", "50"]
     assert data["history"][-1]["hour"] == app.iso(HOUR-timedelta(hours=11))
 
 
+def test_hourly_average_rounds_directly_from_metar_precision():
+    rows = [report("KFCM", remark="T01130005"), report("KMSP", remark="T01140005"),
+            report("KMIC", remark="T01140005")]
+    for row in rows:
+        row["wspd"] = 10
+    rows[0]["wspd"] = 7
+    # 52.46°F and about 10.36 mph, from the native Celsius and knot values.
+    current = obs.present({"reports": rows}, NOW)["current"]
+    assert current["tempF"] == 52
+    assert current["wind"]["speedMph"] == 10
+
+
 def test_no_body_temperature_fallback_and_no_partial_wind_average():
     rows = [report("KFCM", remark=""), report("KMSP"), report("KMIC")]
-    current = obs.present({"reports": rows}, NOW)["current"]
+    data = obs.present({"reports": rows}, NOW)
+    assert data["current"] is None
+    current = data["history"][0]
+    assert not current["complete"]
     assert current["tempF"] is None and current["dewpointF"] is None
     assert current["stations"][0]["tempF"] is None
-    assert current["wind"]["speedMph"] == 11.5
+    assert current["wind"]["speedMph"] == 12
     partial = obs.present({"reports": rows[:2]}, NOW)
     assert partial["current"] is None
     assert partial["history"][0]["count"] == 2
@@ -84,7 +99,7 @@ def test_official_archive_backfills_twelve_hours_and_retires_realtime_routes():
             result = public.get("/api/observations/hourly")
             assert result.headers["Cache-Control"] == "no-store"
             assert len(result.json["history"]) == 12
-            assert all(hour["count"] == 3 and hour["tempF"] == 33.8 for hour in result.json["history"])
+            assert all(hour["count"] == 3 and hour["tempF"] == 34 for hour in result.json["history"])
             assert public.get("/api/observations/mesonet").status_code == 404
             assert public.get("/api/observations/rolling").status_code == 404
     finally:

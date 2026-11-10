@@ -38,10 +38,12 @@ def present(saved, now):
         hour = target - timedelta(hours=offset)
         reports = [weather.metar_precision(selected[hour, station][1], fallback=False)
                    for station in weather.STATIONS if (hour, station) in selected]
-        row = weather.summarize(reports, hour)
+        row = weather.summarize(reports, hour, mean_digits=0)
         wind = row["wind"]
+        complete = all(count == len(weather.STATIONS) for count in
+                       (row["tempCount"], row["dewpointCount"], wind["speedCount"]))
         history.append({
-            "hour": row["hour"], "count": row["count"], "stations": row["stations"],
+            "hour": row["hour"], "count": row["count"], "stations": row["stations"], "complete": complete,
             "tempF": row["tempF"] if row["tempCount"] == len(weather.STATIONS) else None,
             "dewpointF": row["dewpointF"] if row["dewpointCount"] == len(weather.STATIONS) else None,
             "wind": {
@@ -51,7 +53,7 @@ def present(saved, now):
                 (wind["variable"] or wind["directionCount"] == len(weather.STATIONS)),
             },
         })
-    current = next((row for row in history[:2] if row["count"] == len(weather.STATIONS)), None)
+    current = next((row for row in history[:2] if row["complete"]), None)
     return {"current": current, "history": history, "checkedAt": saved.get("checkedAt"),
             "serverTime": weather.iso(now), "source": SOURCE, "stationCount": len(weather.STATIONS)}
 
