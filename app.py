@@ -583,6 +583,19 @@ def rolling_observation_api():
         return jsonify(error="Three-airport observations are temporarily unavailable."), 502, headers
 
 
+@app.get("/api/observations/mesonet")
+def mesonet_observation_api():
+    from observation_stations import KEY, present_average
+    headers = {"Cache-Control": "no-store"}
+    try:
+        store = get_store()
+        snapshot = cached("prepared-hennepin-west-observations", 10, lambda: store.read_json(KEY)) if store else None
+        return jsonify(present_average(snapshot, utcnow())), 200, headers
+    except Exception:
+        app.logger.exception("Prepared Hennepin West Mesonet observations unavailable")
+        return jsonify(error="Hennepin West Mesonet observations are temporarily unavailable."), 502, headers
+
+
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current

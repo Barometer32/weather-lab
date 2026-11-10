@@ -16,6 +16,13 @@ ORONO = (44.93629837036133, -93.62004852294922)
 FALLBACK_BOUNDS = [[44.70,-94.00],[45.35,-92.95]]
 KEY = "live/observation-stations.json"
 UTC = timezone.utc
+# The final Mesonet map roster, after the west-edge and individual site cuts.
+RETAINED_STATIONS = frozenset((
+    "HPN02", "HPN03", "HPN05", "HPN07", "HPN08", "HPN09", "HPN20", "HPN21",
+    "HPN24", "HPN25", "HPN26", "HPN28", "HPN30", "HPN31", "HPN37", "HPN38",
+    "HPN39", "HPN45", "HPN47",
+))
+LIVE_WINDOW = timedelta(minutes=30)
 
 
 def iso(moment):
@@ -119,6 +126,56 @@ def present_map(saved, now):
     return {"stations":rows,"bounds":bounds,"checkedAt":result["checkedAt"],"coverage":result["coverage"],
             "stationPolicy":MAP_STATION_POLICY,"serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
             "source":"NOAA MADIS · Hennepin West"}
+
+
+def present_average(saved, now):
+    """Give each retained site at most one vote per current measurement."""
+    from app import wind_mean
+
+    data = present(saved, now)
+    cutoff = now - LIVE_WINDOW
+    recent = [row for row in data["stations"]
+              if row["station"] in RETAINED_STATIONS
+              and datetime.fromisoformat(row["time"]) >= cutoff]
+    temps, dews, winds, stations = [], [], [], []
+    for row in recent:
+        temp, dew = row.get("tempF"), row.get("dewpointF")
+        wind = row.get("wind") or {}
+        speed = wind.get("speedMph")
+        if temp is not None:
+            temps.append(temp)
+        if dew is not None:
+            dews.append(dew)
+        if speed is not None:
+            winds.append({"wspd": speed / 1.150779, "wdir": wind.get("direction")})
+        if any(value is not None for value in (temp, dew, speed)):
+            stations.append(row)
+
+    wind = wind_mean(winds)
+    direction = wind["direction"]
+    current = None
+    if stations:
+        current = {
+            "observedAt": max(row["time"] for row in stations),
+            "oldestObservedAt": min(row["time"] for row in stations),
+            "tempF": round(math.fsum(temps) / len(temps), 1) if temps else None,
+            "dewpointF": round(math.fsum(dews) / len(dews), 1) if dews else None,
+            "wind": {
+                "speedMph": wind["speedMph"],
+                "direction": direction % 360 if direction is not None else None,
+                "variable": direction is None and wind["directionCount"] > 0 and wind["speedMph"] > 0,
+            },
+            "stationIds": sorted(row["station"] for row in stations),
+            "sampleCounts": {"temperature": len(temps), "dewpoint": len(dews), "windSpeed": wind["speedCount"],
+                             "windDirection": wind["directionCount"]},
+        }
+    return {
+        "current": current, "source": "NOAA MADIS · Hennepin West Mesonet",
+        "stationPolicy": MAP_STATION_POLICY, "stationCount": len(RETAINED_STATIONS),
+        "windowMinutes": int(LIVE_WINDOW.total_seconds() / 60),
+        "checkedAt": data["checkedAt"], "serverTime": data["serverTime"],
+        "delayed": data["collectorDelayed"] or bool(data["sourceFailures"]),
+    }
 
 
 def collect(store, now, download=None):

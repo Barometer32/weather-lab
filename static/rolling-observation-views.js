@@ -1,6 +1,6 @@
 "use strict";
 window.WeatherRollingObservations = (() => {
-  const el=id=>document.getElementById(id),url="/api/observations/rolling";
+  const el=id=>document.getElementById(id),url="/api/observations/mesonet";
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   const compass=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   let data,busy=false,error;
@@ -14,17 +14,16 @@ window.WeatherRollingObservations = (() => {
   }
   function render(){
     if(el("observations").hidden)return;
-    const reading=data?.current,t=Date.parse(reading?.observedAt);
-    const current=Number.isFinite(t)&&Date.now()-t<=1800000?reading:null;
-    const last=data?.lastCompleteAt;
-    const status=current?`Observed ${formatTime(current.observedAt)} · all 3 airports${error||data._savedCopy?" · update delayed":""}`:
-      !data&&busy?"Loading three-airport observations…":
-      last?`No matched observation in the last 30 minutes · last match ${formatTime(last)}`:
-      error||"Waiting for all 3 airports to report at the same time";
+    const current=data?.current;
+    const cutoff=Date.parse(current?.oldestObservedAt)+data?.windowMinutes*60000;
+    const recent=Number.isFinite(cutoff)&&Date.now()<=cutoff?current:null;
+    const status=recent?`Hennepin West Mesonet · Updated from reports through ${formatTime(current.observedAt)} · ${current.stationIds.length}/${data.stationCount} stations${error||data.delayed||data._savedCopy?" · update delayed":""}`:
+      !data&&busy?"Loading Hennepin West Mesonet observations…":
+      error||"Waiting for recent Hennepin West Mesonet reports";
     el("rolling-observation-time").textContent=status;
-    el("observations-temperature").textContent=degrees(current?.tempF);
-    el("observations-dewpoint").textContent=degrees(current?.dewpointF);
-    el("observations-wind").textContent=windText(current?.wind);
+    el("observations-temperature").textContent=degrees(recent?.tempF);
+    el("observations-dewpoint").textContent=degrees(recent?.dewpointF);
+    el("observations-wind").textContent=windText(recent?.wind);
   }
   function adopt(next){
     if(next===data||!Object.hasOwn(next??{},"current")||next._savedCopy&&data&&!data._savedCopy)return;
