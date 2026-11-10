@@ -12,7 +12,7 @@ HISTORY_HOURS = 12
 
 def select_reports(reports, now):
     target = now.replace(minute=0, second=0, microsecond=0)
-    start = target - timedelta(hours=HISTORY_HOURS - 1)
+    start = target - timedelta(hours=HISTORY_HOURS)
     chosen = {}
     for report in reports:
         station = report.get("icaoId")
@@ -34,7 +34,7 @@ def present(saved, now):
     target = now.replace(minute=0, second=0, microsecond=0)
     selected = select_reports(saved.get("reports", []), now)
     history = []
-    for offset in range(HISTORY_HOURS):
+    for offset in range(HISTORY_HOURS + 1):
         hour = target - timedelta(hours=offset)
         reports = [weather.metar_precision(selected[hour, station][1], fallback=False)
                    for station in weather.STATIONS if (hour, station) in selected]
@@ -53,9 +53,14 @@ def present(saved, now):
                 (wind["variable"] or wind["directionCount"] == len(weather.STATIONS)),
             },
         })
+    pending = not history[0]["complete"]
     current = next((row for row in history[:2] if row["complete"]), None)
-    return {"current": current, "history": history, "checkedAt": saved.get("checkedAt"),
-            "serverTime": weather.iso(now), "source": SOURCE, "stationCount": len(weather.STATIONS)}
+    # Keep twelve slots visible while the new hour is still reporting.
+    start = 1 if pending and current else 0
+    return {"current": current, "history": history[start:start+HISTORY_HOURS],
+            "pendingHour": weather.iso(target) if pending else None,
+            "checkedAt": saved.get("checkedAt"), "serverTime": weather.iso(now),
+            "source": SOURCE, "stationCount": len(weather.STATIONS)}
 
 
 def collect(store, now):
@@ -63,14 +68,12 @@ def collect(store, now):
 
     saved = store.read_json(KEY) or {}
     target = now.replace(minute=0, second=0, microsecond=0)
-    # Skip follow-up checks once all three fields have twelve complete hours.
-    # If a station is late, the same archive repairs gaps.
-    if all(None not in (row["tempF"], row["dewpointF"], row["wind"]["speedMph"])
-           for row in present(saved, now)["history"]):
+    # Retry the upstream feed only while this hour is missing a usable set.
+    if present(saved, now)["pendingHour"] is None:
         return {"status": "already prepared", "checkedAt": saved["checkedAt"]}
 
     params = {"ids": ",".join(weather.STATIONS), "format": "json",
-              "hours": HISTORY_HOURS + 1, "date": weather.iso(target)}
+              "hours": HISTORY_HOURS + 2, "date": weather.iso(target)}
     payload = weather.download(ARCHIVE_URL + "?" + urlencode(params))
     fresh = json.loads(payload) if payload else []
     if not isinstance(fresh, list) or not select_reports(fresh, now):

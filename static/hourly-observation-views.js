@@ -30,16 +30,13 @@ window.WeatherHourlyObservations = (() => {
   }
   function render(){
     if(el("observations").hidden)return;
-    const current=data?.current;
-    const pending=current&&data.history[0].hour!==current.hour;
-    let status=current?formatTime(current.hour):
-      !data&&busy?"Loading hourly airport observations…":"Waiting for a complete hourly report";
-    if(pending)status+=" · New hour pending";
-    if(error||data?._savedCopy)status+=" · Update delayed";
-    el("hourly-observation-time").textContent=status;
-    el("observations-temperature").textContent=degrees(current?.tempF);
-    el("observations-dewpoint").textContent=degrees(current?.dewpointF);
-    el("observations-wind").textContent=windText(current?.wind);
+    const pending=data?.pendingHour;
+    let status=pending?`Waiting for the ${formatTime(pending)} reports.`:
+      !data&&busy?"Loading hourly airport observations…":"";
+    if(error||data?._savedCopy)status=[status,"Update delayed."].filter(Boolean).join(" ");
+    const notice=el("hourly-observation-time");
+    notice.textContent=status;
+    notice.hidden=!status;
   }
   function adopt(next){
     if(next===data||!Array.isArray(next?.history)||next._savedCopy&&data&&!data._savedCopy)return;

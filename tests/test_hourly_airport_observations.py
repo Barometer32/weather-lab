@@ -74,6 +74,32 @@ def test_no_body_temperature_fallback_and_no_partial_wind_average():
     assert partial["history"][0]["wind"]["speedMph"] is None
 
 
+def test_new_hour_stays_pending_without_dropping_any_of_the_prior_twelve():
+    prior = [report(station, hour=HOUR-timedelta(hours=i))
+             for i in range(1, 13) for station in app.STATIONS]
+    store = Store()
+    store[obs.KEY] = {"reports": prior, "checkedAt": app.iso(NOW-timedelta(hours=1))}
+    pending = obs.present(store[obs.KEY], NOW)
+    assert pending["pendingHour"] == app.iso(HOUR)
+    assert pending["history"][0]["hour"] == app.iso(HOUR-timedelta(hours=1))
+    assert pending["history"][-1]["hour"] == app.iso(HOUR-timedelta(hours=12))
+    assert all(hour["complete"] for hour in pending["history"])
+
+    first_two = [report("KFCM"), report("KMSP")]
+    with patch("app.download", side_effect=[json.dumps(first_two).encode(),
+                                           json.dumps([report("KMIC")]).encode()]) as download:
+        obs.collect(store, NOW)
+        assert obs.present(store[obs.KEY], NOW)["pendingHour"]
+        obs.collect(store, NOW+timedelta(minutes=2))
+        assert obs.present(store[obs.KEY], NOW)["pendingHour"] is None
+        assert obs.present(store[obs.KEY], NOW)["history"][0]["hour"] == app.iso(HOUR)
+        # A historical gap does not keep polling for an already complete current hour.
+        store[obs.KEY]["reports"] = [r for r in store[obs.KEY]["reports"]
+                                     if r["obsTime"] > (HOUR-timedelta(hours=1)).timestamp()]
+        assert obs.collect(store, NOW+timedelta(minutes=4))["status"] == "already prepared"
+        assert download.call_count == 2
+
+
 def test_official_archive_backfills_twelve_hours_and_retires_realtime_routes():
     store = Store()
     rows = [report(station, hour=HOUR-timedelta(hours=i))

@@ -12,7 +12,6 @@ job=weather-live-hourly-observations
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$project"
 [[ -z "$(git status --porcelain)" ]] || { echo 'Run from a clean checkout.' >&2; exit 1; }
 
-live_html="$(curl -fsS --retry 2 --max-time 20 "$site/")"
 base="$(gcloud run services describe weather-lab "${run[@]}" --format=json |
   python3 -c 'import json,sys; s=json.load(sys.stdin); print(s["spec"]["template"]["spec"]["containers"][0]["image"].split("@",1)[0].split(":",1)[0])')"
 case "$base" in
@@ -39,8 +38,8 @@ import re, sys
 s=sys.stdin.read()
 assert re.findall(r"<button role=\"tab\" id=\"tab-([^\"]+)\"",s)==["observations","metar","radar","satellite","forecast","air-quality"]
 assert "id=\"tab-observations\" aria-selected=\"true\"" in s and "TWIN CITIES · HOURLY METAR" in s
-assert "style.css?v=hourly-airport-v2" in s and "hourly-observation-views.js?v=2" in s
-assert "Last 12 hours" in s
+assert "style.css?v=hourly-airport-v3" in s and "hourly-observation-views.js?v=3" in s
+assert "Last 12 hours" in s and "observations-temperature" not in s
 assert "<th scope=\"col\">Airports</th>" not in s
 assert "<option value=\"clouds\" selected>" in s and "id=\"observations-sun\"" in s
 '
@@ -72,15 +71,6 @@ print(f"Verified {complete} complete hourly three-airport METAR sets.")
 
 read -r revision candidate < <(stage weather-lab)
 check_layout "$candidate"
-if [[ "$live_html" == *'/api/observations/hourly'* ]]; then
-  # An existing hourly collector already writes the same raw report snapshot.
-  check_data "$candidate" 11
-  gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$revision=100"
-  check_layout "$site"
-  check_data "$site" 11
-  echo "The updated hourly Observations display is live at $site"
-  exit 0
-fi
 read -r collector_revision _ < <(stage weather-collector)
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 
@@ -89,7 +79,7 @@ job_exists() { grep -Eq "(^|/)$1$" <<< "$jobs"; }
 job_state() { gcloud scheduler jobs describe "$1" "${scheduler[@]}" --format='value(state)'; }
 action=create
 if job_exists "$job"; then action=update; fi
-gcloud scheduler jobs "$action" http "$job" "${scheduler[@]}" --schedule='2,7,12 * * * *' --time-zone=Etc/UTC \
+gcloud scheduler jobs "$action" http "$job" "${scheduler[@]}" --schedule='*/2 * * * *' --time-zone=Etc/UTC \
   --uri="$collector/collect/hourly-observations" --http-method=POST \
   --oidc-service-account-email="weather-scheduler@$project.iam.gserviceaccount.com" \
   --oidc-token-audience="$collector" --attempt-deadline=60s --max-retry-attempts=0

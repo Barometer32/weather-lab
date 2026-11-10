@@ -442,39 +442,21 @@ main > #observations {
   width:min(100%,920px);
   align-self:center;
 }
-.hourly-observation-status { margin:4px 0 14px; color:var(--muted); font-size:14px; }
-.hourly-observation-metrics {
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  grid-auto-rows:1fr;
-  gap:clamp(10px,1.3vw,16px);
-  margin:0;
-}
-.hourly-observation-metrics .metric {
-  display:grid;
-  grid-template-columns:minmax(0,1fr);
-  align-content:center;
-  text-align:center;
-  min-height:160px;
-  padding:16px;
-  border-radius:14px;
-  background:linear-gradient(180deg,#fff,#f6faf8);
-}
-.hourly-observation-metrics .metric h2 { font-size:18px; }
-.hourly-observation-metrics .metric-value {
-  font-size:clamp(32px,4vw,48px);
-  line-height:1.12;
-  margin-top:8px;
-}
-.hourly-observation-history { margin:24px 0 12px; }
+.hourly-observation-actions { display:flex; align-items:center; gap:12px; }
+.hourly-observation-actions .sun-angle-readout { font-size:14px; }
+.hourly-observation-actions .sun-angle-readout strong { font-size:18px; }
+.hourly-observation-history { margin:12px 0; }
 .hourly-observation-history h2 { margin-bottom:6px; font-size:20px; }
 .hourly-observation-history p { margin:0 0 10px; color:var(--muted); font-size:13px; }
 .hourly-observation-history th,.hourly-observation-history td { padding:10px 14px; }
 .hourly-observation-history tbody th { background:transparent; font-weight:500; }
+.hourly-observation-history tbody tr:first-child { background:#eef7f1; }
+.hourly-observation-history tbody tr:first-child > * { font-weight:700; }
 @media(max-width:600px) {
+  .hourly-observation-actions { gap:8px; }
+  .hourly-observation-actions .sun-angle-readout { font-size:12px; }
+  .hourly-observation-actions .sun-angle-readout strong { font-size:16px; }
   .hourly-observation-history th,.hourly-observation-history td { padding:9px 7px; font-size:12px; }
   nav { overflow-x:auto; }
   nav button { flex:1 1 auto; min-width:max-content; font-size:clamp(9px,2.45vw,12px); padding-inline:2px; }
-  .hourly-observation-metrics .metric { min-height:116px; padding:12px 10px; }
-  .hourly-observation-metrics .metric h2 { font-size:15px; }
-  .hourly-observation-metrics .metric-value { font-size:clamp(24px,6.7vw,36px); }
 }
