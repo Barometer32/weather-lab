@@ -5,16 +5,16 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const rtmetar="/api/rtmetar";
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/truecolor";
-  const paths=[rtmetar,metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
-  const maxSavedAge=url=>url===rtmetar?600000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
+  const paths=[metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   // Drop retired product manifests without disturbing other saved weather.
   disk().then(cache=>cache&&Promise.all([
     cache.delete("/api/satellite/13"),
     cache.delete("/api/hrmetar",{ignoreSearch:true}),
+    cache.delete("/api/rtmetar",{ignoreSearch:true}),
     cache.delete("/api/observations/hourly",{ignoreSearch:true}),
     cache.delete("/api/observation-stations?view=mesonet",{ignoreSearch:true}),
     cache.delete("/api/observations/mesonet"),
@@ -31,7 +31,7 @@ window.WeatherPrepared = (() => {
     if(pending.has(url))return pending.get(url);
     const work=(async()=>{
       try{
-        const response=await fetch(url,{cache:url===rtmetar?"default":"no-store"}),data=await response.json();
+        const response=await fetch(url,{cache:"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
@@ -89,7 +89,7 @@ window.WeatherPrepared = (() => {
   async function prime(){
     // Start all prepared manifests independently. Slow imagery must never
     // block CLOUDS/PLOTS from becoming ready before the user switches views.
-    await Promise.allSettled([rtmetar,metarLoop,radarManifest,satelliteManifest,
+    await Promise.allSettled([metarLoop,radarManifest,satelliteManifest,
       "/api/satellite/dcphase","/api/satellite/ntmicro","/api/forecast","/api/air-quality"]
       .map(url=>read(url)));
   }

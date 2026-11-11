@@ -1,96 +1,71 @@
 # Weather Lab METAR products
 
-METAR is the home tab. Its dropdown defaults to **RTMETAR**, followed by
-**PLOTS** and **CLOUDS**. The separate OBSERVATIONS tab, client module, public
-API, and hourly-observations collector route are retired.
+METAR is the home tab. Its dropdown contains **PLOTS** and **CLOUDS** only.
+PLOTS opens on initial load and whenever the user returns to the METAR tab.
+A visibility refresh keeps the currently selected hourly product and frame.
+The retired OBSERVATIONS and RTMETAR UI, APIs and collector routes are absent.
 
-## RTMETAR
+## Hourly maps
 
-- Five-minute ASOS/HFMETAR reports only, from SD, ND, MN, IA and WI.
-- One combined IEM archive request every five minutes (`report_type=1`).
-  The airport/state inventory in `rtmetar_stations.py` is from IEM's five state
-  ASOS inventories. Inventory membership alone never enables a marker: a
-  qualifying five-minute record must actually exist for that airport.
-- Raw text must contain `MADISHF` in the remarks, match its airport/time, and
-  have a timestamp on a five-minute boundary. No routine METAR or SPECI
-  replacement, including at :53. Missing intervals stay missing.
-- Temperature and dewpoint are integer Celsius from the main `XX/XX` group
-  (`M` denotes negative). T remarks and decoded Fahrenheit fields are never
-  temperature inputs. Missing main-group values remain missing.
-- Wind is converted from the raw knot group to mph. Both numeric popup speed
-  and barb feathers use mph. Speeds below 3 mph have no feathers; 3–7 have a
-  half feather, 8–12 a full feather, 13–17 one and a half, and so on.
-- The map shows the latest qualifying record for each airport, not a synthetic
-  synchronized frame. The hourly slider is hidden in RTMETAR.
-- RTMETAR hides airports whose latest record is missing either main-group
-  temperature or dewpoint. It never substitutes an older complete report or
-  fills a missing value from T remarks. Zero and negative Celsius values remain
-  eligible. This check also applies to saved browser copies.
-- RTMETAR allows modest plot overlap, with more space shared in the Twin Cities
-  metro. KFCM, KMIC, KMSP and KSTP have first priority when eligible airports
-  compete for space. Actual airport coordinates and plot sizes stay unchanged;
-  zooming in reveals more nearby airports. Hourly map spacing is retained.
-- Reports more than 15 minutes old are labeled delayed, and expire after
-  60 minutes. A successful collector check does not renew the observation time.
-  This feed can arrive late; polling every five minutes does not guarantee
-  five-minute end-to-end latency. Per-airport popups show actual source times.
-- Public requests read `live/rtmetar-v1.json` only. Source requests run in the
-  authenticated background collector, independently of browser visits.
+PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to
+:53, labeled with the following hour. Four consecutive populated hours must
+be ready before the viewer advances. Individual airports must be present in
+all four frames; CLOUDS additionally requires usable sky data in every frame.
+KCFE remains excluded. Saved geographic defaults for PLOTS and CLOUDS are
+independent. Hourly station spacing and the timeline are retained.
 
-The IEM documents that its MADISHF strings are METAR-formatted renderings of
-high-frequency MADIS data, not routine airport-issued METARs:
-https://mesonet.agron.iastate.edu/onsite/news.phtml?tag=asos
+PLOTS uses Fahrenheit temperature/dewpoint and mph wind barbs. CLOUDS shows
+sky cover and the lowest BKN/OVC height in thousands of feet AGL. More airports
+appear when zooming in. Neither product fetches the removed five-minute feed.
 
-## Retained hourly products
+## Background preparation and warm startup
 
-PLOTS and CLOUDS retain their existing four-consecutive-hour readiness rule,
-station spacing, hourly timeline, sources, units and view controls. PLOTS uses
-existing Fahrenheit temperature/dewpoint values and mph barbs; Celsius is
-specific to RTMETAR. CLOUDS retains sky cover and lowest BKN/OVC height in
-thousands of feet AGL. Neither hourly view uses the RTMETAR feed.
+The scheduled hourly collector normally overlaps two archive hours. When the
+saved history lacks a recent complete four-hour window, it fetches five real
+archive hours to repair outage gaps. It writes `live/metar-loop.json` only when
+a usable window exists. Failed or incomplete recovery retains the prior usable
+loop, whose age is still checked. Public compact requests read that prepared
+object without rebuilding the archive. Until initial preparation succeeds they
+return an explicit 503 recovery message.
 
-Each product has an independent saved map default. Switching between RTMETAR
-and hourly maps preserves their respective geographic views; switching PLOTS
-and CLOUDS preserves the selected hourly frame.
+Radar, satellite, forecast, air quality, and the hourly maps are collected by
+Cloud Scheduler independently of browser visits. The public service uses
+`WEATHER_PREPARED_ONLY=true`; all retained product manifests start independently
+when the page opens. Saved browser copies can paint while fresh prepared data
+is downloaded. Latest default radar/satellite assets are warmed in the browser
+when Data Saver is off; whole historical image loops load on demand.
 
-The background collector normally overlaps two archive hours. When the saved
-history has no recent complete four-hour window, it fetches five real archive
-hours to repair outage gaps. It writes `live/metar-loop.json` only when a usable
-window exists; failed or incomplete recovery retains the previous usable loop.
-Public compact requests read that prepared object without rebuilding the
-archive. Before the first successful preparation they return an explicit 503
-recovery message, rather than a successful empty map.
-
-All small product manifests start independently when the page opens. Browser
-cache copies can paint immediately on repeat visits while prepared data refreshes.
-Source collection continues through Cloud Scheduler with no browser open.
+One service-level minimum website instance serves every tab and reduces cold
+starts. This incurs idle instance charges. Network transfers and browser drawing
+still take time; upstream availability determines how recent observations can be.
+The displayed source times and stale indicators remain authoritative.
 
 ## Release
 
 From a clean pushed checkout in authenticated Google Cloud Shell:
 
 ```bash
-bash release-rtmetar.sh
+bash release-plots.sh
 ```
 
-The script inspects the existing image repository and Scheduler service
-account, builds once, stages both services, and verifies prepared RTMETAR and
-four-hour CLOUDS/PLOTS data before switching the public web service. It
-creates/updates `weather-live-rtmetar`, checks `weather-live-metar-clouds` every
-five minutes with a 300-second deadline, and seeds both collectors immediately.
-The hourly collector skips source downloads after the current window settles.
-It pauses `weather-live-hourly-observations` after a successful cutover.
+The script inspects the existing services, builds once, stages both services,
+and pauses the retired RTMETAR job. It seeds all five retained collectors,
+resumes any paused retained schedules, and checks prepared data for every tab
+before switching website traffic. The hourly collector runs every five minutes
+with a 300-second deadline, skipping unnecessary NOAA requests once the hour
+settles. The public service keeps at least one warm instance and uses prepared
+data only. Both settings are read back and verified after deployment.
 
-The public service uses prepared data only and keeps at least one service-level
-minimum instance warm. This reduces cold starts and incurs idle instance
-charges. Browser download and drawing time still apply. Other weather schedules
-and runtime settings are retained. Rollback commands restore traffic, the prior
-RTMETAR enabled/paused state, hourly schedule/deadline, and minimum instance
-setting if verification fails after collector cutover. Existing bucket objects
-and hourly METAR history are not deleted.
+If preparation or live verification fails, the script restores prior service
+traffic, schedules, enabled/paused states, and the website minimum-instance
+setting. After all deployment checks pass, it deletes only the retired
+`weather-live-rtmetar` scheduler and `live/rtmetar-v1.json` from the actual data
+bucket. It then confirms all five retained jobs are enabled. Cleanup failures
+are reported separately while the verified replacement stays live. Other bucket
+objects and saved hourly history are retained. Browser caches discard the old
+rapid manifest and saved rapid-map default.
 
-Validation includes `tests/test_rtmetar.py`, RTMETAR view tests, existing
-hourly-map continuity tests, station-model tests, prepared-cache tests, and
-navigation tests. `verify_rtmetar_release.py` checks staged/live HTML plus
-report provenance, Celsius/mph fields, and four consecutive populated hourly
-frames with common stations available for both retained map products.
+`verify_weather_release.py` checks HTML defaults, the removed API, four populated
+hourly frames, fresh prepared manifests for every tab, and readable latest
+prepared radar/satellite/air-quality assets. Deployment tests exercise staged
+success, outage rollback, cleanup failure, and repeat deployment after retirement.

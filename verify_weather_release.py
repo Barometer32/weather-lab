@@ -1,0 +1,91 @@
+"""Verify prepared weather products and PLOTS default with standard-library tools."""
+import argparse
+from datetime import datetime, timezone
+import json
+import re
+from urllib.request import urlopen
+from urllib.error import HTTPError
+
+
+def read(base, path):
+    with urlopen(base.rstrip("/") + path, timeout=25) as response:
+        return response.read().decode()
+
+
+def check_layout(base):
+    html = read(base, "/")
+    assert 'id="tab-observations"' not in html and 'id="observations"' not in html
+    assert 'hourly-observation-views.js' not in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert 'id="tab-metar" aria-selected="true"' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert 'rtmetar' not in html.lower()
+    assert '<option value="clouds">CLOUDS</option>' in html
+    assert '/static/metar-views.js?v=plots-home-v4' in html
+    print("Verified METAR home with PLOTS default, CLOUDS retained, and RTMETAR removed.")
+
+
+def check_hourly(base):
+    data = json.loads(read(base, "/api/station-plots?view=loop"))
+    assert data.get("loopVersion") == "prepared-hourly-loop-v1"
+    assert not data.get("historyPending") and not data.get("stale")
+    frames = data["history"]
+    assert len(frames) == 4 and all(frame["stations"] for frame in frames)
+    hours = [datetime.fromisoformat(frame["hour"].replace("Z", "+00:00")) for frame in frames]
+    assert all((b - a).total_seconds() == 3600 for a, b in zip(hours, hours[1:]))
+    sites = set.intersection(*({s["station"] for s in frame["stations"]} for frame in frames))
+    assert sites, "No stations have a complete four-hour plotting window"
+    for frame in frames:
+        for station in frame["stations"]:
+            assert station["reportType"] == "METAR"
+            stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
+            assert 45 <= stamp.minute <= 59
+    clouds = [{s["station"] for s in frame["stations"] if s.get("layers")} for frame in frames]
+    assert set.intersection(*clouds), "No complete CLOUDS history is ready"
+    print(f"Verified prepared CLOUDS/PLOTS loop: four consecutive hours, {len(sites)} common stations.")
+
+
+def check_removed(base):
+    try:
+        read(base, "/api/rtmetar")
+    except HTTPError as error:
+        assert error.code == 404, "Retired RTMETAR endpoint must return 404"
+    else:
+        raise AssertionError("Retired RTMETAR endpoint still exists")
+
+
+def check_products(base):
+    """Verify every retained tab reads fresh prepared data and saved imagery."""
+    products = [("RADAR", "/api/radar?site=KMPX", "frames"),
+                ("SATELLITE truecolor", "/api/satellite/truecolor", "frames"),
+                ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),
+                ("SATELLITE ntmicro", "/api/satellite/ntmicro", "frames"),
+                ("FORECAST", "/api/forecast", "periods"),
+                ("AIR Q", "/api/air-quality", "frames")]
+    for name, path, items in products:
+        data = json.loads(read(base, path))
+        assert data.get("checkedAt") and data.get("stale") is False, f"{name}: background data is stale"
+        assert data.get(items), f"{name}: no prepared {items}"
+        if items == "frames":
+            asset = data[items][-1]["url"]
+            assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"
+            with urlopen(base.rstrip("/") + asset, timeout=30) as response:
+                assert response.read(), f"{name}: prepared asset is empty"
+        print(f"Verified {name}: {len(data[items])} prepared {items}, checked {data['checkedAt']}.")
+        if data.get("sourceDelayed"):
+            print(f"{name}: upstream source is delayed; the original observation time is preserved.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("url")
+    parser.add_argument("--layout-only", action="store_true")
+    parser.add_argument("--all-products", action="store_true")
+    args = parser.parse_args()
+    check_layout(args.url)
+    if not args.layout_only:
+        check_hourly(args.url)
+        check_removed(args.url)
+        if args.all_products:
+            check_products(args.url)

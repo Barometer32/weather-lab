@@ -100,4 +100,4 @@ def test_new_hour_stays_pending_without_dropping_any_of_the_prior_twelve():
         assert download.call_count == 2
 
 
-# The retired Observations API and collector are covered by test_rtmetar.py.
+# Retired product routes are covered by test_plots_default.py.

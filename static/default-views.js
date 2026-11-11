@@ -1,6 +1,7 @@
 "use strict";
 // Opening views use the same pixel footprints as the station collision filter.
 window.WeatherDefaultViews = (()=>{
+  try{window.localStorage.removeItem("weather-metar-default-v1-rtmetar");}catch(_){}
   const airports=[{station:"KFCM",lat:44.8272,lon:-93.4571},{station:"KMIC",lat:45.0619,lon:-93.3539},{station:"KMSP",lat:44.8831,lon:-93.2289}];
   const fallbackFootprint={left:-35,right:22,top:-38,bottom:20},radarKey="weather-radar-default-v1";
   const factoryRadar={center:[44.925,-93.462],zoom:8};
@@ -37,11 +38,12 @@ window.WeatherDefaultViews = (()=>{
     try{window.localStorage.setItem(radarKey,JSON.stringify(view));return true;}catch(_){return false;}
   }
   function savedMetar(mode){
+    if(!["plots","clouds"].includes(mode))return null;
     try{const view=JSON.parse(window.localStorage.getItem("weather-metar-default-v1-"+mode));if(valid(view))return view;}catch(_){}
     return null;
   }
   function saveMetar(mode,center,zoom){
-    const view={center,zoom};if(!["plots","clouds","rtmetar"].includes(mode)||!valid(view))return false;
+    const view={center,zoom};if(!["plots","clouds"].includes(mode)||!valid(view))return false;
     try{window.localStorage.setItem("weather-metar-default-v1-"+mode,JSON.stringify(view));return true;}catch(_){return false;}
   }
   return {metar,radar,saveRadar,savedMetar,saveMetar};

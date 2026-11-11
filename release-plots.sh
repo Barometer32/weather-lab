@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Run from the pushed rtmetar-default-20261111 checkout in Google Cloud Shell.
+# Run from this pushed checkout in authenticated Google Cloud Shell.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 project=weather-lab-261105-184200-1a9b
 region=us-central1
 site=https://weather-lab.cloud.run
 job=weather-live-rtmetar
-tag="metar-ready-$(git rev-parse --short=12 HEAD)"
+tag="plots-ready-$(git rev-parse --short=12 HEAD)"
 run=(--project="$project" --region="$region")
 scheduler=(--project="$project" --location="$region")
 export CLOUDSDK_BILLING_QUOTA_PROJECT="$project"
 [[ -z "$(git status --porcelain)" ]] || { echo 'Run from a clean checkout.' >&2; exit 1; }
 
-# Read the actual services, image repository and Scheduler identity; retain
-# runtime settings, IAM, existing data bucket, and all other weather schedules.
+# Read actual services and image repository; retain runtime settings, IAM,
+# existing data bucket and the schedules of the other retained products.
 service_info() {
   gcloud run services describe "$1" "${run[@]}" --format=json |
     python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"]["url"]); print(d["spec"]["template"]["spec"]["containers"][0]["image"]); print(",".join(t["revisionName"]+"="+str(t["percent"]) for t in d["status"]["traffic"] if t.get("percent") and t.get("revisionName")))'
@@ -30,8 +30,6 @@ esac
 collector_base="${collector[1]%%@*}"
 collector_base="${collector_base%:*}"
 [[ "$collector_base" == "$base" ]] || { echo 'Web and collector image repositories differ; inspect before release.' >&2; exit 1; }
-identity="$(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@]}" --format='value(httpTarget.oidcToken.serviceAccountEmail)')"
-[[ "$identity" == *"@$project.iam.gserviceaccount.com" ]] || { echo 'Unexpected Scheduler identity.' >&2; exit 1; }
 old_hourly_state="$(gcloud scheduler jobs describe weather-live-hourly-observations "${scheduler[@]}" --format='value(state)' 2>/dev/null || true)"
 old_rt_state="$(gcloud scheduler jobs describe "$job" "${scheduler[@]}" --format='value(state)' 2>/dev/null || true)"
 mapfile -t old_metar_job < <(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@]}" --format=json |
@@ -40,7 +38,7 @@ mapfile -t old_metar_job < <(gcloud scheduler jobs describe weather-live-metar-c
 old_min="$(gcloud run services describe weather-lab "${run[@]}" --format=json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("metadata",{}).get("annotations",{}).get("run.googleapis.com/minScale","default"))')"
 warm_min=1
 if [[ "$old_min" =~ ^[0-9]+$ ]] && (( old_min > 1 )); then warm_min="$old_min"; fi
-rollback_dir="$(mktemp -d /tmp/weather-rtmetar-rollback.XXXXXX)"
+rollback_dir="$(mktemp -d /tmp/weather-plots-rollback.XXXXXX)"
 rollback="$rollback_dir/rollback.sh"
 {
   echo '#!/usr/bin/env bash'
@@ -49,15 +47,24 @@ rollback="$rollback_dir/rollback.sh"
   if [[ "$old_hourly_state" == ENABLED ]]; then
     printf 'gcloud scheduler jobs resume weather-live-hourly-observations --project=%q --location=%q\n' "$project" "$region"
   fi
-  rt_action=pause
-  if [[ "$old_rt_state" == ENABLED ]]; then rt_action=resume; fi
-  printf 'gcloud scheduler jobs %q %q --project=%q --location=%q\n' "$rt_action" "$job" "$project" "$region"
+  if [[ "$old_rt_state" == ENABLED ]]; then
+    printf 'gcloud scheduler jobs resume %q --project=%q --location=%q\n' "$job" "$project" "$region"
+  fi
   printf 'gcloud scheduler jobs update http weather-live-metar-clouds --project=%q --location=%q --schedule=%q --attempt-deadline=%q\n' "$project" "$region" "${old_metar_job[0]}" "${old_metar_job[1]}"
   if [[ "${old_metar_job[2]}" == PAUSED ]]; then
     printf 'gcloud scheduler jobs pause weather-live-metar-clouds --project=%q --location=%q\n' "$project" "$region"
   fi
   printf 'gcloud run services update weather-lab --project=%q --region=%q --min=%q\n' "$project" "$region" "$old_min"
 } > "$rollback"
+retained_jobs=(weather-live-radar weather-live-satellite weather-live-forecast weather-live-air-quality)
+for active_job in "${retained_jobs[@]}"; do
+  state="$(gcloud scheduler jobs describe "$active_job" "${scheduler[@]}" --format='value(state)')"
+  case "$state" in
+    ENABLED) ;;
+    PAUSED) printf 'gcloud scheduler jobs pause %q --project=%q --location=%q\n' "$active_job" "$project" "$region" >> "$rollback" ;;
+    *) echo "Unexpected background job state: $active_job $state" >&2; exit 1 ;;
+  esac
+done
 printf 'Rollback commands saved at %s\n' "$rollback"
 
 image="$base:$tag"
@@ -73,7 +80,7 @@ stage() {
     python3 -c 'import json,sys; t=next(t for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")==sys.argv[1]); print(t["revisionName"],t["url"])' "$tag"
 }
 read -r web_revision candidate < <(stage weather-lab)
-python3 verify_rtmetar_release.py "$candidate" --layout-only
+python3 verify_weather_release.py "$candidate" --layout-only
 read -r collector_revision _ < <(stage weather-collector)
 
 # After the collector changes, automatically restore prior traffic if warming
@@ -87,18 +94,10 @@ on_failure() {
 }
 trap on_failure ERR
 changed=true
-gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
-action=create
-if gcloud scheduler jobs describe "$job" "${scheduler[@]}" >/dev/null 2>&1; then action=update; fi
-gcloud scheduler jobs "$action" http "$job" "${scheduler[@]}" \
-  --schedule='*/5 * * * *' --time-zone=Etc/UTC \
-  --uri="${collector[0]}/collect/rtmetar" --http-method=POST \
-  --oidc-service-account-email="$identity" --oidc-token-audience="${collector[0]}" \
-  --attempt-deadline=90s --max-retry-attempts=0
-if [[ "$(gcloud scheduler jobs describe "$job" "${scheduler[@]}" --format='value(state)')" == PAUSED ]]; then
-  gcloud scheduler jobs resume "$job" "${scheduler[@]}"
+if [[ "$old_rt_state" == ENABLED ]]; then
+  gcloud scheduler jobs pause "$job" "${scheduler[@]}"
 fi
-gcloud scheduler jobs run "$job" "${scheduler[@]}"
+gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 # Check every five minutes, but the collector skips source requests once the
 # complete current-hour loop is ready. Recovery can continue outside :00/:10.
 gcloud scheduler jobs update http weather-live-metar-clouds "${scheduler[@]}" \
@@ -107,21 +106,48 @@ if [[ "$(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@
   gcloud scheduler jobs resume weather-live-metar-clouds "${scheduler[@]}"
 fi
 gcloud scheduler jobs run weather-live-metar-clouds "${scheduler[@]}"
+for active_job in "${retained_jobs[@]}"; do
+  if [[ "$(gcloud scheduler jobs describe "$active_job" "${scheduler[@]}" --format='value(state)')" == PAUSED ]]; then
+    gcloud scheduler jobs resume "$active_job" "${scheduler[@]}"
+  fi
+  gcloud scheduler jobs run "$active_job" "${scheduler[@]}"
+done
 ready=false
 for attempt in {1..72}; do
-  if python3 verify_rtmetar_release.py "$candidate" --all-products > "$rollback_dir/verification.log" 2>&1; then
+  if python3 verify_weather_release.py "$candidate" --all-products > "$rollback_dir/verification.log" 2>&1; then
     cat "$rollback_dir/verification.log"
     ready=true
     break
   fi
   sleep 5
 done
-[[ "$ready" == true ]] || { cat "$rollback_dir/verification.log" >&2; echo 'Verified prepared RTMETAR and hourly map data did not arrive.' >&2; false; }
+[[ "$ready" == true ]] || { cat "$rollback_dir/verification.log" >&2; echo 'Verified prepared weather data did not arrive.' >&2; false; }
 gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$web_revision=100"
 gcloud run services update weather-lab "${run[@]}" --min="$warm_min"
-python3 verify_rtmetar_release.py "$site" --all-products
+gcloud run services describe weather-lab "${run[@]}" --format=json |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); minimum=int(d.get("metadata",{}).get("annotations",{}).get("run.googleapis.com/minScale",0)); assert minimum>=1,"Website has no warm minimum instance"; env=d["spec"]["template"]["spec"]["containers"][0].get("env",[]); assert any(e["name"]=="WEATHER_PREPARED_ONLY" and e.get("value")=="true" for e in env),"Public service is not prepared-only"; print("Verified website warm minimum:",minimum,"instance(s), covering all tabs; prepared-only enabled.")'
+python3 verify_weather_release.py "$site" --all-products
 if [[ "$old_hourly_state" == ENABLED ]]; then
   gcloud scheduler jobs pause weather-live-hourly-observations "${scheduler[@]}"
 fi
+# Retire the job and its one unused snapshot only after the replacement passes
+# all checks. Until this point the prior service/job remain recoverable.
 trap - ERR
-echo "Weather Lab is live at $site. CLOUDS/PLOTS and RTMETAR are prepared in the background; the website keeps at least one instance warm."
+trap 'echo "Website deployment passed, but RTMETAR cleanup is incomplete. Inspect the error above." >&2' ERR
+if [[ -n "$old_rt_state" ]]; then
+  gcloud scheduler jobs delete "$job" "${scheduler[@]}" --quiet
+fi
+bucket="$(gcloud run services describe weather-collector "${run[@]}" --format=json |
+  python3 -c 'import json,sys; env=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0].get("env",[]); print(next(e["value"] for e in env if e["name"]=="WEATHER_DATA_BUCKET"))')"
+[[ "$bucket" =~ ^[a-z0-9][a-z0-9._-]+$ ]] || { echo 'Invalid data bucket; inspect before cleanup.' >&2; exit 1; }
+rt_object="gs://$bucket/live/rtmetar-v1.json"
+gcloud storage ls "gs://$bucket/live/" > "$rollback_dir/live-objects.txt"
+while IFS= read -r object; do
+  if [[ "$object" == "$rt_object" ]]; then
+    gcloud storage rm "$rt_object"
+  fi
+done < "$rollback_dir/live-objects.txt"
+gcloud scheduler jobs list "${scheduler[@]}" --format=json |
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"'
+trap - ERR
+echo "Weather Lab is live at $site. PLOTS is the default; RTMETAR is removed. All retained tabs use background-prepared data and share the warm website instance."

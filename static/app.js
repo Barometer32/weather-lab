@@ -333,7 +333,7 @@ $("satellite-timeline").addEventListener("input",event=>showSatelliteFrame(Numbe
 $("satellite-reset").addEventListener("click",fitSatelliteView);
 document.addEventListener("visibilitychange",()=>{
   if (!document.hidden) {
-    if (!$("metar").hidden) window.WeatherMetars?.select("metar");
+    if (!$("metar").hidden) window.WeatherMetars?.refresh();
     if (!$("air-quality").hidden) window.WeatherAirQuality?.select("air-quality");
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();

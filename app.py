@@ -616,22 +616,6 @@ def health():
     return jsonify(status="ok")
 
 
-@app.get("/api/rtmetar")
-def rtmetar_api():
-    from rtmetar import KEY, present
-    headers = {"Cache-Control": "no-store"}
-    try:
-        store = get_store()
-        snapshot = cached("prepared-rtmetar", 10, lambda: store.read_json(KEY)) if store else None
-        result = present(snapshot, utcnow())
-        return jsonify(result), 200, headers
-    except ValueError:
-        return jsonify(error="RTMETAR reports are being prepared. Please refresh shortly."), 503, headers
-    except Exception:
-        app.logger.exception("Prepared RTMETAR reports unavailable")
-        return jsonify(error="RTMETAR reports are temporarily unavailable."), 502, headers
-
-
 @app.get("/api/radar")
 def radar_api():
     try:
