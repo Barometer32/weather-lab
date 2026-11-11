@@ -442,21 +442,3 @@ main > #observations {
   width:min(100%,920px);
   align-self:center;
 }
-.hourly-observation-actions { display:flex; align-items:center; gap:12px; }
-.hourly-observation-actions .sun-angle-readout { font-size:14px; }
-.hourly-observation-actions .sun-angle-readout strong { font-size:18px; }
-.hourly-observation-history { margin:12px 0; }
-.hourly-observation-history h2 { margin-bottom:6px; font-size:20px; }
-.hourly-observation-history p { margin:0 0 10px; color:var(--muted); font-size:13px; }
-.hourly-observation-history th,.hourly-observation-history td { padding:10px 14px; }
-.hourly-observation-history th,.hourly-observation-history tbody tr { background:#fff; }
-.hourly-observation-history tbody th { font-weight:400; }
-.hourly-observation-history thead th { font-weight:700; }
-@media(max-width:600px) {
-  .hourly-observation-actions { gap:8px; }
-  .hourly-observation-actions .sun-angle-readout { font-size:12px; }
-  .hourly-observation-actions .sun-angle-readout strong { font-size:16px; }
-  .hourly-observation-history th,.hourly-observation-history td { padding:9px 7px; font-size:12px; }
-  nav { overflow-x:auto; }
-  nav button { flex:1 1 auto; min-width:max-content; font-size:clamp(9px,2.45vw,12px); padding-inline:2px; }
-}

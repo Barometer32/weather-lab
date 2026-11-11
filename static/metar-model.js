@@ -128,7 +128,7 @@ window.WeatherStationModel = (() => {
     const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
-  function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false}={}){
+  function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
     const c=combined,w=combinedWind(station.wind,mphBarbs),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     let left=dot?-3:-8.5,right=dot?3:8.5,top=dot?-3:-8.5,bottom=dot?3:8.5;
     function include(x,y,width,anchor){
@@ -136,8 +136,8 @@ window.WeatherStationModel = (() => {
       left=Math.min(left,start-2);right=Math.max(right,start+width+2);
       top=Math.min(top,y-13);bottom=Math.max(bottom,y+3);
     }
-    include(c.tempX,c.tempY,textWidth(numeric(station.tempF)),"end");
-    include(c.dewX,c.dewY,textWidth(numeric(station.dewpointF)),"end");
+    include(c.tempX,c.tempY,textWidth(numeric(celsius?station.tempC:station.tempF)),"end");
+    include(c.dewX,c.dewY,textWidth(numeric(celsius?station.dewpointC:station.dewpointF)),"end");
     if(ceiling)include(c.ceilingX,c.ceilingY,textWidth(ceiling),"start");
     if(w.kind==="unknown")include(0,29,textWidth(w.state,true),"middle");
     for(const [x,y] of w.points){left=Math.min(left,x-2);right=Math.max(right,x+2);top=Math.min(top,y-2);bottom=Math.max(bottom,y+2);}

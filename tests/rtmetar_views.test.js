@@ -1,0 +1,43 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const now=Date.now(),iso=offset=>new Date(now-offset).toISOString();
+const nodes=new Map(),shown=new Map(),subscribers=new Map(),events={};let fail=false,reads=[];
+function element(){return{value:'',hidden:false,children:[],events:{},style:{setProperty(){}},textContent:'',setAttribute(k,v){this[k]=v;},append(...x){this.children.push(...x);},addEventListener(n,fn){this.events[n]=fn;}};}
+function get(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);}
+const station=(id,lat,tempC,dewpointC)=>({station:id,state:'MN',lat,lon:2,time:iso(300000),tempC,dewpointC,tempF:999,dewpointF:998,wind:{speedMph:13,direction:270},rawOb:`${id} 111300Z AUTO 27011KT M02/M05 RMK T09990999 MADISHF`});
+let rapid={version:'rtmetar-raw-c-v1',temperatureUnit:'C',checkedAt:iso(0),serverTime:iso(0),stations:[station('KMSP',2,-2,-5),station('KMKT',5,10,3)]};
+let hourly={checkedAt:iso(0),history:Array.from({length:4},(_,i)=>({hour:new Date(now-(3-i)*3600000).toISOString(),stations:[{...station('KMSP',2,9,2),tempF:48,dewpointF:36,layers:[{cover:'BKN',baseFtAGL:2500}]}]}))};
+const map={setView(){return this;},fitBounds(){return this;},getCenter(){return{lat:44, lng:-93};},getZoom(){return 7;},getSize(){return{x:2000,y:1000};},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},on(n,fn){events[n]=fn;},invalidateSize(){}};
+const context={window:{WeatherPrepared:{async read(url){reads.push(url);if(fail)throw Error('Offline');return url.includes('rtmetar')?rapid:hourly;},subscribe(url,fn){subscribers.set(url,fn);}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Number,Date,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title);}}),divIcon:x=>x,marker:(position,opts)=>({...opts,position,bindPopup(p){this.popup=p;return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(p){this.position=p;return this;},setPopupContent(p){this.popup=p;return this;}})}};
+for(const path of ['static/metar-model.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
+const flush=()=>new Promise(setImmediate),change=value=>get('metar-product').events.change({target:{value}});
+(async()=>{
+ assert.equal(get('metar-product').value,'rtmetar','RTMETAR is the default without a saved selection');
+ context.window.WeatherMetars.select('metar');await flush();
+ assert.deepEqual(reads,['/api/rtmetar']);assert.equal(get('metar-history').hidden,true);
+ const m=shown.get('KMSP · RTMETAR');assert.ok(m);
+ assert.match(m.icon.html,/plot-temp[^>]*>-2</);assert.match(m.icon.html,/plot-dew[^>]*>-5</);
+ assert.doesNotMatch(m.icon.html,/>999<|>998</);assert.match(m.icon.html,/data-mph="15"/);
+ const popup=m.popup.children.map(c=>c.textContent).join(' ');
+ assert.match(popup,/Temperature: -2°C/);assert.match(popup,/Dewpoint: -5°C/);assert.match(popup,/Wind: 13 mph/);assert.doesNotMatch(popup,/°F|Barb feathers:.*kt/);
+ change('plots');await flush();assert.equal(get('metar-history').hidden,false);
+ assert.ok(shown.has('KMSP · RTMETAR')||shown.has('KMSP · METAR'));
+ const hourlyLabel=get('metar-time').textContent;
+ rapid={...rapid,checkedAt:iso(-1000),stations:[station('KMSP',2,4,-3)]};
+ subscribers.get('/api/rtmetar')(rapid);assert.equal(get('metar-time').textContent,hourlyLabel,'Rapid updates cannot replace an hourly view');
+ change('clouds');await flush();assert.match([...shown.values()][0].icon.html,/plot-sky/);
+ assert.doesNotMatch([...shown.values()][0].icon.html,/plot-temp/);
+ change('rtmetar');await flush();assert.equal(get('metar-history').hidden,true);
+ assert.match([...shown.values()][0].icon.html,/plot-temp[^>]*>4</);
+ const before=get('metar-time').textContent;
+ subscribers.get('/api/rtmetar')({...rapid,checkedAt:iso(100000),stations:[]});
+ assert.equal(get('metar-time').textContent,before,'Out-of-order snapshots cannot replace newer data');
+ fail=true;get('refresh-metar').events.click();await flush();
+ assert.ok(shown.size,'Failed refresh retains the last five-minute reports');
+ assert.equal(get('metar-notice').hidden,false);
+ fail=false;rapid={...rapid,checkedAt:iso(-2000),sourceDelayed:true,stations:[{...station('KMSP',2,4,-3),time:iso(1200000)},{...station('KMKT',5,10,3),time:iso(3600001)}]};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.equal(shown.size,1,'Expired stations cannot appear current');
+ assert.match(get('metar-time').textContent,/Delayed/);assert.equal(get('metar-notice').hidden,false);
+ console.log('RTMETAR view passed: Celsius plots/popups, mph barbs, defaults, expiry, failure retention and independent hourly CLOUDS/PLOTS.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

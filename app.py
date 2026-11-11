@@ -596,26 +596,20 @@ def health():
     return jsonify(status="ok")
 
 
-@app.get("/api/observations")
-@app.get("/api/observations/hourly")
-def observation_api():
-    from hourly_airport_observations import KEY, present
-
+@app.get("/api/rtmetar")
+def rtmetar_api():
+    from rtmetar import KEY, present
     headers = {"Cache-Control": "no-store"}
     try:
         store = get_store()
-        snapshot = cached("prepared-hourly-airport-observations", 10, lambda: store.read_json(KEY)) if store else None
+        snapshot = cached("prepared-rtmetar", 10, lambda: store.read_json(KEY)) if store else None
         result = present(snapshot, utcnow())
-        if request.args.get("view") == "table":
-            result = {
-                "history": [{key: row[key] for key in ("hour", "complete", "tempF", "dewpointF", "wind")}
-                            for row in result["history"]],
-                "pendingHour": result["pendingHour"], "serverTime": result["serverTime"],
-            }
         return jsonify(result), 200, headers
+    except ValueError:
+        return jsonify(error="RTMETAR reports are being prepared. Please refresh shortly."), 503, headers
     except Exception:
-        app.logger.exception("Hourly airport observations unavailable")
-        return jsonify(error="Hourly airport observations are temporarily unavailable."), 502, headers
+        app.logger.exception("Prepared RTMETAR reports unavailable")
+        return jsonify(error="RTMETAR reports are temporarily unavailable."), 502, headers
 
 
 @app.get("/api/radar")

@@ -16,7 +16,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "hourly-observations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "rtmetar")}
 
 
 def collect_radar_legacy(store, now):
@@ -190,8 +190,8 @@ def collect_air_quality(store, now):
     return collect(store, now)
 
 
-def collect_hourly_observations(store, now):
-    from hourly_airport_observations import collect
+def collect_rtmetar(store, now):
+    from rtmetar import collect
     return collect(store, now)
 
 def collect_forecast(store, now):
@@ -221,7 +221,7 @@ def collect(kind):
             "satellite": collect_satellite,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
-            "hourly-observations": collect_hourly_observations,
+            "rtmetar": collect_rtmetar,
             "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404

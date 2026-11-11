@@ -100,39 +100,4 @@ def test_new_hour_stays_pending_without_dropping_any_of_the_prior_twelve():
         assert download.call_count == 2
 
 
-def test_official_archive_backfills_twelve_hours_and_retires_realtime_routes():
-    store = Store()
-    rows = [report(station, hour=HOUR-timedelta(hours=i))
-            for i in range(12) for station in app.STATIONS]
-    with patch("collector.get_store", return_value=store), patch("app.utcnow", return_value=NOW), \
-            patch("app.download", return_value=json.dumps(rows).encode()) as download:
-        private = collector.app.test_client()
-        result = private.post("/collect/hourly-observations")
-        assert result.json["result"]["reports"] == 36
-        assert private.post("/collect/hourly-observations").json["result"]["status"] == "already prepared"
-        assert private.post("/collect/mn-asos-audit").status_code == 404
-        assert private.post("/collect/observation-stations").status_code == 404
-        download.assert_called_once()
-    url = urlparse(download.call_args.args[0])
-    query = parse_qs(url.query)
-    assert url.hostname == "aviationweather.gov" and set(query["ids"][0].split(",")) == set(app.STATIONS)
-    assert query["date"] == [app.iso(HOUR)]
-    cache_key = "prepared-hourly-airport-observations"
-    app._cache.pop(cache_key, None)
-    try:
-        with patch("app.get_store", return_value=store), patch("app.utcnow", return_value=NOW):
-            public = app.app.test_client()
-            result = public.get("/api/observations/hourly")
-            assert result.headers["Cache-Control"] == "no-store"
-            assert len(result.json["history"]) == 12
-            assert all(hour["count"] == 3 and hour["tempF"] == 34 for hour in result.json["history"])
-            compact = public.get("/api/observations/hourly?view=table")
-            assert compact.headers["Cache-Control"] == "no-store"
-            assert len(compact.json["history"]) == 12
-            assert compact.json["history"][0]["tempF"] == result.json["history"][0]["tempF"]
-            assert "stations" not in compact.json["history"][0]
-            assert len(compact.data) < len(result.data) / 3
-            assert public.get("/api/observations/mesonet").status_code == 404
-            assert public.get("/api/observations/rolling").status_code == 404
-    finally:
-        app._cache.pop(cache_key, None)
+# The retired Observations API and collector are covered by test_rtmetar.py.
