@@ -285,14 +285,30 @@ def collect(download, now, previous=None):
     recent = ready_plot_frames(previous.get("history", [])[-4:])
     healthy = recent and recent[-1]["hour"] >= iso(target - timedelta(hours=1))
     hours = 2 if healthy else 5
-    archive = fetch_history(download, now, hours=hours)
     retained = [row for frame in previous.get("history", [])
                 for row in frame.get("stations", []) if in_region(row)]
-    data = snapshot(retained+archive["reports"], target, iso(now))
+    data = None
+    if healthy:
+        try:
+            # One official bulk file is much faster than querying every airport
+            # archive batch. Keep the existing routine-report and readiness rules.
+            rows = parse_reports(download(SOURCE_URL), now)
+            candidate = snapshot(retained+rows, target, iso(now))
+            fresh = snapshot(rows, target, iso(now))
+            if fresh["stations"] and candidate["history"][-1]["hour"] == iso(target) and ready_plot_frames(candidate["history"][-4:]):
+                data = candidate
+        except (OSError, ValueError, EOFError, ET.ParseError):
+            # A failed/partial bulk file must not erase the saved history.
+            pass
+    feed = "awc-bulk-cache" if data else "awc-hourly-archive"
+    if data is None:
+        archive = fetch_history(download, now, hours=hours)
+        data = snapshot(retained+archive["reports"], target, iso(now))
     if not data["stations"]:
         raise ValueError("No routine METARs in the completed hour's :45–:59 window; previous data retained")
     data["observationReports"] = observation_reports(data)
     data["collectionMode"] = "official-hourly-archive"
+    data["collectionFeed"] = feed
     data["hourlyTarget"] = iso(target)
     return data
 

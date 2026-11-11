@@ -1,6 +1,6 @@
 {
   "variant": "plots-default",
-  "baseCommit": "4178e0513d1322832e836ff32641af248c52d04d",
+  "baseCommit": "985b9f17d591cce6b2d390a5fd9d4e6ae2bea7ce",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -13,6 +13,7 @@
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",
   "hourlyMapRecoveryHours": 5,
-  "hourlyCollectionSchedule": "*/5 * * * *",
+  "hourlyCollectionSchedule": "*/2 * * * *",
+  "hourlyBulkFirst": true,
   "minimumWebInstances": 1
 }

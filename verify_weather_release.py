@@ -22,7 +22,8 @@ def check_layout(base):
     assert '<option value="plots" selected>PLOTS</option>' in html
     assert 'rtmetar' not in html.lower()
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=plots-home-v4' in html
+    assert '/static/metar-views.js?v=metar-fast-v5' in html
+    assert 'id="metar-notice"' not in html
     print("Verified METAR home with PLOTS default, CLOUDS retained, and RTMETAR removed.")
 
 

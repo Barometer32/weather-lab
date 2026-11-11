@@ -34,10 +34,11 @@ def test_populated_current_hour_with_shutdown_gaps_is_repaired_after_catchup_dea
 def test_healthy_window_seeds_fast_payload_without_another_noaa_request():
     store = Store()
     store.data["live/metar-clouds.json"] = metar.snapshot(archive(5)["reports"], HOUR)
-    store.data["live/metar-clouds.json"].update(collectionMode="official-hourly-archive", hourlyTarget=metar.iso(HOUR))
+    store.data["live/metar-clouds.json"].update(collectionMode="official-hourly-archive", hourlyTarget=metar.iso(HOUR),
+                                              checkedAt=metar.iso(HOUR+timedelta(minutes=25)))
     with patch("metar_history.fetch_history") as source:
         collector.collect_metar_clouds(store, HOUR + timedelta(minutes=25))
-        collector.collect_metar_clouds(store, HOUR + timedelta(minutes=30))
+        collector.collect_metar_clouds(store, HOUR + timedelta(minutes=25, seconds=30))
     source.assert_not_called()
     assert store.writes == [metar.LOOP_KEY]
 

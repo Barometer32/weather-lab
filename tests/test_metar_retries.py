@@ -7,6 +7,13 @@ from test_metar_history_restore import Store,archive,HOUR,xml,xml_report
 import metar_history
 
 
+@pytest.fixture(autouse=True)
+def archive_fallback_only():
+    # These tests exercise archive retry behavior when bulk data is unavailable.
+    with patch('collector.weather.download',return_value=xml()):
+        yield
+
+
 def saved_store():
     store=Store();metar_history.publish_history(archive(),store,HOUR)
     return store
@@ -16,17 +23,17 @@ def fresh(station):
     return metar_clouds.parse_reports(xml(xml_report(HOUR-timedelta(minutes=7),station=station)),HOUR)
 
 
-def test_partial_hour_is_revisited_every_two_minutes_until_20_and_cached_afterwards():
+def test_hour_is_revisited_every_two_minutes_including_after_20():
     store=saved_store()
-    with patch('metar_history.fetch_history',side_effect=[{'reports':fresh('KFCM')},{'reports':fresh('KDEH')}]) as source:
+    with patch('metar_history.fetch_history',side_effect=[{'reports':fresh('KFCM')},{'reports':fresh('KDEH')},{'reports':fresh('KSTP')}]) as source:
         collector.collect_metar_clouds(store,HOUR+timedelta(minutes=2))
         collector.collect_metar_clouds(store,HOUR+timedelta(minutes=3))
         assert source.call_count==1,'duplicate calls in one two-minute slot reuse the prepared result'
         collector.collect_metar_clouds(store,HOUR+timedelta(minutes=20))
         assert source.call_count==2,'a nonempty partial hour must not stop catch-up downloads'
         collector.collect_metar_clouds(store,HOUR+timedelta(minutes=22))
-        assert source.call_count==2,'populated frames settle after the catch-up window'
-    assert {r['station'] for r in store.data['live/metar-clouds.json']['stations']}=={'KMSP','KFCM','KDEH'}
+        assert source.call_count==3,'later corrections still update on two-minute checks'
+    assert {r['station'] for r in store.data['live/metar-clouds.json']['stations']}=={'KMSP','KFCM','KDEH','KSTP'}
     assert len(store.data['live/metar-clouds.json']['history'])==12
 
 

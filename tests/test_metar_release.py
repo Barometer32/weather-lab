@@ -59,6 +59,8 @@ elif args[:3]==['scheduler','jobs','describe']:
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
     elif fmt=='value(schedule)': print('0,30 * * * *')
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
+elif args[:4]==['scheduler','jobs','update','http']:
+    state[args[4]+'-schedule']=option('--schedule');state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
     state['rtDeleted']=True;state_path.write_text(json.dumps(state))
 elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
@@ -66,7 +68,7 @@ elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
 elif args[:3]==['scheduler','jobs','list']:
     names=['weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality']
     if not state.get('rtDeleted'): names.append('weather-live-rtmetar')
-    print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':'*/5 * * * *','state':state.get(name+'-state','ENABLED')} for name in names]))
+    print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED')} for name in names]))
 elif args[:2]==['storage','rm'] and os.environ['MOCK_FAILURE']=='cleanup':
     sys.exit(1)
 elif args[:2]==['storage','ls']:
@@ -96,6 +98,8 @@ elif args[:2]==['storage','ls']:
         assert any(c[:2] == ["storage", "rm"] and c[2].endswith('/live/rtmetar-v1.json') for c in calls)
         assert not any(c[:2] == ["storage", "rm"] and not c[2].endswith('/live/rtmetar-v1.json') for c in calls)
         assert not any(c[:4] == ["scheduler", "jobs", "run", "weather-live-rtmetar"] for c in calls)
+        assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
+                   and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=*/5 * * * *" in c for c in calls)
     elif failure == "cleanup":

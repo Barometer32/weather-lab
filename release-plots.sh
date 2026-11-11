@@ -101,10 +101,10 @@ if [[ "$old_rt_state" == ENABLED ]]; then
   gcloud scheduler jobs pause "$job" "${scheduler[@]}"
 fi
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
-# Check every five minutes, but the collector skips source requests once the
-# complete current-hour loop is ready. Recovery can continue outside :00/:10.
+# Check at :00, :02 and every two minutes, using the fast official bulk file
+# when saved history is healthy. Recovery still fills gaps from the archive.
 gcloud scheduler jobs update http weather-live-metar-clouds "${scheduler[@]}" \
-  --schedule='*/5 * * * *' --attempt-deadline=300s
+  --schedule='*/2 * * * *' --attempt-deadline=300s
 if [[ "$(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@]}" --format='value(state)')" == PAUSED ]]; then
   gcloud scheduler jobs resume weather-live-metar-clouds "${scheduler[@]}"
 fi
@@ -154,6 +154,6 @@ while IFS= read -r object; do
   fi
 done < "$rollback_dir/live-objects.txt"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
 echo "Weather Lab is live at $site. PLOTS is the default; RTMETAR is removed. All retained tabs use background-prepared data and share the warm website instance."

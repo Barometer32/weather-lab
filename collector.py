@@ -152,18 +152,20 @@ def collect_metar_clouds(store, now):
              and previous.get("stationPolicy") == STATION_POLICY
              and bool(ready_plot_frames(previous.get("history", [])[-4:])))
     if ready:
-        # Retry through :20 even after a partial batch arrives. Afterwards a
-        # populated hour is stable; an entirely missing hour keeps retrying.
+        # Check every two minutes, including later corrections after :20.
+        # Duplicate requests in the same check slot reuse the prepared result.
         slot = now.replace(minute=(now.minute//2)*2, second=0, microsecond=0)
         try:
             checked = datetime.fromisoformat(previous["checkedAt"].replace("Z", "+00:00"))
         except (KeyError, TypeError, ValueError):
             checked = None
-        if now.minute > 20 or (checked is not None and checked >= slot):
+        if checked is not None and checked >= slot:
             # Seed the fast public payload on rollout without re-downloading
             # an already complete observation window.
             loop = prepared_loop(previous)
-            if loop and not store.read_json(LOOP_KEY):
+            saved_loop = store.read_json(LOOP_KEY)
+            if loop and (not saved_loop or saved_loop.get("checkedAt") != loop["checkedAt"]
+                         or saved_loop.get("loopVersion") != loop["loopVersion"]):
                 store.write_json(LOOP_KEY, loop)
             return {"stations": len(previous["stations"]), "status": "already prepared for this check"}
     data = collect(weather.download, now, previous)

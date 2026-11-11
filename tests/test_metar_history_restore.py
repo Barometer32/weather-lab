@@ -136,7 +136,7 @@ def test_hourly_updates_overlap_two_hours_and_preserve_imported_history():
     metar_history.publish_history(archive(), store, NOW)
     next_time = NOW+timedelta(hours=1)
     fresh = metar_clouds.parse_reports(xml(xml_report(HOUR+timedelta(minutes=53))), next_time)
-    with patch("metar_history.fetch_history", return_value={"reports": fresh}) as read:
+    with patch("metar_history.fetch_history", return_value={"reports": fresh}) as read, patch("app.download", return_value=xml()):
         collector.collect_metar_clouds(store, next_time)
         collector.collect_metar_clouds(store, next_time)
     assert read.call_count == 1

@@ -20,10 +20,14 @@ appear when zooming in. Neither product fetches the removed five-minute feed.
 
 ## Background preparation and warm startup
 
-The scheduled hourly collector normally overlaps two archive hours. When the
-saved history lacks a recent complete four-hour window, it fetches five real
-archive hours to repair outage gaps. It writes `live/metar-loop.json` only when
-a usable window exists. Failed or incomplete recovery retains the prior usable
+The collector checks at :00, :02, :04 and every two minutes through :58.
+With healthy saved history it first downloads NOAA's official bulk METAR file,
+which usually advances the map in one request. It applies the same routine-hour
+selection and four-frame readiness rules. When that file is partial or fails,
+it falls back to two overlapping archive hours. If saved history lacks a recent
+complete four-hour window, it fetches five real archive hours to repair gaps.
+It writes `live/metar-loop.json` only when a usable window exists. Failed or
+incomplete recovery retains the prior usable
 loop, whose age is still checked. Public compact requests read that prepared
 object without rebuilding the archive. Until initial preparation succeeds they
 return an explicit 503 recovery message.
@@ -46,7 +50,8 @@ schedule along with the other saved settings.
 One service-level minimum website instance serves every tab and reduces cold
 starts. This incurs idle instance charges. Network transfers and browser drawing
 still take time; upstream availability determines how recent observations can be.
-The displayed source times and stale indicators remain authoritative.
+The displayed report hour remains authoritative. The bottom hourly-delay
+paragraph is removed; freshness metadata and internal error status are retained.
 
 ## Release
 
@@ -59,10 +64,11 @@ bash release-plots.sh
 The script inspects the existing services, builds once, stages both services,
 and pauses the retired RTMETAR job. It seeds all five retained collectors,
 resumes any paused retained schedules, and checks prepared data for every tab
-before switching website traffic. The hourly collector runs every five minutes
-with a 300-second deadline, skipping unnecessary NOAA requests once the hour
-settles. The public service keeps at least one warm instance and uses prepared
-data only. Both settings are read back and verified after deployment.
+before switching website traffic. The hourly collector runs every two minutes
+with a 300-second deadline, deduplicating requests in the same two-minute slot.
+Checks continue after :20 so later official corrections can arrive. The public
+service keeps at least one warm instance and uses prepared data only. Both
+settings are read back and verified after deployment.
 
 If preparation or live verification fails, the script restores prior service
 traffic, schedules, enabled/paused states, and the website minimum-instance

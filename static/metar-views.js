@@ -88,8 +88,6 @@ window.WeatherMetars = (() => {
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
     el("metar-status").textContent=`${sites.length} airports with data in all four hours${data.stale?" · Background updates delayed":""}`;
-    el("metar-notice").hidden=!data.stale;
-    el("metar-notice").textContent=data.stale?"Background hourly updates are delayed. Check the displayed observation hour.":"";
   }
   function draw(drawn){
     const keep=new Set(drawn.map(s=>s.station));
@@ -145,7 +143,6 @@ window.WeatherMetars = (() => {
     catch(error){
       const message=`${error.message}${data?" Previous reports retained.":""}`;
       el("metar-status").textContent=message;
-      el("metar-notice").hidden=false;el("metar-notice").textContent=message;
       if(!data)el("metar-time").textContent="Hourly history recovering…";
     }
     finally{busy=false;el("refresh-metar").disabled=false;}

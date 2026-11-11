@@ -11,6 +11,7 @@ def test_plots_default_and_retained_clouds_pass_release_layout_check():
         verify.check_layout('local')
     assert 'rtmetar' not in html.lower()
     assert 'id="metar-history" hidden' not in html
+    assert 'id="metar-notice"' not in html
 
 
 def test_retired_routes_do_not_read_storage_or_download_anything():
