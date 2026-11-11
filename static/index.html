@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/static/style.css?v=plots-home-v4">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
   <script defer src="/static/sun-angle.js?v=rolling-observations-v1"></script>
-  <script defer src="/static/prepared-data.js?v=plots-home-v4"></script>
+  <script defer src="/static/prepared-data.js?v=satellite-visible-v6"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
@@ -19,7 +19,7 @@
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=plots-home-v4"></script>
+  <script defer src="/static/app.js?v=satellite-visible-v6"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
@@ -80,7 +80,7 @@
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
   <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>
-  <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
+  <div class="satellite-product-row"><label for="satellite-product">View</label><select id="satellite-product"><option value="02" selected>Visible (red)</option><option value="truecolor">True color</option><option value="dcphase">Day Cloud Phase</option><option value="ntmicro">NT Microphysics</option></select></div>
   <div id="satellite-surface" class="map-viewer">
     <div id="satellite-map-area" class="map-area"><div id="satellite-map" aria-label="Zoomable local GOES satellite imagery with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
@@ -90,9 +90,9 @@
     </div>
   </div>
   <div class="page-notes" hidden>
-  <p id="satellite-status" class="small-note" role="status">All three satellite products are prepared in the background every five minutes.</p>
-  <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Day Cloud Phase is a daytime product; NT Microphysics is a nighttime product.</p>
-  <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-truecolor-48-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
+  <p id="satellite-status" class="small-note" role="status">All four satellite products are prepared in the background every five minutes.</p>
+  <p class="small-note">Pinch or use +/− to zoom; drag to pan. Phones start with a larger central view; zoom out to see the full sector. Satellite imagery keeps its original colors, with a white viewer and controls. Visible (red), True color and Day Cloud Phase require daylight; NT Microphysics is a nighttime product.</p>
+  <p class="source">Satellite: NOAA GOES-East imagery via <a id="satellite-source" href="https://weather.cod.edu/satrad/?parms=local-S_Minnesota-02-48-0-100-1&amp;checked=counties-map" target="_blank" rel="noopener">College of DuPage NEXLAB</a>.</p>
   </div>
 </section>
 

@@ -82,11 +82,11 @@ def test_future_expired_duplicate_and_malformed_frames_do_not_count_as_history()
     assert len(selected)==1 and selected[0]['url']=='two'
 
 
-@pytest.mark.parametrize('product', ['truecolor','dcphase','ntmicro'])
+@pytest.mark.parametrize('product', ['02','truecolor','dcphase','ntmicro'])
 def test_remaining_products_keep_24_images_and_public_asset_access(product):
     import app as weather
     from satellite import PRODUCTS
-    assert set(PRODUCTS)=={'truecolor','dcphase','ntmicro'}
+    assert list(PRODUCTS)==['02','truecolor','dcphase','ntmicro']
     _,_,urls,jpeg=source()
     images=[url.replace('/truecolor/',f'/{product}/').replace('.truecolor.',f'.{product}.') for url in urls]
     def fetch(url):return ' '.join(images).encode() if 'satrad' in url else jpeg

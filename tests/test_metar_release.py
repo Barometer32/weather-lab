@@ -69,6 +69,8 @@ elif args[:3]==['scheduler','jobs','list']:
     names=['weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality']
     if not state.get('rtDeleted'): names.append('weather-live-rtmetar')
     print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED')} for name in names]))
+elif args[:3]==['storage','buckets','describe']:
+    print(json.dumps({'name':project+'-weather-data','lifecycle':{'rule':[{'action':{'type':'Delete'},'condition':{'age':1,'matchesPrefix':['satellite/truecolor/']}}]}}))
 elif args[:2]==['storage','rm'] and os.environ['MOCK_FAILURE']=='cleanup':
     sys.exit(1)
 elif args[:2]==['storage','ls']:
@@ -102,6 +104,8 @@ elif args[:2]==['storage','ls']:
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=*/5 * * * *" in c for c in calls)
+        retention = next(i for i,c in enumerate(calls) if c[:3] == ["storage", "buckets", "update"])
+        assert retention > verifications[-1], "Retention changes happen after the replacement passes live checks"
     elif failure == "cleanup":
         assert result.returncode != 0
         assert cutover and 'cleanup is incomplete' in result.stderr

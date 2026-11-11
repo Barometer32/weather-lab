@@ -130,7 +130,7 @@ def collect_product(store, product, now):
 
 def collect_satellite(store, now):
     results = {}
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=len(PRODUCTS)) as pool:
         work = {product: pool.submit(collect_product, store, product, now) for product in PRODUCTS}
         for product, future in work.items():
             try:

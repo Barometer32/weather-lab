@@ -139,13 +139,17 @@ fi
 # Retire the job and its one unused snapshot only after the replacement passes
 # all checks. Until this point the prior service/job remain recoverable.
 trap - ERR
-trap 'echo "Website deployment passed, but RTMETAR cleanup is incomplete. Inspect the error above." >&2' ERR
+trap 'echo "Website deployment passed, but post-deployment cleanup is incomplete. Inspect the error above." >&2' ERR
 if [[ -n "$old_rt_state" ]]; then
   gcloud scheduler jobs delete "$job" "${scheduler[@]}" --quiet
 fi
 bucket="$(gcloud run services describe weather-collector "${run[@]}" --format=json |
   python3 -c 'import json,sys; env=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0].get("env",[]); print(next(e["value"] for e in env if e["name"]=="WEATHER_DATA_BUCKET"))')"
 [[ "$bucket" =~ ^[a-z0-9][a-z0-9._-]+$ ]] || { echo 'Invalid data bucket; inspect before cleanup.' >&2; exit 1; }
+# Extend retention only for the new image prefix; preserve all existing rules.
+gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_dir/bucket-before.json"
+python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
+gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 rt_object="gs://$bucket/live/rtmetar-v1.json"
 gcloud storage ls "gs://$bucket/live/" > "$rollback_dir/live-objects.txt"
 while IFS= read -r object; do

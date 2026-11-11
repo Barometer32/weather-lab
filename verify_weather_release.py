@@ -24,6 +24,10 @@ def check_layout(base):
     assert '<option value="clouds">CLOUDS</option>' in html
     assert '/static/metar-views.js?v=metar-fast-v5' in html
     assert 'id="metar-notice"' not in html
+    options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
+    assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
+    assert '<option value="02" selected>Visible (red)</option>' in options
+    assert '/static/app.js?v=satellite-visible-v6' in html
     print("Verified METAR home with PLOTS default, CLOUDS retained, and RTMETAR removed.")
 
 
@@ -59,6 +63,7 @@ def check_removed(base):
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
+                ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE truecolor", "/api/satellite/truecolor", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),
                 ("SATELLITE ntmicro", "/api/satellite/ntmicro", "frames"),
@@ -68,6 +73,8 @@ def check_products(base):
         data = json.loads(read(base, path))
         assert data.get("checkedAt") and data.get("stale") is False, f"{name}: background data is stale"
         assert data.get(items), f"{name}: no prepared {items}"
+        if path == "/api/satellite/02":
+            assert data.get("product") == "02" and len(data["frames"]) == 24, "Default visible band loop is still preparing"
         if items == "frames":
             asset = data[items][-1]["url"]
             assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"

@@ -167,6 +167,7 @@ async function loadForecast(force = false) {
 
 let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0;
 let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
+$("satellite-product").value="02";
 const satelliteLayers = new Map();
 let satelliteBoundaryKey;
 const satelliteBounds = [[0,0],[900,1600]];
@@ -345,7 +346,7 @@ document.addEventListener("visibilitychange",()=>{
 window.WeatherPrepared.subscribe("/api/radar?site=KMPX",()=>{
   if(!$("radar").hidden){if(radarBusy)radarQueued=true;else loadRadar();}
 });
-for(const product of ["truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
+for(const product of ["02","truecolor","dcphase","ntmicro"])window.WeatherPrepared.subscribe(`/api/satellite/${product}`,()=>{
   if(!$("satellite").hidden&&$("satellite-product").value===product){if(satelliteBusy)satelliteQueued=true;else loadSatellite();}
 });
 window.WeatherPrepared.subscribe("/api/forecast",data=>{forecastData=data;forecastError=data.stale?"Background forecast updates are delayed.":null;if(!$("forecast").hidden)renderForecast();});

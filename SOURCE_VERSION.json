@@ -1,10 +1,12 @@
 {
   "variant": "plots-default",
-  "baseCommit": "985b9f17d591cce6b2d390a5fd9d4e6ae2bea7ce",
+  "baseCommit": "e9f4298afb12827e4cc41ed453a925cab2dd0198",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
   "defaultTab": "metar",
+  "defaultSatelliteProduct": "02",
+  "satelliteProducts": ["02", "truecolor", "dcphase", "ntmicro"],
   "forecastCollectionSchedule": "*/5 * * * *",
   "defaultMetarProduct": "plots",
   "metarProducts": [
