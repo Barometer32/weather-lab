@@ -529,19 +529,39 @@ def satellite_api(product):
 
 @app.get("/api/station-plots")
 def station_plots_api():
-    from metar_clouds import current, ready_plot_frames
+    from metar_clouds import current, ready_plot_frames, LOOP_VERSION
     try:
         now = utcnow()
+        compact = request.args.get("view") == "loop"
+        if compact:
+            # The collector has already selected, validated and slimmed these
+            # four hours. Opening the page never rebuilds the regional archive.
+            try:
+                saved = prepared_hourly_snapshot("metar-loop")
+            except ValueError:
+                saved = None
+            if saved and saved.get("loopVersion") == LOOP_VERSION and len(saved.get("history", [])) == 4:
+                latest = datetime.fromisoformat(saved["history"][-1]["hour"].replace("Z", "+00:00"))
+                stale = saved.get("stale", False) or latest < now.replace(minute=0, second=0, microsecond=0)-timedelta(hours=1)
+                response = jsonify({**saved, "stale": stale, "serverTime": iso(now)})
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["Vary"] = "Accept-Encoding"
+                if request.accept_encodings["gzip"] > 0 and len(response.data) >= 10_000:
+                    response.set_data(gzip.compress(response.data, compresslevel=3))
+                    response.headers["Content-Encoding"] = "gzip"
+                return response
         data = prepared_hourly_snapshot("metar-clouds")
         if data is None:
             return jsonify(error="Hourly airport reports are being prepared."), 503
         result = current(data, now)
         result["sourcePolicy"] = "airport-routine-only"
         result["serverTime"] = iso(now)
-        compact = request.args.get("view") == "loop"
         if compact:
             # Do not send the archive hours the interactive four-frame viewer never uses.
             result["history"] = ready_plot_frames(result["history"])
+            if not result["history"]:
+                return jsonify(error="Hourly map history is recovering in the background. Four consecutive report hours are not ready yet.",
+                               historyPending=True), 503, {"Cache-Control": "no-store"}
         # No mesonet merge or synthetic three-airport plot in this map.
         result.pop("metro", None)
         for frame in result["history"]:

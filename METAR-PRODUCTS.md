@@ -45,6 +45,18 @@ Each product has an independent saved map default. Switching between RTMETAR
 and hourly maps preserves their respective geographic views; switching PLOTS
 and CLOUDS preserves the selected hourly frame.
 
+The background collector normally overlaps two archive hours. When the saved
+history has no recent complete four-hour window, it fetches five real archive
+hours to repair outage gaps. It writes `live/metar-loop.json` only when a usable
+window exists; failed or incomplete recovery retains the previous usable loop.
+Public compact requests read that prepared object without rebuilding the
+archive. Before the first successful preparation they return an explicit 503
+recovery message, rather than a successful empty map.
+
+All small product manifests start independently when the page opens. Browser
+cache copies can paint immediately on repeat visits while prepared data refreshes.
+Source collection continues through Cloud Scheduler with no browser open.
+
 ## Release
 
 From a clean pushed checkout in authenticated Google Cloud Shell:
@@ -54,15 +66,23 @@ bash release-rtmetar.sh
 ```
 
 The script inspects the existing image repository and Scheduler service
-account, builds once, stages both services, and verifies prepared RTMETAR data
-before switching the public web service. It creates/updates only
-`weather-live-rtmetar` and pauses `weather-live-hourly-observations` after a
-successful cutover. Other weather schedules and runtime settings are retained.
-Rollback traffic commands are saved in a private temporary directory and used
-if verification fails after collector cutover. Existing bucket objects and
-hourly METAR history are not deleted.
+account, builds once, stages both services, and verifies prepared RTMETAR and
+four-hour CLOUDS/PLOTS data before switching the public web service. It
+creates/updates `weather-live-rtmetar`, checks `weather-live-metar-clouds` every
+five minutes with a 300-second deadline, and seeds both collectors immediately.
+The hourly collector skips source downloads after the current window settles.
+It pauses `weather-live-hourly-observations` after a successful cutover.
+
+The public service uses prepared data only and keeps at least one service-level
+minimum instance warm. This reduces cold starts and incurs idle instance
+charges. Browser download and drawing time still apply. Other weather schedules
+and runtime settings are retained. Rollback commands restore traffic, the prior
+RTMETAR enabled/paused state, hourly schedule/deadline, and minimum instance
+setting if verification fails after collector cutover. Existing bucket objects
+and hourly METAR history are not deleted.
 
 Validation includes `tests/test_rtmetar.py`, RTMETAR view tests, existing
 hourly-map continuity tests, station-model tests, prepared-cache tests, and
 navigation tests. `verify_rtmetar_release.py` checks staged/live HTML plus
-report provenance and Celsius/mph fields.
+report provenance, Celsius/mph fields, and four consecutive populated hourly
+frames with common stations available for both retained map products.

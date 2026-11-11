@@ -62,7 +62,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  const back=history(regional);back.history.at(-1).stations=[];rolling.adopt(back);
  assert.match(rolling.label,/10:00 AM CST/,'An incomplete later response cannot roll the accepted loop backwards');
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});
- assert.match(noHistory.label,/Reports unavailable/,'Cold start without a usable loop is explicit');
+ assert.match(noHistory.label,/Hourly history recovering/,'Cold start without a usable loop is explicit');
  assert.equal(rolling.reads,1,'Readiness uses downloaded data without new source calls');
  console.log('Four-frame METAR playback passed: stable PLOTS and CLOUDS rosters, rolling readiness, collision space and no extra downloads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

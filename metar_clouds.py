@@ -13,6 +13,8 @@ COVERS = {"CLR", "SKC", "FEW", "SCT", "BKN", "OVC", "VV", "NSC", "NCD", "CAVOK"}
 # KCFE is excluded from Weather Lab because of suspect recurring cloud reports.
 EXCLUDED_STATIONS = frozenset({"KCFE"})
 STATION_POLICY = "airport-exclude-kcfe-v1"
+LOOP_KEY = "live/metar-loop.json"
+LOOP_VERSION = "prepared-hourly-loop-v1"
 
 
 def included_station(station):
@@ -185,6 +187,22 @@ def ready_plot_frames(history):
     return []
 
 
+def prepared_loop(data):
+    """Build the compact browser payload once in the background collector."""
+    frames = ready_plot_frames(data.get("history", []))
+    if not frames:
+        return None
+    keys = ("station", "name", "lat", "lon", "time", "reportType", "tempF", "dewpointF",
+            "wind", "layers", "skyCover", "network", "source")
+    return {**{key: data[key] for key in ("bounds", "checkedAt", "coverage", "heightUnit", "mode",
+                                        "source", "sourceUrl", "stationPolicy", "version") if key in data},
+            "loopVersion": LOOP_VERSION, "sourcePolicy": "airport-routine-only",
+            "historyPending": False,
+            "history": [{"hour": frame["hour"], "airportCount": len(frame["stations"]),
+                         "stations": [{key: row[key] for key in keys if key in row}
+                                      for row in frame["stations"]]} for frame in frames]}
+
+
 def current(data, now):
     rows = [row for hour in data.get("history", []) for row in hour["stations"]]
     # A legacy latest-only snapshot cannot supply the requested hourly history.
@@ -204,7 +222,7 @@ def current(data, now):
     for frame in result["history"]:
         frame["metro"] = metro_report(frame["stations"], target, frame["hour"])
     result["metro"] = result["history"][-1]["metro"]
-    result["historyPending"] = data.get("version") != 3
+    result["historyPending"] = not bool(ready_plot_frames(result["history"]))
     result["pendingHour"] = iso(requested) if target < requested else None
     return {**result, "stale": data.get("stale", False)}
 
@@ -256,11 +274,18 @@ def observation_reports(data):
 
 
 def collect(download, now, previous=None):
-    """Refresh two completed hours for delayed delivery; retain twelve frames."""
+    """Refresh recent hours; repair a missing viewer window after an outage."""
     from metar_history import fetch_history
     previous = previous or {}
     target = now.replace(minute=0, second=0, microsecond=0)
-    archive = fetch_history(download, now, hours=2)
+    # Two hours suffice during steady operation. A shutdown or a new bucket
+    # can leave the four-hour viewer empty despite current reports arriving.
+    # Fetch five real hours on recovery, including a complete preceding loop
+    # if the newest hour is still arriving. Never invent or copy missing hours.
+    recent = ready_plot_frames(previous.get("history", [])[-4:])
+    healthy = recent and recent[-1]["hour"] >= iso(target - timedelta(hours=1))
+    hours = 2 if healthy else 5
+    archive = fetch_history(download, now, hours=hours)
     retained = [row for frame in previous.get("history", [])
                 for row in frame.get("stations", []) if in_region(row)]
     data = snapshot(retained+archive["reports"], target, iso(now))

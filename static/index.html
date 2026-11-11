@@ -6,20 +6,21 @@
   <meta name="description" content="Five-minute RTMETAR and hourly airport maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=rtmetar-v1">
+  <link rel="stylesheet" href="/static/style.css?v=rtmetar-ready-v2">
   <link rel="preload" href="/api/rtmetar" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
   <script defer src="/static/sun-angle.js?v=rolling-observations-v1"></script>
-  <script defer src="/static/prepared-data.js?v=rtmetar-v1"></script>
+  <script defer src="/static/prepared-data.js?v=rtmetar-ready-v2"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=viewport-v1"></script>
-  <script defer src="/static/default-views.js?v=rtmetar-v1"></script>
-  <script defer src="/static/metar-model.js?v=rtmetar-v1"></script>
-  <script defer src="/static/metar-views.js?v=rtmetar-v1"></script>
+  <script defer src="/static/default-views.js?v=rtmetar-ready-v2"></script>
+  <script defer src="/static/metar-model.js?v=rtmetar-ready-v2"></script>
+  <script defer src="/static/metar-views.js?v=rtmetar-ready-v2"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=rtmetar-v1"></script>
+  <script defer src="/static/app.js?v=rtmetar-ready-v2"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>

@@ -144,12 +144,13 @@ def collect_satellite(store, now):
 
 
 def collect_metar_clouds(store, now):
-    from metar_clouds import STATION_POLICY, collect
+    from metar_clouds import STATION_POLICY, LOOP_KEY, collect, prepared_loop, ready_plot_frames
     previous = store.read_json("live/metar-clouds.json")
     target = weather.iso(now.replace(minute=0, second=0, microsecond=0))
     ready = (previous and previous.get("collectionMode") == "official-hourly-archive"
              and previous.get("hourlyTarget") == target and previous.get("stations")
-             and previous.get("stationPolicy") == STATION_POLICY)
+             and previous.get("stationPolicy") == STATION_POLICY
+             and bool(ready_plot_frames(previous.get("history", [])[-4:])))
     if ready:
         # Retry through :20 even after a partial batch arrives. Afterwards a
         # populated hour is stable; an entirely missing hour keeps retrying.
@@ -159,11 +160,21 @@ def collect_metar_clouds(store, now):
         except (KeyError, TypeError, ValueError):
             checked = None
         if now.minute > 20 or (checked is not None and checked >= slot):
+            # Seed the fast public payload on rollout without re-downloading
+            # an already complete observation window.
+            loop = prepared_loop(previous)
+            if loop and not store.read_json(LOOP_KEY):
+                store.write_json(LOOP_KEY, loop)
             return {"stations": len(previous["stations"]), "status": "already prepared for this check"}
     data = collect(weather.download, now, previous)
     # Publish all three views atomically through one canonical prepared object.
     store.write_json("live/metar-clouds.json", data)
-    return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"])}
+    loop = prepared_loop(data)
+    if loop:
+        store.write_json(LOOP_KEY, loop)
+    # Incomplete collection never erases a previously usable prepared loop.
+    return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"]),
+            "loopReady": loop is not None}
 
 
 def collect_observations(store, now):

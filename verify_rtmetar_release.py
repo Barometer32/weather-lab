@@ -21,7 +21,7 @@ def check_layout(base):
     assert '<option value="rtmetar" selected>RTMETAR</option>' in html
     for product in ["plots", "clouds"]:
         assert f'<option value="{product}">' in html
-    assert '/static/metar-views.js?v=rtmetar-v1' in html
+    assert '/static/metar-views.js?v=rtmetar-ready-v2' in html
     print("Verified METAR home, RTMETAR default, retained PLOTS/CLOUDS, and removed Observations.")
 
 
@@ -51,11 +51,34 @@ def check_data(base):
         print("Some upstream reports are delayed; their real timestamps are preserved and labeled.")
 
 
+def check_hourly(base):
+    data = json.loads(read(base, "/api/station-plots?view=loop"))
+    assert data.get("loopVersion") == "prepared-hourly-loop-v1"
+    assert not data.get("historyPending") and not data.get("stale")
+    frames = data["history"]
+    assert len(frames) == 4 and all(frame["stations"] for frame in frames)
+    hours = [datetime.fromisoformat(frame["hour"].replace("Z", "+00:00")) for frame in frames]
+    assert all((b - a).total_seconds() == 3600 for a, b in zip(hours, hours[1:]))
+    sites = set.intersection(*({s["station"] for s in frame["stations"]} for frame in frames))
+    assert sites, "No stations have a complete four-hour plotting window"
+    for frame in frames:
+        for station in frame["stations"]:
+            assert station["reportType"] == "METAR"
+            stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
+            assert 45 <= stamp.minute <= 59
+    clouds = [{s["station"] for s in frame["stations"] if s.get("layers")} for frame in frames]
+    assert set.intersection(*clouds), "No complete CLOUDS history is ready"
+    print(f"Verified prepared CLOUDS/PLOTS loop: four consecutive hours, {len(sites)} common stations.")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
     parser.add_argument("--layout-only", action="store_true")
+    parser.add_argument("--all-products", action="store_true")
     args = parser.parse_args()
     check_layout(args.url)
     if not args.layout_only:
         check_data(args.url)
+        if args.all_products:
+            check_hourly(args.url)

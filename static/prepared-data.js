@@ -87,11 +87,11 @@ window.WeatherPrepared = (() => {
     return images.get(url);
   }
   async function prime(){
-    // Do not put these small manifests behind the larger METAR map request.
-    const imagery=Promise.allSettled([radarManifest,satelliteManifest].map(url=>read(url,{force:true})));
-    for(const url of ["/api/forecast","/api/air-quality"])read(url).catch(()=>{});
-    await imagery;
-    read(metarLoop).catch(()=>{});
+    // Start all prepared manifests independently. Slow imagery must never
+    // block CLOUDS/PLOTS from becoming ready before the user switches views.
+    await Promise.allSettled([rtmetar,metarLoop,radarManifest,satelliteManifest,
+      "/api/satellite/dcphase","/api/satellite/ntmicro","/api/forecast","/api/air-quality"]
+      .map(url=>read(url)));
   }
   function warmLatest(){
     const connection=window.navigator?.connection;
