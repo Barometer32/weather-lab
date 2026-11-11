@@ -1,10 +1,11 @@
 {
   "variant": "plots-default",
-  "baseCommit": "89c35e1ba9e34a61e9a868d7cdc030abd12713bd",
+  "baseCommit": "4178e0513d1322832e836ff32641af248c52d04d",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
   "defaultTab": "metar",
+  "forecastCollectionSchedule": "*/5 * * * *",
   "defaultMetarProduct": "plots",
   "metarProducts": [
     "plots",

@@ -102,7 +102,7 @@ weather_schedule() {
 }
 weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
-weather_schedule forecast '0,30 * * * *'
+weather_schedule forecast '*/5 * * * *'
 weather_schedule metar-clouds '0,5,10 * * * *' metar-clouds 300 0
 weather_schedule air-quality '3-58/5 * * * *' air-quality 300 2
 weather_schedule mn-asos-audit '2-57/5 * * * *' mn-asos-audit 60 0

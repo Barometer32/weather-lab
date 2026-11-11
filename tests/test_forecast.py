@@ -120,6 +120,25 @@ class ForecastTests(unittest.TestCase):
         self.assertEqual(first["endTime"], "2026-11-01T06:00:00-06:00")
         self.assertFalse(first["isDaytime"])
 
+    def test_falling_temperature_wording_is_verbatim_and_replaced_by_new_nws_issuance(self):
+        now = datetime(2026, 11, 11, 17, 18, tzinfo=timezone.utc)
+        falling = "Partly sunny, with a temperature falling to around 46 by 5pm. North northwest wind 10 to 15 mph."
+        revised = "Partly sunny, with a high near 52. North northwest wind 5 to 15 mph."
+        older = normalize_text_forecast(text_page("8:17 am CST Nov 11, 2026", (
+            ("Veterans Day", falling), ("Tonight", "Mostly cloudy, with a low around 35."))), now)
+        newer = normalize_text_forecast(text_page("11:06 am CST Nov 11, 2026", (
+            ("Veterans Day", revised), ("Tonight", "Mostly cloudy, with a low around 33."))), now)
+        self.assertEqual(older["periods"][0]["detailedForecast"], falling)
+        self.assertIsNone(older["periods"][0]["temperature"])
+        store = MemoryStore()
+        store.write_json("live/forecast.json", older)
+        with patch("app.get_forecast", return_value=newer):
+            collector.collect_forecast(store, now)
+        saved = store.read_json("live/forecast.json")
+        self.assertEqual(saved["periods"][0]["detailedForecast"], revised)
+        self.assertEqual(saved["periods"][0]["temperature"], 52)
+        self.assertEqual(saved["updatedAt"], "2026-11-11T17:06:00Z")
+
     def test_malformed_text_uses_json_without_regressing_to_older_issuance(self):
         store = MemoryStore()
         existing = normalize_text_forecast(text_page("5:00 pm CDT Oct 9, 2026"), NOW)

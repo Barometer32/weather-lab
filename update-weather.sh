@@ -47,7 +47,7 @@ weather_schedule() {
 }
 weather_schedule weather-live-radar '* * * * *' radar-KMPX
 weather_schedule weather-live-satellite '*/5 * * * *' satellite
-weather_schedule weather-live-forecast '0,30 * * * *' forecast
+weather_schedule weather-live-forecast '*/5 * * * *' forecast
 
 echo "Step 4/5: recovering real two-hour image histories. This may take several minutes."
 if ! gcloud run jobs deploy weather-media-refresh --project="$WEATHER_PROJECT" --region="$WEATHER_REGION" --image="$WEATHER_IMAGE" --service-account="$WEATHER_COLLECTOR_SA" --set-env-vars="WEATHER_DATA_BUCKET=$WEATHER_BUCKET" --command=python --args=refresh_media.py --tasks=1 --parallelism=1 --cpu=1 --memory=2Gi --max-retries=0 --task-timeout=1200s --execute-now --wait --quiet; then
@@ -87,6 +87,6 @@ print('Verified: recent imagery and coverage near the start of each two-hour win
 PY
 gcloud scheduler jobs list --project="$WEATHER_PROJECT" --location="$WEATHER_REGION" --format='table(name.basename():label=JOB,state,schedule,status.code:label=LAST_STATUS)'
 printf '\nWebsite: %s\nSource: %s\nDiagnostics: %s\n' "$WEATHER_WEB_URL" "$WEATHER_COMMIT" "$WEATHER_WORK"
-echo "Radar checks every minute; satellite every five minutes; forecast at :00/:30; METAR remains at :02."
+echo "Radar checks every minute; satellite and forecast every five minutes; METAR remains at :02."
 echo "The sun elevation appears only on the METAR tab. Refresh with Ctrl+Shift+R."
 echo "Scheduled run submission alone does not confirm execution. If a feed stalls, send the timestamps and saved collector errors above."

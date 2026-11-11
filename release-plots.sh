@@ -35,6 +35,8 @@ old_rt_state="$(gcloud scheduler jobs describe "$job" "${scheduler[@]}" --format
 mapfile -t old_metar_job < <(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@]}" --format=json |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["schedule"]); print(d.get("attemptDeadline","180s")); print(d["state"])')
 [[ ${#old_metar_job[@]} == 3 ]] || { echo 'Could not save hourly collector configuration.' >&2; exit 1; }
+old_forecast_schedule="$(gcloud scheduler jobs describe weather-live-forecast "${scheduler[@]}" --format='value(schedule)')"
+[[ -n "$old_forecast_schedule" ]] || { echo 'Could not save forecast schedule.' >&2; exit 1; }
 old_min="$(gcloud run services describe weather-lab "${run[@]}" --format=json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("metadata",{}).get("annotations",{}).get("run.googleapis.com/minScale","default"))')"
 warm_min=1
 if [[ "$old_min" =~ ^[0-9]+$ ]] && (( old_min > 1 )); then warm_min="$old_min"; fi
@@ -51,6 +53,7 @@ rollback="$rollback_dir/rollback.sh"
     printf 'gcloud scheduler jobs resume %q --project=%q --location=%q\n' "$job" "$project" "$region"
   fi
   printf 'gcloud scheduler jobs update http weather-live-metar-clouds --project=%q --location=%q --schedule=%q --attempt-deadline=%q\n' "$project" "$region" "${old_metar_job[0]}" "${old_metar_job[1]}"
+  printf 'gcloud scheduler jobs update http weather-live-forecast --project=%q --location=%q --schedule=%q\n' "$project" "$region" "$old_forecast_schedule"
   if [[ "${old_metar_job[2]}" == PAUSED ]]; then
     printf 'gcloud scheduler jobs pause weather-live-metar-clouds --project=%q --location=%q\n' "$project" "$region"
   fi
@@ -106,6 +109,9 @@ if [[ "$(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@
   gcloud scheduler jobs resume weather-live-metar-clouds "${scheduler[@]}"
 fi
 gcloud scheduler jobs run weather-live-metar-clouds "${scheduler[@]}"
+# NWS can issue a new forecast between the old :00/:30 checks. Use the same
+# Hopkins MapClick feed every five minutes, without changing its wording.
+gcloud scheduler jobs update http weather-live-forecast "${scheduler[@]}" --schedule='*/5 * * * *'
 for active_job in "${retained_jobs[@]}"; do
   if [[ "$(gcloud scheduler jobs describe "$active_job" "${scheduler[@]}" --format='value(state)')" == PAUSED ]]; then
     gcloud scheduler jobs resume "$active_job" "${scheduler[@]}"
@@ -148,6 +154,6 @@ while IFS= read -r object; do
   fi
 done < "$rollback_dir/live-objects.txt"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"'
 trap - ERR
 echo "Weather Lab is live at $site. PLOTS is the default; RTMETAR is removed. All retained tabs use background-prepared data and share the warm website instance."

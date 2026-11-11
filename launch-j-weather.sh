@@ -158,7 +158,7 @@ weather_schedule() {
 }
 weather_schedule weather-live-radar '* * * * *' radar-KMPX
 weather_schedule weather-live-satellite '*/5 * * * *' satellite
-weather_schedule weather-live-forecast '0,30 * * * *' forecast
+weather_schedule weather-live-forecast '*/5 * * * *' forecast
 weather_schedule weather-live-metar-clouds '2 * * * *' metar-clouds
 WEATHER_PAUSED_JOBS=()
 for WEATHER_JOB in weather-live-radar weather-live-satellite weather-live-metar-clouds; do

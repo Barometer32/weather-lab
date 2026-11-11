@@ -57,6 +57,7 @@ elif args[:3]==['scheduler','jobs','describe']:
     fmt=option('--format')
     if fmt=='value(httpTarget.oidcToken.serviceAccountEmail)': print('weather-scheduler@'+project+'.iam.gserviceaccount.com')
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
+    elif fmt=='value(schedule)': print('0,30 * * * *')
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
 elif args[:3]==['scheduler','jobs','delete']:
     state['rtDeleted']=True;state_path.write_text(json.dumps(state))
@@ -95,6 +96,8 @@ elif args[:2]==['storage','ls']:
         assert any(c[:2] == ["storage", "rm"] and c[2].endswith('/live/rtmetar-v1.json') for c in calls)
         assert not any(c[:2] == ["storage", "rm"] and not c[2].endswith('/live/rtmetar-v1.json') for c in calls)
         assert not any(c[:4] == ["scheduler", "jobs", "run", "weather-live-rtmetar"] for c in calls)
+        assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
+                   and "--schedule=*/5 * * * *" in c for c in calls)
     elif failure == "cleanup":
         assert result.returncode != 0
         assert cutover and 'cleanup is incomplete' in result.stderr
@@ -112,3 +115,5 @@ elif args[:2]==['storage','ls']:
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=0" in c for c in calls)
+        assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
+                   and "--schedule=0,30 * * * *" in c for c in calls)

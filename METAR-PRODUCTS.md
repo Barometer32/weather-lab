@@ -35,6 +35,14 @@ when the page opens. Saved browser copies can paint while fresh prepared data
 is downloaded. Latest default radar/satellite assets are warmed in the browser
 when Data Saver is off; whole historical image loops load on demand.
 
+The forecast checks the same Hopkins NWS MapClick text page at 44.9244,
+-93.4140 every five minutes. Its issuance time and narrative are preserved.
+NWS can issue a replacement between checks, so a short polling delay remains.
+Falling-temperature wording is retained only when it appears in NWS's source;
+Weather Lab does not invent a temperature trend or substitute an afternoon
+temperature for a high. A failed deployment restores the previous forecast
+schedule along with the other saved settings.
+
 One service-level minimum website instance serves every tab and reduces cold
 starts. This incurs idle instance charges. Network transfers and browser drawing
 still take time; upstream availability determines how recent observations can be.
