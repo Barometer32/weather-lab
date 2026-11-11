@@ -21,7 +21,7 @@ def check_layout(base):
     assert '<option value="rtmetar" selected>RTMETAR</option>' in html
     for product in ["plots", "clouds"]:
         assert f'<option value="{product}">' in html
-    assert '/static/metar-views.js?v=rtmetar-ready-v2' in html
+    assert '/static/metar-views.js?v=rtmetar-density-v3' in html
     print("Verified METAR home, RTMETAR default, retained PLOTS/CLOUDS, and removed Observations.")
 
 

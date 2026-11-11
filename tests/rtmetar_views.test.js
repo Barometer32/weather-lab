@@ -2,12 +2,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const now=Date.now(),iso=offset=>new Date(now-offset).toISOString();
 const nodes=new Map(),shown=new Map(),subscribers=new Map(),events={};let fail=false,reads=[];
+let project=(lat,lon)=>({x:lat*100,y:lon*100});
 function element(){return{value:'',hidden:false,children:[],events:{},style:{setProperty(){}},textContent:'',setAttribute(k,v){this[k]=v;},append(...x){this.children.push(...x);},addEventListener(n,fn){this.events[n]=fn;}};}
 function get(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);}
 const station=(id,lat,tempC,dewpointC)=>({station:id,state:'MN',lat,lon:2,time:iso(300000),tempC,dewpointC,tempF:999,dewpointF:998,wind:{speedMph:13,direction:270},rawOb:`${id} 111300Z AUTO 27011KT M02/M05 RMK T09990999 MADISHF`});
 let rapid={version:'rtmetar-raw-c-v1',temperatureUnit:'C',checkedAt:iso(0),serverTime:iso(0),stations:[station('KMSP',2,-2,-5),station('KMKT',5,10,3)]};
 let hourly={checkedAt:iso(0),history:Array.from({length:4},(_,i)=>({hour:new Date(now-(3-i)*3600000).toISOString(),stations:[{...station('KMSP',2,9,2),tempF:48,dewpointF:36,layers:[{cover:'BKN',baseFtAGL:2500}]}]}))};
-const map={setView(){return this;},fitBounds(){return this;},getCenter(){return{lat:44, lng:-93};},getZoom(){return 7;},getSize(){return{x:2000,y:1000};},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},on(n,fn){events[n]=fn;},invalidateSize(){}};
+const map={setView(){return this;},fitBounds(){return this;},getCenter(){return{lat:44, lng:-93};},getZoom(){return 7;},getSize(){return{x:2000,y:1000};},latLngToContainerPoint([lat,lon]){return project(lat,lon);},on(n,fn){events[n]=fn;},invalidateSize(){}};
 const context={window:{WeatherPrepared:{async read(url){reads.push(url);if(fail)throw Error('Offline');return url.includes('rtmetar')?rapid:hourly;},subscribe(url,fn){subscribers.set(url,fn);}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Number,Date,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title);}}),divIcon:x=>x,marker:(position,opts)=>({...opts,position,bindPopup(p){this.popup=p;return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(p){this.position=p;return this;},setPopupContent(p){this.popup=p;return this;}})}};
 for(const path of ['static/metar-model.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
 const flush=()=>new Promise(setImmediate),change=value=>get('metar-product').events.change({target:{value}});
@@ -39,5 +40,27 @@ const flush=()=>new Promise(setImmediate),change=value=>get('metar-product').eve
  subscribers.get('/api/rtmetar')(rapid);
  assert.equal(shown.size,1,'Expired stations cannot appear current');
  assert.match(get('metar-time').textContent,/Delayed/);assert.equal(get('metar-notice').hidden,false);
- console.log('RTMETAR view passed: Celsius plots/popups, mph barbs, defaults, expiry, failure retention and independent hourly CLOUDS/PLOTS.');
+ rapid={...rapid,checkedAt:iso(-3000),stations:[station('KMSP',2,null,3),station('KMIC',3,4,undefined),station('KFCM',4,undefined,3),station('KSTP',5,4,null),station('KANE',6,'4',3),station('KLVN',7,NaN,3),station('KRNH',8,4,Infinity),station('KMKT',9,0,0),station('KLSE',10,-4,-8)]};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.deepEqual([...shown.keys()].sort(),['KLSE · RTMETAR','KMKT · RTMETAR'],'missing or nonnumeric temperatures/dewpoints are hidden; zero and negative values remain');
+ assert.match(get('metar-time').textContent,/2 airports/,'airport count excludes incomplete reports');
+ rapid={...rapid,checkedAt:iso(-4000),stations:[station('KMKT',5,4,2),station('KRST',5.32,4,2)]};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.equal(shown.size,2,'RTMETAR allows nearby plots that the full collision footprints would reject');
+ const metro=[{...station('KSTP',44.93,4,2),lon:-93.06},{...station('KMSP',44.88,4,2),lon:-93.22},{...station('KMIC',45.06,4,2),lon:-93.35},{...station('KFCM',44.83,4,2),lon:-93.46}];
+ const locations=new Map([[44.83,500],[45.06,521],[44.88,542],[44.93,563]]);
+ project=lat=>({x:locations.get(lat),y:200});
+ rapid={...rapid,checkedAt:iso(-5000),stations:metro};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.equal(shown.size,4,'closer metro airports tolerate extra overlap');
+ assert.deepEqual([...shown.values()].map(m=>Array.from(m.position)),metro.map(s=>[s.lat,s.lon]),'plot positions remain the actual airport coordinates');
+ project=()=>({x:500,y:200});
+ rapid={...rapid,checkedAt:iso(-6000),stations:[metro[0],metro[3]]};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.deepEqual([...shown.keys()],['KFCM · RTMETAR'],'crowded metro selection has stable airport priority independent of source order');
+ rapid={...rapid,checkedAt:iso(-7000),stations:[station('KFCM',44.83,null,2)]};
+ subscribers.get('/api/rtmetar')(rapid);
+ assert.equal(shown.size,0,'a new incomplete report removes the old marker without reusing old temperatures');
+ assert.match(get('metar-time').textContent,/No five-minute reports with temperature and dewpoint/);
+ console.log('RTMETAR view passed: Celsius/mph, complete-report filtering, denser metro plots, stable priority, actual locations, expiry, failure retention and independent hourly CLOUDS/PLOTS.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

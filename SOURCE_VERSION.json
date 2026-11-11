@@ -1,6 +1,6 @@
 {
   "variant": "rtmetar-default",
-  "baseCommit": "69b8f4fff5723a190842a73073053b9619535e1e",
+  "baseCommit": "8360d6597f0232a9b0aa6e88089b9b347c3f1d38",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -25,6 +25,8 @@
   "rtmetarCollectionSchedule": "*/5 * * * *",
   "rtmetarMaximumReportAgeMinutes": 60,
   "rtmetarDelayLabelMinutes": 15,
+  "rtmetarRequireTemperatureAndDewpoint": true,
+  "rtmetarPlotSpacing": "denser-with-metro-priority",
   "hourlyMapPreparedPayload": "live/metar-loop.json",
   "hourlyMapRecoveryHours": 5,
   "hourlyCollectionSchedule": "*/5 * * * *",

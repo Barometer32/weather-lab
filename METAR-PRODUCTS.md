@@ -22,6 +22,14 @@ API, and hourly-observations collector route are retired.
   half feather, 8–12 a full feather, 13–17 one and a half, and so on.
 - The map shows the latest qualifying record for each airport, not a synthetic
   synchronized frame. The hourly slider is hidden in RTMETAR.
+- RTMETAR hides airports whose latest record is missing either main-group
+  temperature or dewpoint. It never substitutes an older complete report or
+  fills a missing value from T remarks. Zero and negative Celsius values remain
+  eligible. This check also applies to saved browser copies.
+- RTMETAR allows modest plot overlap, with more space shared in the Twin Cities
+  metro. KFCM, KMIC, KMSP and KSTP have first priority when eligible airports
+  compete for space. Actual airport coordinates and plot sizes stay unchanged;
+  zooming in reveals more nearby airports. Hourly map spacing is retained.
 - Reports more than 15 minutes old are labeled delayed, and expire after
   60 minutes. A successful collector check does not renew the observation time.
   This feed can arrive late; polling every five minutes does not guarantee

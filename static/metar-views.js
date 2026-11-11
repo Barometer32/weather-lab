@@ -7,6 +7,9 @@ window.WeatherMetars = (() => {
   const historyHours=4;
   const windPlotOptions={dot:true,mphBarbs:true};
   const rtmetarUrl="/api/rtmetar",isHigh=()=>mode==="rtmetar",viewGroup=m=>m==="rtmetar"?"rtmetar":"hourly";
+  const metroAirport=s=>s.lat>=44.65&&s.lat<=45.30&&s.lon>=-93.80&&s.lon<=-92.70;
+  const rapidPriority=["KFCM","KMIC","KMSP","KSTP"];
+  const rapidRank=s=>{const rank=rapidPriority.indexOf(s.station);return rank>=0?rank:metroAirport(s)?rapidPriority.length:rapidPriority.length+1;};
   const views={};
   let busy=false,sourceData,high,highBusy=false,highError;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap(),rtmetar:new WeakMap()};
@@ -72,10 +75,11 @@ window.WeatherMetars = (() => {
   }
   function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
+    const gap=isHigh()?0:2;
     const boxes=[],keep=new Set();
     for(const {station,f} of sites){
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
-      if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
+      if(boxes.some(b=>box.left<b.right+gap&&box.right>b.left-gap&&box.top<b.bottom+gap&&box.bottom>b.top-gap))continue;
       boxes.push(box);keep.add(station.station);
     }
     return stations.filter(s=>keep.has(s.station));
@@ -106,14 +110,19 @@ window.WeatherMetars = (() => {
   function renderHigh(){
     init();
     const now=Date.now(),stations=(high?.stations||[]).filter(s=>{
-      const t=Date.parse(s.time);return now-3600000<=t&&t<=now;
+      const t=Date.parse(s.time);return now-3600000<=t&&t<=now&&Number.isFinite(s.tempC)&&Number.isFinite(s.dewpointC);
     });
     const options={...windPlotOptions,celsius:true};
-    sites=stations.map(station=>({station,f:model.combinedFootprint(station,options)}));
+    sites=stations.map(station=>{
+      const footprint=model.combinedFootprint(station,options),space=metroAirport(station)?0.50:0.72;
+      // Reserve a smaller collision area, allowing labels/barbs to overlap a
+      // little. Keep the actual plot size and airport coordinates unchanged.
+      return {station,f:Object.fromEntries(Object.entries(footprint).map(([key,value])=>[key,value*space]))};
+    }).sort((a,b)=>rapidRank(a.station)-rapidRank(b.station)||a.station.station.localeCompare(b.station.station));
     draw(visible(stations));
     const newest=stations.length?time.format(new Date(Math.max(...stations.map(s=>Date.parse(s.time))))):null;
     el("metar-time").textContent=newest?`Newest ${newest} · ${stations.length} airport${stations.length===1?"":"s"} · °C${high.stale||high.sourceDelayed||highError||high._savedCopy?" · Delayed":""}`:
-      highBusy?"Loading five-minute ASOS…":highError?"ASOS reports unavailable · try Refresh":"No ASOS reports in the past 60 minutes";
+      highBusy?"Loading five-minute ASOS…":highError?"ASOS reports unavailable · try Refresh":"No five-minute reports with temperature and dewpoint in the past 60 minutes";
     el("metar-status").textContent=highError||(high?.checkedAt?`Checked ${time.format(new Date(high.checkedAt))} · 60-minute expiry`:"Upper Midwest five-minute ASOS");
     const ages=stations.map(s=>Math.max(0,now-Date.parse(s.time))),oldest=Math.max(0,...ages);
     const notice=el("metar-notice");
