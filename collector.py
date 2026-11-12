@@ -16,7 +16,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "rtmetar", "mesonet", "observations", "forecast", "metar-clouds", "current", "madis-stations", "air-quality")}
 
 
 def collect_radar_legacy(store, now):
@@ -198,6 +198,19 @@ def collect_madis_stations(store, now):
             "sourceErrors": data["errors"]}
 
 
+def collect_rtmetar(store, now):
+    from rtmetar import collect
+    return collect(store, now)
+
+
+def collect_mesonet(store, now):
+    from observation_stations import collect, present_map
+    collect(store, now)
+    from observation_stations import KEY
+    data = present_map(store.read_json(KEY), now)
+    return {"stations": len(data["stations"]), "stale": data["stale"]}
+
+
 def collect_air_quality(store, now):
     from air_quality import collect
     return collect(store, now)
@@ -228,6 +241,8 @@ def health():
 def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
+            "rtmetar": collect_rtmetar,
+            "mesonet": collect_mesonet,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds}

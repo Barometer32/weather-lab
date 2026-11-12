@@ -1,27 +1,49 @@
 # Weather Lab
 
-Current project: use the project ID saved in `~/weather-lab-fresh-weather-lab-261027-024631-5ff2/project-id.txt` by the successful migration. `update-weather-lab-screen.sh` reads that file automatically, or accepts an explicit project ID. Website: https://weather-lab.cloud.run. Repository branch: `metar-cloud-history-20261019`.
+Project: `weather-lab-261105-184200-1a9b`, region `us-central1`.
+Website: https://weather-lab.cloud.run. Current branch: `rtmetar-default-20261111`.
 
-Screen and data update: `bash update-weather-lab-screen.sh`. It saves service/schedule settings, builds once, updates the existing collector, prepares the new infrared product and genuine hourly Air Q history in a private one-time job, then updates the website and verifies every product. The existing project, service identities, limits and domain stay in place. Only the Air Q schedule changes, to checks every five minutes at :03/:08/etc.; the map still has one position per real source hour. Missing hours are recovered from EPA's public AirNow24HrCombined contour archive when available. Empty or failed archive responses never create fake hourly images or discard the current usable map. Geography is cached, and repeated checks reuse unchanged maps. Infrared uses COD GOES Band 13, preserves the original image bytes, shares the source's existing 1600×900 map grid, retains the latest 24 available images and uses the existing five-minute satellite schedule.
+Deploy this checkout from authenticated Google Cloud Shell with `bash release-plots.sh`.
+It stages the web and collector, enables and immediately runs collection, verifies
+prepared data for every tab, then switches web traffic. Failed verification
+restores prior traffic and scheduler settings. The collector keeps at least 2 GiB
+for MADIS file expansion, preserving any larger existing allocation. It keeps at least one warm web
+instance and never deletes the RTMETAR snapshot or job. Older commands below
+are historical and can remove products; use this release script.
 
-All map pages now fill the visible browser height. Compact navigation remains visible above the map, with the timeline below it; the Forecast list scrolls within its panel. iPhone toolbar changes and orientation resize the map without fetching fresh observations. Full screen expands the whole app, preserving the page tabs, with a viewport fallback on iPhone. The METAR barb is drawn over temperature/dewpoint text so its shaft/feathers are not erased by text halos; the cloud circle and ceiling remain legible above it. Map coordinates, spacing, nearest-5-knot wind encoding and radar's direct timeline renderer/half-level zoom remain unchanged.
+Tabs: METAR, MESONET, RADAR, SATELLITE, FORECAST and AIR Q.
+METAR opens PLOTS by default, with RTMETAR and CLOUDS in its dropdown.
 
-Fresh-project recovery after registry/build errors: `bash start-weather-lab-fresh.sh weather-lab-261027-024631-5ff2`.
-This creates one new project named Weather Lab and rebuilds the verified working website at commit `4e8df6fa9e6e20efbe0614f86dce12109964bb98`: combined METAR station plots, the direct smooth radar timeline renderer, half-level radar zoom, Satellite, Forecast and Air Q. The later location-dot change was not published and is not part of this recovery. Tools and application source are both pinned to that snapshot. The recovery folder is `~/weather-lab-fresh-weather-lab-261027-024631-5ff2`, isolated from prior migrations; retries reuse its saved new project ID, and a mismatched saved source version stops before creating a project. Existing dedicated weather data is copied when available, and recoverable source history is refreshed. The helper verifies the collector, all five pages and their newest prepared assets before moving `weather-lab.cloud.run`. Google's address-transfer flow briefly releases the name; failed claims attempt to restore its old mapping. Old billing is disconnected only after the new mapping is ready and responds successfully. The old project itself is retained. Lost Air Q history accumulates again. A specific open billing account can be supplied as argument two.
+- PLOTS/CLOUDS retain four consecutive official hourly METAR frames, with the
+  existing stable airport roster and compact timeline. PLOTS displays Fahrenheit,
+  preferring precise T remarks. Collection checks every two minutes from :00.
+- RTMETAR uses only MADISHF-marked five-minute ASOS reports from SD, ND, MN, IA
+  and WI. It never substitutes routine hourly/SPECI reports. Each station uses its
+  latest report, expires at 60 minutes, and is hidden when temperature or dewpoint
+  is missing. Temperature/dewpoint are whole Celsius from the main XX/XX group;
+  T remarks are ignored. Wind is mph, with half feathers for 3–7, full feathers
+  for 8–12, 1.5 for 13–17, and successive five-mph steps. Metro plots allow modest
+  overlap. No hourly timeline applies to this latest-report view.
+- MESONET shows individual Hennepin West readings in Fahrenheit and mph using
+  the saved `west-metro-roster-v2` policy: exclude Dakota County, Rosemount,
+  Hanover, Dayton, Camden and sites west of the Hanover–Orono edge; retain Orono
+  and Blaine. No other networks or averaged readings are added. Reports expire
+  after 60 minutes. Every approved reporting station is plotted, even when close.
+- RTMETAR and MESONET each collect every five minutes (`*/5 * * * *`) through
+  authenticated Scheduler jobs. Public APIs read durable prepared snapshots and
+  never fetch upstream data on a page visit. Browser manifests refresh every
+  30 seconds while the map is visible, with recent saved copies for repeat visits.
+  Actual observation times stay intact; upstream MADIS/IEM delivery can lag the
+  polling interval. Delays appear in the compact observation-time readout.
+- Satellite retains Visible (red) Band 02 as its default and all four existing
+  24-frame loops. NWS Hopkins forecast checks every five minutes. Other product
+  sources and schedules are retained.
 
-Current tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
-Update the combined station plots with `bash update-weather-lab-plots.sh weather-lab-261027-024631-5ff2` (website only).
-Full data/collector update: `bash update-weather-lab-metars.sh weather-lab-261027-024631-5ff2`.
-Full restore in the same project: `bash restore-weather-lab-latest.sh weather-lab-261027-024631-5ff2`.
-The full restore undeletes the project when needed, links the only open billing account if billing is disabled (or accepts an account ID as argument two), rebuilds weather resources, imports twelve routine airport hours, restores imagery and five schedules, and checks the custom address. A closed billing account must first be reopened in the console. No replacement project is created. Lost Air Q source-hour snapshots accumulate again.
-
-METAR has one compact combined station plot on the existing boundary map and one twelve-hour slider. Temperature is upper left and dewpoint lower left (rounded °F). A black/white station circle shows sky coverage, with the lowest BKN/OVC base immediately right in rounded thousands of feet (minimum 1); no ceiling number is drawn for clear/scattered clouds. The map has no numeric wind-speed label; the exact speed remains in the station popup. Slightly bolder, wider, more separated wind-barb feathers extend toward the reported wind source and encode speed in knots rounded to the nearest five: half feather 5, full feather 10, pennant 50. Calm has an outer ring; variable/missing wind is identified rather than assigned a direction. The short shaft may cross text within its own station; text has a white halo for legibility. Neighbouring stations are separated using the full rotated barb and label extents across twelve hours, keeping density stable as the timeline moves. Zooming reveals more eligible sites. Official routine airport reports remain :45–:59, closest to :53, labeled with the following hour, with scheduled checks at :00, :05 and :10 only. No mesonet merge, airport blacklist or averaged metro site is used. Sun angle remains current for Hopkins above the map. The variable dropdown has been removed.
-
-Map interaction: radar uses the original direct native-gate canvas renderer. Slider frame selection updates the image immediately, reusing the geographic sampling grid at the current view, without a worker queue. Radar zoom buttons and snapping use half-level steps (previously 0.1), and wheel sensitivity remains 60 pixels per full level. METAR retains its smoother marker reuse, cached twelve-hour collision footprints and existing quarter-level zoom settings. Reflectivity colors, two-hour history, roads and background are unchanged. The plot update changes only the website, with no collector, schedule or billing changes.
-
-Prepared manifests for every page start loading on page open. Two background browser workers preload the immutable radar and imagery files, with newest frames first. The last successful JSON snapshots are retained with Cache Storage when available and marked Saved while fresh prepared objects load. Fresh callbacks replace saved copies without resetting a selected history hour. Radar decoding is shared between preloading and the radar tab; satellite images use the browser HTTP cache. JSON transfers omit unused raw report fields, and the server retains up to 96 prepared files. A missing file no longer flushes other warmed files. Public production routes use prepared data; visiting a page never starts upstream collection or image preparation. First visits still require network transfers and map rendering, and a scaled-to-zero service can still have a cold start. No always-on instance or extra warm-up schedule is added by this update.
-
-The update removes only retired rapid/mesonet schedule names, preserves the existing five weather schedules, builds and updates the web/collector images, checks every page's prepared data, and warms the newest radar/satellite/Air Q files. Older notes and scripts below are historical and may target retired projects; use the current update/restore commands above.
+`configure_live_jobs.py` prepares exact Scheduler update/create commands and
+rollback commands from the original job inventory. Both new collectors are
+seeded before public traffic changes. `verify_weather_release.py --all-products`
+checks layout, the hourly loop, RTMETAR provenance/units, approved MESONET sites,
+other product freshness and prepared imagery.
 
 ## Legacy Current implementation (historical)
 

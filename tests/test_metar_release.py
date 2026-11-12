@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("failure,rt_exists", [("none",True),("none",False),("candidate",True),("live",True),("cleanup",True)])
+@pytest.mark.parametrize("failure,rt_exists", [("none",True),("none",False),("candidate",True),("candidate",False),("live",True),("cleanup",True)])
 def test_release_waits_for_prepared_maps_and_restores_prior_state_on_failure(tmp_path, failure, rt_exists):
     def executable(name, body):
         path = tmp_path / name
@@ -59,19 +59,25 @@ elif args[:3]==['scheduler','jobs','describe']:
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
     elif fmt=='value(schedule)': print('0,30 * * * *')
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
-elif args[:4]==['scheduler','jobs','update','http']:
-    state[args[4]+'-schedule']=option('--schedule');state_path.write_text(json.dumps(state))
+elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','create','http']]:
+    state[args[4]+'-schedule']=option('--schedule')
+    if args[4]=='weather-live-rtmetar': state['rtDeleted']=False
+    if args[4]=='weather-live-mesonet': state['mesoExists']=True
+    state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
-    state['rtDeleted']=True;state_path.write_text(json.dumps(state))
+    if args[3]=='weather-live-rtmetar': state['rtDeleted']=True
+    if args[3]=='weather-live-mesonet': state['mesoExists']=False
+    state_path.write_text(json.dumps(state))
 elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
     state[args[3]+'-state']='ENABLED' if args[2]=='resume' else 'PAUSED';state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','list']:
     names=['weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality']
     if not state.get('rtDeleted'): names.append('weather-live-rtmetar')
-    print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED')} for name in names]))
+    if state.get('mesoExists'): names.append('weather-live-mesonet')
+    print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED'),'timeZone':'Etc/UTC','httpTarget':{'uri':'https://weather-collector.example/collect/'+name.removeprefix('weather-live-'),'httpMethod':'POST','oidcToken':{'serviceAccountEmail':'weather-scheduler@'+project+'.iam.gserviceaccount.com','audience':'https://weather-collector.example'}}} for name in names]))
 elif args[:3]==['storage','buckets','describe']:
     print(json.dumps({'name':project+'-weather-data','lifecycle':{'rule':[{'action':{'type':'Delete'},'condition':{'age':1,'matchesPrefix':['satellite/truecolor/']}}]}}))
-elif args[:2]==['storage','rm'] and os.environ['MOCK_FAILURE']=='cleanup':
+elif args[:3]==['storage','buckets','update'] and os.environ['MOCK_FAILURE']=='cleanup':
     sys.exit(1)
 elif args[:2]==['storage','ls']:
     print('gs://'+project+'-weather-data/live/rtmetar-v1.json')
@@ -91,15 +97,16 @@ elif args[:2]==['storage','ls']:
     if failure == "none":
         assert result.returncode == 0, result.stderr
         assert verifications[0] < cutover[0] < verifications[-1]
+        assert any(c[:4] == ["run", "services", "update", "weather-collector"] and "--memory=2Gi" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=1" in c for c in calls)
         assert not any("--to-revisions=weather-lab-old=100" in c for c in calls)
-        deletions = [i for i,c in enumerate(calls) if c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"]]
-        assert bool(deletions) == rt_exists
-        assert all(i > verifications[-1] for i in deletions), "Do not delete the old job before the replacement passes live checks"
+        assert not any(c[:3] == ["scheduler", "jobs", "delete"] for c in calls)
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-satellite"] for c in calls)
-        assert any(c[:2] == ["storage", "rm"] and c[2].endswith('/live/rtmetar-v1.json') for c in calls)
-        assert not any(c[:2] == ["storage", "rm"] and not c[2].endswith('/live/rtmetar-v1.json') for c in calls)
-        assert not any(c[:4] == ["scheduler", "jobs", "run", "weather-live-rtmetar"] for c in calls)
+        assert not any(c[:2] == ["storage", "rm"] for c in calls), "Retain all snapshots"
+        for name in ["weather-live-rtmetar", "weather-live-mesonet"]:
+            assert any(c[:4] == ["scheduler", "jobs", "run", name] for c in calls)
+            assert any(c[:5] == ["scheduler", "jobs", "create" if name == "weather-live-mesonet" or not rt_exists else "update", "http", name]
+                       and "--schedule=*/5 * * * *" in c and "--attempt-deadline=300s" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
@@ -116,10 +123,13 @@ elif args[:2]==['storage','ls']:
         assert bool(cutover) == (failure == "live")
         for service in ["weather-lab", "weather-collector"]:
             assert any(c[:4] == ["run", "services", "update-traffic", service] and f"--to-revisions={service}-old=100" in c for c in calls)
-        # A rollback must retain an existing enabled RTMETAR job.
-        assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)
-        assert any(c[:4] == ["scheduler", "jobs", "pause", "weather-live-rtmetar"] for c in calls)
-        assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        # Existing jobs retain their original state; newly created jobs are removed.
+        if rt_exists:
+            assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)
+            assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        else:
+            assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-mesonet"] for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=0" in c for c in calls)

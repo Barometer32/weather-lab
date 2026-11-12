@@ -6,11 +6,13 @@ function get(id){assert.ok(!['observations','tab-observations','current','tab-cu
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,window:{addEventListener(name,callback){windowEvents[name]=callback;},WeatherAirQuality:{select(id){airSelections.push(id);}},WeatherCloudHeights:{select(id){cloudSelections.push(id);}},WeatherFullscreen:{attach(){}},WeatherMetars:{select(id){selected.push("metar:"+id);}},WeatherPrepared:{subscribe(){},prime(){}}},WeatherCloudViews:{select(id){selected.push(id);}},fetch(){sourceFetches++;throw Error('Unexpected startup fetch');},setTimeout(){},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
 assert.equal(selected[0],'metar:metar');assert.equal(get('metar').hidden,false);
-for(const id of ['radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
+for(const id of ['mesonet','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
 get('tab-metar').events.click();assert.equal(get('metar').hidden,false);
 windowEvents.pageshow({persisted:true});
 assert.equal(get('metar').hidden,false);
+get('tab-mesonet').events.click();assert.equal(get('mesonet').hidden,false);assert.equal(get('metar').hidden,true);
+get('tab-metar').events.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(get('tab-mesonet').focused,true);
 get('tab-air-quality').events.click();assert.equal(get('air-quality').hidden,false);assert.equal(airSelections.at(-1),'air-quality');
 assert.equal(sourceFetches,0);
 get('tab-satellite').events.keydown({key:'Home',preventDefault(){}});

@@ -6,15 +6,14 @@ window.WeatherPrepared = (() => {
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/02";
-  const paths=[metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
-  const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
+  const paths=["/api/rtmetar","/api/mesonet",metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const maxSavedAge=url=>["/api/rtmetar","/api/mesonet"].includes(url)?600000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   // Drop retired product manifests without disturbing other saved weather.
   disk().then(cache=>cache&&Promise.all([
     cache.delete("/api/satellite/13"),
     cache.delete("/api/hrmetar",{ignoreSearch:true}),
-    cache.delete("/api/rtmetar",{ignoreSearch:true}),
     cache.delete("/api/observations/hourly",{ignoreSearch:true}),
     cache.delete("/api/observation-stations?view=mesonet",{ignoreSearch:true}),
     cache.delete("/api/observations/mesonet"),
@@ -89,7 +88,7 @@ window.WeatherPrepared = (() => {
   async function prime(){
     // Start all prepared manifests independently. Slow imagery must never
     // block CLOUDS/PLOTS from becoming ready before the user switches views.
-    await Promise.allSettled([metarLoop,radarManifest,satelliteManifest,
+    await Promise.allSettled(["/api/rtmetar","/api/mesonet",metarLoop,radarManifest,satelliteManifest,
       "/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/forecast","/api/air-quality"]
       .map(url=>read(url)));
   }

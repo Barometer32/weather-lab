@@ -1,21 +1,30 @@
 {
-  "variant": "plots-default",
-  "baseCommit": "e9f4298afb12827e4cc41ed453a925cab2dd0198",
+  "variant": "live-station-maps",
+  "baseCommit": "d37f6be5257880f71752333e021349d21a06cc76",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
   "defaultTab": "metar",
   "defaultSatelliteProduct": "02",
-  "satelliteProducts": ["02", "truecolor", "dcphase", "ntmicro"],
+  "satelliteProducts": [
+    "02",
+    "truecolor",
+    "dcphase",
+    "ntmicro"
+  ],
   "forecastCollectionSchedule": "*/5 * * * *",
   "defaultMetarProduct": "plots",
   "metarProducts": [
     "plots",
+    "rtmetar",
     "clouds"
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",
   "hourlyMapRecoveryHours": 5,
   "hourlyCollectionSchedule": "*/2 * * * *",
   "hourlyBulkFirst": true,
-  "minimumWebInstances": 1
+  "minimumWebInstances": 1,
+  "rtmetarCollectionSchedule": "*/5 * * * *",
+  "mesonetCollectionSchedule": "*/5 * * * *",
+  "mesonetStationPolicy": "west-metro-roster-v2"
 }

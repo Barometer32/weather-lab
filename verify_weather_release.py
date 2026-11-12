@@ -16,19 +16,20 @@ def check_layout(base):
     html = read(base, "/")
     assert 'id="tab-observations"' not in html and 'id="observations"' not in html
     assert 'hourly-observation-views.js' not in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "mesonet", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "rtmetar", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
-    assert 'rtmetar' not in html.lower()
+    assert '<option value="rtmetar">RTMETAR</option>' in html
+    assert 'id="mesonet-map"' in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=metar-fast-v5' in html
+    assert '/static/metar-views.js?v=live-observations-v7' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=satellite-visible-v6' in html
-    print("Verified METAR home with PLOTS default, CLOUDS retained, and RTMETAR removed.")
+    assert '/static/app.js?v=live-observations-v7' in html
+    print("Verified METAR home with PLOTS default, CLOUDS retained, RTMETAR restored, and MESONET added.")
 
 
 def check_hourly(base):
@@ -51,13 +52,28 @@ def check_hourly(base):
     print(f"Verified prepared CLOUDS/PLOTS loop: four consecutive hours, {len(sites)} common stations.")
 
 
-def check_removed(base):
-    try:
-        read(base, "/api/rtmetar")
-    except HTTPError as error:
-        assert error.code == 404, "Retired RTMETAR endpoint must return 404"
-    else:
-        raise AssertionError("Retired RTMETAR endpoint still exists")
+def check_live_stations(base):
+    from rtmetar import VERSION, STATES
+    from observation_stations import COVERAGE, MAP_STATION_POLICY, included_site, included_on_map
+    now = datetime.now(timezone.utc)
+    rapid = json.loads(read(base, "/api/rtmetar"))
+    assert rapid["version"] == VERSION and rapid["temperatureUnit"] == "C" and rapid["windUnit"] == "mph"
+    assert rapid["updateIntervalSeconds"] == 300 and not rapid["stale"]
+    complete = [s for s in rapid["stations"] if isinstance(s.get("tempC"), int) and isinstance(s.get("dewpointC"), int)]
+    assert complete, "No complete five-minute airport reports prepared"
+    for station in rapid["stations"]:
+        stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
+        assert station["state"] in STATES and station["reportType"] == "HFMETAR"
+        assert station["temperatureBasis"] == "main-XX/XX" and "MADISHF" in station["rawOb"].partition(" RMK")[2]
+        assert stamp.minute % 5 == 0 and 0 <= (now-stamp).total_seconds() <= 3600
+    meso = json.loads(read(base, "/api/mesonet"))
+    assert meso["coverage"] == COVERAGE and meso["stationPolicy"] == MAP_STATION_POLICY
+    assert meso["updateIntervalSeconds"] == 300 and not meso["stale"] and meso["stations"]
+    for station in meso["stations"]:
+        assert included_site(station) and included_on_map(station), "Unapproved station in MESONET"
+        stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
+        assert 0 <= (now-stamp).total_seconds() <= 3600
+    print(f"Verified RTMETAR: {len(complete)} complete Celsius reports; MESONET: {len(meso['stations'])} approved individual stations.")
 
 
 def check_products(base):
@@ -94,6 +110,6 @@ if __name__ == "__main__":
     check_layout(args.url)
     if not args.layout_only:
         check_hourly(args.url)
-        check_removed(args.url)
+        check_live_stations(args.url)
         if args.all_products:
             check_products(args.url)

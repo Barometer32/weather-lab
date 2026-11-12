@@ -113,11 +113,11 @@ def present_map(saved, now):
                 or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
             continue
         rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
-                    "ageMinutes", "tempF", "dewpointF", "wind") if key in row})
+                    "ageMinutes", "network", "tempF", "dewpointF", "wind") if key in row})
     bounds = [[min(r["lat"] for r in rows),min(r["lon"] for r in rows)],
               [max(r["lat"] for r in rows),max(r["lon"] for r in rows)]] if len(rows) > 1 else FALLBACK_BOUNDS
     return {"stations":rows,"bounds":bounds,"checkedAt":result["checkedAt"],"coverage":result["coverage"],
-            "stationPolicy":MAP_STATION_POLICY,"serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
+            "stationPolicy":MAP_STATION_POLICY,"updateIntervalSeconds":300,"temperatureUnit":"F","windUnit":"mph","serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
             "source":"NOAA MADIS · Hennepin West"}
 
 
