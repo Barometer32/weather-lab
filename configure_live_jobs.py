@@ -4,8 +4,8 @@ from pathlib import Path
 import shlex
 import sys
 
-JOBS = {"weather-live-mesonet": "mesonet"}
-RETIRED = ("weather-live-rtmetar",)
+JOBS = {"weather-live-rtmetar": "rtmetar"}
+RETIRED = ("weather-live-mesonet", "weather-live-observation-stations")
 
 
 def plan(jobs, project, region, collector):

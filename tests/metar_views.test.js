@@ -6,13 +6,13 @@ const stations=[{station:'KFCM',lat:3,lon:1,time:'2026-10-24T17:53:00Z',reportTy
 let data={checkedAt:'2026-10-24T18:01:00Z',serverTime:'2026-10-24T18:02:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,24,7+i)).toISOString(),stations:stations.map(s=>({...s,tempF:i===0?100:s.tempF}))}))};
 get('metar-product').value='clouds'; // Simulate a browser-restored old selection.
 let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber,created=0,footprints=0;const callbacks={};
-const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*6000+100:lat*50,y:lon*50};},invalidateSize(){}};
+const map={getCenter(){return{lat:44.9,lng:-93.4};},getZoom(){return 9;},fitBounds(){return this;},setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*6000+100:lat*50,y:lon*50};},invalidateSize(){}};
 const context={window:{WeatherPrepared:{read:async()=>{reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){if(url==='/api/station-plots?view=loop')subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
- assert.equal(get('metar-product').value,'mesonet','MESONET overrides a restored product selection on startup');
- context.window.WeatherMetars.select('metar');get('metar-product').events.change({target:{value:'plots'}});await flush();
+ assert.equal(get('metar-product').value,'rtmetar','RTMETAR overrides a restored product selection on startup');
+ get('metar-product').events.change({target:{value:'plots'}});await flush();
  assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'3');assert.equal(fullConfig.surfaceId,'metar-surface');
  const firstMarker=shown[0],initialFootprints=footprints;
@@ -63,8 +63,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(get('metar-product').value,'clouds','visibility refresh keeps the selected product');
  context.window.WeatherMetars.select('radar');
  context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-product').value,'mesonet','returning to METAR opens MESONET');
- assert.equal(get('metar-map').hidden,true);assert.equal(get('mesonet-map').hidden,false);
+ assert.equal(get('metar-product').value,'rtmetar','returning to METAR opens RTMETAR');
+ assert.equal(get('metar-history').hidden,true);
  get('metar-product').events.change({target:{value:'plots'}});await flush();
  for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(ids().includes(id),'cloud availability does not remove temperature/wind plots: '+id);
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
