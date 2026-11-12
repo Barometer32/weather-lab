@@ -442,9 +442,3 @@ main > #observations {
   width:min(100%,920px);
   align-self:center;
 }
-
-
-#metar-surface[data-product="rtmetar"] > .viewer-controls { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"time actions"; }
-@media (max-width:600px) {
-  #metar-surface[data-product="rtmetar"] > .viewer-controls { grid-template-columns:1fr; grid-template-areas:"time" "actions"; }
-}

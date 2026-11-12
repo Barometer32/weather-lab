@@ -1,50 +1,23 @@
+"""Unused station schedules stop reversibly before verified retirement."""
 from configure_live_jobs import plan
 
 PROJECT='weather-lab-261105-184200-1a9b'
-ACCOUNT='weather-scheduler@'+PROJECT+'.iam.gserviceaccount.com'
 
 
 def job(name,state='ENABLED'):
-    return {'name':'projects/'+PROJECT+'/locations/us-central1/jobs/'+name,'state':state,
-            'schedule':'1-59/5 * * * *','timeZone':'America/Chicago','attemptDeadline':'240s',
-            'httpTarget':{'uri':'https://old.example/collect/original','httpMethod':'POST',
-                          'oidcToken':{'serviceAccountEmail':ACCOUNT,'audience':'https://old.example'}}}
+    return {'name':'projects/'+PROJECT+'/locations/us-central1/jobs/'+name,'state':state}
 
 
-def test_live_jobs_created_seeded_and_rollback_removes_only_new_jobs():
-    configure,rollback=plan([job('weather-live-metar-clouds')],PROJECT,'us-central1','https://collector.example')
-    for name,kind in [('weather-live-rtmetar','rtmetar')]:
-        create=next(c for c in configure if c[3:6]==['create','http',name])
-        assert '--schedule=*/5 * * * *' in create and '--attempt-deadline=300s' in create
-        assert '--uri=https://collector.example/collect/'+kind in create
-        assert '--oidc-token-audience=https://collector.example' in create
-        assert any(c[3:5]==['run',name] for c in configure)
-        assert any(c[3:5]==['delete',name] for c in rollback)
-
-
-def test_live_jobs_update_and_restore_original_auth_target_schedule_and_paused_state():
-    jobs=[job('weather-live-metar-clouds'),job('weather-live-mesonet','PAUSED'),job('weather-live-rtmetar')]
+def test_retired_jobs_pause_and_rollback_resumes_only_previously_enabled_jobs():
+    jobs=[job('weather-live-rtmetar'),job('weather-live-mesonet','PAUSED'),
+          job('weather-live-observation-stations'),job('weather-live-metar-clouds'),job('weather-live-radar')]
     configure,rollback=plan(jobs,PROJECT,'us-central1','https://collector.example')
-    assert not any(c[3]=='delete' for c in rollback)
-    assert not any('weather-live-mesonet' in c for c in configure+rollback), 'Retired paused job stays paused until final retirement'
-    for name in ['weather-live-rtmetar']:
-        restored=next(c for c in rollback if c[3:6]==['update','http',name])
-        for flag in ['--schedule=1-59/5 * * * *','--time-zone=America/Chicago','--attempt-deadline=240s',
-                     '--uri=https://old.example/collect/original','--oidc-token-audience=https://old.example']:
-            assert flag in restored
+    assert {tuple(c[3:5]) for c in configure}=={('pause','weather-live-rtmetar'),('pause','weather-live-observation-stations')}
+    assert {tuple(c[3:5]) for c in rollback}=={('resume','weather-live-rtmetar'),('resume','weather-live-observation-stations')}
+    assert not any(c[3]=='delete' for c in configure+rollback), 'Deletion waits for live verification'
 
 
-def test_retired_enabled_mesonet_is_paused_but_remains_recoverable_before_cutover():
-    configure,rollback=plan([job('weather-live-metar-clouds'),job('weather-live-mesonet')],PROJECT,'us-central1','https://collector.example')
-    assert configure[0][3:5]==['pause','weather-live-mesonet']
-    assert any(c[3:5]==['resume','weather-live-mesonet'] for c in rollback)
-    assert not any(c[3:5]==['delete','weather-live-mesonet'] for c in configure+rollback)
-    assert not any(c[3:5]==['run','weather-live-mesonet'] for c in configure)
-
-
-def test_paused_rtmetar_resumes_and_old_mesonet_alias_is_retired_reversibly():
-    configure,rollback=plan([job('weather-live-metar-clouds'),job('weather-live-rtmetar','PAUSED'),job('weather-live-observation-stations')],PROJECT,'us-central1','https://collector.example')
-    assert any(c[3:5]==['resume','weather-live-rtmetar'] for c in configure)
-    assert any(c[3:5]==['pause','weather-live-rtmetar'] for c in rollback)
-    assert any(c[3:5]==['pause','weather-live-observation-stations'] for c in configure)
-    assert any(c[3:5]==['resume','weather-live-observation-stations'] for c in rollback)
+def test_absent_or_already_paused_retired_jobs_need_no_mutations():
+    jobs=[job('weather-live-metar-clouds'),job('weather-live-rtmetar','PAUSED')]
+    configure,rollback=plan(jobs,PROJECT,'us-central1','https://collector.example')
+    assert configure==rollback==[]

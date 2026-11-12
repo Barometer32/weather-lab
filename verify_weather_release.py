@@ -1,4 +1,4 @@
-"""Verify prepared weather products and RTMETAR default with standard-library tools."""
+"""Verify prepared weather products and PLOTS default with standard-library tools."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -18,19 +18,19 @@ def check_layout(base):
     assert 'hourly-observation-views.js' not in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["rtmetar", "plots", "clouds"]
-    assert '<option value="rtmetar" selected>RTMETAR</option>' in html
-    assert '<option value="plots">PLOTS</option>' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=rtmetar-trio-v9' in html
+    assert '/static/metar-views.js?v=plots-only-v10' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=rtmetar-trio-v9' in html
-    print("Verified METAR home with RTMETAR default, PLOTS/CLOUDS retained, and MESONET removed.")
+    assert '/static/app.js?v=plots-only-v10' in html
+    print("Verified METAR home with PLOTS default, PLOTS/CLOUDS retained, and RTMETAR/MESONET removed.")
 
 
 def check_hourly(base):
@@ -53,27 +53,15 @@ def check_hourly(base):
     print(f"Verified prepared CLOUDS/PLOTS loop: four consecutive hours, {len(sites)} common stations.")
 
 
-def check_live_stations(base):
-    from rtmetar import VERSION, STATES, STATION_POLICY, station_allowed
-    now = datetime.now(timezone.utc)
-    rapid = json.loads(read(base, "/api/rtmetar"))
-    assert rapid["version"] == VERSION and rapid["temperatureUnit"] == "C" and rapid["windUnit"] == "mph"
-    assert rapid["updateIntervalSeconds"] == 300 and not rapid["stale"] and rapid["stations"]
-    assert rapid["stationPolicy"] == STATION_POLICY
-    for station in rapid["stations"]:
-        stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
-        assert station_allowed(station), "Unapproved metro airport in RTMETAR"
-        assert type(station["tempC"]) is int and type(station["dewpointC"]) is int
-        assert station["state"] in STATES and station["reportType"] == "HFMETAR"
-        assert station["temperatureBasis"] == "main-XX/XX" and "MADISHF" in station["rawOb"].partition(" RMK")[2]
-        assert stamp.minute % 5 == 0 and 0 <= (now-stamp).total_seconds() <= 3600
-    try:
-        read(base, "/api/mesonet")
-    except HTTPError as error:
-        assert error.code == 404
-    else:
-        raise AssertionError("Retired MESONET endpoint still exists")
-    print(f"Verified RTMETAR: {len(rapid['stations'])} complete Celsius/mph reports; KSTP excluded and metro limited to KFCM/KMIC/KMSP.")
+def check_removed(base):
+    for path in ("/api/rtmetar", "/api/mesonet"):
+        try:
+            read(base, path)
+        except HTTPError as error:
+            assert error.code == 404
+        else:
+            raise AssertionError(f"Retired endpoint still exists: {path}")
+    print("Verified RTMETAR and MESONET endpoints are removed.")
 
 
 def check_products(base):
@@ -110,6 +98,6 @@ if __name__ == "__main__":
     check_layout(args.url)
     if not args.layout_only:
         check_hourly(args.url)
-        check_live_stations(args.url)
+        check_removed(args.url)
         if args.all_products:
             check_products(args.url)

@@ -83,7 +83,7 @@ elif args[:2]==['storage','ls']:
     print('gs://'+project+'-weather-data/live/mesonet-v1.json')
     print('gs://'+project+'-weather-data/live/metar-loop.json')
 ''')
-    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'weather-live-satellite-state':'PAUSED'}))
+    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'activeExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
     env = {**os.environ, "PATH": str(tmp_path)+os.pathsep+os.environ["PATH"],
            "MOCK_ROOT": str(tmp_path), "MOCK_FAILURE": failure}
     result = subprocess.run(["bash", str(ROOT / "release-plots.sh")], cwd=ROOT,
@@ -105,10 +105,11 @@ elif args[:2]==['storage','ls']:
         assert all(i>verifications[-1] for i in retired), "Retire MESONET only after live verification"
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-satellite"] for c in calls)
         assert not any(c[:2] == ["storage", "rm"] for c in calls), "Retain all snapshots"
-        for name in ["weather-live-rtmetar"]:
-            assert any(c[:4] == ["scheduler", "jobs", "run", name] for c in calls)
-            assert any(c[:5] == ["scheduler", "jobs", "create", "http", name]
-                       and "--schedule=*/5 * * * *" in c and "--attempt-deadline=300s" in c for c in calls)
+        rapid_deletions=[i for i,c in enumerate(calls) if c[:4]==["scheduler","jobs","delete","weather-live-rtmetar"]]
+        assert bool(rapid_deletions)==retired_exists
+        assert all(i>verifications[-1] for i in rapid_deletions), "Retire RTMETAR only after live verification"
+        assert not any(c[:4]==["scheduler","jobs","run","weather-live-rtmetar"] for c in calls)
+        assert not any(c[:3]==["scheduler","jobs","create"] for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
@@ -131,7 +132,8 @@ elif args[:2]==['storage','ls']:
             assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-mesonet"] for c in calls)
         else:
             assert not any("weather-live-mesonet" in c for c in calls if c[:2]==["scheduler","jobs"])
-        assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)==retired_exists
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=0" in c for c in calls)

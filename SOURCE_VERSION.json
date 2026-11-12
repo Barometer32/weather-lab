@@ -1,6 +1,6 @@
 {
-  "variant": "rtmetar-metro-three-default",
-  "baseCommit": "02c920e9d9bccd08dba214cb39e9a0e8a042c037",
+  "variant": "plots-default",
+  "baseCommit": "61dfed0d02367d8e49690b05e50a83b39eade1cf",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -13,9 +13,8 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "rtmetar",
+  "defaultMetarProduct": "plots",
   "metarProducts": [
-    "rtmetar",
     "plots",
     "clouds"
   ],
@@ -23,14 +22,5 @@
   "hourlyMapRecoveryHours": 5,
   "hourlyCollectionSchedule": "*/2 * * * *",
   "hourlyBulkFirst": true,
-  "minimumWebInstances": 1,
-  "rtmetarCollectionSchedule": "*/5 * * * *",
-  "rtmetarMetroStations": [
-    "KFCM",
-    "KMIC",
-    "KMSP"
-  ],
-  "rtmetarExcludedStations": [
-    "KSTP"
-  ]
+  "minimumWebInstances": 1
 }

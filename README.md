@@ -4,44 +4,29 @@ Project: `weather-lab-261105-184200-1a9b`, region `us-central1`.
 Website: https://weather-lab.cloud.run. Current branch: `rtmetar-default-20261111`.
 
 Deploy this checkout from authenticated Google Cloud Shell with `bash release-plots.sh`.
-It stages the web and collector, seeds every weather product, verifies prepared
-snapshots and only then switches web traffic. Failed verification restores the
-previous traffic and Scheduler settings. At least one web instance stays warm.
-The retired MESONET jobs are paused during staging and deleted only after live
-verification. Older commands below are historical; use this release script.
+It stages the web and collector, seeds the retained products, verifies prepared
+snapshots, then switches web traffic. Failed verification restores previous
+traffic and Scheduler settings. At least one web instance stays warm.
 
 Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
-METAR opens RTMETAR by default, with PLOTS and CLOUDS in its dropdown.
-MESONET is removed from the UI, public API and active collector routes.
+METAR opens PLOTS by default, with CLOUDS retained in the dropdown. RTMETAR and
+MESONET are removed from the UI, public API, browser requests and collector routes.
+Their unused Scheduler jobs are paused during staging and deleted only after
+live verification succeeds. Prior enabled states remain recoverable on rollback.
 
-- RTMETAR uses only MADISHF-marked five-minute ASOS reports from SD, ND, MN, IA
-  and WI. Routine hourly reports and SPECI reports are never substituted.
-  Temperature and dewpoint use whole Celsius from the main XX/XX group,
-  ignoring T remarks. A station's latest report must contain both values;
-  incomplete latest reports hide the station without reusing older values.
-- Metro RTMETAR reports are limited to KFCM, KMIC and KMSP. KSTP is excluded
-  everywhere. The metro selection uses 44.60–45.35°N, 93.85–92.65°W. Other
-  eligible five-minute stations across the five states remain available.
-  Both collector/API and browser filter old saved snapshots by this policy.
-- Wind speed is mph. Feathers use half for 3–7, full for 8–12, 1.5 for 13–17,
-  and successive five-mph steps. Dense metro plots allow modest overlap.
-- The authenticated RTMETAR Scheduler job checks every five minutes. The
-  latest report per station is prepared even when no browser is open, and
-  reports expire at 60 minutes. Public requests only read prepared snapshots.
-  Visible maps refresh the prepared manifest every 30 seconds. Source delivery
-  can lag polling; the readout preserves actual report times, shows report age,
-  and distinguishes source delays from collection delays.
-- PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their
-  stable airport roster, Fahrenheit temperature plots and hourly timeline.
-  Collection checks every two minutes beginning at :00.
-- Satellite keeps Visible (red) Band 02 as the default plus all three other
-  existing 24-frame loops. NWS Hopkins forecast checks every five minutes.
-  Other existing weather sources and schedules are retained.
+PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
+airport roster and hourly timeline. PLOTS displays Fahrenheit, using precise T
+remarks where available, with mph wind barbs. The hourly collector checks every
+two minutes beginning at :00. Public page requests read prepared snapshots and
+never start an upstream observation download. Recent browser snapshots help
+repeat visits paint promptly. The removed bottom delay paragraph stays removed.
 
-`configure_live_jobs.py` prepares exact Scheduler commands and rollback commands
-from the original inventory. `verify_weather_release.py --all-products` checks
-RTMETAR provenance, Celsius/mph units, metro selection, MESONET removal, hourly
-maps, all retained product freshness and the latest prepared imagery.
+Satellite retains Visible (red) Band 02 as default and all four existing 24-frame
+loops. The NWS Hopkins forecast checks every five minutes. Other product sources
+and schedules are retained. `verify_weather_release.py --all-products` checks the
+PLOTS default, CLOUDS history, retired endpoints, remaining product freshness and
+prepared imagery before publishing the replacement. Older commands below are
+historical; use this release script.
 
 ## Legacy Current implementation (historical)
 

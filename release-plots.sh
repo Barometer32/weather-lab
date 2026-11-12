@@ -102,8 +102,7 @@ on_failure() {
 trap on_failure ERR
 changed=true
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
-# RTMETAR writes a durable latest-per-station snapshot even when no
-# browser is open. Cloud Scheduler authenticates to the private collector.
+# Pause unused station jobs; rollback can resume them until live verification.
 bash "$rollback_dir/live-configure.sh"
 # Check at :00, :02 and every two minutes, using the fast official bulk file
 # when saved history is healthy. Recovery still fills gaps from the archive.
@@ -151,6 +150,6 @@ gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_
 python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
 gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-mesonet" not in jobs and "weather-live-observation-stations" not in jobs,"Retired MESONET scheduler still exists"; names=["weather-live-rtmetar","weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert all(" ".join(jobs[name]["schedule"].split())=="*/5 * * * *" for name in ("weather-live-rtmetar",)),"Live station jobs must check every five minutes"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
-echo "Weather Lab is live at $site. RTMETAR is the METAR default and collects every five minutes in Celsius/mph. KSTP and MESONET are removed; PLOTS and CLOUDS remain available. All retained tabs use background-prepared data and share the warm website instance."
+echo "Weather Lab is live at $site. PLOTS is the METAR default, CLOUDS remains available, and RTMETAR/MESONET are removed. All retained tabs use background-prepared data and share the warm website instance."
