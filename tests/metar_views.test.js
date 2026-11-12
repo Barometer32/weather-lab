@@ -11,8 +11,8 @@ const context={window:{WeatherPrepared:{read:async()=>{reads++;if(fail)throw Err
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
- assert.equal(get('metar-product').value,'plots','PLOTS overrides a restored product selection on startup');
- context.window.WeatherMetars.select('metar');await flush();
+ assert.equal(get('metar-product').value,'mesonet','MESONET overrides a restored product selection on startup');
+ context.window.WeatherMetars.select('metar');get('metar-product').events.change({target:{value:'plots'}});await flush();
  assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'3');assert.equal(fullConfig.surfaceId,'metar-surface');
  const firstMarker=shown[0],initialFootprints=footprints;
@@ -63,8 +63,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(get('metar-product').value,'clouds','visibility refresh keeps the selected product');
  context.window.WeatherMetars.select('radar');
  context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-product').value,'plots','returning to METAR opens PLOTS');
- assert.ok(shown.some(s=>s.icon.html.includes('plot-temp')),'default PLOTS draws temperature markers');
+ assert.equal(get('metar-product').value,'mesonet','returning to METAR opens MESONET');
+ assert.equal(get('metar-map').hidden,true);assert.equal(get('mesonet-map').hidden,false);
  get('metar-product').events.change({target:{value:'plots'}});await flush();
  for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(ids().includes(id),'cloud availability does not remove temperature/wind plots: '+id);
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');

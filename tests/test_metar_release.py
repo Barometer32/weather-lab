@@ -100,12 +100,14 @@ elif args[:2]==['storage','ls']:
         assert any(c[:4] == ["run", "services", "update", "weather-collector"] and "--memory=2Gi" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=1" in c for c in calls)
         assert not any("--to-revisions=weather-lab-old=100" in c for c in calls)
-        assert not any(c[:3] == ["scheduler", "jobs", "delete"] for c in calls)
+        retired=[i for i,c in enumerate(calls) if c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"]]
+        assert bool(retired)==rt_exists
+        assert all(i>verifications[-1] for i in retired), "Retire RTMETAR only after live verification"
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-satellite"] for c in calls)
         assert not any(c[:2] == ["storage", "rm"] for c in calls), "Retain all snapshots"
-        for name in ["weather-live-rtmetar", "weather-live-mesonet"]:
+        for name in ["weather-live-mesonet"]:
             assert any(c[:4] == ["scheduler", "jobs", "run", name] for c in calls)
-            assert any(c[:5] == ["scheduler", "jobs", "create" if name == "weather-live-mesonet" or not rt_exists else "update", "http", name]
+            assert any(c[:5] == ["scheduler", "jobs", "create", "http", name]
                        and "--schedule=*/5 * * * *" in c and "--attempt-deadline=300s" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=*/2 * * * *" in c for c in calls)
@@ -128,7 +130,7 @@ elif args[:2]==['storage','ls']:
             assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)
             assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
         else:
-            assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+            assert not any("weather-live-rtmetar" in c for c in calls if c[:2]==["scheduler","jobs"])
         assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-mesonet"] for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)

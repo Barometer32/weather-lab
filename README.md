@@ -8,41 +8,39 @@ It stages the web and collector, enables and immediately runs collection, verifi
 prepared data for every tab, then switches web traffic. Failed verification
 restores prior traffic and scheduler settings. The collector keeps at least 2 GiB
 for MADIS file expansion, preserving any larger existing allocation. It keeps at least one warm web
-instance and never deletes the RTMETAR snapshot or job. Older commands below
+instance. The retired RTMETAR job is paused during staging and deleted only after
+live verification; rollback restores its original enabled state if needed. Older commands below
 are historical and can remove products; use this release script.
 
-Tabs: METAR, MESONET, RADAR, SATELLITE, FORECAST and AIR Q.
-METAR opens PLOTS by default, with RTMETAR and CLOUDS in its dropdown.
+Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+METAR opens MESONET by default, with PLOTS and CLOUDS in its dropdown.
+RTMETAR has been removed from the UI, public API, collector and source tree.
 
 - PLOTS/CLOUDS retain four consecutive official hourly METAR frames, with the
   existing stable airport roster and compact timeline. PLOTS displays Fahrenheit,
   preferring precise T remarks. Collection checks every two minutes from :00.
-- RTMETAR uses only MADISHF-marked five-minute ASOS reports from SD, ND, MN, IA
-  and WI. It never substitutes routine hourly/SPECI reports. Each station uses its
-  latest report, expires at 60 minutes, and is hidden when temperature or dewpoint
-  is missing. Temperature/dewpoint are whole Celsius from the main XX/XX group;
-  T remarks are ignored. Wind is mph, with half feathers for 3–7, full feathers
-  for 8–12, 1.5 for 13–17, and successive five-mph steps. Metro plots allow modest
-  overlap. No hourly timeline applies to this latest-report view.
 - MESONET shows individual Hennepin West readings in Fahrenheit and mph using
   the saved `west-metro-roster-v2` policy: exclude Dakota County, Rosemount,
   Hanover, Dayton, Camden and sites west of the Hanover–Orono edge; retain Orono
   and Blaine. No other networks or averaged readings are added. Reports expire
   after 60 minutes. Every approved reporting station is plotted, even when close.
-- RTMETAR and MESONET each collect every five minutes (`*/5 * * * *`) through
-  authenticated Scheduler jobs. Public APIs read durable prepared snapshots and
+- MESONET collects every five minutes (`*/5 * * * *`) through
+  an authenticated Scheduler job. Public APIs read durable prepared snapshots and
   never fetch upstream data on a page visit. Browser manifests refresh every
   30 seconds while the map is visible, with recent saved copies for repeat visits.
-  Actual observation times stay intact; upstream MADIS/IEM delivery can lag the
-  polling interval. Delays appear in the compact observation-time readout.
+  Actual observation times stay intact; upstream MADIS delivery can lag the
+  polling interval. The compact readout shows the newest observation time and
+  its age, and distinguishes source delivery delays from collection delays.
+  Hovering it shows the last feed-check time. A successful check never renews
+  an observation timestamp.
 - Satellite retains Visible (red) Band 02 as its default and all four existing
   24-frame loops. NWS Hopkins forecast checks every five minutes. Other product
   sources and schedules are retained.
 
 `configure_live_jobs.py` prepares exact Scheduler update/create commands and
-rollback commands from the original job inventory. Both new collectors are
+rollback commands from the original job inventory. MESONET is
 seeded before public traffic changes. `verify_weather_release.py --all-products`
-checks layout, the hourly loop, RTMETAR provenance/units, approved MESONET sites,
+checks layout, the hourly loop, RTMETAR removal, approved MESONET sites,
 other product freshness and prepared imagery.
 
 ## Legacy Current implementation (historical)

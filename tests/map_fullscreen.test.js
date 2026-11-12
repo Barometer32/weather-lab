@@ -11,7 +11,6 @@ const click=id=>get(id+'-button').events.click();
 (async()=>{
  root.requestFullscreen=async function(options){assert.equal(options.navigationUI,'hide');document.fullscreenElement=this;events.fullscreenchange();};
  await click('radar');assert.equal(document.fullscreenElement,root,'Fullscreen includes navigation, not just one map');assert.ok(document.body.classList.contains('map-focus'));
- context.window.WeatherFullscreen.select('mesonet');assert.equal(document.fullscreenElement,root,'MESONET keeps the expanded map layout');
  context.window.WeatherFullscreen.select('metar');assert.equal(get('metar-button').textContent,'Close','Switching maps preserves expanded mode');assert.equal(document.fullscreenElement,root);
  await click('metar');assert.equal(document.fullscreenElement,null);assert.ok(!document.body.classList.contains('map-focus'));
  delete root.requestFullscreen;

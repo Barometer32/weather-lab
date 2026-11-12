@@ -5,6 +5,7 @@ window.WeatherMesonet = (() => {
   const clock=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   const active=new Map(),options={dot:true,mphBarbs:true};
   let map,markers,data,busy=false,error=null;
+  const activeView=()=>!el("metar").hidden&&el("metar-product").value==="mesonet";
   const node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
   function reset(){
     if(!map)return;
@@ -19,7 +20,7 @@ window.WeatherMesonet = (() => {
     markers=L.layerGroup().addTo(map);reset();
   }
   function render(){
-    if(el("mesonet").hidden)return;
+    if(!activeView())return;
     init();
     const now=Date.now(),stations=(data?.stations||[]).filter(s=>s.network==="Hennepin West"&&/^HPN\d+$/.test(s.station)&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&Date.parse(s.time)<=now&&Date.parse(s.time)>=now-3600000);
     const keep=new Set(stations.map(s=>s.station));
@@ -35,29 +36,35 @@ window.WeatherMesonet = (() => {
       if(old){old.marker.setIcon(icon).setLatLng([station.lat,station.lon]).setPopupContent(popup);old.station=station;}
       else active.set(station.station,{station,marker:L.marker([station.lat,station.lon],{icon,title:`${station.displayName} · ${station.station}`,keyboard:true}).bindPopup(popup).addTo(markers)});
     }
-    const delayed=error||data?.stale||data?._savedCopy||stations.some(s=>now-Date.parse(s.time)>900000);
-    el("mesonet-time").textContent=stations.length?`Newest ${clock.format(new Date(Math.max(...stations.map(s=>Date.parse(s.time)))))} · ${stations.length} stations · °F · mph${delayed?" · Delayed":""}`:busy?"Loading Hennepin West…":error?"Reports unavailable · try Refresh":"No approved station reports in the past 60 minutes";
+    const newest=stations.length?Math.max(...stations.map(s=>Date.parse(s.time))):null;
+    const age=newest===null?null:Math.max(0,Math.floor((now-newest)/60000));
+    const sourceDelayed=stations.some(s=>now-Date.parse(s.time)>900000);
+    const checkDelayed=data?.collectorDelayed||data?.checkedAt&&now-Date.parse(data.checkedAt)>360000;
+    const status=error?" · Refresh failed":checkDelayed?" · Collection delayed":data?.stale?" · Feed error":sourceDelayed?" · Source delayed":data?._savedCopy?" · Saved":"";
+    const readout=el("metar-time");
+    readout.textContent=stations.length?`Newest ${clock.format(new Date(newest))} · ${age}m old · ${stations.length} stations · °F · mph${status}`:busy?"Loading Hennepin West…":error?"Reports unavailable · try Refresh":"No approved station reports in the past 60 minutes";
+    readout.title=data?.checkedAt?`Feed checked ${clock.format(new Date(data.checkedAt))}. Each plot uses its actual observation time; source delivery may lag collection.`:"Waiting for a prepared station snapshot";
+
   }
   function adopt(next){
     if(next?.stationPolicy!=="west-metro-roster-v2"||next?.coverage!=="hennepin-west-no-dakota-v1"||!Array.isArray(next.stations))return;
     if(data&&(Date.parse(next.checkedAt)<Date.parse(data.checkedAt)||next._savedCopy&&!data._savedCopy))return;
-    data=next;error=null;render();
+    data=next;error=null;
+    if(next.serverTime&&!next._savedCopy)window.WeatherSun?.sync(next.serverTime);
+    render();
   }
   async function load(force=false){
-    if(busy)return;busy=true;el("refresh-mesonet").disabled=true;
+    if(busy)return;busy=true;if(activeView())el("refresh-metar").disabled=true;
     try{adopt(await window.WeatherPrepared.read(url,{force}));}catch(e){error=e.message;}
-    finally{busy=false;el("refresh-mesonet").disabled=false;render();}
+    finally{busy=false;if(activeView())el("refresh-metar").disabled=false;render();}
   }
   window.WeatherPrepared.subscribe(url,adopt);
-  el("refresh-mesonet").addEventListener("click",()=>load(true));
-  el("mesonet-reset").addEventListener("click",reset);
-  el("mesonet-set-default").addEventListener("click",()=>{
-    if(!map)return;const center=map.getCenter(),button=el("mesonet-set-default");
+  function saveDefault(){
+    if(!map)return;const center=map.getCenter(),button=el("metar-set-default");
     button.textContent=window.WeatherDefaultViews?.saveMetar?.("mesonet",[center.lat,center.lng],map.getZoom())?"Default saved":"Could not save";
     setTimeout(()=>{button.textContent="Set default";},2000);
-  });
-  window.WeatherFullscreen.attach({surfaceId:"mesonet-surface",buttonId:"mesonet-fullscreen",label:"MESONET map",onResize:()=>map?.invalidateSize({pan:false})});
-  window.addEventListener("weather-layout-resize",()=>{if(!el("mesonet").hidden)map?.invalidateSize({pan:false});});
-  setInterval(()=>{if(!document.hidden&&!el("mesonet").hidden){render();load();}},30000);
-  return {select(id){if(id==="mesonet"){render();load();setTimeout(()=>map?.invalidateSize({pan:false}),0);}},refresh(){render();load();}};
+  }
+  function resize(){if(activeView())map?.invalidateSize({pan:false});}
+  window.addEventListener("weather-layout-resize",resize);
+  return {render,reset,saveDefault,resize,busy:()=>busy,refresh(force=false){render();resize();return load(force);}};
 })();

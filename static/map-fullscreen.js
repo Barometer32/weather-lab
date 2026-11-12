@@ -43,5 +43,5 @@ window.WeatherFullscreen = (() => {
   const resizeActive=()=>{if(active())resize();};
   window.addEventListener("resize",resizeActive);
   window.visualViewport?.addEventListener("resize",resizeActive);
-  return {attach,select(id){if(!["radar","metar","mesonet","satellite"].includes(id)&&active())close();}};
+  return {attach,select(id){if(!["radar","metar","satellite"].includes(id)&&active())close();}};
 })();

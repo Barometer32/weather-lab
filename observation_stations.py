@@ -116,8 +116,15 @@ def present_map(saved, now):
                     "ageMinutes", "network", "tempF", "dewpointF", "wind") if key in row})
     bounds = [[min(r["lat"] for r in rows),min(r["lon"] for r in rows)],
               [max(r["lat"] for r in rows),max(r["lon"] for r in rows)]] if len(rows) > 1 else FALLBACK_BOUNDS
+    newest = max((row["time"] for row in rows), default=None)
+    oldest = min((row["time"] for row in rows), default=None)
     return {"stations":rows,"bounds":bounds,"checkedAt":result["checkedAt"],"coverage":result["coverage"],
-            "stationPolicy":MAP_STATION_POLICY,"updateIntervalSeconds":300,"temperatureUnit":"F","windUnit":"mph","serverTime":result["serverTime"],"stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
+            "stationPolicy":MAP_STATION_POLICY,"updateIntervalSeconds":300,"temperatureUnit":"F","windUnit":"mph",
+            "serverTime":result["serverTime"],"collectorDelayed":result["collectorDelayed"],
+            "stale":result["collectorDelayed"] or bool(result["sourceFailures"]),
+            "sourceDelayed":not rows or any(row["ageMinutes"]>15 for row in rows),
+            "newestObservationAt":newest,"oldestObservationAt":oldest,
+            "sourceAgeMinutes":min((row["ageMinutes"] for row in rows), default=None),
             "source":"NOAA MADIS · Hennepin West"}
 
 

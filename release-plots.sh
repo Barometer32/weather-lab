@@ -67,7 +67,7 @@ for active_job in "${retained_jobs[@]}"; do
     *) echo "Unexpected background job state: $active_job $state" >&2; exit 1 ;;
   esac
 done
-# Snapshot the two five-minute jobs before making any changes. This also
+# Snapshot active and retired station jobs before making any changes. This also
 # distinguishes a genuinely absent job from a failed describe/IAM request.
 gcloud scheduler jobs list "${scheduler[@]}" --format=json > "$rollback_dir/jobs-before.json"
 python3 configure_live_jobs.py plan "$rollback_dir/jobs-before.json" "$rollback_dir" "$project" "$region" "${collector[0]}"
@@ -102,7 +102,7 @@ on_failure() {
 trap on_failure ERR
 changed=true
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
-# Each collector writes a durable latest-per-station snapshot even when no
+# MESONET writes a durable latest-per-station snapshot even when no
 # browser is open. Cloud Scheduler authenticates to the private collector.
 bash "$rollback_dir/live-configure.sh"
 # Check at :00, :02 and every two minutes, using the fast official bulk file
@@ -142,6 +142,7 @@ if [[ "$old_hourly_state" == ENABLED ]]; then
 fi
 trap - ERR
 trap 'echo "Website deployment passed, but post-deployment cleanup is incomplete. Inspect the error above." >&2' ERR
+bash "$rollback_dir/live-retire.sh"
 bucket="$(gcloud run services describe weather-collector "${run[@]}" --format=json |
   python3 -c 'import json,sys; env=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0].get("env",[]); print(next(e["value"] for e in env if e["name"]=="WEATHER_DATA_BUCKET"))')"
 [[ "$bucket" =~ ^[a-z0-9][a-z0-9._-]+$ ]] || { echo 'Invalid data bucket; inspect before cleanup.' >&2; exit 1; }
@@ -150,6 +151,6 @@ gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_
 python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
 gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; names=["weather-live-rtmetar","weather-live-mesonet","weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert all(" ".join(jobs[name]["schedule"].split())=="*/5 * * * *" for name in ("weather-live-rtmetar","weather-live-mesonet")),"Live station jobs must check every five minutes"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert "weather-live-rtmetar" not in jobs,"Retired RTMETAR scheduler still exists"; names=["weather-live-mesonet","weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert all(" ".join(jobs[name]["schedule"].split())=="*/5 * * * *" for name in ("weather-live-mesonet",)),"Live station jobs must check every five minutes"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
-echo "Weather Lab is live at $site. PLOTS is the default; RTMETAR and MESONET collect every five minutes. All retained tabs use background-prepared data and share the warm website instance."
+echo "Weather Lab is live at $site. MESONET is the METAR default and collects every five minutes; PLOTS and CLOUDS remain available. RTMETAR is removed. All retained tabs use background-prepared data and share the warm website instance."

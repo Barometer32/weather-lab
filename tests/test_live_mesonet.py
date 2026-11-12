@@ -42,3 +42,30 @@ def test_private_mesonet_collector_preserves_approved_policy():
         response=collector.app.test_client().post('/collect/mesonet')
     assert response.status_code==200 and response.json['result']['stations']==1
     collect.assert_called_once_with(store,NOW)
+
+
+def test_old_source_reports_and_failed_collection_have_distinct_freshness_flags():
+    saved={'version':obs.VERSION,'coverage':obs.COVERAGE,'checkedAt':obs.iso(NOW),
+           'stations':[sample(time=obs.iso(NOW-timedelta(minutes=30)))]}
+    result=obs.present_map(saved,NOW)
+    assert not result['collectorDelayed'] and not result['stale']
+    assert result['sourceDelayed'] and result['sourceAgeMinutes']==30
+    assert result['newestObservationAt']==obs.iso(NOW-timedelta(minutes=30))
+    later=obs.present_map(saved,NOW+timedelta(minutes=7))
+    assert later['collectorDelayed'] and later['stale']
+    assert later['newestObservationAt']==result['newestObservationAt']
+    assert later['sourceAgeMinutes']==37
+
+
+def test_new_source_batch_advances_the_station_without_relabeling_old_data():
+    old=sample(time=obs.iso(NOW-timedelta(minutes=32)))
+    fresh=sample(time=obs.iso(NOW-timedelta(minutes=12)),tempF=68.3)
+    store=Store({obs.KEY:{'version':obs.VERSION,'coverage':obs.COVERAGE,
+                         'checkedAt':obs.iso(NOW-timedelta(minutes=5)), 'stations':[old]}})
+    with patch('regional_madis.parse_file',return_value=[fresh]):
+        obs.collect(store,NOW,lambda url,meta:(b'new batch',{'etag':'new'}))
+    result=obs.present_map(store.read_json(obs.KEY),NOW)
+    assert result['stations'][0]['time']==fresh['time']
+    assert result['newestObservationAt']==fresh['time']
+    assert result['checkedAt']==obs.iso(NOW) and result['sourceAgeMinutes']==12
+    assert result['stations'][0]['tempF']==68.3 and not result['sourceDelayed']
