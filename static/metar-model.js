@@ -143,7 +143,42 @@ window.WeatherStationModel = (() => {
     for(const [x,y] of w.points){left=Math.min(left,x-2);right=Math.max(right,x+2);top=Math.min(top,y-2);bottom=Math.max(bottom,y+2);}
     return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
   }
-  return {combinedStationModel,combinedFootprint,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  function combinedCollisionBoxes(station,options={}){
+    const {dot=false,mphBarbs=false,celsius=false}=options,c=combined,w=combinedWind(station.wind,mphBarbs);
+    const boxes=[],add=(left,right,top,bottom)=>boxes.push({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale});
+    function text(x,y,label,anchor="end",small=false){
+      const width=textWidth(label,small),left=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
+      add(left-2,left+width+2,y-(small?10:13),y+3);
+    }
+    text(c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF));
+    text(c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF));
+    const radius=dot?3:w.kind==="calm"?8.5:6.6;
+    add(-radius,radius,-radius,radius);
+    const ceiling=dot||options.mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+    if(ceiling)text(c.ceilingX,c.ceilingY,ceiling,"start");
+    if(w.kind==="unknown")text(0,29,w.state,"middle",true);
+    if(w.kind==="barb"){
+      const angle=w.rotation*Math.PI/180;
+      const rotate=([x,y])=>[barbScale*(x*Math.cos(angle)-y*Math.sin(angle)),barbScale*(x*Math.sin(angle)+y*Math.cos(angle))];
+      const lines=dot?[[[0,0],w.lines[0][1]],...w.lines.slice(1)]:w.lines;
+      // Small rectangles follow each painted segment, including its white halo,
+      // rather than reserving the empty corners of a whole rotated barb.
+      for(const line of lines){
+        const [a,b]=line.map(rotate),steps=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/4));
+        for(let i=0;i<steps;i++){
+          const x=a[0]+(b[0]-a[0])*i/steps,y=a[1]+(b[1]-a[1])*i/steps;
+          const xx=a[0]+(b[0]-a[0])*(i+1)/steps,yy=a[1]+(b[1]-a[1])*(i+1)/steps;
+          add(Math.min(x,xx)-2,Math.max(x,xx)+2,Math.min(y,yy)-2,Math.max(y,yy)+2);
+        }
+      }
+      for(const points of w.pennants){
+        const rotated=points.map(rotate);
+        add(Math.min(...rotated.map(p=>p[0]))-2,Math.max(...rotated.map(p=>p[0]))+2,Math.min(...rotated.map(p=>p[1]))-2,Math.max(...rotated.map(p=>p[1]))+2);
+      }
+    }
+    return boxes;
+  }
+  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

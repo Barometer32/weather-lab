@@ -37,13 +37,17 @@ new batch retains the last complete average with its original timestamp and
 waiting/age status; an equal-time correction invalidates the old values.
 Reports expire after 60 minutes. No two-station average, invented timestamp or
 mixed-hourly fallback is permitted. The station table preserves each source
-report and time. Sun angle is the current apparent elevation for Hopkins and
+report, time, eight-point wind direction and whole-mph speed. Sun angle is the current apparent elevation for Hopkins and
 updates every ten seconds, independent of the observation time. The public
 `/api/observations/current` endpoint reads the prepared
 `live/rapid-observations-v1.json` snapshot; opening the page never collects data.
 
 PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
-airport roster and hourly timeline. PLOTS displays Fahrenheit, using precise T
+airport roster and hourly timeline. Both maps prioritize KMSP, KFCM and KMIC.
+KSTP, KSGS and other eligible airports fill the remaining space. Collision checks
+protect the actual labels, dots and wind-barb halos in each matching hour,
+allowing denser placement without shifting airports or changing the roster as
+the timeline moves. PLOTS displays Fahrenheit, using precise T
 remarks where available, with mph wind barbs. The hourly collector checks every
 two minutes beginning at :00. Public page requests read prepared snapshots and
 never start an upstream observation download. Recent browser snapshots help

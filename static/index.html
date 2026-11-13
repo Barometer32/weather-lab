@@ -6,21 +6,21 @@
   <meta name="description" content="Five-minute three-airport observations, hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-home-v12">
+  <link rel="stylesheet" href="/static/style.css?v=metro-priority-v13">
   <link rel="preload" href="/api/observations/current" as="fetch" crossorigin="anonymous">
   <script defer src="/static/sun-angle.js?v=rolling-observations-v1"></script>
-  <script defer src="/static/prepared-data.js?v=observations-home-v12"></script>
+  <script defer src="/static/prepared-data.js?v=metro-priority-v13"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
-  <script defer src="/static/map-fullscreen.js?v=observations-home-v12"></script>
-  <script defer src="/static/default-views.js?v=observations-home-v12"></script>
-  <script defer src="/static/metar-model.js?v=plots-home-v4"></script>
-  <script defer src="/static/current-observations.js?v=observations-home-v12"></script>
-  <script defer src="/static/metar-views.js?v=observations-home-v12"></script>
+  <script defer src="/static/map-fullscreen.js?v=metro-priority-v13"></script>
+  <script defer src="/static/default-views.js?v=metro-priority-v13"></script>
+  <script defer src="/static/metar-model.js?v=metro-priority-v13"></script>
+  <script defer src="/static/current-observations.js?v=metro-priority-v13"></script>
+  <script defer src="/static/metar-views.js?v=metro-priority-v13"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=observations-home-v12"></script>
+  <script defer src="/static/app.js?v=metro-priority-v13"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
@@ -57,7 +57,7 @@
     <article class="metric"><h2>Sun angle</h2><p id="observations-sun" class="metric-value">—</p></article>
   </div>
   <details class="method rapid-station-details"><summary>Station reports</summary>
-    <div class="table-wrap"><table><thead><tr><th>Airport</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Wind speed</th></tr></thead><tbody id="observations-stations"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Airport</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Direction</th><th>Wind speed</th></tr></thead><tbody id="observations-stations"></tbody></table></div>
     <p>Equal average of all three airports at the same five-minute report time. Temperature and dewpoint use the whole-Celsius XX/XX group; T remarks are ignored. Wind speeds are averaged in mph and rounded once for display. Direction uses speed-weighted wind vectors and the nearest of eight compass directions. Only MADISHF five-minute reports are eligible. Sun angle uses the current time.</p>
   </details>
 </section>

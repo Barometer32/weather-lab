@@ -18,6 +18,8 @@ def check_layout(base):
     assert all('id="'+name+'"' in html for name in ("observations-temperature","observations-dewpoint","observations-wind","observations-sun"))
     assert "Hopkins · now" not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
+    assert '<th>Direction</th><th>Wind speed</th>' in html
+    assert '/static/metar-model.js?v=metro-priority-v13' in html
     assert 'hourly-observation-views.js' not in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-observations" aria-selected="true"' in html
@@ -27,12 +29,12 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=observations-home-v12' in html
+    assert '/static/metar-views.js?v=metro-priority-v13' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=observations-home-v12' in html
+    assert '/static/app.js?v=metro-priority-v13' in html
     print("Verified OBSERVATIONS home with METAR PLOTS default, PLOTS/CLOUDS retained, OBSERVATIONS added, and RTMETAR/MESONET removed.")
 
 

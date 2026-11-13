@@ -5,6 +5,7 @@ window.WeatherMetars = (() => {
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
+  const preferred=["KMSP","KFCM","KMIC"];
   const windPlotOptions={dot:true,mphBarbs:true};
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
@@ -50,26 +51,56 @@ window.WeatherMetars = (() => {
       const present=new Set(stations.map(station=>station.station));
       for(const id of eligible)if(!present.has(id))eligible.delete(id);
     }
-    // Reserve the largest label across all four frames to avoid flickering
-    // station density as the user moves the timeline.
+    // Keep a fixed roster, but compare geometry only between matching hours.
+    // One hour's west barb need not collide with another hour's north barb.
     const bySite=new Map();
-    for(const stations of reports)for(const station of stations){
+    for(const [index,stations] of reports.entries())for(const station of stations){
       if(!eligible.has(station.station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,windPlotOptions),old=bySite.get(station.station);
-      bySite.set(station.station,{station,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
+      const frames=old?.frames||[];
+      frames[index]=mode==="clouds"?[f]:model.combinedCollisionBoxes(station,windPlotOptions);
+      bySite.set(station.station,{station,frames,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
-    const preferred=["KFCM","KMIC","KMSP"],rank=s=>{
+    const rank=s=>{
       const i=preferred.indexOf(s.station);return i<0?preferred.length:i;
     };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
   function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
-    const boxes=[],keep=new Set();
-    for(const {station,f} of sites){
-      const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;const box={left:p.x+f.left,right:p.x+f.right,top:p.y+f.top,bottom:p.y+f.bottom};
-      if(boxes.some(b=>box.left<b.right+2&&box.right>b.left-2&&box.top<b.bottom+2&&box.bottom>b.top-2))continue;
-      boxes.push(box);keep.add(station.station);
+    const overlap=(a,b)=>a.left<b.right+1&&a.right>b.left-1&&a.top<b.bottom+1&&a.bottom>b.top-1;
+    const shift=(b,p)=>({left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
+    const candidates=[];
+    for(const {station,f,frames} of sites){
+      const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
+      candidates.push({id:station.station,bounds:shift(f,p),frames:frames.map(boxes=>boxes.map(b=>shift(b,p))),conflicts:new Set()});
+    }
+    for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
+      const a=candidates[i],b=candidates[j];
+      if(!overlap(a.bounds,b.bounds))continue;
+      if(a.frames.some((boxes,hour)=>boxes.some(x=>b.frames[hour].some(y=>overlap(x,y))))){a.conflicts.add(b);b.conflicts.add(a);}
+    }
+    const keep=new Set(),remaining=new Set(candidates);
+    const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
+    const primary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
+    // At a wide zoom, retain the largest nonoverlapping subset of the three
+    // preferred airports. Once there is room, all three always beat neighbors.
+    let best=[];
+    for(let mask=0;mask<2**primary.length;mask++){
+      const subset=primary.filter((_,i)=>mask&(1<<i));
+      if(subset.length<=best.length||subset.some((a,i)=>subset.slice(0,i).some(b=>a.conflicts.has(b))))continue;
+      best=subset;
+    }
+    for(const site of best)take(site);
+    // Fill gaps with the least-conflicting remaining stations first. KSTP and
+    // KSGS stay eligible and appear whenever they fit around the preferred trio.
+    while(remaining.size){
+      let best,degree=Infinity;
+      for(const site of remaining){
+        let count=0;for(const other of site.conflicts)if(remaining.has(other))count++;
+        if(count<degree){best=site;degree=count;}
+      }
+      take(best);
     }
     return stations.filter(s=>keep.has(s.station));
   }

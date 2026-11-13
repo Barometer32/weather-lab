@@ -69,3 +69,19 @@ for(const wind of [{speedKnots:10,direction:270},{speedMph:0}]){
  assert.match(dot,/class="mesonet-dot"/);assert.doesNotMatch(dot,/plot-sky|sky-fill|plot-ceiling|wind-calm/);
  if(wind.direction)assert.match(dot,/class="wind-shaft" d="M0 0L0 -27\.6507/,'The shaft starts at the exact station dot');
 }
+
+// The denser collision geometry must still contain every painted barb segment,
+// including the shaft extended down to the dot and the pennant halos.
+for(const speedMph of [3,7,10,15,45,50,55,100,145])for(let direction=0;direction<360;direction+=5){
+ const row={...station,tempF:-12,dewpointF:-21,wind:{speedMph,direction}},w=m.combinedWind(row.wind,true);
+ const boxes=m.combinedCollisionBoxes(row,{dot:true,mphBarbs:true}),a=direction*Math.PI/180;
+ const transform=([x,y])=>[(x*Math.cos(a)-y*Math.sin(a))*1.1448*m.scale,(x*Math.sin(a)+y*Math.cos(a))*1.1448*m.scale];
+ const contains=([x,y])=>boxes.some(b=>x>=b.left-1e-8&&x<=b.right+1e-8&&y>=b.top-1e-8&&y<=b.bottom+1e-8);
+ const lines=[[[0,0],w.lines[0][1]],...w.lines.slice(1)];
+ for(const [start,end] of lines)for(let i=0;i<=20;i++){
+  const p=transform([start[0]+(end[0]-start[0])*i/20,start[1]+(end[1]-start[1])*i/20]);
+  for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5])assert.ok(contains([p[0]+1.65*1.1448*m.scale*Math.cos(angle),p[1]+1.65*1.1448*m.scale*Math.sin(angle)]),'a shaft/feather halo must be reserved');
+ }
+ for(const polygon of w.pennants)for(const p of polygon.map(transform))assert.ok(contains(p),'flags remain protected');
+}
+console.log('Dense collision geometry contains barbs and halos at every tested bearing and speed.');

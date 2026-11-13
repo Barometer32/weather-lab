@@ -33,5 +33,11 @@
   "observationsSameTimestamp": true,
   "observationsWindDirections": 8,
   "observationsDisplayRounding": "whole Fahrenheit after Celsius mean; whole mph",
-  "observationsSource": "IEM live observation history; bulk archive recovery only"
+  "observationsSource": "IEM live observation history; bulk archive recovery only",
+  "metarPriorityStations": [
+    "KMSP",
+    "KFCM",
+    "KMIC"
+  ],
+  "metarCollisionGeometry": "painted components across matching four-hour frames"
 }

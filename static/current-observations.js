@@ -5,6 +5,16 @@ window.WeatherObservations = (()=>{
   const clock=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let data,busy=false,error=null;
   const number=(value,unit,digits=1)=>Number.isFinite(value)?`${digits===0?Math.round(value):value.toFixed(digits)}${unit}`:"—";
+  const directions=["N","NE","E","SE","S","SW","W","NW"];
+  function stationDirection(station){
+    if(!Number.isFinite(station.windSpeedMph))return "—";
+    if(station.windSpeedMph===0)return "Calm";
+    // Older prepared snapshots may predate the explicit direction fields.
+    const raw=station.rawOb?.split(" RMK")[0].match(/\b(\d{3}|VRB)\d{2,3}(?:G\d{2,3})?KT\b/);
+    if(station.windVariable||raw?.[1]==="VRB")return "Variable";
+    const bearing=Number.isFinite(station.windDirection)?station.windDirection:raw?Number(raw[1]):NaN;
+    return Number.isFinite(bearing)&&bearing>=0&&bearing<=360?directions[Math.round(bearing/45)%8]:"—";
+  }
   function render(){
     if(el("observations").hidden)return;
     const now=Date.now(),value=data?.current;
@@ -22,7 +32,7 @@ window.WeatherObservations = (()=>{
     const body=el("observations-stations");body.replaceChildren();
     for(const station of valid?value.stations:data?.stations||[]){
       const row=document.createElement("tr");
-      for(const text of [station.station,clock.format(new Date(station.time)),number(station.tempC,"°C"),number(station.dewpointC,"°C"),number(station.windSpeedMph," mph",0)]){
+      for(const text of [station.station,clock.format(new Date(station.time)),number(station.tempC,"°C"),number(station.dewpointC,"°C"),stationDirection(station),number(station.windSpeedMph," mph",0)]){
         const cell=document.createElement("td");cell.textContent=text;row.append(cell);
       }
       row.title=station.rawOb||"";body.append(row);
