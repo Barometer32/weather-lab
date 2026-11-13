@@ -3,7 +3,7 @@
 window.WeatherDefaultViews = (()=>{
   try{for(const mode of ["mesonet","rtmetar"])window.localStorage.removeItem("weather-metar-default-v1-"+mode);}catch(_){}
   const airports=[{station:"KFCM",lat:44.8272,lon:-93.4571},{station:"KMIC",lat:45.0619,lon:-93.3539},{station:"KMSP",lat:44.8831,lon:-93.2289}];
-  const fallbackFootprint={left:-35,right:22,top:-38,bottom:20},radarKey="weather-radar-default-v1";
+  const fallbackFootprint={left:-42,right:42,top:-42,bottom:42},radarKey="weather-radar-default-v1";
   const factoryRadar={center:[44.925,-93.462],zoom:8};
   function project(lat,lon,zoom){
     const world=256*2**zoom,sine=Math.sin(Math.max(-85.05112878,Math.min(85.05112878,lat))*Math.PI/180);

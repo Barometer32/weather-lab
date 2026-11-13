@@ -28,6 +28,7 @@
     "KFCM",
     "KMIC"
   ],
-  "metarCollisionGeometry": "per-hour whole-plot filtering; rotated barb-to-label collisions reject entire plots; barb crossings allowed",
-  "metarRequireCompleteStationHistory": false
+  "metarCollisionGeometry": "full-360 potential wind sweep and loop-wide label reservation; whole-plot exclusion; priority metro space reserved through gaps",
+  "metarRequireCompleteStationHistory": false,
+  "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols"
 }

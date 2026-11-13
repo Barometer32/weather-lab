@@ -178,7 +178,17 @@ window.WeatherStationModel = (() => {
     }
     return boxes;
   }
-  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  function combinedReservation(station,options={}){
+    const boxes=combinedCollisionBoxes(station,options).filter(b=>b.kind!=="barb");
+    // Reserve a complete normal barb even for calm/VRB/missing wind. A circle
+    // covers every bearing, independent of the direction in any single hour.
+    // Longer reported barbs enlarge it; they are never clipped or shortened.
+    const winds=[{speedMph:45,direction:0},{...(station.wind||{}),direction:0}];
+    const radius=Math.max(...winds.flatMap(w=>combinedWind(w,options.mphBarbs).points.map(([x,y])=>Math.hypot(x,y)+2)))*scale;
+    return {boxes,radius,bounds:{left:Math.min(-radius,...boxes.map(b=>b.left)),right:Math.max(radius,...boxes.map(b=>b.right)),
+      top:Math.min(-radius,...boxes.map(b=>b.top)),bottom:Math.max(radius,...boxes.map(b=>b.bottom))}};
+  }
+  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

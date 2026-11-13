@@ -1,0 +1,577 @@
+{
+  "checkedAt": "2026-11-13T21:48:00.334016Z",
+  "history": [
+    {
+      "hour": "2026-11-13T18:00:00Z",
+      "stations": [
+        {
+          "station": "KANE",
+          "lat": 45.1426,
+          "lon": -93.2127,
+          "time": "2026-11-13T17:45:00Z",
+          "tempF": 35.6,
+          "dewpointF": 26.6,
+          "wind": {
+            "direction": 360,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 6.0,
+            "speedMph": 6.9,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": 2400,
+              "cover": "FEW",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KFCM",
+          "lat": 44.8321,
+          "lon": -93.4705,
+          "time": "2026-11-13T17:53:00Z",
+          "tempF": 37.0,
+          "dewpointF": 23.0,
+          "wind": {
+            "direction": 40,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 6.0,
+            "speedMph": 6.9,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMIC",
+          "lat": 45.0623,
+          "lon": -93.3511,
+          "time": "2026-11-13T17:53:00Z",
+          "tempF": 37.0,
+          "dewpointF": 23.0,
+          "wind": {
+            "direction": null,
+            "directionCount": 0,
+            "speedCount": 1,
+            "speedKnots": 4.0,
+            "speedMph": 4.6,
+            "variable": true
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMSP",
+          "lat": 44.8852,
+          "lon": -93.2313,
+          "time": "2026-11-13T17:53:00Z",
+          "tempF": 37.0,
+          "dewpointF": 23.0,
+          "wind": {
+            "direction": null,
+            "directionCount": 0,
+            "speedCount": 1,
+            "speedKnots": 4.0,
+            "speedMph": 4.6,
+            "variable": true
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSGS",
+          "lat": 44.8601,
+          "lon": -93.032,
+          "time": "2026-11-13T17:55:00Z",
+          "tempF": 37.2,
+          "dewpointF": 24.4,
+          "wind": {
+            "direction": 20,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 3.0,
+            "speedMph": 3.5,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": 2600,
+              "cover": "SCT",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSTP",
+          "lat": 44.9323,
+          "lon": -93.0559,
+          "time": "2026-11-13T17:53:00Z",
+          "tempF": 37.9,
+          "dewpointF": 24.1,
+          "wind": {
+            "direction": 360,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 6.0,
+            "speedMph": 6.9,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "hour": "2026-11-13T19:00:00Z",
+      "stations": [
+        {
+          "station": "KANE",
+          "lat": 45.1426,
+          "lon": -93.2127,
+          "time": "2026-11-13T18:45:00Z",
+          "tempF": 37.4,
+          "dewpointF": 24.8,
+          "wind": {
+            "direction": 360,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 4.0,
+            "speedMph": 4.6,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KFCM",
+          "lat": 44.8321,
+          "lon": -93.4705,
+          "time": "2026-11-13T18:53:00Z",
+          "tempF": 37.9,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 60,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 7.0,
+            "speedMph": 8.1,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMIC",
+          "lat": 45.0623,
+          "lon": -93.3511,
+          "time": "2026-11-13T18:53:00Z",
+          "tempF": 37.9,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": null,
+            "directionCount": 0,
+            "speedCount": 1,
+            "speedKnots": 4.0,
+            "speedMph": 4.6,
+            "variable": true
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMSP",
+          "lat": 44.8852,
+          "lon": -93.2313,
+          "time": "2026-11-13T18:53:00Z",
+          "tempF": 37.9,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 360,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 4.0,
+            "speedMph": 4.6,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSGS",
+          "lat": 44.8601,
+          "lon": -93.032,
+          "time": "2026-11-13T18:55:00Z",
+          "tempF": 38.3,
+          "dewpointF": 23.9,
+          "wind": {
+            "direction": null,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 0.0,
+            "speedMph": 0.0,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSTP",
+          "lat": 44.9323,
+          "lon": -93.0559,
+          "time": "2026-11-13T18:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 25.0,
+          "wind": {
+            "direction": 20,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 7.0,
+            "speedMph": 8.1,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "hour": "2026-11-13T20:00:00Z",
+      "stations": [
+        {
+          "station": "KANE",
+          "lat": 45.1426,
+          "lon": -93.2127,
+          "time": "2026-11-13T19:45:00Z",
+          "tempF": 37.4,
+          "dewpointF": 24.8,
+          "wind": {
+            "direction": 360,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 5.0,
+            "speedMph": 5.8,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KFCM",
+          "lat": 44.8321,
+          "lon": -93.4705,
+          "time": "2026-11-13T19:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 60,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 5.0,
+            "speedMph": 5.8,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMIC",
+          "lat": 45.0623,
+          "lon": -93.3511,
+          "time": "2026-11-13T19:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 23.0,
+          "wind": {
+            "direction": null,
+            "directionCount": 0,
+            "speedCount": 1,
+            "speedKnots": 3.0,
+            "speedMph": 3.5,
+            "variable": true
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMSP",
+          "lat": 44.8852,
+          "lon": -93.2313,
+          "time": "2026-11-13T19:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 30,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 5.0,
+            "speedMph": 5.8,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSGS",
+          "lat": 44.8601,
+          "lon": -93.032,
+          "time": "2026-11-13T19:55:00Z",
+          "tempF": 39.9,
+          "dewpointF": 24.1,
+          "wind": {
+            "direction": 340,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 7.0,
+            "speedMph": 8.1,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSTP",
+          "lat": 44.9323,
+          "lon": -93.0559,
+          "time": "2026-11-13T19:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 24.1,
+          "wind": {
+            "direction": null,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 0.0,
+            "speedMph": 0.0,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "hour": "2026-11-13T21:00:00Z",
+      "stations": [
+        {
+          "station": "KANE",
+          "lat": 45.1426,
+          "lon": -93.2127,
+          "time": "2026-11-13T20:45:00Z",
+          "tempF": 39.2,
+          "dewpointF": 24.8,
+          "wind": {
+            "direction": 40,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 6.0,
+            "speedMph": 6.9,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KFCM",
+          "lat": 44.8321,
+          "lon": -93.4705,
+          "time": "2026-11-13T20:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 70,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 5.0,
+            "speedMph": 5.8,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMIC",
+          "lat": 45.0623,
+          "lon": -93.3511,
+          "time": "2026-11-13T20:53:00Z",
+          "tempF": 39.0,
+          "dewpointF": 21.0,
+          "wind": {
+            "direction": 30,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 6.0,
+            "speedMph": 6.9,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KMSP",
+          "lat": 44.8852,
+          "lon": -93.2313,
+          "time": "2026-11-13T20:53:00Z",
+          "tempF": 39.9,
+          "dewpointF": 21.9,
+          "wind": {
+            "direction": 30,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 5.0,
+            "speedMph": 5.8,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSGS",
+          "lat": 44.8601,
+          "lon": -93.032,
+          "time": "2026-11-13T20:55:00Z",
+          "tempF": 39.7,
+          "dewpointF": 23.7,
+          "wind": {
+            "direction": 350,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 3.0,
+            "speedMph": 3.5,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        },
+        {
+          "station": "KSTP",
+          "lat": 44.9323,
+          "lon": -93.0559,
+          "time": "2026-11-13T20:53:00Z",
+          "tempF": 39.9,
+          "dewpointF": 24.1,
+          "wind": {
+            "direction": 10,
+            "directionCount": 1,
+            "speedCount": 1,
+            "speedKnots": 7.0,
+            "speedMph": 8.1,
+            "variable": false
+          },
+          "layers": [
+            {
+              "baseFtAGL": null,
+              "cover": "CLR",
+              "heightType": "cloudBase"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

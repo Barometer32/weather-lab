@@ -11,7 +11,7 @@ const sites=airports.map(station=>{
  return{station,f:{left:Math.min(...feet.map(f=>f.left)),right:Math.max(...feet.map(f=>f.right)),top:Math.min(...feet.map(f=>f.top)),bottom:Math.max(...feet.map(f=>f.bottom))}};
 });
 function project(lat,lon,z){const world=256*2**z,s=Math.sin(lat*Math.PI/180);return{x:(lon+180)/360*world,y:(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*world};}
-function boxes(view,size){const center=project(...view.center,view.zoom);return sites.map(({station,f})=>{const p=project(station.lat,station.lon,view.zoom);return{left:p.x-center.x+size.x/2+f.left,right:p.x-center.x+size.x/2+f.right,top:p.y-center.y+size.y/2+f.top,bottom:p.y-center.y+size.y/2+f.bottom};});}
+function boxes(view,size,rows=sites){const center=project(...view.center,view.zoom);return rows.map(({station,f})=>{const p=project(station.lat,station.lon,view.zoom);return{left:p.x-center.x+size.x/2+f.left,right:p.x-center.x+size.x/2+f.right,top:p.y-center.y+size.y/2+f.top,bottom:p.y-center.y+size.y/2+f.bottom};});}
 const overlaps=b=>b.some((a,i)=>b.slice(0,i).some(c=>a.left<c.right+2&&a.right>c.left-2&&a.top<c.bottom+2&&a.bottom>c.top-2));
 for(const size of [{x:1800,y:720},{x:375,y:560},{x:320,y:400}]){
  const view=views.metar(sites,size),b=boxes(view,size);
@@ -46,3 +46,10 @@ assert.equal(context.window.WeatherDefaultViews.savedMetar('clouds').zoom,10);
 storage.set('weather-metar-default-v1-clouds','bad json');assert.equal(views.savedMetar('clouds'),null);
 context.window.localStorage={getItem(){throw Error('Blocked');},setItem(){throw Error('Blocked');}};
 assert.equal(views.savedMetar('plots'),null);assert.equal(views.saveMetar('plots',[45,-93],9),false);
+
+const reservedSites=airports.map(station=>({station,f:model.combinedReservation({...station,tempF:39,dewpointF:23,wind:{speedMph:0}},{dot:true,mphBarbs:true}).bounds}));
+for(const size of [{x:320,y:400},{x:375,y:560},{x:1800,y:720}]){
+ const view=views.metar(reservedSites,size),reserved=boxes(view,size,reservedSites);
+ assert.ok(!overlaps(reserved),'the factory view fits all three complete potential-wind reservations');
+ assert.ok(reserved.every(b=>b.left>=16-1e-7&&b.right<=size.x-16+1e-7&&b.top>=16-1e-7&&b.bottom<=size.y-16+1e-7));
+}

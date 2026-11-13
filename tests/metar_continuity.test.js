@@ -38,7 +38,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){v.frame(i);assert.ok(v.ids().length,'A wholly missing source hour cannot erase the last usable loop');}
  const short=history({KSTEADY:'111111111111'});short.history=short.history.slice(-3);v.adopt(short);assert.ok(v.ids().length,'An incomplete response retains the already displayed loop');
  const neighbor=history({KAAA:'111111110111',KZZZ:'111111111111'});for(const f of neighbor.history)for(const s of f.stations)s.lat=5;
- v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),i===0?['KZZZ']:['KAAA'],'An airport with a past gap can compete whenever its report is present');}
+ v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KZZZ'],'A fixed reservation prefers the steady neighbor when overlapping stations tie in priority');}
  assert.ok(neighbor.history[9].stations.some(s=>s.station==='KAAA'),'Original reports remain intact');
  const regional=Object.fromEntries(['KFCM','KMIC','KMSP',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
  function regionalHistory(){

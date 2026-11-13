@@ -6,6 +6,7 @@ window.WeatherMetars = (() => {
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
+  const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
   const windPlotOptions={dot:true,mphBarbs:true};
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
@@ -47,10 +48,18 @@ window.WeatherMetars = (() => {
     const reports=data.history.map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
     const bySite=new Map();
     for(const [index,stations] of reports.entries())for(const station of stations){
-      const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,windPlotOptions),old=bySite.get(station.station);
-      const frames=old?.frames||Array.from({length:data.history.length},()=>[]);
-      frames[index]=mode==="clouds"?[f]:model.combinedCollisionBoxes(station,windPlotOptions);
-      bySite.set(station.station,{station,frames,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
+      const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
+      const reservation=mode==="plots"?model.combinedReservation(station,windPlotOptions):null;
+      const f=reservation?.bounds||model.cloudFootprint(station);
+      frames[index]=reservation?.boxes||[f];
+      bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
+        f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
+    }
+    if(mode==="plots")for(const id of preferred)if(!bySite.has(id)){
+      // Layout-only reservation: it never becomes a report or a plotted value.
+      const [lat,lon]=priorityLocations[id],station={station:id,lat,lon,tempF:-99,dewpointF:-99};
+      const reserve=model.combinedReservation(station,windPlotOptions);
+      bySite.set(id,{station,frames:Array.from({length:data.history.length},()=>reserve.boxes),radius:reserve.radius,f:reserve.bounds,reserveOnly:true});
     }
     const rank=s=>{
       const i=preferred.indexOf(s.station);return i<0?preferred.length:i;
@@ -62,21 +71,31 @@ window.WeatherMetars = (() => {
     const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
     const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
     const candidates=[];
-    for(const {station,f,frames} of sites){
-      if(!frames[index].length)continue;
+    for(const {station,f,frames,radius,reserveOnly} of sites){
+      if(mode==="clouds"&&!frames[index].length)continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
-      candidates.push({id:station.station,bounds:shift(f,p),frames:frames.map(boxes=>boxes.map(b=>shift(b,p))),conflicts:new Set()});
+      const boxes=(mode==="plots"?frames.flat():frames[index]).map(b=>shift(b,p));
+      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:radius||0,reserveOnly,
+        reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
     }
+    const reaches=(circle,label)=>{
+      const dx=Math.max(label.left-circle.point.x,0,circle.point.x-label.right);
+      const dy=Math.max(label.top-circle.point.y,0,circle.point.y-label.bottom);
+      return dx*dx+dy*dy<=circle.radius*circle.radius;
+    };
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
       if(!overlap(a.bounds,b.bounds))continue;
-      // Reject the whole candidate when either rotated wind symbol would
-      // cross the other station's numbers. Wind-to-wind crossings are allowed.
-      if(a.frames[index].some(x=>b.frames[index].some(y=>overlap(x,y)&&(x.kind==="barb"?y.kind==="text":y.kind==="barb"?x.kind==="text":true)))){a.conflicts.add(b);b.conflicts.add(a);}
+      // PLOTS selection uses the full wind sweep and all label widths in the
+      // loop. Calm winds and timeline changes cannot temporarily admit a neighbor.
+      const body=a.boxes.some(x=>b.boxes.some(y=>overlap(x,y)));
+      const sweep=mode==="plots"&&(a.boxes.some(label=>label.kind==="text"&&reaches(b,label))||b.boxes.some(label=>label.kind==="text"&&reaches(a,label)));
+      if(body||sweep){a.conflicts.add(b);b.conflicts.add(a);}
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const primary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
+    const reservedPrimary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
+    const primary=reservedPrimary.filter(site=>!site.reserveOnly);
     // At a wide zoom, retain the largest nonoverlapping subset of the three
     // preferred airports. Once there is room, all three always beat neighbors.
     let best=[];
@@ -86,13 +105,14 @@ window.WeatherMetars = (() => {
       best=subset;
     }
     for(const site of best)take(site);
+    for(const site of candidates)if(site.reserveOnly||(!preferred.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
     // Fill gaps with the least-conflicting remaining stations first. KSTP and
     // KSGS stay eligible and appear whenever they fit around the preferred trio.
     while(remaining.size){
       let best,degree=Infinity;
       for(const site of remaining){
         let count=0;for(const other of site.conflicts)if(remaining.has(other))count++;
-        if(count<degree){best=site;degree=count;}
+        if(count<degree||count===degree&&site.reportHours>(best?.reportHours||0)){best=site;degree=count;}
       }
       take(best);
     }

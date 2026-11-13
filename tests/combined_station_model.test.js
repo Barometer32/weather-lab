@@ -85,3 +85,18 @@ for(const speedMph of [3,7,10,15,45,50,55,100,145])for(let direction=0;direction
  for(const polygon of w.pennants)for(const p of polygon.map(transform))assert.ok(contains(p),'flags remain protected');
 }
 console.log('Dense collision geometry contains barbs and halos at every tested bearing and speed.');
+
+// A calm or variable current report reserves the same full-circle normal barb
+// space. Higher reported speeds expand it, and every bearing stays inside it.
+const reserveOptions={dot:true,mphBarbs:true};
+const normal=m.combinedReservation({...station,wind:{speedMph:0}},reserveOptions).radius;
+for(const wind of [{speedMph:0},{speedMph:4,variable:true},{speedMph:10,direction:90},{speedMph:10,direction:270}])assert.equal(m.combinedReservation({...station,wind},reserveOptions).radius,normal);
+for(const speedMph of [0,3,7,10,15,35,45,55,100,145,250]){
+ const reserved=m.combinedReservation({...station,wind:{speedMph,variable:true}},reserveOptions);
+ assert.ok(reserved.radius>=normal);
+ for(let direction=0;direction<360;direction++){
+  const w=m.combinedWind({speedMph,direction},true);
+  for(const [x,y] of w.points)assert.ok((Math.hypot(x,y)+1.9)*m.scale<=reserved.radius+1e-8,'the complete barb and halo fit the potential wind sweep');
+ }
+}
+console.log('Potential-wind reservation passed: calm/VRB consistency, all 360 bearings, full halos and larger high-wind symbols.');

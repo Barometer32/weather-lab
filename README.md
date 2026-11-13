@@ -22,13 +22,23 @@ are eligible separately in each hour; missing one report never removes valid
 reports from other hours. No readings are copied into a missing hour. CLOUDS
 requires usable sky information only for the selected hour. Both maps prioritize
 KMSP, KFCM and KMIC, then fill room with KSTP, KSGS and other eligible airports.
-PLOTS checks the actual numeric labels, station anchors and rotated wind symbols
-before drawing a station. Barbs may overlap other barbs. If either station's
-wind symbol would cross the other's numeric label, the entire conflicting
-plot is omitted according to airport priority and available room. A displayed
-station always keeps its complete wind symbol; individual barbs are never
-removed to squeeze in more readings. Whole plots return when zoom or the
-selected hour supplies room. CLOUDS keeps its separate circle/ceiling collision checks. PLOTS displays Fahrenheit, using precise T
+PLOTS reserves the complete 360-degree potential wind sweep at every airport,
+even when the current wind is calm or variable. The radius covers a full normal
+barb and halo and grows for longer reported symbols. Labels and the maximum
+wind extent are reserved across the four-hour loop, so changing wind direction,
+losing a barb or moving the timeline cannot temporarily admit a nearby airport.
+If a potential sweep reaches another airport's numeric label, the entire
+conflicting airport plot is excluded. Wind-to-wind crossings remain allowed.
+Every displayed plot keeps its complete actual wind symbol.
+
+KMSP, KFCM and KMIC reserve space before other airports. Their layout space stays
+reserved during missing reports, without generating any weather data or plot
+for the missing hour. A station does not need four reports to be eligible;
+selected airports appear in whichever hours have actual reports. Nearby
+stations such as KANE/Blaine return only when zoom creates enough reserved
+space. The factory opening view fits the three metro reservations; user-saved
+map views remain available. CLOUDS keeps its own per-hour circle/ceiling spacing.
+PLOTS displays Fahrenheit, using precise T
 remarks where available, with mph wind barbs. The hourly collector checks every
 two minutes beginning at :00. Public page requests read prepared snapshots and
 never start an upstream observation download. Recent browser snapshots help
