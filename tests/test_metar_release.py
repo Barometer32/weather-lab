@@ -112,7 +112,7 @@ elif args[:2]==['storage','ls']:
         assert bool(rapid_deletions)==retired_exists
         assert all(i>verifications[-1] for i in rapid_deletions), "Retire RTMETAR only after live verification"
         assert not any(c[:4]==["scheduler","jobs","run","weather-live-rtmetar"] for c in calls)
-        assert any(c[:5]==["scheduler","jobs","create","http","weather-live-rapid-observations"] and "--schedule=*/5 * * * *" in c for c in calls)
+        assert any(c[:5]==["scheduler","jobs","create","http","weather-live-rapid-observations"] and "--schedule=* * * * *" in c for c in calls)
         seed=next(i for i,c in enumerate(calls) if c[:4]==["scheduler","jobs","run","weather-live-rapid-observations"])
         assert seed<verifications[0]
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]

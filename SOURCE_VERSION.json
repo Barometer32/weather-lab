@@ -4,7 +4,7 @@
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
-  "defaultTab": "metar",
+  "defaultTab": "observations",
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
@@ -28,7 +28,10 @@
     "KMSP",
     "KMIC"
   ],
-  "observationsCollectionSchedule": "*/5 * * * *",
+  "observationsCollectionSchedule": "* * * * *",
   "observationsTemperatureBasis": "main-XX/XX",
-  "observationsSameTimestamp": true
+  "observationsSameTimestamp": true,
+  "observationsWindDirections": 8,
+  "observationsDisplayRounding": "whole Fahrenheit after Celsius mean; whole mph",
+  "observationsSource": "IEM live observation history; bulk archive recovery only"
 }

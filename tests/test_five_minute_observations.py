@@ -113,3 +113,64 @@ def test_public_endpoint_only_reads_prepared_data_and_private_route_collects():
         assert collector.app.test_client().post('/collect/rapid-observations').status_code==200
         run.assert_called_once_with(store,NOW)
     app._cache.clear()
+
+
+def test_live_history_uses_raw_groups_instead_of_derived_values_and_rejects_officials():
+    import json
+    rows=[{'utc_valid':'2026-11-13T16:10Z','raw':row()[2],'tmpf':99,'dwpf':98},
+          {'utc_valid':'2026-11-13T15:53Z','raw':row(minute=53)[2].replace('131653Z','131553Z')}]
+    parsed=obs.parse_live(json.dumps({'data':rows}).encode(),'KFCM',NOW)
+    assert len(parsed)==1 and parsed[0]['tempC']==4 and parsed[0]['dewpointC']==1
+    with pytest.raises(ValueError):obs.parse_live(b'{}','KFCM',NOW)
+
+
+def test_live_requests_poll_fresh_minute_and_cover_local_midnight():
+    urls=obs.live_urls(NOW)
+    assert {s for s,_ in urls}==set(obs.STATIONS) and len(urls)==3
+    for station,url in urls:
+        q=parse_qs(urlparse(url).query)
+        assert q['station']==[station[1:]] and q['date']==['2026-11-13']
+        assert '/api/1/obhistory.json?' in url and q['_']==[str(int(NOW.timestamp())//60)]
+    midnight=datetime(2026,11,14,6,20,tzinfo=timezone.utc)
+    assert len(obs.live_urls(midnight))==6
+    assert {parse_qs(urlparse(u).query)['date'][0] for _,u in obs.live_urls(midnight)}=={'2026-11-13','2026-11-14'}
+    assert obs.live_urls(NOW)!=obs.live_urls(NOW+timedelta(minutes=1))
+
+
+def test_live_source_bypasses_archive_and_fallback_cannot_replace_live_correction():
+    import json
+    calls=[]
+    def download(url):
+        calls.append(url)
+        if '/api/1/' in url:
+            station='K'+parse_qs(urlparse(url).query)['station'][0]
+            return json.dumps({'data':[{'utc_valid':'2026-11-13T16:10Z','raw':row(station,temp='07/02')[2]}]}).encode()
+        raise AssertionError('Bulk archive should not be used on successful live reads')
+    store=Store();obs.collect(store,NOW,download)
+    assert len(calls)==3 and obs.present(store.data[obs.KEY],NOW)['current']['temperatureC']==7
+    def partial(url):
+        if '/api/1/' in url:
+            if 'station=FCM' in url:return download(url)
+            raise OSError('live endpoint unavailable')
+        return payload(*batch())
+    store=Store();obs.collect(store,NOW,partial)
+    assert obs.present(store.data[obs.KEY],NOW)['current']['temperatureC']==6
+
+
+@pytest.mark.parametrize('direction,cardinal',[(0,'N'),(20,'N'),(30,'NE'),(60,'NE'),(70,'E'),(110,'E'),(120,'SE'),(160,'S'),(200,'S'),(210,'SW'),(250,'W'),(290,'W'),(300,'NW'),(330,'NW'),(340,'N'),(360,'N')])
+def test_nearest_eight_cardinal_directions(direction,cardinal):
+    reports=obs.parse_reports(payload(*[row(s,wind=f'{direction:03}05KT') for s in obs.STATIONS]),NOW)
+    assert obs.average(reports,NOW)['windCardinal']==cardinal
+
+
+def test_wind_vectors_wrap_at_north_weight_speed_and_handle_calm_variable_cancellation():
+    def value(winds):
+        reports=obs.parse_reports(payload(*[row(s,wind=w) for s,w in zip(obs.STATIONS,winds)]),NOW)
+        return obs.average(reports,NOW)
+    result=value(['35005KT','01005KT','00005KT'])
+    assert result['windCardinal']=='N' and result['windDirection']==pytest.approx(0,abs=1e-8)
+    assert value(['09020KT','00001KT','00000KT'])['windCardinal']=='E'
+    assert value(['00000KT']*3)['windCardinal']=='Calm'
+    assert value(['VRB05KT','27005KT','27005KT'])['windCardinal']=='Variable'
+    assert value(['09005KT','27005KT','00000KT'])['windCardinal']=='Variable'
+    assert value(['99905KT','27005KT','27005KT'])['windCardinal']=='Unknown'

@@ -1,11 +1,14 @@
 """Three-airport average using only raw MADISHF five-minute METARs."""
 import csv
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 import math
 import re
 from statistics import mean
 from urllib.parse import urlencode
+import json
+from zoneinfo import ZoneInfo
 
 VERSION = "three-airport-rapid-main-c-v1"
 KEY = "live/rapid-observations-v1.json"
@@ -20,6 +23,7 @@ def iso(moment):
 
 
 def source_url(now):
+    """Bulk archive, used only as a recovery source."""
     return "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?" + urlencode({
         "network":"MN_ASOS", "station":[s[1:] for s in STATIONS], "data":"metar",
         "sts":(now-timedelta(seconds=MAX_AGE_SECONDS)).strftime("%Y-%m-%dT%H:%MZ"),
@@ -27,6 +31,53 @@ def source_url(now):
         "tz":"Etc/UTC", "format":"onlycomma", "latlon":"no", "elev":"no",
         "missing":"M", "trace":"T", "direct":"no", "report_type":"1",
     }, doseq=True)
+
+
+def live_urls(now):
+    # The history service's date is local to each Minnesota station. Include
+    # yesterday around midnight so the last complete batch survives day rollover.
+    dates = sorted({(now-timedelta(seconds=seconds)).astimezone(ZoneInfo("America/Chicago")).date()
+                    for seconds in (0, MAX_AGE_SECONDS)})
+    return [(station, "https://mesonet.agron.iastate.edu/api/1/obhistory.json?"+urlencode({
+        "network":"MN_ASOS", "station":station[1:], "date":day.isoformat(), "full":"true",
+        # This API advertises a ten-minute HTTP cache lifetime. A minute bucket
+        # prevents that cache from hiding newly ingested reports between polls.
+        "_":int(now.timestamp())//60}))
+        for station in STATIONS for day in dates]
+
+
+def parse_live(payload, station, now):
+    """Use literal raw METAR text; ignore the API's derived temperature fields."""
+    data = json.loads(payload)
+    if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+        raise ValueError("Invalid live five-minute history response")
+    out = StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["station", "valid", "metar"])
+    for row in data["data"]:
+        if isinstance(row, dict):
+            writer.writerow([station, row.get("utc_valid"), row.get("raw")])
+    return parse_reports(out.getvalue().encode(), now)
+
+
+def fetch_reports(now, download):
+    def fetch(item):
+        station, url = item
+        try:
+            return parse_live(download(url), station, now), None
+        except Exception as error:
+            return [], error
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        results = list(executor.map(fetch, live_urls(now)))
+    fresh = [report for reports, _ in results for report in reports]
+    if not fresh or any(error is not None for _, error in results):
+        try:
+            # Append live records last: a same-time live correction wins.
+            fresh = parse_reports(download(source_url(now)), now)+fresh
+        except Exception:
+            if not fresh:
+                raise
+    return fresh
 
 
 def parse_reports(payload, now):
@@ -65,11 +116,13 @@ def parse_reports(payload, now):
             temp = None
         if dew is not None and (not -100 <= dew <= 60 or temp is not None and dew > temp):
             dew = None
-        wind = re.search(r"\b(?:\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT\b", body)
-        knots = int(wind[1]) if wind else None
+        wind = re.search(r"\b(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT\b", body)
+        knots = int(wind[2]) if wind else None
         speed = knots*1852/1609.344 if knots is not None and knots<=250 else None
         reports.append({"station":station,"time":iso(observed),"tempC":temp,"dewpointC":dew,
-                        "windSpeedMph":speed,"rawOb":raw,"reportType":"HFMETAR",
+                        "windSpeedMph":speed,
+                        "windDirection":int(wind[1])%360 if wind and wind[1]!="VRB" and int(wind[1])<=360 else None,
+                        "windVariable":bool(wind and wind[1]=="VRB"),"rawOb":raw,"reportType":"HFMETAR",
                         "temperatureBasis":"main-XX/XX"})
     return reports
 
@@ -85,6 +138,34 @@ def recent(report, now):
         return False
 
 
+CARDINALS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+
+
+def wind_direction(reports):
+    speed = mean(r["windSpeedMph"] for r in reports)
+    if speed==0:
+        return None, "Calm"
+    east, north = 0.0, 0.0
+    for report in reports:
+        if report["windSpeedMph"]==0:
+            continue
+        # Decode raw direction here too so old prepared snapshots remain usable.
+        body = report.get("rawOb", "").partition(" RMK")[0]
+        wind = re.search(r"\b(\d{3}|VRB)\d{2,3}(?:G\d{2,3})?KT\b", body)
+        direction = int(wind[1]) if wind and wind[1]!="VRB" else None
+        if direction is None or direction>360:
+            return None, "Variable" if wind and wind[1]=="VRB" else "Unknown"
+        east += report["windSpeedMph"]*math.sin(math.radians(direction))
+        north += report["windSpeedMph"]*math.cos(math.radians(direction))
+    # Opposing winds can cancel direction while the scalar mean speed stays nonzero.
+    if math.hypot(east,north)<1e-6:
+        return None, "Variable"
+    direction = math.degrees(math.atan2(east,north))%360
+    if abs(direction-360)<1e-8:
+        direction = 0.0
+    return direction, CARDINALS[int(math.floor((direction+22.5)/45))%8]
+
+
 def average(reports, now):
     if (len(reports)!=3 or {r.get("station") for r in reports}!=set(STATIONS)
             or len({r.get("time") for r in reports})!=1 or not all(recent(r,now) for r in reports)):
@@ -96,9 +177,11 @@ def average(reports, now):
                 or not math.isfinite(r["windSpeedMph"]) or not 0 <= r["windSpeedMph"] <= 290):
             return None
     temp, dew = mean(r["tempC"] for r in reports), mean(r["dewpointC"] for r in reports)
+    direction, cardinal = wind_direction(reports)
     return {"observedAt":reports[0]["time"],"temperatureC":temp,"dewpointC":dew,
             "temperatureF":temp*1.8+32,"dewpointF":dew*1.8+32,
             "windSpeedMph":mean(r["windSpeedMph"] for r in reports),
+            "windDirection":direction,"windCardinal":cardinal,
             "stations":sorted(reports,key=lambda r:STATIONS.index(r["station"]))}
 
 
@@ -109,7 +192,7 @@ def collect(store, now, download=None):
     if previous.get("version")!=VERSION:
         previous = {}
     pool = {(r["station"],r["time"]):r for r in previous.get("reports",[]) if recent(r,now)}
-    fresh = parse_reports(download(source_url(now)),now)
+    fresh = fetch_reports(now, download)
     if not fresh:
         raise ValueError("No five-minute reports returned; prior snapshot retained")
     # Reissued reports replace the entire record, including newly missing fields.
@@ -142,7 +225,7 @@ def present(snapshot, now):
     return {"version":VERSION,"current":current,"available":current is not None,
             "stations":current["stations"] if current else [r for r in latest.values() if r],
             "stationIds":list(STATIONS),"checkedAt":snapshot["checkedAt"],"serverTime":iso(now),
-            "updateIntervalSeconds":300,"maxAgeSeconds":MAX_AGE_SECONDS,"ageSeconds":age,
+            "updateIntervalSeconds":300,"checkIntervalSeconds":60,"maxAgeSeconds":MAX_AGE_SECONDS,"ageSeconds":age,
             "stale":(now-checked).total_seconds()>600,"sourceDelayed":age is None or age>DELAY_SECONDS,
             "waiting":current is None or newest is not None and newest>current["observedAt"],
             "temperatureBasis":"main-XX/XX","reportType":"HFMETAR","source":"NOAA MADIS five-minute ASOS via Iowa Environmental Mesonet"}

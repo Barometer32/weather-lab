@@ -5,15 +5,15 @@ function node(){return{hidden:false,tabIndex:0,events:{},textContent:'',writes:[
 function get(id){assert.ok(!['current','tab-current','metar-clouds','tab-metar-clouds','clouds','tab-clouds','mesonet','tab-mesonet'].includes(id),'Removed UI accessed');if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,window:{addEventListener(name,callback){windowEvents[name]=callback;},WeatherAirQuality:{select(id){airSelections.push(id);}},WeatherCloudHeights:{select(id){cloudSelections.push(id);}},WeatherFullscreen:{attach(){}},WeatherMetars:{select(id){selected.push("metar:"+id);}},WeatherObservations:{select(id){selected.push("observations:"+id);}},WeatherPrepared:{subscribe(){},prime(){}}},WeatherCloudViews:{select(id){selected.push(id);}},fetch(){sourceFetches++;throw Error('Unexpected startup fetch');},setTimeout(){},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
-assert.equal(selected[0],'metar:metar');assert.equal(get('metar').hidden,false);
-for(const id of ['observations','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
+assert.equal(selected[0],'metar:observations');assert.equal(get('observations').hidden,false);
+for(const id of ['metar','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
 get('tab-metar').events.click();assert.equal(get('metar').hidden,false);
 windowEvents.pageshow({persisted:true});
-assert.equal(get('metar').hidden,false);
+assert.equal(get('observations').hidden,false);assert.equal(get('metar').hidden,true);
 get('tab-observations').events.click();assert.equal(get('observations').hidden,false);assert.equal(get('metar').hidden,true);
 get('tab-air-quality').events.click();assert.equal(get('air-quality').hidden,false);assert.equal(airSelections.at(-1),'air-quality');
 assert.equal(sourceFetches,0);
 get('tab-satellite').events.keydown({key:'Home',preventDefault(){}});
-assert.equal(selected.at(-1),'observations:metar');assert.equal(get('tab-metar').focused,true);
-console.log('Weather tab checks passed: METAR first on load and restore, with keyboard navigation.');
+assert.equal(selected.at(-1),'observations:observations');assert.equal(get('tab-observations').focused,true);
+console.log('Weather tab checks passed: OBSERVATIONS first on load and restore, with keyboard navigation.');

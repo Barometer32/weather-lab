@@ -29,7 +29,7 @@ def test_create_and_seed_authenticated_five_minute_average_with_rollback():
     configure,rollback=plan([job('weather-live-metar-clouds')],PROJECT,'us-central1','https://collector.example')
     create=next(c for c in configure if c[3]=='create')
     assert create[4:6]==['http','weather-live-rapid-observations']
-    for flag in ['--schedule=*/5 * * * *','--attempt-deadline=300s','--http-method=POST','--uri=https://collector.example/collect/rapid-observations','--oidc-service-account-email='+ACCOUNT,'--oidc-token-audience=https://collector.example']:
+    for flag in ['--schedule=* * * * *','--attempt-deadline=300s','--http-method=POST','--uri=https://collector.example/collect/rapid-observations','--oidc-service-account-email='+ACCOUNT,'--oidc-token-audience=https://collector.example']:
         assert flag in create
     assert any(c[3:5]==['run','weather-live-rapid-observations'] for c in configure)
     assert any(c[3:5]==['delete','weather-live-rapid-observations'] for c in rollback)

@@ -16,22 +16,24 @@ def check_layout(base):
     html = read(base, "/")
     assert 'id="tab-observations"' in html and 'id="observations"' in html
     assert all('id="'+name+'"' in html for name in ("observations-temperature","observations-dewpoint","observations-wind","observations-sun"))
+    assert "Hopkins · now" not in html
+    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
     assert 'hourly-observation-views.js' not in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "observations", "radar", "satellite", "forecast", "air-quality"]
-    assert 'id="tab-metar" aria-selected="true"' in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
+    assert 'id="tab-observations" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=rapid-observations-v11' in html
+    assert '/static/metar-views.js?v=observations-home-v12' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=rapid-observations-v11' in html
-    print("Verified METAR home with PLOTS default, PLOTS/CLOUDS retained, OBSERVATIONS added, and RTMETAR/MESONET removed.")
+    assert '/static/app.js?v=observations-home-v12' in html
+    print("Verified OBSERVATIONS home with METAR PLOTS default, PLOTS/CLOUDS retained, OBSERVATIONS added, and RTMETAR/MESONET removed.")
 
 
 def check_hourly(base):
@@ -70,6 +72,7 @@ def check_observations(base):
     now = datetime.now(timezone.utc)
     data = json.loads(read(base, "/api/observations/current"))
     assert data["version"]==VERSION and data["available"] and not data["stale"]
+    assert data["checkIntervalSeconds"]==60
     assert data["updateIntervalSeconds"]==300 and data["stationIds"]==list(STATIONS)
     value = data["current"]
     assert {r["station"] for r in value["stations"]}==set(STATIONS)

@@ -4,16 +4,16 @@ window.WeatherObservations = (()=>{
   const el=id=>document.getElementById(id),url="/api/observations/current";
   const clock=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let data,busy=false,error=null;
-  const number=(value,unit)=>Number.isFinite(value)?`${value.toFixed(1)}${unit}`:"—";
+  const number=(value,unit,digits=1)=>Number.isFinite(value)?`${digits===0?Math.round(value):value.toFixed(digits)}${unit}`:"—";
   function render(){
     if(el("observations").hidden)return;
     const now=Date.now(),value=data?.current;
     const valid=value&&Date.parse(value.observedAt)<=now&&now-Date.parse(value.observedAt)<=3600000;
-    el("observations-temperature").textContent=valid?number(value.temperatureF,"°F"):"—";
+    el("observations-temperature").textContent=valid?number(value.temperatureF,"°F",0):"—";
     el("observations-temperature-c").textContent=valid?number(value.temperatureC,"°C"):"";
-    el("observations-dewpoint").textContent=valid?number(value.dewpointF,"°F"):"—";
+    el("observations-dewpoint").textContent=valid?number(value.dewpointF,"°F",0):"—";
     el("observations-dewpoint-c").textContent=valid?number(value.dewpointC,"°C"):"";
-    el("observations-wind").textContent=valid?number(value.windSpeedMph," mph"):"—";
+    el("observations-wind").textContent=valid?value.windCardinal==="Calm"?"Calm":`${value.windCardinal||""} ${number(value.windSpeedMph," mph",0)}`.trim():"—";
     const age=valid?Math.max(0,Math.floor((now-Date.parse(value.observedAt))/60000)):null;
     const delayed=data?.stale||data?.checkedAt&&now-Date.parse(data.checkedAt)>600000;
     const status=error?" · Refresh failed":delayed?" · Collection delayed":age>15?" · Source delayed":data?.waiting?" · Waiting for matching reports":data?._savedCopy?" · Saved":"";
@@ -22,7 +22,7 @@ window.WeatherObservations = (()=>{
     const body=el("observations-stations");body.replaceChildren();
     for(const station of valid?value.stations:data?.stations||[]){
       const row=document.createElement("tr");
-      for(const text of [station.station,clock.format(new Date(station.time)),number(station.tempC,"°C"),number(station.dewpointC,"°C"),number(station.windSpeedMph," mph")]){
+      for(const text of [station.station,clock.format(new Date(station.time)),number(station.tempC,"°C"),number(station.dewpointC,"°C"),number(station.windSpeedMph," mph",0)]){
         const cell=document.createElement("td");cell.textContent=text;row.append(cell);
       }
       row.title=station.rawOb||"";body.append(row);
@@ -42,6 +42,6 @@ window.WeatherObservations = (()=>{
   }
   window.WeatherPrepared.subscribe(url,adopt);
   el("refresh-observations").addEventListener("click",()=>load(true));
-  setInterval(()=>{if(!document.hidden&&!el("observations").hidden){render();load();}},30000);
+  setInterval(()=>{if(!document.hidden&&!el("observations").hidden){render();load();}},15000);
   return {select(id){if(id==="observations"){render();load();}},refresh(){render();load();}};
 })();

@@ -8,7 +8,7 @@ window.WeatherPrepared = (() => {
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/02";
   const paths=["/api/observations/current",metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/truecolor","/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url==="/api/observations/current"?600000:url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
-  const freshFor=url=>url.includes("radar")?15000:30000;
+  const freshFor=url=>url==="/api/observations/current"?10000:url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
   // Drop retired product manifests without disturbing other saved weather.
   disk().then(cache=>cache&&Promise.all([

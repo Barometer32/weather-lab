@@ -8,19 +8,28 @@ It stages the web and collector, seeds the retained products, verifies prepared
 snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
-Tabs: METAR, OBSERVATIONS, RADAR, SATELLITE, FORECAST and AIR Q.
+Tabs: OBSERVATIONS, METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+OBSERVATIONS opens first on every visit and browser restore.
 METAR opens PLOTS by default, with CLOUDS retained in the dropdown. RTMETAR and
 MESONET are removed from the UI, public API, browser requests and collector routes.
 Their unused Scheduler jobs are paused during staging and deleted only after
 live verification succeeds. Prior enabled states remain recoverable on rollback.
 
 OBSERVATIONS shows an equal three-airport average for KFCM, KMSP and KMIC using
-only MADISHF-marked five-minute ASOS reports. The scheduler checks every five
-minutes even when no browser is open. Regular hourly METARs and SPECI reports
-are rejected; a divisible-by-five timestamp alone never establishes provenance.
+only MADISHF-marked five-minute ASOS reports. The scheduler checks every minute
+even when no browser is open, to catch each new five-minute batch sooner.
+The IEM live observation-history API is the primary source, bypassing the
+bulk archive's ten-minute sync; the bulk endpoint remains a recovery source.
+All temperature values still come only from the literal raw METAR text.
+Regular hourly METARs and SPECI reports are rejected; a divisible-by-five timestamp alone never establishes provenance.
 Temperature/dewpoint are parsed only from the whole-Celsius main XX/XX group,
 never T remarks. The three Celsius values are averaged before conversion to
-Fahrenheit; both units are displayed. Wind speeds are averaged in mph.
+Fahrenheit and rounded once to the nearest whole degree; secondary Celsius
+remains visible. Wind speeds are scalar-averaged and rounded to whole mph.
+Direction uses speed-weighted circular averaging and the nearest of eight
+headings: N, NE, E, SE, S, SW, W, NW. Calm or indeterminate winds are labeled
+honestly. The page refreshes prepared observations every 15 seconds; upstream
+MADIS/IEM delivery delays can still keep the actual report time behind.
 
 All three contributing reports must share an exact five-minute observation
 time and contain usable temperature, dewpoint and wind speed. An incomplete
