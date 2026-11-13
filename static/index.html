@@ -6,20 +6,20 @@
   <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=denser-hourly-v16">
+  <link rel="stylesheet" href="/static/style.css?v=whole-plot-collisions-v17">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
-  <script defer src="/static/sun-angle.js?v=denser-hourly-v16"></script>
-  <script defer src="/static/prepared-data.js?v=denser-hourly-v16"></script>
+  <script defer src="/static/sun-angle.js?v=whole-plot-collisions-v17"></script>
+  <script defer src="/static/prepared-data.js?v=whole-plot-collisions-v17"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
-  <script defer src="/static/map-fullscreen.js?v=denser-hourly-v16"></script>
-  <script defer src="/static/default-views.js?v=denser-hourly-v16"></script>
-  <script defer src="/static/metar-model.js?v=denser-hourly-v16"></script>
-  <script defer src="/static/metar-views.js?v=denser-hourly-v16"></script>
+  <script defer src="/static/map-fullscreen.js?v=whole-plot-collisions-v17"></script>
+  <script defer src="/static/default-views.js?v=whole-plot-collisions-v17"></script>
+  <script defer src="/static/metar-model.js?v=whole-plot-collisions-v17"></script>
+  <script defer src="/static/metar-views.js?v=whole-plot-collisions-v17"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=denser-hourly-v16"></script>
+  <script defer src="/static/app.js?v=whole-plot-collisions-v17"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
@@ -42,7 +42,7 @@
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A wind marker that would cover another airport's numbers is hidden until there is room, while the temperature, dewpoint and popup wind remain available. More stations appear as you zoom in and labels have room.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. If a wind barb would cover another airport's temperature or dewpoint, the entire plot is omitted until there is room. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
 </section>
 
 

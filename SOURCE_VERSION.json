@@ -28,6 +28,6 @@
     "KFCM",
     "KMIC"
   ],
-  "metarCollisionGeometry": "per-hour labels and anchors; crossing barbs allowed; wind symbols cannot cover another numeric label",
+  "metarCollisionGeometry": "per-hour whole-plot filtering; rotated barb-to-label collisions reject entire plots; barb crossings allowed",
   "metarRequireCompleteStationHistory": false
 }

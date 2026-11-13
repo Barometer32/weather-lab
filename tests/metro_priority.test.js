@@ -11,11 +11,15 @@ function viewer(stations,{width=375,height=560,zoom=9,geographic=false,historyDa
  const context={window:{WeatherPrepared:{read:async()=>data,subscribe(_,fn){subscriber=fn;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Number,Date,Map,Set,WeakMap,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title.split(' · ')[0]);}}),divIcon:x=>x,marker:(position,opts)=>({position,...opts,bindPopup(value){this.popup=value;return this;},addTo(){shown.set(this.title.split(' · ')[0],this);return this;},setIcon(v){this.icon=v;return this;},setLatLng(v){this.position=v;return this;},setPopupContent(value){this.popup=value;return this;}})}};
  for(const file of ['metar-model','metar-views'])vm.runInNewContext(fs.readFileSync('static/'+file+'.js','utf8'),context);
  const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
- const boxes=(s,clouds)=>{const m=context.window.WeatherStationModel,p=point([s.lat,s.lon]);return (clouds?[m.cloudFootprint(s)]:m.combinedCollisionBoxes(s,{dot:true,mphBarbs:true})).filter(b=>b.kind!=='barb'||/class="wind-barb"|class="plot-wind-state"/.test(shown.get(s.station).icon.html)).map(b=>({...b,left:b.left+p.x,right:b.right+p.x,top:b.top+p.y,bottom:b.bottom+p.y}));};
+ const boxes=(s,clouds)=>{const m=context.window.WeatherStationModel,p=point([s.lat,s.lon]);return (clouds?[m.cloudFootprint(s)]:m.combinedCollisionBoxes(s,{dot:true,mphBarbs:true})).map(b=>({...b,left:b.left+p.x,right:b.right+p.x,top:b.top+p.y,bottom:b.bottom+p.y}));};
  return {async load(){context.window.WeatherMetars.select('metar');await new Promise(setImmediate);},ids:()=>[...shown.keys()].sort(),barb(id){return shown.get(id)?.icon.html.includes('class="wind-barb"');},popup(id){return shown.get(id)?.popup;},mode(value){get('metar-product').events.change({target:{value}});},zoom(value){zoom=value;events.moveend();},frame(value){get('metar-timeline').events.input({target:{value:String(value)}});},check(clouds=false){
   for(let h=0;h<4;h++){
    this.frame(h);
    const rows=data.history[h].stations.filter(s=>shown.has(s.station));
+   if(!clouds)for(const station of rows){
+    const wind=context.window.WeatherStationModel.combinedWind(station.wind,true);
+    if(wind.kind==='barb')assert.ok(this.barb(station.station),`${station.station} cannot appear without its full barb`);
+   }
    for(let i=0;i<rows.length;i++)for(let j=0;j<i;j++)assert.ok(!boxes(rows[i],clouds).some(a=>boxes(rows[j],clouds).some(b=>overlap(a,b)&&!((a.kind==='barb'&&b.kind!=='text')||(b.kind==='barb'&&a.kind!=='text')))),`${rows[i].station} overlaps ${rows[j].station} in frame ${h}`);
   }
  },adopt:subscriber,model:context.window.WeatherStationModel};
@@ -36,8 +40,12 @@ const station=(station,lat,lon)=>({station,lat,lon,tempF:35,dewpointF:22,wind:{s
  await barb.load();assert.deepEqual(barb.ids(),['KMSP','KSTP'],'crossing wind shafts no longer hide stations');
  assert.ok(barb.barb('KMSP')&&barb.barb('KSTP'),'both crossing barbs remain visible');barb.check();
  const numbers=viewer([{...station('KMSP',200,100),fixedDirection:90},{...station('KSTP',200,140),fixedDirection:270}]);
- await numbers.load();assert.deepEqual(numbers.ids(),['KMSP','KSTP'],'barb-to-number conflicts must keep both station readings');
- assert.ok(!numbers.barb('KMSP')||!numbers.barb('KSTP'),'a barb covering another station number is suppressed');numbers.check();
+ await numbers.load();assert.deepEqual(numbers.ids(),['KMSP'],'barb-to-number conflicts remove the entire lower-priority plot');
+ assert.ok(numbers.barb('KMSP'),'a displayed plot keeps its entire wind barb');numbers.check();
+ for(let angle=0;angle<360;angle+=5){
+  const bearing=viewer([{...station('KMSP',250,130),fixedDirection:angle},{...station('KSTP',235,160),fixedDirection:(angle+180)%360}]);
+  await bearing.load();bearing.check();assert.ok(bearing.barb('KMSP'),'priority airport retains its full rotated barb');
+ }
  const tight=viewer(['KMSP','KFCM','KMIC'].map((id,i)=>({...station(id,200,[100,80,120][i]),wind:{speedMph:0}})));
  await tight.load();assert.deepEqual(tight.ids(),['KFCM','KMIC'],'a tight zoom keeps two clear preferred airports instead of one blocking both');tight.check();
  const packing=viewer(['KAAA','KBBB','KCCC'].map((id,i)=>({...station(id,200,[100,80,120][i]),wind:{speedMph:0}})));
@@ -48,12 +56,13 @@ const station=(station,lat,lon)=>({station,lat,lon,tempF:35,dewpointF:22,wind:{s
   const actual=viewer([],{width,zoom:8,geographic:true,historyData:fixture});await actual.load();
   for(const z of [7.5,7.75,8,8.25,8.5,9]){
    actual.zoom(z);actual.check();
-   for(let h=0;h<4;h++){actual.frame(h);for(const id of (z>=8?['KFCM','KMSP','KMIC']:['KFCM','KMSP']))assert.ok(actual.ids().includes(id),`${id} survives actual wind history on ${width}px at zoom ${z}`);}
+   for(let h=0;h<4;h++){actual.frame(h);if(z>=9)for(const id of ['KFCM','KMSP','KMIC'])assert.ok(actual.ids().includes(id),`${id} appears with room for its full plot on ${width}px at zoom ${z}`);}
   }
-  actual.zoom(8);actual.frame(3);assert.equal(actual.barb('KFCM'),false,'KFCM stays visible where its NE barb would cover KMSP numbers');
-  assert.match(actual.popup('KFCM').children.map(n=>n.textContent).join(' '),/Wind: 6 mph from 60°.*hidden at this zoom/,'the actual wind stays available in the popup');
-  actual.zoom(9);assert.equal(actual.barb('KFCM'),true,'KFCM barb returns when zoom supplies room');
-  assert.doesNotMatch(actual.popup('KFCM').children.map(n=>n.textContent).join(' '),/hidden at this zoom/,'the visibility-specific popup cache updates on zoom');
+  actual.zoom(8);actual.frame(3);assert.ok(!(actual.ids().includes('KFCM')&&actual.ids().includes('KMSP')),'a barb-to-number conflict cannot leave both full station plots visible');
+  if(actual.ids().includes('KFCM'))assert.ok(actual.barb('KFCM'),'KFCM is never squeezed in without its barb');
+  actual.zoom(9);assert.ok(actual.ids().includes('KFCM')&&actual.barb('KFCM'),'the complete KFCM plot returns when zoom supplies room');
+  assert.match(actual.popup('KFCM').children.map(n=>n.textContent).join(' '),/Wind: 6 mph from 60°/);
+
  }
  for(const width of [320,375]){
   const v=viewer(metro,{width,geographic:true});await v.load();

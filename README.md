@@ -22,12 +22,13 @@ are eligible separately in each hour; missing one report never removes valid
 reports from other hours. No readings are copied into a missing hour. CLOUDS
 requires usable sky information only for the selected hour. Both maps prioritize
 KMSP, KFCM and KMIC, then fill room with KSTP, KSGS and other eligible airports.
-PLOTS packs the actual numeric labels and station anchors without reserving
-empty space for barbs. Barbs may overlap other barbs. A barb or variable-wind
-label that would cross another station's numeric label is omitted at that zoom,
-while its temperature/dewpoint and popup wind remain available. The full wind
-symbol returns when zoom or the selected hour supplies room. CLOUDS keeps its
-separate circle/ceiling collision checks. PLOTS displays Fahrenheit, using precise T
+PLOTS checks the actual numeric labels, station anchors and rotated wind symbols
+before drawing a station. Barbs may overlap other barbs. If either station's
+wind symbol would cross the other's numeric label, the entire conflicting
+plot is omitted according to airport priority and available room. A displayed
+station always keeps its complete wind symbol; individual barbs are never
+removed to squeeze in more readings. Whole plots return when zoom or the
+selected hour supplies room. CLOUDS keeps its separate circle/ceiling collision checks. PLOTS displays Fahrenheit, using precise T
 remarks where available, with mph wind barbs. The hourly collector checks every
 two minutes beginning at :00. Public page requests read prepared snapshots and
 never start an upstream observation download. Recent browser snapshots help

@@ -121,11 +121,11 @@ window.WeatherStationModel = (() => {
     const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
     return `<g class="wind-barb" data-${wind.roundedMph===undefined?`knots="${wind.roundedKnots}"`:`mph="${wind.roundedMph}"`} transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation}) scale(${barbScale})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
   }
-  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false,hideBarb=false}={}){
+  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
     const w=combinedWind(station.wind,mphBarbs),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
-    const state=w.kind==="unknown"&&!hideBarb?text("plot-wind-state",0,29,w.state,"middle"):"";
-    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${hideBarb?"":combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
+    const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
+    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
   function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
