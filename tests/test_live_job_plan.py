@@ -25,20 +25,31 @@ def test_absent_or_already_paused_retired_jobs_need_no_mutations():
     assert not any(c[3]=='resume' for c in rollback)
 
 
-def test_create_and_seed_authenticated_five_minute_average_with_rollback():
-    configure,rollback=plan([job('weather-live-metar-clouds')],PROJECT,'us-central1','https://collector.example')
-    create=next(c for c in configure if c[3]=='create')
-    assert create[4:6]==['http','weather-live-rapid-observations']
-    for flag in ['--schedule=*/5 * * * *','--attempt-deadline=300s','--http-method=POST','--uri=https://collector.example/collect/rapid-observations','--oidc-service-account-email='+ACCOUNT,'--oidc-token-audience=https://collector.example']:
-        assert flag in create
-    assert any(c[3:5]==['run','weather-live-rapid-observations'] for c in configure)
-    assert any(c[3:5]==['delete','weather-live-rapid-observations'] for c in rollback)
+def test_observations_jobs_pause_without_new_jobs_or_source_collection():
+    jobs=[job('weather-live-metar-clouds'),job('weather-live-rapid-observations'),
+          job('weather-live-hourly-observations','PAUSED'),job('weather-live-radar')]
+    configure,rollback=plan(jobs,PROJECT,'us-central1','https://collector.example')
+    assert [c[3:5] for c in configure]==[['pause','weather-live-rapid-observations']]
+    assert [c[3:5] for c in rollback]==[['resume','weather-live-rapid-observations']]
+    assert not any(c[3] in ('create','update','run','delete') for c in configure+rollback)
 
 
-def test_existing_paused_average_job_restores_original_schedule_target_and_state():
-    configure,rollback=plan([job('weather-live-metar-clouds'),job('weather-live-rapid-observations','PAUSED')],PROJECT,'us-central1','https://collector.example')
-    assert any(c[3:5]==['resume','weather-live-rapid-observations'] for c in configure)
-    restore=next(c for c in rollback if c[3]=='update')
-    for flag in ['--schedule=1-59/5 * * * *','--time-zone=America/Chicago','--attempt-deadline=240s','--uri=https://old.example/collect/original','--oidc-token-audience=https://old.example']:
-        assert flag in restore
-    assert any(c[3:5]==['pause','weather-live-rapid-observations'] for c in rollback)
+def test_absent_observation_jobs_create_nothing():
+    assert plan([job('weather-live-metar-clouds')],PROJECT,'us-central1','https://collector.example')==([],[])
+
+
+def test_retirement_script_deletes_only_existing_dedicated_jobs_after_validation(tmp_path):
+    import json
+    import runpy
+    import shlex
+    from pathlib import Path
+    from unittest.mock import patch
+    jobs=[job('weather-live-rapid-observations'),job('weather-live-hourly-observations','PAUSED'),
+          job('weather-live-metar-clouds'),job('weather-live-radar')]
+    source=tmp_path/'jobs.json';source.write_text(json.dumps(jobs))
+    script=str(Path(__file__).resolve().parents[1]/'configure_live_jobs.py')
+    with patch('sys.argv',[script,'plan',str(source),str(tmp_path),PROJECT,'us-central1','https://collector.example']):
+        runpy.run_path(script,run_name='__main__')
+    commands=[shlex.split(line) for line in (tmp_path/'live-retire.sh').read_text().splitlines() if line.startswith('gcloud')]
+    assert {c[4] for c in commands}=={'weather-live-rapid-observations','weather-live-hourly-observations'}
+    assert all(c[:4]==['gcloud','scheduler','jobs','delete'] and '--quiet' in c for c in commands)

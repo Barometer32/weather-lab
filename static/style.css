@@ -256,39 +256,6 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 
 .plot-sky-unknown { fill:#111; font:800 9px system-ui,sans-serif; stroke:none !important; }
 
-/* Station selection inventory: each timestamp belongs to that site's reading. */
-.observation-actions { display:flex; align-items:center; gap:20px; }
-.observation-filters { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-.observation-filters input { padding:10px 12px; border:1px solid var(--border); border-radius:6px; width:230px; min-height:44px; }
-.observation-filters select { padding:10px; min-height:44px; border:1px solid var(--border); border-radius:6px; background:white; max-width:100%; }
-#observations-checked { margin-left:auto; }
-.observation-table td, .observation-table th { padding:14px 18px; }
-.observation-table td:nth-child(n+3), .observation-table th:nth-child(n+3) { text-align:center; }
-.observation-site strong { display:block; font-size:15px; font-weight:600; }
-.station-meta { display:block; margin-top:5px; font-size:12px; color:var(--muted); font-weight:400; }
-.observation-delayed .station-meta { color:#8b5b0a; }
-.obs-temperature { color:#b12520; font-weight:600; }
-.obs-dewpoint { color:#176d3d; font-weight:600; }
-.obs-wind { color:#235eab; font-weight:600; }
-#observations-empty { margin:18px; }
-@media (max-width:640px) {
-  .observation-heading { align-items:flex-start; gap:12px; }
-  .observation-actions { align-items:flex-end; flex-direction:column; gap:10px; }
-  .observation-filters { gap:8px; }
-  .observation-filters input { width:100%; }
-  .observation-filters select { flex:1; min-width:0; }
-  #observations-checked { flex-basis:100%; margin-left:0; }
-  .observation-table table,.observation-table tbody { display:block; white-space:normal; }
-  .observation-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
-  .observation-table tr { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:14px 12px; gap:16px 6px; border-bottom:1px solid var(--border); }
-  .observation-table tr:last-child { border-bottom:0; }
-  .observation-table td { border:0; padding:0; }
-  .observation-site { grid-column:1/3; }
-  .observation-reported { font-size:12px; text-align:right; }
-  .observation-site strong { font-size:14px; }
-  .observation-site .station-meta { font-size:11px; }
-  .observation-table td[data-label]::before { content:attr(data-label); display:block; color:var(--muted); font-size:11px; font-weight:400; margin-bottom:5px; }
-}
 
 /* One METAR surface shared by all four isolated products. */
 .metar-product-row { display:flex; align-items:center; gap:10px; margin:-4px 0 16px; }
@@ -432,24 +399,3 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
-
-/* Observations uses document scrolling. Map tabs keep their viewport layout. */
-html:has(#observations:not([hidden])) { height:auto; overflow:visible; }
-body:has(#observations:not([hidden])) { height:auto; min-height:var(--app-height,100dvh); overflow:visible; }
-main:has(> #observations:not([hidden])) { flex:1 0 auto; overflow:visible; }
-main > #observations {
-  flex:0 0 auto;
-  width:min(100%,920px);
-  align-self:center;
-}
-
-/* Compact current observations alongside the existing map tabs. */
-#observations .rapid-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); margin:16px 0; }
-#observations .metric { text-align:center; padding:22px 14px; }
-#observations .metric-value { font-size:36px; }
-#observations .metric-value.wind { justify-content:center; font-size:29px; }
-#observations .rapid-celsius { margin:6px 0 0; color:var(--muted); font-size:14px; }
-#observations .rapid-station-details { margin-top:4px; }
-#observations .table-wrap { margin-top:12px; }
-@media (max-width:700px) { #observations .rapid-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media (max-width:380px) { #observations .metric-value { font-size:29px; } #observations .metric-value.wind { font-size:24px; } }

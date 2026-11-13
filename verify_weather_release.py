@@ -14,30 +14,25 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations"' in html and 'id="observations"' in html
-    assert all('id="'+name+'"' in html for name in ("observations-temperature","observations-dewpoint","observations-wind","observations-sun"))
-    assert "Hopkins · now" not in html
-    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
-    assert '<th>Direction</th><th>Wind speed</th>' in html
-    assert '/static/metar-model.js?v=metro-priority-v13' in html
-    assert 'HENNEPIN WEST MESONET · 19 APPROVED STATIONS' in html
-    assert '/static/current-observations.js?v=hennepin-average-v14' in html
-    assert 'hourly-observation-views.js' not in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
-    assert 'id="tab-observations" aria-selected="true"' in html
+    assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
+    assert 'current-observations.js' not in html and '/api/observations/' not in html
+    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
+    assert '/static/metar-model.js?v=plots-default-v15' in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert 'id="tab-metar" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=metro-priority-v13' in html
+    assert '/static/metar-views.js?v=plots-default-v15' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=metro-priority-v13' in html
-    print("Verified OBSERVATIONS home with METAR PLOTS default, PLOTS/CLOUDS retained, Hennepin West OBSERVATIONS, and retired map tabs removed.")
+    assert '/static/app.js?v=plots-default-v15' in html
+    print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
 
 
 def check_hourly(base):
@@ -61,35 +56,14 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/rtmetar", "/api/mesonet"):
+    for path in ("/api/rtmetar", "/api/mesonet", "/api/observations/current", "/static/current-observations.js"):
         try:
             read(base, path)
         except HTTPError as error:
             assert error.code == 404
         else:
             raise AssertionError(f"Retired endpoint still exists: {path}")
-    print("Verified RTMETAR and MESONET endpoints are removed.")
-
-
-def check_observations(base):
-    from hennepin_observations import VERSION, POLICY, STATIONS, MAX_AGE_SECONDS, average
-    now = datetime.now(timezone.utc)
-    data = json.loads(read(base, "/api/observations/current"))
-    assert data["version"]==VERSION and data["stationPolicy"]==POLICY
-    assert data["temperatureBasis"]=="reported-Fahrenheit" and data["available"] and not data["stale"]
-    assert data["updateIntervalSeconds"]==data["checkIntervalSeconds"]==300
-    assert data["stationIds"]==sorted(STATIONS) and data["expectedStationCount"]==19
-    value = data["current"]
-    assert value["stations"] and len({r["station"] for r in value["stations"]})==len(value["stations"])
-    for report in data["stations"]:
-        assert report["station"] in STATIONS and report["network"]=="Hennepin West" and report["reportType"]=="MESONET"
-        stamp = datetime.fromisoformat(report["time"].replace("Z", "+00:00"))
-        assert 0 <= (now-stamp).total_seconds() <= MAX_AGE_SECONDS
-    assert average(value["stations"])==value, "Approved Mesonet Fahrenheit mean is inconsistent"
-    assert value["sampleCounts"]["temperature"]>0 and value["sampleCounts"]["dewpoint"]>0 and value["sampleCounts"]["windSpeed"]>0
-    print(f"Verified OBSERVATIONS: {value['stationCount']}/19 approved Hennepin West stations, {value['oldestObservedAt']} through {value['observedAt']}, checked {data['checkedAt']}.")
-    if data["sourceDelayed"]:
-        print("OBSERVATIONS: upstream delivery is delayed; original report timestamps are preserved.")
+    print("Verified retired observation endpoints and page script are removed.")
 
 
 def check_products(base):
@@ -127,6 +101,5 @@ if __name__ == "__main__":
     if not args.layout_only:
         check_hourly(args.url)
         check_removed(args.url)
-        check_observations(args.url)
         if args.all_products:
             check_products(args.url)

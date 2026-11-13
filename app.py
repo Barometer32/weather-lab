@@ -527,21 +527,6 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
-@app.get("/api/observations/current")
-def rapid_observations_api():
-    from hennepin_observations import present
-    try:
-        data = prepared_snapshot("hennepin-observations-v1", 660)
-        if data is None:
-            raise ValueError("No prepared storage")
-        response = jsonify(present(data, utcnow()))
-        response.headers["Cache-Control"] = "no-store"
-        return response
-    except Exception:
-        app.logger.exception("Hennepin West observations unavailable")
-        return jsonify(error="Hennepin West Mesonet observations are being prepared."), 503
-
-
 @app.get("/api/station-plots")
 def station_plots_api():
     from metar_clouds import current, ready_plot_frames, LOOP_VERSION

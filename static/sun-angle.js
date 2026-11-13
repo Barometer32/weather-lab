@@ -32,7 +32,7 @@ window.WeatherSun = (() => {
   }
   function update(){
     const value=`${elevation(new Date(Date.now()+clockOffset)).toFixed(1)}°`;
-    for(const id of ["sun-angle","observations-sun"]){
+    for(const id of ["sun-angle"]){
       const el=document.getElementById(id);if(el)el.textContent=value;
     }
   }

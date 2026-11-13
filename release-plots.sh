@@ -33,7 +33,6 @@ collector_base="${collector_base%:*}"
 # Keep a 2-GiB collector floor without reducing an existing larger allocation.
 collector_memory="$(gcloud run services describe weather-collector "${run[@]}" --format=json |
   python3 -c 'import json,re,sys; c=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0]; value=c.get("resources",{}).get("limits",{}).get("memory","1Gi"); m=re.fullmatch(r"([0-9.]+)(Gi|Mi)",value); assert m,"Unrecognized collector memory"; gib=float(m[1])/(1024 if m[2]=="Mi" else 1); print(value if gib>=2 else "2Gi")')"
-old_hourly_state="$(gcloud scheduler jobs describe weather-live-hourly-observations "${scheduler[@]}" --format='value(state)' 2>/dev/null || true)"
 mapfile -t old_metar_job < <(gcloud scheduler jobs describe weather-live-metar-clouds "${scheduler[@]}" --format=json |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["schedule"]); print(d.get("attemptDeadline","180s")); print(d["state"])')
 [[ ${#old_metar_job[@]} == 3 ]] || { echo 'Could not save hourly collector configuration.' >&2; exit 1; }
@@ -48,9 +47,6 @@ rollback="$rollback_dir/rollback.sh"
   echo '#!/usr/bin/env bash'
   printf 'gcloud run services update-traffic weather-lab --project=%q --region=%q --to-revisions=%q\n' "$project" "$region" "${web[2]}"
   printf 'gcloud run services update-traffic weather-collector --project=%q --region=%q --to-revisions=%q\n' "$project" "$region" "${collector[2]}"
-  if [[ "$old_hourly_state" == ENABLED ]]; then
-    printf 'gcloud scheduler jobs resume weather-live-hourly-observations --project=%q --location=%q\n' "$project" "$region"
-  fi
   printf 'gcloud scheduler jobs update http weather-live-metar-clouds --project=%q --location=%q --schedule=%q --attempt-deadline=%q\n' "$project" "$region" "${old_metar_job[0]}" "${old_metar_job[1]}"
   printf 'gcloud scheduler jobs update http weather-live-forecast --project=%q --location=%q --schedule=%q\n' "$project" "$region" "$old_forecast_schedule"
   if [[ "${old_metar_job[2]}" == PAUSED ]]; then
@@ -102,7 +98,7 @@ on_failure() {
 trap on_failure ERR
 changed=true
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
-# Seed the approved Hennepin West rolling average and reversibly pause unused jobs.
+# Reversibly pause retired observation jobs before verifying the retained maps.
 bash "$rollback_dir/live-configure.sh"
 # Check at :00, :02 and every two minutes, using the fast official bulk file
 # when saved history is healthy. Recovery still fills gaps from the archive.
@@ -136,9 +132,6 @@ gcloud run services update weather-lab "${run[@]}" --min="$warm_min"
 gcloud run services describe weather-lab "${run[@]}" --format=json |
   python3 -c 'import json,sys; d=json.load(sys.stdin); minimum=int(d.get("metadata",{}).get("annotations",{}).get("run.googleapis.com/minScale",0)); assert minimum>=1,"Website has no warm minimum instance"; env=d["spec"]["template"]["spec"]["containers"][0].get("env",[]); assert any(e["name"]=="WEATHER_PREPARED_ONLY" and e.get("value")=="true" for e in env),"Public service is not prepared-only"; print("Verified website warm minimum:",minimum,"instance(s), covering all tabs; prepared-only enabled.")'
 python3 verify_weather_release.py "$site" --all-products
-if [[ "$old_hourly_state" == ENABLED ]]; then
-  gcloud scheduler jobs pause weather-live-hourly-observations "${scheduler[@]}"
-fi
 trap - ERR
 trap 'echo "Website deployment passed, but post-deployment cleanup is incomplete. Inspect the error above." >&2' ERR
 bash "$rollback_dir/live-retire.sh"
@@ -150,6 +143,6 @@ gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_
 python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
 gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations")),"A retired station scheduler still exists"; names=["weather-live-rapid-observations","weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-rapid-observations"]["schedule"].split())=="*/5 * * * *","OBSERVATIONS must check every five minutes"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rapid-observations","weather-live-hourly-observations","weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
-echo "Weather Lab is live at $site. OBSERVATIONS averages the 19 approved Hennepin West Mesonet stations with five-minute checks. PLOTS remains the METAR default and CLOUDS is available. All retained tabs use background-prepared data and share the warm website instance."
+echo "Weather Lab is live at $site. METAR PLOTS is the default and CLOUDS is available. OBSERVATIONS and its collection jobs are removed. All retained tabs use background-prepared data and share the warm website instance."

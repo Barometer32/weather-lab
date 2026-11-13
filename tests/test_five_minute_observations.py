@@ -103,15 +103,15 @@ def test_retired_airport_snapshot_does_not_feed_mesonet_endpoint_or_collector():
     store=Store();collect(store);app._cache.clear()
     with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as download:
         response=app.app.test_client().get('/api/observations/current')
-        assert response.status_code==503
+        assert response.status_code==404
         download.assert_not_called()
     app._cache.clear()
     with patch('app.get_store',return_value=None),patch('app.download') as download:
-        assert app.app.test_client().get('/api/observations/current').status_code==503
+        assert app.app.test_client().get('/api/observations/current').status_code==404
         download.assert_not_called()
-    with patch('collector.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('hennepin_observations.collect',return_value={'available':True}) as run:
-        assert collector.app.test_client().post('/collect/rapid-observations').status_code==200
-        run.assert_called_once_with(store,NOW)
+    with patch('collector.get_store') as store_access:
+        assert collector.app.test_client().post('/collect/rapid-observations').status_code==404
+        store_access.assert_not_called()
     app._cache.clear()
 
 

@@ -16,7 +16,7 @@ def test_all_website_responses_disable_device_location():
         response=client.get(path)
         assert response.headers.get('Permissions-Policy')=='geolocation=()'
     html=client.get('/').get_data(as_text=True)
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['observations','metar','radar','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','radar','satellite','forecast','air-quality']
     assert 'id="radar-location"' not in html and 'radar-location.js' not in html
     assert client.get('/static/radar-location.js').status_code==404
     assert client.get('/api/test/location?q=Shakopee').status_code==404

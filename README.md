@@ -8,40 +8,14 @@ It stages the web and collector, seeds the retained products, verifies prepared
 snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
-Tabs: OBSERVATIONS, METAR, RADAR, SATELLITE, FORECAST and AIR Q.
-OBSERVATIONS opens first on every visit and browser restore.
-METAR opens PLOTS by default, with CLOUDS retained in the dropdown. RTMETAR and
-MESONET are removed from the UI, public API, browser requests and collector routes.
-Their unused Scheduler jobs are paused during staging and deleted only after
-live verification succeeds. Prior enabled states remain recoverable on rollback.
-
-OBSERVATIONS averages the fixed 19-site approved Hennepin West Mesonet roster,
-restored from commit `aa4fc5a`. Removed stations and future unapproved HPN IDs
-cannot enter the average. The exact IDs/names are in `hennepin_observations.py`.
-It uses the latest available report from each site, with one equal vote per
-usable field. Reported Fahrenheit temperature/dewpoint values are averaged
-before rounding to whole degrees; no whole-Celsius METAR quantization is used.
-Wind is scalar-averaged in mph and rounded once; direction is speed-weighted
-and rounded to N, NE, E, SE, S, SW, W or NW. Calm/indeterminate states remain
-explicit. The station table shows names/IDs, actual times, original tenths of
-Fahrenheit, wind direction and whole-mph speed. Field-specific sample counts
-make partial coverage visible. No airport METAR fills gaps in this average.
-
-The authenticated collector checks public NOAA MADIS current/previous-hour
-Mesonet files every five minutes, with conditional download metadata. Those
-files contain rolling observations; they are not hourly means. Existing MADIS
-field QC remains in force. A station's report may contribute only within the
-same 30-minute live window used by the previous approved Mesonet average.
-Missing/failed-QC fields are omitted individually. One station's bad new report
-cannot reuse an older good value at the same time. Expired readings disappear.
-
-The timestamp shows the oldest-to-newest actual contributing report range,
-never the check time as a fake observation time. Upstream MADIS delivery can
-still lag collection. The browser refreshes prepared observations every 15
-seconds. The public `/api/observations/current` endpoint only reads
-`live/hennepin-observations-v1.json`; public page visits never download MADIS.
-The previous three-airport snapshot is preserved separately for rollback.
-The current sun angle keeps its decimal precision and ten-second refresh.
+Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+METAR opens PLOTS first on every visit and browser restore, with CLOUDS retained
+in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
+collector routes and browser prefetch. Its current/legacy dedicated Scheduler
+jobs are paused before staging and deleted only after live verification passes.
+Rollback restores any previously enabled job. Saved weather objects remain
+available for rollback; no retired observation collector continues running.
+RTMETAR and the separate MESONET maps remain removed.
 
 PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
 airport roster and hourly timeline. Both maps prioritize KMSP, KFCM and KMIC.
@@ -57,7 +31,7 @@ repeat visits paint promptly. The removed bottom delay paragraph stays removed.
 Satellite retains Visible (red) Band 02 as default and all four existing 24-frame
 loops. The NWS Hopkins forecast checks every five minutes. Other product sources
 and schedules are retained. `verify_weather_release.py --all-products` checks the
-PLOTS default, CLOUDS history, the approved Mesonet average, retired endpoints, remaining product freshness and
+PLOTS default, CLOUDS history, retired endpoints, remaining product freshness and
 prepared imagery before publishing the replacement. Older commands below are
 historical; use this release script.
 
