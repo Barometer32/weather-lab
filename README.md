@@ -8,11 +8,30 @@ It stages the web and collector, seeds the retained products, verifies prepared
 snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
-Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+Tabs: METAR, OBSERVATIONS, RADAR, SATELLITE, FORECAST and AIR Q.
 METAR opens PLOTS by default, with CLOUDS retained in the dropdown. RTMETAR and
 MESONET are removed from the UI, public API, browser requests and collector routes.
 Their unused Scheduler jobs are paused during staging and deleted only after
 live verification succeeds. Prior enabled states remain recoverable on rollback.
+
+OBSERVATIONS shows an equal three-airport average for KFCM, KMSP and KMIC using
+only MADISHF-marked five-minute ASOS reports. The scheduler checks every five
+minutes even when no browser is open. Regular hourly METARs and SPECI reports
+are rejected; a divisible-by-five timestamp alone never establishes provenance.
+Temperature/dewpoint are parsed only from the whole-Celsius main XX/XX group,
+never T remarks. The three Celsius values are averaged before conversion to
+Fahrenheit; both units are displayed. Wind speeds are averaged in mph.
+
+All three contributing reports must share an exact five-minute observation
+time and contain usable temperature, dewpoint and wind speed. An incomplete
+new batch retains the last complete average with its original timestamp and
+waiting/age status; an equal-time correction invalidates the old values.
+Reports expire after 60 minutes. No two-station average, invented timestamp or
+mixed-hourly fallback is permitted. The station table preserves each source
+report and time. Sun angle is the current apparent elevation for Hopkins and
+updates every ten seconds, independent of the observation time. The public
+`/api/observations/current` endpoint reads the prepared
+`live/rapid-observations-v1.json` snapshot; opening the page never collects data.
 
 PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
 airport roster and hourly timeline. PLOTS displays Fahrenheit, using precise T
@@ -24,7 +43,7 @@ repeat visits paint promptly. The removed bottom delay paragraph stays removed.
 Satellite retains Visible (red) Band 02 as default and all four existing 24-frame
 loops. The NWS Hopkins forecast checks every five minutes. Other product sources
 and schedules are retained. `verify_weather_release.py --all-products` checks the
-PLOTS default, CLOUDS history, retired endpoints, remaining product freshness and
+PLOTS default, CLOUDS history, the three-airport average, retired endpoints, remaining product freshness and
 prepared imagery before publishing the replacement. Older commands below are
 historical; use this release script.
 

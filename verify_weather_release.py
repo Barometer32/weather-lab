@@ -14,9 +14,10 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations"' not in html and 'id="observations"' not in html
+    assert 'id="tab-observations"' in html and 'id="observations"' in html
+    assert all('id="'+name+'"' in html for name in ("observations-temperature","observations-dewpoint","observations-wind","observations-sun"))
     assert 'hourly-observation-views.js' not in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "observations", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
@@ -24,13 +25,13 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=plots-only-v10' in html
+    assert '/static/metar-views.js?v=rapid-observations-v11' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=plots-only-v10' in html
-    print("Verified METAR home with PLOTS default, PLOTS/CLOUDS retained, and RTMETAR/MESONET removed.")
+    assert '/static/app.js?v=rapid-observations-v11' in html
+    print("Verified METAR home with PLOTS default, PLOTS/CLOUDS retained, OBSERVATIONS added, and RTMETAR/MESONET removed.")
 
 
 def check_hourly(base):
@@ -62,6 +63,21 @@ def check_removed(base):
         else:
             raise AssertionError(f"Retired endpoint still exists: {path}")
     print("Verified RTMETAR and MESONET endpoints are removed.")
+
+
+def check_observations(base):
+    from five_minute_observations import VERSION, STATIONS, average
+    now = datetime.now(timezone.utc)
+    data = json.loads(read(base, "/api/observations/current"))
+    assert data["version"]==VERSION and data["available"] and not data["stale"]
+    assert data["updateIntervalSeconds"]==300 and data["stationIds"]==list(STATIONS)
+    value = data["current"]
+    assert {r["station"] for r in value["stations"]}==set(STATIONS)
+    assert all(r["time"]==value["observedAt"] and "MADISHF" in r["rawOb"].partition(" RMK")[2] for r in value["stations"])
+    assert average(value["stations"],now)==value, "Three-airport raw-Celsius mean is inconsistent"
+    print(f"Verified OBSERVATIONS: three matching five-minute reports at {value['observedAt']}, checked {data['checkedAt']}.")
+    if data["sourceDelayed"]:
+        print("OBSERVATIONS: upstream delivery is delayed; original report timestamps are preserved.")
 
 
 def check_products(base):
@@ -99,5 +115,6 @@ if __name__ == "__main__":
     if not args.layout_only:
         check_hourly(args.url)
         check_removed(args.url)
+        check_observations(args.url)
         if args.all_products:
             check_products(args.url)

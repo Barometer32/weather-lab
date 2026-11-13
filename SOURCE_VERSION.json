@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default",
-  "baseCommit": "61dfed0d02367d8e49690b05e50a83b39eade1cf",
+  "variant": "plots-with-three-airport-observations",
+  "baseCommit": "60a3d6b4fb8ad62cc7c94588b3b181785c31fc08",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -22,5 +22,13 @@
   "hourlyMapRecoveryHours": 5,
   "hourlyCollectionSchedule": "*/2 * * * *",
   "hourlyBulkFirst": true,
-  "minimumWebInstances": 1
+  "minimumWebInstances": 1,
+  "observationsStations": [
+    "KFCM",
+    "KMSP",
+    "KMIC"
+  ],
+  "observationsCollectionSchedule": "*/5 * * * *",
+  "observationsTemperatureBasis": "main-XX/XX",
+  "observationsSameTimestamp": true
 }

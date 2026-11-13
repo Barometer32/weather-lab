@@ -25,7 +25,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
  });
  await warm.api.prime();for(let i=0;i<8;i++)await flush();
  assert.ok(!warm.requests.includes('/api/rtmetar')&&!warm.requests.includes('/api/mesonet'),'startup never requests retired station products');
- assert.ok(['/api/forecast','/api/air-quality','/api/radar?site=KMPX','/api/satellite/02','/api/satellite/truecolor'].every(url=>warm.requests.includes(url)),'default and retained views prime their prepared manifests');
+ assert.ok(['/api/observations/current','/api/forecast','/api/air-quality','/api/radar?site=KMPX','/api/satellite/02','/api/satellite/truecolor'].every(url=>warm.requests.includes(url)),'default and retained views prime their prepared manifests');
  assert.ok(!warm.requests.some(url=>url.startsWith('/api/prepared/')) && warm.imageReads.length===0,'no imagery or radar binaries transfer on startup');
  assert.ok(warm.requests.includes('/api/satellite/ntmicro') && warm.requests.includes('/api/satellite/dcphase'),'all small prepared manifests start in the background');
  assert.ok(warm.requests.indexOf('/api/station-plots?view=loop')<warm.requests.indexOf('/api/radar?site=KMPX'),'hourly maps are not queued behind imagery');

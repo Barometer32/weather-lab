@@ -63,10 +63,12 @@ elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','crea
     state[args[4]+'-schedule']=option('--schedule')
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
+    if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
     if args[3]=='weather-live-mesonet': state['retiredDeleted']=True
     if args[3]=='weather-live-rtmetar': state['activeExists']=False
+    if args[3]=='weather-live-rapid-observations': state['observationsExists']=False
     state_path.write_text(json.dumps(state))
 elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
     state[args[3]+'-state']='ENABLED' if args[2]=='resume' else 'PAUSED';state_path.write_text(json.dumps(state))
@@ -74,6 +76,7 @@ elif args[:3]==['scheduler','jobs','list']:
     names=['weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality']
     if not state.get('retiredDeleted'): names.append('weather-live-mesonet')
     if state.get('activeExists'): names.append('weather-live-rtmetar')
+    if state.get('observationsExists'): names.append('weather-live-rapid-observations')
     print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED'),'timeZone':'Etc/UTC','httpTarget':{'uri':'https://weather-collector.example/collect/'+name.removeprefix('weather-live-'),'httpMethod':'POST','oidcToken':{'serviceAccountEmail':'weather-scheduler@'+project+'.iam.gserviceaccount.com','audience':'https://weather-collector.example'}}} for name in names]))
 elif args[:3]==['storage','buckets','describe']:
     print(json.dumps({'name':project+'-weather-data','lifecycle':{'rule':[{'action':{'type':'Delete'},'condition':{'age':1,'matchesPrefix':['satellite/truecolor/']}}]}}))
@@ -109,7 +112,9 @@ elif args[:2]==['storage','ls']:
         assert bool(rapid_deletions)==retired_exists
         assert all(i>verifications[-1] for i in rapid_deletions), "Retire RTMETAR only after live verification"
         assert not any(c[:4]==["scheduler","jobs","run","weather-live-rtmetar"] for c in calls)
-        assert not any(c[:3]==["scheduler","jobs","create"] for c in calls)
+        assert any(c[:5]==["scheduler","jobs","create","http","weather-live-rapid-observations"] and "--schedule=*/5 * * * *" in c for c in calls)
+        seed=next(i for i,c in enumerate(calls) if c[:4]==["scheduler","jobs","run","weather-live-rapid-observations"])
+        assert seed<verifications[0]
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
@@ -133,6 +138,7 @@ elif args[:2]==['storage','ls']:
         else:
             assert not any("weather-live-mesonet" in c for c in calls if c[:2]==["scheduler","jobs"])
         assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rtmetar"] for c in calls)
+        assert any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rapid-observations"] for c in calls)
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)==retired_exists
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)
