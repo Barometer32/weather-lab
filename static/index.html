@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Weather Lab</title>
-  <meta name="description" content="Five-minute three-airport observations, hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Five-minute Hennepin West Mesonet observations, hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <link rel="stylesheet" href="/static/style.css?v=metro-priority-v13">
@@ -15,7 +15,7 @@
   <script defer src="/static/map-fullscreen.js?v=metro-priority-v13"></script>
   <script defer src="/static/default-views.js?v=metro-priority-v13"></script>
   <script defer src="/static/metar-model.js?v=metro-priority-v13"></script>
-  <script defer src="/static/current-observations.js?v=metro-priority-v13"></script>
+  <script defer src="/static/current-observations.js?v=hennepin-average-v14"></script>
   <script defer src="/static/metar-views.js?v=metro-priority-v13"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
@@ -48,17 +48,18 @@
 </section>
 
 <section id="observations" role="tabpanel" aria-labelledby="tab-observations">
-  <div class="section-heading"><div><p class="eyebrow">KFCM · KMSP · KMIC · FIVE-MINUTE ASOS</p><h1>Current observations</h1></div><button class="secondary" id="refresh-observations">Refresh</button></div>
-  <p id="observations-time" class="small-note" role="status" aria-live="polite">Loading five-minute observations…</p>
+  <div class="section-heading"><div><p class="eyebrow">HENNEPIN WEST MESONET · 19 APPROVED STATIONS</p><h1>Current observations</h1></div><button class="secondary" id="refresh-observations">Refresh</button></div>
+  <p id="observations-time" class="small-note" role="status" aria-live="polite">Loading Hennepin West observations…</p>
   <div class="metrics rapid-metrics">
-    <article class="metric featured"><h2>Temperature</h2><p id="observations-temperature" class="metric-value">—</p><p id="observations-temperature-c" class="rapid-celsius"></p></article>
-    <article class="metric"><h2>Dewpoint</h2><p id="observations-dewpoint" class="metric-value">—</p><p id="observations-dewpoint-c" class="rapid-celsius"></p></article>
+    <article class="metric featured"><h2>Temperature</h2><p id="observations-temperature" class="metric-value">—</p></article>
+    <article class="metric"><h2>Dewpoint</h2><p id="observations-dewpoint" class="metric-value">—</p></article>
     <article class="metric"><h2>Wind</h2><p id="observations-wind" class="metric-value wind">—</p></article>
     <article class="metric"><h2>Sun angle</h2><p id="observations-sun" class="metric-value">—</p></article>
   </div>
   <details class="method rapid-station-details"><summary>Station reports</summary>
-    <div class="table-wrap"><table><thead><tr><th>Airport</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Direction</th><th>Wind speed</th></tr></thead><tbody id="observations-stations"></tbody></table></div>
-    <p>Equal average of all three airports at the same five-minute report time. Temperature and dewpoint use the whole-Celsius XX/XX group; T remarks are ignored. Wind speeds are averaged in mph and rounded once for display. Direction uses speed-weighted wind vectors and the nearest of eight compass directions. Only MADISHF five-minute reports are eligible. Sun angle uses the current time.</p>
+    <div class="table-wrap"><table><thead><tr><th>Station</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Direction</th><th>Wind speed</th></tr></thead><tbody id="observations-stations"></tbody></table></div>
+    <p>Equal average of the latest available reports from your 19 approved Hennepin West Mesonet stations. Temperature and dewpoint are averaged in Fahrenheit before rounding to whole degrees; wind speed is averaged before rounding to whole mph. Direction uses speed-weighted vectors and the nearest of eight compass directions. Checks run every five minutes. Missing or failed-QC fields and reports older than 30 minutes do not contribute. The time range shows actual station report times. Sun angle uses the current time.</p>
+    <p id="observations-counts" class="small-note"></p>
   </details>
 </section>
 

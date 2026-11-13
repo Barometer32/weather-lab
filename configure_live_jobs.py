@@ -17,7 +17,7 @@ def plan(jobs, project, region, collector):
     for name, kind in JOBS.items():
         old = by_name.get(name)
         action = "update" if old else "create"
-        flags = ["--schedule=* * * * *", "--time-zone=Etc/UTC", "--attempt-deadline=300s",
+        flags = ["--schedule=*/5 * * * *", "--time-zone=Etc/UTC", "--attempt-deadline=300s",
                  "--uri="+collector.rstrip("/")+"/collect/"+kind, "--http-method=POST",
                  "--oidc-service-account-email="+identity, "--oidc-token-audience="+collector.rstrip("/")]
         configure.append(["gcloud", "scheduler", "jobs", action, "http", name, *common, *flags])

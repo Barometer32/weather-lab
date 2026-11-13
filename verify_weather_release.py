@@ -20,6 +20,8 @@ def check_layout(base):
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
     assert '<th>Direction</th><th>Wind speed</th>' in html
     assert '/static/metar-model.js?v=metro-priority-v13' in html
+    assert 'HENNEPIN WEST MESONET · 19 APPROVED STATIONS' in html
+    assert '/static/current-observations.js?v=hennepin-average-v14' in html
     assert 'hourly-observation-views.js' not in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-observations" aria-selected="true"' in html
@@ -35,7 +37,7 @@ def check_layout(base):
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
     assert '/static/app.js?v=metro-priority-v13' in html
-    print("Verified OBSERVATIONS home with METAR PLOTS default, PLOTS/CLOUDS retained, OBSERVATIONS added, and RTMETAR/MESONET removed.")
+    print("Verified OBSERVATIONS home with METAR PLOTS default, PLOTS/CLOUDS retained, Hennepin West OBSERVATIONS, and retired map tabs removed.")
 
 
 def check_hourly(base):
@@ -70,17 +72,22 @@ def check_removed(base):
 
 
 def check_observations(base):
-    from five_minute_observations import VERSION, STATIONS, average
+    from hennepin_observations import VERSION, POLICY, STATIONS, MAX_AGE_SECONDS, average
     now = datetime.now(timezone.utc)
     data = json.loads(read(base, "/api/observations/current"))
-    assert data["version"]==VERSION and data["available"] and not data["stale"]
-    assert data["checkIntervalSeconds"]==60
-    assert data["updateIntervalSeconds"]==300 and data["stationIds"]==list(STATIONS)
+    assert data["version"]==VERSION and data["stationPolicy"]==POLICY
+    assert data["temperatureBasis"]=="reported-Fahrenheit" and data["available"] and not data["stale"]
+    assert data["updateIntervalSeconds"]==data["checkIntervalSeconds"]==300
+    assert data["stationIds"]==sorted(STATIONS) and data["expectedStationCount"]==19
     value = data["current"]
-    assert {r["station"] for r in value["stations"]}==set(STATIONS)
-    assert all(r["time"]==value["observedAt"] and "MADISHF" in r["rawOb"].partition(" RMK")[2] for r in value["stations"])
-    assert average(value["stations"],now)==value, "Three-airport raw-Celsius mean is inconsistent"
-    print(f"Verified OBSERVATIONS: three matching five-minute reports at {value['observedAt']}, checked {data['checkedAt']}.")
+    assert value["stations"] and len({r["station"] for r in value["stations"]})==len(value["stations"])
+    for report in data["stations"]:
+        assert report["station"] in STATIONS and report["network"]=="Hennepin West" and report["reportType"]=="MESONET"
+        stamp = datetime.fromisoformat(report["time"].replace("Z", "+00:00"))
+        assert 0 <= (now-stamp).total_seconds() <= MAX_AGE_SECONDS
+    assert average(value["stations"])==value, "Approved Mesonet Fahrenheit mean is inconsistent"
+    assert value["sampleCounts"]["temperature"]>0 and value["sampleCounts"]["dewpoint"]>0 and value["sampleCounts"]["windSpeed"]>0
+    print(f"Verified OBSERVATIONS: {value['stationCount']}/19 approved Hennepin West stations, {value['oldestObservedAt']} through {value['observedAt']}, checked {data['checkedAt']}.")
     if data["sourceDelayed"]:
         print("OBSERVATIONS: upstream delivery is delayed; original report timestamps are preserved.")
 

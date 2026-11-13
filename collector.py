@@ -199,7 +199,7 @@ def collect_madis_stations(store, now):
 
 
 def collect_rapid_observations(store, now):
-    from five_minute_observations import collect
+    from hennepin_observations import collect
     return collect(store, now)
 
 

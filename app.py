@@ -529,17 +529,17 @@ def satellite_api(product):
 
 @app.get("/api/observations/current")
 def rapid_observations_api():
-    from five_minute_observations import present
+    from hennepin_observations import present
     try:
-        data = prepared_snapshot("rapid-observations-v1", 600)
+        data = prepared_snapshot("hennepin-observations-v1", 660)
         if data is None:
             raise ValueError("No prepared storage")
         response = jsonify(present(data, utcnow()))
         response.headers["Cache-Control"] = "no-store"
         return response
     except Exception:
-        app.logger.exception("Three-airport five-minute observations unavailable")
-        return jsonify(error="Five-minute three-airport observations are being prepared."), 503
+        app.logger.exception("Hennepin West observations unavailable")
+        return jsonify(error="Hennepin West Mesonet observations are being prepared."), 503
 
 
 @app.get("/api/station-plots")

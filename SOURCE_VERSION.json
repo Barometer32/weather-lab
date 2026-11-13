@@ -1,5 +1,5 @@
 {
-  "variant": "plots-with-three-airport-observations",
+  "variant": "plots-with-approved-hennepin-observations",
   "baseCommit": "60a3d6b4fb8ad62cc7c94588b3b181785c31fc08",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
@@ -24,20 +24,38 @@
   "hourlyBulkFirst": true,
   "minimumWebInstances": 1,
   "observationsStations": [
-    "KFCM",
-    "KMSP",
-    "KMIC"
+    "HPN02",
+    "HPN03",
+    "HPN05",
+    "HPN07",
+    "HPN08",
+    "HPN09",
+    "HPN20",
+    "HPN21",
+    "HPN24",
+    "HPN25",
+    "HPN26",
+    "HPN28",
+    "HPN30",
+    "HPN31",
+    "HPN37",
+    "HPN38",
+    "HPN39",
+    "HPN45",
+    "HPN47"
   ],
-  "observationsCollectionSchedule": "* * * * *",
-  "observationsTemperatureBasis": "main-XX/XX",
-  "observationsSameTimestamp": true,
+  "observationsCollectionSchedule": "*/5 * * * *",
+  "observationsTemperatureBasis": "reported-Fahrenheit",
+  "observationsSameTimestamp": false,
   "observationsWindDirections": 8,
-  "observationsDisplayRounding": "whole Fahrenheit after Celsius mean; whole mph",
-  "observationsSource": "IEM live observation history; bulk archive recovery only",
+  "observationsDisplayRounding": "whole Fahrenheit after reported-Fahrenheit mean; whole mph",
+  "observationsSource": "NOAA MADIS Hennepin West Mesonet",
   "metarPriorityStations": [
     "KMSP",
     "KFCM",
     "KMIC"
   ],
-  "metarCollisionGeometry": "painted components across matching four-hour frames"
+  "metarCollisionGeometry": "painted components across matching four-hour frames",
+  "observationsStationPolicy": "approved-hennepin-west-19-v1",
+  "observationsMaxReportAgeSeconds": 1800
 }

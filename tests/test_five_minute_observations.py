@@ -99,17 +99,17 @@ def test_wrong_legacy_version_and_out_of_order_reports_do_not_contaminate_averag
     collect(store);collect(store,batch(5));assert obs.present(store.data[obs.KEY],NOW)['current']['observedAt'].endswith('16:10:00Z')
 
 
-def test_public_endpoint_only_reads_prepared_data_and_private_route_collects():
+def test_retired_airport_snapshot_does_not_feed_mesonet_endpoint_or_collector():
     store=Store();collect(store);app._cache.clear()
     with patch('app.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('app.download') as download:
         response=app.app.test_client().get('/api/observations/current')
-        assert response.status_code==200 and response.json['available']
-        assert response.headers['Cache-Control']=='no-store';download.assert_not_called()
+        assert response.status_code==503
+        download.assert_not_called()
     app._cache.clear()
     with patch('app.get_store',return_value=None),patch('app.download') as download:
         assert app.app.test_client().get('/api/observations/current').status_code==503
         download.assert_not_called()
-    with patch('collector.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('five_minute_observations.collect',return_value={'available':True}) as run:
+    with patch('collector.get_store',return_value=store),patch('app.utcnow',return_value=NOW),patch('hennepin_observations.collect',return_value={'available':True}) as run:
         assert collector.app.test_client().post('/collect/rapid-observations').status_code==200
         run.assert_called_once_with(store,NOW)
     app._cache.clear()

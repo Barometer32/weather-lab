@@ -15,32 +15,33 @@ MESONET are removed from the UI, public API, browser requests and collector rout
 Their unused Scheduler jobs are paused during staging and deleted only after
 live verification succeeds. Prior enabled states remain recoverable on rollback.
 
-OBSERVATIONS shows an equal three-airport average for KFCM, KMSP and KMIC using
-only MADISHF-marked five-minute ASOS reports. The scheduler checks every minute
-even when no browser is open, to catch each new five-minute batch sooner.
-The IEM live observation-history API is the primary source, bypassing the
-bulk archive's ten-minute sync; the bulk endpoint remains a recovery source.
-All temperature values still come only from the literal raw METAR text.
-Regular hourly METARs and SPECI reports are rejected; a divisible-by-five timestamp alone never establishes provenance.
-Temperature/dewpoint are parsed only from the whole-Celsius main XX/XX group,
-never T remarks. The three Celsius values are averaged before conversion to
-Fahrenheit and rounded once to the nearest whole degree; secondary Celsius
-remains visible. Wind speeds are scalar-averaged and rounded to whole mph.
-Direction uses speed-weighted circular averaging and the nearest of eight
-headings: N, NE, E, SE, S, SW, W, NW. Calm or indeterminate winds are labeled
-honestly. The page refreshes prepared observations every 15 seconds; upstream
-MADIS/IEM delivery delays can still keep the actual report time behind.
+OBSERVATIONS averages the fixed 19-site approved Hennepin West Mesonet roster,
+restored from commit `aa4fc5a`. Removed stations and future unapproved HPN IDs
+cannot enter the average. The exact IDs/names are in `hennepin_observations.py`.
+It uses the latest available report from each site, with one equal vote per
+usable field. Reported Fahrenheit temperature/dewpoint values are averaged
+before rounding to whole degrees; no whole-Celsius METAR quantization is used.
+Wind is scalar-averaged in mph and rounded once; direction is speed-weighted
+and rounded to N, NE, E, SE, S, SW, W or NW. Calm/indeterminate states remain
+explicit. The station table shows names/IDs, actual times, original tenths of
+Fahrenheit, wind direction and whole-mph speed. Field-specific sample counts
+make partial coverage visible. No airport METAR fills gaps in this average.
 
-All three contributing reports must share an exact five-minute observation
-time and contain usable temperature, dewpoint and wind speed. An incomplete
-new batch retains the last complete average with its original timestamp and
-waiting/age status; an equal-time correction invalidates the old values.
-Reports expire after 60 minutes. No two-station average, invented timestamp or
-mixed-hourly fallback is permitted. The station table preserves each source
-report, time, eight-point wind direction and whole-mph speed. Sun angle is the current apparent elevation for Hopkins and
-updates every ten seconds, independent of the observation time. The public
-`/api/observations/current` endpoint reads the prepared
-`live/rapid-observations-v1.json` snapshot; opening the page never collects data.
+The authenticated collector checks public NOAA MADIS current/previous-hour
+Mesonet files every five minutes, with conditional download metadata. Those
+files contain rolling observations; they are not hourly means. Existing MADIS
+field QC remains in force. A station's report may contribute only within the
+same 30-minute live window used by the previous approved Mesonet average.
+Missing/failed-QC fields are omitted individually. One station's bad new report
+cannot reuse an older good value at the same time. Expired readings disappear.
+
+The timestamp shows the oldest-to-newest actual contributing report range,
+never the check time as a fake observation time. Upstream MADIS delivery can
+still lag collection. The browser refreshes prepared observations every 15
+seconds. The public `/api/observations/current` endpoint only reads
+`live/hennepin-observations-v1.json`; public page visits never download MADIS.
+The previous three-airport snapshot is preserved separately for rollback.
+The current sun angle keeps its decimal precision and ten-second refresh.
 
 PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
 airport roster and hourly timeline. Both maps prioritize KMSP, KFCM and KMIC.
@@ -56,7 +57,7 @@ repeat visits paint promptly. The removed bottom delay paragraph stays removed.
 Satellite retains Visible (red) Band 02 as default and all four existing 24-frame
 loops. The NWS Hopkins forecast checks every five minutes. Other product sources
 and schedules are retained. `verify_weather_release.py --all-products` checks the
-PLOTS default, CLOUDS history, the three-airport average, retired endpoints, remaining product freshness and
+PLOTS default, CLOUDS history, the approved Mesonet average, retired endpoints, remaining product freshness and
 prepared imagery before publishing the replacement. Older commands below are
 historical; use this release script.
 
