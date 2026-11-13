@@ -121,11 +121,11 @@ window.WeatherStationModel = (() => {
     const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
     return `<g class="wind-barb" data-${wind.roundedMph===undefined?`knots="${wind.roundedKnots}"`:`mph="${wind.roundedMph}"`} transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation}) scale(${barbScale})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
   }
-  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
+  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false,hideBarb=false}={}){
     const w=combinedWind(station.wind,mphBarbs),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
-    const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
-    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
+    const state=w.kind==="unknown"&&!hideBarb?text("plot-wind-state",0,29,w.state,"middle"):"";
+    const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${hideBarb?"":combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
   function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
@@ -145,18 +145,18 @@ window.WeatherStationModel = (() => {
   }
   function combinedCollisionBoxes(station,options={}){
     const {dot=false,mphBarbs=false,celsius=false}=options,c=combined,w=combinedWind(station.wind,mphBarbs);
-    const boxes=[],add=(left,right,top,bottom)=>boxes.push({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale});
-    function text(x,y,label,anchor="end",small=false){
+    const boxes=[],add=(left,right,top,bottom,kind="text")=>boxes.push({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale,kind});
+    function text(x,y,label,anchor="end",small=false,kind="text"){
       const width=textWidth(label,small),left=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
-      add(left-2,left+width+2,y-(small?10:13),y+3);
+      add(left-2,left+width+2,y-(small?10:13),y+3,kind);
     }
     text(c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF));
     text(c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF));
     const radius=dot?3:w.kind==="calm"?8.5:6.6;
-    add(-radius,radius,-radius,radius);
+    add(-radius,radius,-radius,radius,"anchor");
     const ceiling=dot||options.mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     if(ceiling)text(c.ceilingX,c.ceilingY,ceiling,"start");
-    if(w.kind==="unknown")text(0,29,w.state,"middle",true);
+    if(w.kind==="unknown")text(0,29,w.state,"middle",true,"barb");
     if(w.kind==="barb"){
       const angle=w.rotation*Math.PI/180;
       const rotate=([x,y])=>[barbScale*(x*Math.cos(angle)-y*Math.sin(angle)),barbScale*(x*Math.sin(angle)+y*Math.cos(angle))];
@@ -168,12 +168,12 @@ window.WeatherStationModel = (() => {
         for(let i=0;i<steps;i++){
           const x=a[0]+(b[0]-a[0])*i/steps,y=a[1]+(b[1]-a[1])*i/steps;
           const xx=a[0]+(b[0]-a[0])*(i+1)/steps,yy=a[1]+(b[1]-a[1])*(i+1)/steps;
-          add(Math.min(x,xx)-2,Math.max(x,xx)+2,Math.min(y,yy)-2,Math.max(y,yy)+2);
+          add(Math.min(x,xx)-2,Math.max(x,xx)+2,Math.min(y,yy)-2,Math.max(y,yy)+2,"barb");
         }
       }
       for(const points of w.pennants){
         const rotated=points.map(rotate);
-        add(Math.min(...rotated.map(p=>p[0]))-2,Math.max(...rotated.map(p=>p[0]))+2,Math.min(...rotated.map(p=>p[1]))-2,Math.max(...rotated.map(p=>p[1]))+2);
+        add(Math.min(...rotated.map(p=>p[0]))-2,Math.max(...rotated.map(p=>p[0]))+2,Math.min(...rotated.map(p=>p[1]))-2,Math.max(...rotated.map(p=>p[1]))+2,"barb");
       }
     }
     return boxes;

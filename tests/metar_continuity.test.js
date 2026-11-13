@@ -18,7 +18,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){
   v.frame(i);
   assert.match(v.label,new RegExp((7+i)+':00 AM CST'),'10 AM includes 7, 8, 9 and 10 AM');
-  assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'PLOTS hides KCFE and any airport missing in the four displayed hours');
+  assert.deepEqual(v.ids(),data.history.slice(-4)[i].stations.map(s=>s.station).filter(id=>id!=='KCFE').sort(),'PLOTS uses each hour independently; a gap elsewhere does not exclude an airport');
  }
  assert.match(v.icon("KSTEADY"),/data-mph="10"/,'Seven knots is about 8 mph, so PLOTS draws one full feather');
  assert.match(v.icon("KUNKNOWN"),/mesonet-dot/);
@@ -26,11 +26,11 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');
- for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KCLOUD','KOLDGAP','KSTEADY','KUNKNOWN'],'CLOUDS hides incomplete airports; valid clear and broken reports remain eligible');}
+ for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),data.history.slice(-4)[i].stations.map(s=>s.station).filter(id=>id!=='KCFE').sort(),'CLOUDS includes each available hourly report');}
  const cloudGap=history();
  cloudGap.history[10].stations.find(s=>s.station==='KUNKNOWN').layers=[{cover:'BKN',baseFtAGL:null}];
  v.adopt(cloudGap);
- for(let i=0;i<4;i++){v.frame(i);assert.ok(!v.ids().includes('KUNKNOWN'),'A missing cloud ceiling hides that airport throughout the loop');}
+ for(let i=0;i<4;i++){v.frame(i);assert.equal(v.ids().includes('KUNKNOWN'),i!==2,'A missing ceiling hides only that hour');}
  v.mode('plots');
  const complete=history(Object.fromEntries(Object.keys(masks).map(id=>[id,'111111111111'])));v.adopt(complete);v.frame(3);
  assert.ok(v.ids().includes('KONCE'),'Station remains available in a complete loop');
@@ -38,7 +38,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  for(let i=0;i<4;i++){v.frame(i);assert.ok(v.ids().length,'A wholly missing source hour cannot erase the last usable loop');}
  const short=history({KSTEADY:'111111111111'});short.history=short.history.slice(-3);v.adopt(short);assert.ok(v.ids().length,'An incomplete response retains the already displayed loop');
  const neighbor=history({KAAA:'111111110111',KZZZ:'111111111111'});for(const f of neighbor.history)for(const s of f.stations)s.lat=5;
- v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KZZZ'],'An incomplete airport never blocks a steady neighbor');}
+ v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),i===0?['KZZZ']:['KAAA'],'An airport with a past gap can compete whenever its report is present');}
  assert.ok(neighbor.history[9].stations.some(s=>s.station==='KAAA'),'Original reports remain intact');
  const regional=Object.fromEntries(['KFCM','KMIC','KMSP',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
  function regionalHistory(){
@@ -58,11 +58,15 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.match(rolling.label,/10:00 AM CST/,'Exactly 90% coverage advances the loop');
  const nearly=regionalHistory();nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
  assert.match(rolling.label,/10:00 AM CST/,'Broadly complete data advances automatically');
- for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.ok(!rolling.ids().includes('K096'),'A missing latest report hides the airport in all four hours');}
+ for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.equal(rolling.ids().includes('K096'),i!==3,'A missing latest report leaves earlier hourly reports visible');}
+ const blip=viewer();await blip.load(pending);
+ const missingPrimary=regionalHistory();missingPrimary.history.at(-1).stations=missingPrimary.history.at(-1).stations.filter(s=>s.station!=='KFCM');
+ blip.adopt(missingPrimary);assert.match(blip.label,/10:00 AM CST/,'A missing airport must not hold every other airport in the prior hour');
+ assert.ok(!blip.ids().includes('KFCM'),'No airport report is invented in the missing hour');blip.frame(2);assert.ok(blip.ids().includes('KFCM'),'The actual earlier KFCM report stays visible');
  const back=history(regional);back.history.at(-1).stations=[];rolling.adopt(back);
  assert.match(rolling.label,/10:00 AM CST/,'An incomplete later response cannot roll the accepted loop backwards');
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});
  assert.match(noHistory.label,/Hourly history recovering/,'Cold start without a usable loop is explicit');
  assert.equal(rolling.reads,1,'Readiness uses downloaded data without new source calls');
- console.log('Four-frame METAR playback passed: stable PLOTS and CLOUDS rosters, rolling readiness, collision space and no extra downloads.');
+ console.log('Four-frame METAR playback passed: independent PLOTS and CLOUDS hourly reports, rolling readiness, collision space and no extra downloads.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

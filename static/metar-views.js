@@ -8,7 +8,7 @@ window.WeatherMetars = (() => {
   const preferred=["KMSP","KFCM","KMIC"];
   const windPlotOptions={dot:true,mphBarbs:true};
   let busy=false,sourceData;
-  const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
+  const plotCaches={plots:new WeakMap(),plotsNoBarb:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
   el("metar-product").value=mode;
@@ -37,27 +37,18 @@ window.WeatherMetars = (() => {
       const sets=frames.map(f=>new Set(f.stations.map(s=>s.station)));
       const expected=[...sets[0]].filter(id=>sets[1].has(id)&&sets[2].has(id));
       if(expected.length>=20&&expected.filter(id=>sets[3].has(id)).length/expected.length<.90)continue;
-      if(["KFCM","KMIC","KMSP"].some(id=>expected.includes(id)&&!sets[3].has(id)))continue;
       return frames;
     }
     return null;
   }
   function prepareSpacing(){
-    // Eligibility is computed separately for PLOTS and CLOUDS, before overlap
-    // checks. An airport missing any frame must not displace a steady neighbor.
+    // Index each hour independently. A missing report in one hour must not
+    // remove the airport from another hour where it has usable data.
     const reports=data.history.map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
-    const eligible=new Set(reports[0].map(station=>station.station));
-    for(const stations of reports.slice(1)){
-      const present=new Set(stations.map(station=>station.station));
-      for(const id of eligible)if(!present.has(id))eligible.delete(id);
-    }
-    // Keep a fixed roster, but compare geometry only between matching hours.
-    // One hour's west barb need not collide with another hour's north barb.
     const bySite=new Map();
     for(const [index,stations] of reports.entries())for(const station of stations){
-      if(!eligible.has(station.station))continue;
       const f=mode==="clouds"?model.cloudFootprint(station):model.combinedFootprint(station,windPlotOptions),old=bySite.get(station.station);
-      const frames=old?.frames||[];
+      const frames=old?.frames||Array.from({length:data.history.length},()=>[]);
       frames[index]=mode==="clouds"?[f]:model.combinedCollisionBoxes(station,windPlotOptions);
       bySite.set(station.station,{station,frames,f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -68,17 +59,20 @@ window.WeatherMetars = (() => {
   }
   function visible(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
-    const overlap=(a,b)=>a.left<b.right+1&&a.right>b.left-1&&a.top<b.bottom+1&&a.bottom>b.top-1;
-    const shift=(b,p)=>({left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
+    const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
     const candidates=[];
     for(const {station,f,frames} of sites){
+      if(!frames[index].length)continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
       candidates.push({id:station.station,bounds:shift(f,p),frames:frames.map(boxes=>boxes.map(b=>shift(b,p))),conflicts:new Set()});
     }
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
       if(!overlap(a.bounds,b.bounds))continue;
-      if(a.frames.some((boxes,hour)=>boxes.some(x=>b.frames[hour].some(y=>overlap(x,y))))){a.conflicts.add(b);b.conflicts.add(a);}
+      // Check only this hour's labels and exact anchors.
+      // Barbs can cross each other; they must not hide an airport's readings.
+      if(a.frames[index].some(x=>x.kind!=="barb"&&b.frames[index].some(y=>y.kind!=="barb"&&overlap(x,y)))){a.conflicts.add(b);b.conflicts.add(a);}
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
@@ -102,7 +96,13 @@ window.WeatherMetars = (() => {
       }
       take(best);
     }
-    return stations.filter(s=>keep.has(s.station));
+    const drawn=candidates.filter(site=>keep.has(site.id));
+    const hiddenBarbs=new Set();
+    if(mode==="plots")for(const site of drawn){
+      const barbs=site.frames[index].filter(b=>b.kind==="barb");
+      if(drawn.some(other=>other!==site&&other.frames[index].some(label=>label.kind==="text"&&barbs.some(barb=>overlap(barb,label)))))hiddenBarbs.add(site.id);
+    }
+    return stations.filter(s=>keep.has(s.station)).map(station=>({station,hideBarb:hiddenBarbs.has(station.station)}));
   }
   function render(){
     if(el("metar").hidden||moving)return;
@@ -118,18 +118,18 @@ window.WeatherMetars = (() => {
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
-    el("metar-status").textContent=`${sites.length} airports with data in all four hours${data.stale?" · Background updates delayed":""}`;
+    el("metar-status").textContent=`${frame.stations.length} airport reports for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
-    const keep=new Set(drawn.map(s=>s.station));
+    const keep=new Set(drawn.map(s=>s.station.station));
     for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
-    for(const station of drawn){
+    for(const {station,hideBarb} of drawn){
       const existing=active.get(station.station);
-      if(existing?.station===station&&existing.mode===mode)continue;
-      const plots=plotCaches[mode];
+      if(existing?.station===station&&existing.mode===mode&&existing.hideBarb===hideBarb)continue;
+      const plots=plotCaches[mode==="plots"&&hideBarb?"plotsNoBarb":mode];
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,{...windPlotOptions,hideBarb}),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
@@ -140,11 +140,12 @@ window.WeatherMetars = (() => {
         const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
         popup.append(node("p",`Barb feathers: ${feathers}`));
       }
+      if(hideBarb)popup.append(node("p","Wind symbol hidden at this zoom to keep nearby readings clear. Zoom in to show it."));
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);
       }
-      if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
+      if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;existing.hideBarb=hideBarb;}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode,hideBarb});}
     }
   }
   function adopt(next){

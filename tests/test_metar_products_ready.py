@@ -81,3 +81,14 @@ def test_static_gzip_and_identity_cache_entries_are_separate():
     assert all('Accept-Encoding' in r.headers['Vary'] for r in (zipped, plain))
     assert client.get(path, headers={'Accept-Encoding': 'gzip', 'If-None-Match': zipped.headers['ETag']}).status_code == 304
     assert client.get(path, headers={'If-None-Match': zipped.headers['ETag']}).status_code == 200
+
+
+def test_one_missing_airport_does_not_hold_the_entire_current_hour():
+    from datetime import timedelta
+    from metar_clouds import ready_plot_frames,iso
+    frames=[{'hour':iso(NOW.replace(minute=0)-timedelta(hours=3-i)),
+             'stations':[{'station':s} for s in ['KFCM','KMIC','KMSP'] if not (i==3 and s=='KFCM')]}
+            for i in range(4)]
+    assert ready_plot_frames(frames)==frames
+    assert all(s['station']!='KFCM' for s in frames[-1]['stations'])
+    assert any(s['station']=='KFCM' for s in frames[-2]['stations'])

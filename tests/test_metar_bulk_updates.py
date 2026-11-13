@@ -36,17 +36,18 @@ def test_one_bulk_download_advances_the_hour_at_each_two_minute_check(minute):
     assert row["tempF"] == 59.7 and row["dewpointF"] == 50.4
 
 
-def test_partial_bulk_missing_metro_airport_uses_real_archive_before_advancing():
+def test_one_missing_metro_report_does_not_hold_other_airports_in_old_hour():
     store = saved_store()
-    # KMSP is present in every old frame; it must not disappear from the loop.
     target = HOUR + timedelta(hours=1)
     payload = xml(xml_report(target-timedelta(minutes=7), station="KSTP"))
-    complete = metar.parse_reports(xml(xml_report(target-timedelta(minutes=7))), target)
-    with patch("collector.weather.download", return_value=payload), patch("metar_history.fetch_history", return_value={"reports": complete}) as source:
+    with patch("collector.weather.download", return_value=payload), patch("metar_history.fetch_history") as source:
         collector.collect_metar_clouds(store, target+timedelta(minutes=2))
-    assert source.call_args.kwargs == {"hours": 2}
-    assert store.data["live/metar-clouds.json"]["collectionFeed"] == "awc-hourly-archive"
-    assert store.data[metar.LOOP_KEY]["history"][-1]["stations"][0]["station"] == "KMSP"
+    source.assert_not_called()
+    assert store.data["live/metar-clouds.json"]["collectionFeed"] == "awc-bulk-cache"
+    frames = store.data[metar.LOOP_KEY]["history"]
+    assert frames[-1]["hour"]==metar.iso(target)
+    assert [s["station"] for s in frames[-1]["stations"]]==["KSTP"]
+    assert any(s["station"]=="KMSP" for s in frames[-2]["stations"])
 
 
 @pytest.mark.parametrize("error", [TimeoutError("bulk timeout"), EOFError("truncated gzip"), ValueError("bad bulk response")])

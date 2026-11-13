@@ -55,7 +55,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  for(let i=0;i<4;i++){
   get('metar-timeline').events.input({target:{value:String(i)}});
   for(const id of ['KUNKNOWN','KBASE'])assert.ok(!ids().includes(id),'a station with no usable cloud data stays hidden: '+id);
-  assert.ok(!ids().includes('KSWITCH'),'a missing cloud report removes the airport from every cloud frame');
+  assert.equal(ids().includes('KSWITCH'),i!==0,'a missing cloud report removes only its own hour');
   assert.ok(shown.every(s=>!s.icon.html.includes('?')),'no question-mark cloud markers remain');
  }
  assert.equal(get('metar-product').value,'clouds');

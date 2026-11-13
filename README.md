@@ -17,12 +17,17 @@ Rollback restores any previously enabled job. Saved weather objects remain
 available for rollback; no retired observation collector continues running.
 RTMETAR and the separate MESONET maps remain removed.
 
-PLOTS/CLOUDS retain four consecutive hourly official METAR frames, their stable
-airport roster and hourly timeline. Both maps prioritize KMSP, KFCM and KMIC.
-KSTP, KSGS and other eligible airports fill the remaining space. Collision checks
-protect the actual labels, dots and wind-barb halos in each matching hour,
-allowing denser placement without shifting airports or changing the roster as
-the timeline moves. PLOTS displays Fahrenheit, using precise T
+PLOTS/CLOUDS retain four consecutive hourly official METAR frames. Airports
+are eligible separately in each hour; missing one report never removes valid
+reports from other hours. No readings are copied into a missing hour. CLOUDS
+requires usable sky information only for the selected hour. Both maps prioritize
+KMSP, KFCM and KMIC, then fill room with KSTP, KSGS and other eligible airports.
+PLOTS packs the actual numeric labels and station anchors without reserving
+empty space for barbs. Barbs may overlap other barbs. A barb or variable-wind
+label that would cross another station's numeric label is omitted at that zoom,
+while its temperature/dewpoint and popup wind remain available. The full wind
+symbol returns when zoom or the selected hour supplies room. CLOUDS keeps its
+separate circle/ceiling collision checks. PLOTS displays Fahrenheit, using precise T
 remarks where available, with mph wind barbs. The hourly collector checks every
 two minutes beginning at :00. Public page requests read prepared snapshots and
 never start an upstream observation download. Recent browser snapshots help

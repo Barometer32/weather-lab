@@ -181,8 +181,6 @@ def ready_plot_frames(history):
         seen = expected & station_ids[3]
         if len(expected) >= 20 and len(seen) / len(expected) < .90:
             continue
-        if {"KFCM", "KMIC", "KMSP"} & (expected - seen):
-            continue
         return frames
     return []
 

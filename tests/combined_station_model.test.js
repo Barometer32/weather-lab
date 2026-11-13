@@ -85,3 +85,12 @@ for(const speedMph of [3,7,10,15,45,50,55,100,145])for(let direction=0;direction
  for(const polygon of w.pennants)for(const p of polygon.map(transform))assert.ok(contains(p),'flags remain protected');
 }
 console.log('Dense collision geometry contains barbs and halos at every tested bearing and speed.');
+
+for(const wind of [{speedMph:10,direction:60},{speedMph:5,direction:null,variable:true}]){
+ const row={...station,wind},before=JSON.stringify(row);
+ const shown=m.combinedStationModel(row,{dot:true,mphBarbs:true}),hidden=m.combinedStationModel(row,{dot:true,mphBarbs:true,hideBarb:true});
+ assert.deepEqual(anchors(hidden.html),anchors(shown.html),'hiding a conflicting wind symbol cannot move any numbers');
+ assert.doesNotMatch(hidden.html,/class="wind-barb"|plot-wind-state/);
+ assert.match(hidden.html,/mesonet-dot/);
+ assert.equal(JSON.stringify(row),before,'suppressing a symbol cannot change the actual wind report');
+}
