@@ -20,7 +20,7 @@ function viewer(stations,{width=375,height=560,zoom=9,geographic=false,historyDa
     const wind=context.window.WeatherStationModel.combinedWind(station.wind,true);
     if(wind.kind==='barb')assert.ok(this.barb(station.station),`${station.station} cannot appear without its full barb`);
    }
-   for(let i=0;i<rows.length;i++)for(let j=0;j<i;j++)assert.ok(!boxes(rows[i],clouds).some(a=>boxes(rows[j],clouds).some(b=>overlap(a,b)&&!((a.kind==='barb'&&b.kind!=='text')||(b.kind==='barb'&&a.kind!=='text')))),`${rows[i].station} overlaps ${rows[j].station} in frame ${h}`);
+   for(let i=0;i<rows.length;i++)for(let j=0;j<i;j++)assert.ok(!boxes(rows[i],clouds).some(a=>boxes(rows[j],clouds).some(b=>overlap(a,b)&&a.kind!=='barb'&&b.kind!=='barb')),`${rows[i].station} overlaps ${rows[j].station} in frame ${h}`);
   }
  },adopt:subscriber,model:context.window.WeatherStationModel};
 }
@@ -100,5 +100,5 @@ const station=(station,lat,lon)=>({station,lat,lon,tempF:35,dewpointF:22,wind:{s
    }
   }
  }
- console.log('Metro priority passed: 320/375px phones, preferred airports, optional neighbors, dense empty-space packing, crossing barbs, protected readings, full-sweep KMIC/Blaine stability, priority outage reservations and independent hourly reports.');
+ console.log('Metro priority passed: 320/375px phones, preferred airports, optional neighbors, dense empty-space packing, crossing barbs, separated numeric labels, full-sweep KMIC/Blaine stability, priority outage reservations and independent hourly reports.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -8,6 +8,7 @@ window.WeatherMetars = (() => {
   const preferred=["KMSP","KFCM","KMIC"];
   const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
   const windPlotOptions={dot:true,mphBarbs:true};
+  const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
@@ -75,7 +76,7 @@ window.WeatherMetars = (() => {
       if(mode==="clouds"&&!frames[index].length)continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
       const boxes=(mode==="plots"?frames.flat():frames[index]).map(b=>shift(b,p));
-      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:radius||0,reserveOnly,
+      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:(radius||0)*windSpacingFactor,reserveOnly,
         reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
     }
     const reaches=(circle,label)=>{
@@ -86,8 +87,8 @@ window.WeatherMetars = (() => {
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
       if(!overlap(a.bounds,b.bounds))continue;
-      // PLOTS selection uses the full wind sweep and all label widths in the
-      // loop. Calm winds and timeline changes cannot temporarily admit a neighbor.
+      // Use slightly tighter all-bearing spacing and loop-wide label widths.
+      // Calm winds and timeline changes cannot temporarily admit a neighbor.
       const body=a.boxes.some(x=>b.boxes.some(y=>overlap(x,y)));
       const sweep=mode==="plots"&&(a.boxes.some(label=>label.kind==="text"&&reaches(b,label))||b.boxes.some(label=>label.kind==="text"&&reaches(a,label)));
       if(body||sweep){a.conflicts.add(b);b.conflicts.add(a);}

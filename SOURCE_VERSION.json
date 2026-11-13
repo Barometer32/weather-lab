@@ -28,7 +28,8 @@
     "KFCM",
     "KMIC"
   ],
-  "metarCollisionGeometry": "full-360 potential wind sweep and loop-wide label reservation; whole-plot exclusion; priority metro space reserved through gaps",
+  "metarCollisionGeometry": "stable all-bearing wind reservation at 90% radius; slight barb-to-number contact allowed; numeric labels kept separate",
   "metarRequireCompleteStationHistory": false,
-  "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols"
+  "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
+  "metarWindSpacingFactor": 0.9
 }

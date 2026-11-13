@@ -22,13 +22,14 @@ are eligible separately in each hour; missing one report never removes valid
 reports from other hours. No readings are copied into a missing hour. CLOUDS
 requires usable sky information only for the selected hour. Both maps prioritize
 KMSP, KFCM and KMIC, then fill room with KSTP, KSGS and other eligible airports.
-PLOTS reserves the complete 360-degree potential wind sweep at every airport,
-even when the current wind is calm or variable. The radius covers a full normal
-barb and halo and grows for longer reported symbols. Labels and the maximum
+PLOTS uses a circular wind-spacing reservation at every airport, even during
+calm or variable winds. Its spacing radius is 10% smaller than the complete
+normal-barb reach, allowing slight barb-to-number contact for modestly denser plots. Numeric
+labels remain separated. The geometry grows for longer symbols. Labels and
 wind extent are reserved across the four-hour loop, so changing wind direction,
 losing a barb or moving the timeline cannot temporarily admit a nearby airport.
-If a potential sweep reaches another airport's numeric label, the entire
-conflicting airport plot is excluded. Wind-to-wind crossings remain allowed.
+If this tighter reservation reaches another airport's numeric label, the
+entire conflicting airport plot is excluded. Wind-to-wind crossings remain allowed.
 Every displayed plot keeps its complete actual wind symbol.
 
 KMSP, KFCM and KMIC reserve space before other airports. Their layout space stays
