@@ -32,10 +32,11 @@ def check_layout(base):
     html = read(base, "/")
     assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
     assert 'rtma-observations.js' not in html
+    assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=slightly-denser-v19' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "conditions", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
@@ -48,9 +49,8 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=public-conditions-v21' in html
-    assert 'id="conditions-locate"' in html and 'conditions-model.js' in html
-    print("Verified METAR PLOTS home, CLOUDS retained, and public CONDITIONS available.")
+    assert '/static/app.js?v=conditions-removed-v22' in html
+    print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
 
 
 def check_hourly(base):
@@ -71,7 +71,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/rtmetar", "/api/mesonet", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
+    for path in ("/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
         try:
             read(base, path)
         except HTTPError as error:
@@ -83,16 +83,6 @@ def check_removed(base):
 
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
-    conditions = json.loads(read(base, "/api/conditions"))
-    assert conditions.get("version") == "public-mn-wi-conditions-v1" and conditions.get("stations"), "Public conditions inventory is not prepared"
-    assert not conditions.get("collectorDelayed"), "Conditions collector is delayed"
-    checked = datetime.fromisoformat(conditions["checkedAt"].replace("Z", "+00:00"))
-    assert (datetime.now(timezone.utc)-checked).total_seconds() < 360
-    assert all(row.get("state") in ("MN", "WI") for row in conditions["stations"])
-    assert {"MN", "WI"} <= {row["state"] for row in conditions["stations"]}
-    sources = conditions.get("sources", {})
-    assert "mesonet" in sources and "wisconet" in sources and ("rapid-asos" in sources or "awc" in sources)
-    print("Verified prepared public CONDITIONS:",len(conditions["stations"]),"MN/WI stations; observation ages remain visible.")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE truecolor", "/api/satellite/truecolor", "frames"),

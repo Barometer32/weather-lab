@@ -6,7 +6,7 @@ import sys
 
 RETIRED = ("weather-live-rapid-observations", "weather-live-hourly-observations",
            "weather-live-rtmetar", "weather-live-mesonet", "weather-live-observation-stations",
-           "weather-live-rtma-observations")
+           "weather-live-rtma-observations", "weather-live-public-conditions")
 
 
 def plan(jobs, project, region, collector):
@@ -21,26 +21,6 @@ def plan(jobs, project, region, collector):
         if old["state"] == "ENABLED":
             configure.insert(0, ["gcloud", "scheduler", "jobs", "pause", name, *common])
             rollback.append(["gcloud", "scheduler", "jobs", "resume", name, *common])
-    name = "weather-live-public-conditions"
-    old = by_name.get(name)
-    if old:
-        assert old["state"] in ("ENABLED", "PAUSED"), "Unsupported conditions-job state"
-        target = old.get("httpTarget", {})
-        assert target.get("uri") == collector+"/collect/public-conditions" and target.get("oidcToken", {}).get("serviceAccountEmail"), "Inspect unexpected conditions target before updating"
-        configure.append(["gcloud", "scheduler", "jobs", "update", "http", name, *common, "--schedule=*/2 * * * *", "--attempt-deadline=300s"])
-        rollback.append(["gcloud", "scheduler", "jobs", "update", "http", name, *common,
-                         "--schedule="+old["schedule"], "--attempt-deadline="+old.get("attemptDeadline", "180s")])
-        if old["state"] == "PAUSED":
-            configure.append(["gcloud", "scheduler", "jobs", "resume", name, *common])
-            rollback.append(["gcloud", "scheduler", "jobs", "pause", name, *common])
-    else:
-        target = by_name["weather-live-metar-clouds"]["httpTarget"]
-        email = target["oidcToken"]["serviceAccountEmail"]
-        configure.append(["gcloud", "scheduler", "jobs", "create", "http", name, *common,
-                          "--schedule=*/2 * * * *", "--time-zone=Etc/UTC", "--attempt-deadline=300s",
-                          "--uri="+collector+"/collect/public-conditions", "--http-method=POST",
-                          "--oidc-service-account-email="+email, "--oidc-token-audience="+collector])
-        rollback.append(["gcloud", "scheduler", "jobs", "delete", name, *common, "--quiet"])
     return configure, rollback
 
 
