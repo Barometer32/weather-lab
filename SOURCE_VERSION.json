@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-observations-removed",
-  "baseCommit": "16e3e569a076bb7325a12dd091d9192a677b0b7b",
+  "variant": "public-mn-wi-local-conditions",
+  "baseCommit": "01c77df77a7aa6438b930e81f049e1f5945a4832",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -32,5 +32,8 @@
   "metarRequireCompleteStationHistory": false,
   "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
   "metarWindSpacingFactor": 0.9,
-  "retiredObservationCollectorsIncludeRTMA": true
+  "retiredObservationCollectorsIncludeRTMA": true,
+  "conditionsSchedule": "*/2 * * * *",
+  "conditionsSource": "public MADIS five-minute and mesonet, AWC, Wisconet",
+  "conditionsDeviceLocation": "explicit permission; browser-local calculation"
 }

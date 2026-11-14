@@ -8,7 +8,44 @@ It stages the web and collector, seeds the retained products, verifies prepared
 snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
-Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+Tabs: METAR, CONDITIONS, RADAR, SATELLITE, FORECAST and AIR Q.
+METAR–PLOTS remains the default. `bash release-public-conditions.sh` stages and
+verifies this public-feed trial using the same rollback-aware release.
+
+CONDITIONS is an experimental observation-based local estimate for MN/WI.
+Its private `/collect/public-conditions` route checks public MADIS mesonet,
+five-minute ASOS, road weather, AWC current METARs and the direct Wisconet API
+every two minutes. Source timestamps are never replaced by collector times.
+The cached inventory uses Census state polygons, preserves per-field source QC,
+deduplicates Wisconet/MADIS aliases, and retains original observation times.
+No restricted one-minute data, paid API or model analysis is used.
+
+`/api/conditions` only reads `live/public-conditions.json`; opening a page does
+not start upstream downloads. All visitors receive the same compact inventory.
+The location-aware calculation happens in the browser: no GPS coordinates are
+sent to Weather Lab. The same-origin geolocation policy permits an explicit
+Use my location click; it never requests permission on startup and pauses GPS
+when the page or CONDITIONS tab is hidden. Hopkins is labeled as a fixed selected
+location until the user chooses another place or enables device location.
+
+The estimate needs three independent reference sites within 40 km, each no more
+than 30 minutes old and within 15 minutes of the newest local reference reading.
+The nearest eight eligible sites contribute; co-located sites within 200 m count
+once. Temperature/dewpoint use distance-weighted medians. Wind uses a weighted
+scalar mean speed and circular vector direction, each requiring three usable
+measurements. Community and unreviewed networks remain visible for comparison.
+No reading is extrapolated to the present, no trained AI claims improved
+accuracy, and station spread is not an uncertainty interval. Insufficient local
+coverage or an overdue collector withholds the estimate. Delivery delays can
+remain 15–30 minutes despite frequent polling. Network coverage and accuracy
+are not guaranteed; this trial has not been validated against local instruments.
+
+Live public-feed check on 2026-11-14: 1,144 unique available stations (749 MN,
+395 WI), including 28 Hennepin West, 78 Wisconet and 169 ASOS/AWOS stations.
+This is one inventory snapshot, not a claim of complete coverage or station
+uptime. Public RWIS files returned no additional regional stations in this
+check; 169 MnDOT sites were available through the integrated mesonet files.
+
 The RTMA-RU Observations trial is removed completely: no tab, page script, API,
 collector route, GRIB decoder or ecCodes dependency remains. Its dedicated
 `weather-live-rtma-observations` Scheduler job is paused before verification,

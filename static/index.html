@@ -6,10 +6,12 @@
   <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-removed-v20">
+  <link rel="stylesheet" href="/static/style.css?v=public-conditions-v21">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
   <script defer src="/static/sun-angle.js?v=slightly-denser-v19"></script>
-  <script defer src="/static/prepared-data.js?v=observations-removed-v20"></script>
+  <script defer src="/static/prepared-data.js?v=public-conditions-v21"></script>
+  <script defer src="/static/conditions-model.js?v=public-conditions-v1"></script>
+  <script defer src="/static/conditions-views.js?v=public-conditions-v1"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=slightly-denser-v19"></script>
@@ -19,12 +21,13 @@
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=observations-removed-v20"></script>
+  <script defer src="/static/app.js?v=public-conditions-v21"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar" aria-selected="true" aria-controls="metar">METAR</button>
+    <button role="tab" id="tab-conditions" aria-selected="false" aria-controls="conditions" tabindex="-1">CONDITIONS</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
@@ -46,6 +49,31 @@
 </section>
 
 
+
+<section id="conditions" role="tabpanel" aria-labelledby="tab-conditions" hidden>
+  <div class="section-heading"><div><p class="eyebrow">PUBLIC OBSERVATIONS · MINNESOTA &amp; WISCONSIN</p><h1>Local conditions</h1><p id="conditions-location">Hopkins · selected location</p></div><button class="secondary" id="conditions-refresh">Refresh</button></div>
+  <div class="conditions-location-controls">
+    <button class="primary" id="conditions-locate">Use my location</button><button class="secondary" id="conditions-stop" hidden>Stop following</button>
+    <label for="conditions-place">Or choose</label><select id="conditions-place"><option value="44.9244,-93.414">Hopkins</option><option value="44.797,-93.527">Shakopee</option><option value="44.9778,-93.265">Minneapolis</option><option value="44.9537,-93.09">Saint Paul</option><option value="46.7867,-92.1005">Duluth</option><option value="44.0121,-92.4802">Rochester</option><option value="44.8113,-91.4985">Eau Claire</option><option value="43.0731,-89.4012">Madison</option><option value="43.0389,-87.9065">Milwaukee</option></select>
+  </div>
+  <p id="conditions-location-status" class="small-note" role="status">Location permission is optional. Your device coordinates stay in this browser.</p>
+  <details class="method"><summary>Set another location by coordinates</summary><form id="conditions-coordinates"><label>Latitude <input id="conditions-lat" type="number" min="-90" max="90" step="any" required placeholder="44.925"></label><label>Longitude <input id="conditions-lon" type="number" min="-180" max="180" step="any" required placeholder="-93.414"></label><button class="secondary" type="submit">Use coordinates</button></form></details>
+  <p id="conditions-status" class="notice" role="status">Checking prepared public observations…</p>
+  <div class="metrics conditions-metrics">
+    <article class="metric featured"><h2>Estimated temperature</h2><p class="metric-value" id="conditions-temp">—</p></article>
+    <article class="metric"><h2>Estimated dewpoint</h2><p class="metric-value" id="conditions-dew">—</p></article>
+    <article class="metric"><h2>Estimated wind</h2><p class="metric-value wind" id="conditions-wind">—</p></article>
+    <article class="metric"><h2>Sun angle</h2><p class="metric-value" id="conditions-sun">—</p></article>
+  </div>
+  <p id="conditions-observed" class="small-note"></p>
+  <p id="conditions-checked" class="small-note"></p>
+  <details class="method"><summary>How this experimental estimate works</summary><p>The estimate uses at least three independent reference sites within 25 miles, with readings no older than 30 minutes and no more than 15 minutes apart. Up to eight nearby sites contribute. Temperature and dewpoint use a distance-weighted median to limit the influence of a single unusual reading. Wind speed is averaged; direction uses wind vectors and the nearest of eight compass directions. Co-located sites count once. Community stations remain visible for comparison but do not affect the estimate. Temperature, dewpoint and wind each need three usable reports. Wind exposure and sensor heights vary between networks.</p><p>This is an observation-based estimate, not a validated analysis or an exact measurement at your location. There is no model gap filling, time extrapolation or smoothing of actual weather changes. Station spread is not an accuracy guarantee. Cloud cover, rain and other present-weather descriptions are not inferred from temperature. The collector checks public feeds every two minutes; delivery delays remain visible.</p></details>
+  <div class="conditions-station-controls"><h2>Station reports</h2><label class="sr-only" for="conditions-scope">Station scope</label><select id="conditions-scope"><option value="nearby">Nearby · within 25 miles</option><option value="all">All available MN / WI</option></select><label class="sr-only" for="conditions-search">Find a station</label><input id="conditions-search" type="search" placeholder="Find station, city or network"></div>
+  <p id="conditions-station-count" class="small-note"></p>
+  <div class="table-wrap"><table><thead><tr><th>Station / network</th><th>Distance</th><th>Observed</th><th>Age</th><th>Temperature</th><th>Dewpoint</th><th>Wind</th><th>Use</th></tr></thead><tbody id="conditions-stations"></tbody></table></div>
+  <div class="conditions-pagination"><button class="secondary" id="conditions-prev">Previous</button><span id="conditions-page"></span><button class="secondary" id="conditions-next">Next</button></div>
+  <p class="source">Sources: <a href="https://madis.ncep.noaa.gov/">NOAA MADIS public observations</a>, <a href="https://aviationweather.gov/">NOAA Aviation Weather Center</a>, and <a href="https://wisconet.wisc.edu/">Wisconet / University of Wisconsin–Madison</a> (CC BY). Coverage includes only stations available through these feeds; restricted networks are not included.</p>
+</section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>

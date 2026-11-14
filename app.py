@@ -25,9 +25,9 @@ from native_radar import VERSION as NATIVE_VERSION, SITES as RADAR_SITES
 
 app = Flask(__name__, static_folder="static", template_folder="static")
 @app.after_request
-def disable_device_location(response):
-    # None of the weather pages need access to the visitor's device location.
-    response.headers["Permissions-Policy"] = "geolocation=()"
+def device_location_policy(response):
+    # CONDITIONS requests permission only after an explicit button click.
+    response.headers["Permissions-Policy"] = "geolocation=(self)"
     return response
 
 
@@ -609,6 +609,25 @@ def metar_clouds_api():
     except Exception:
         app.logger.exception("METAR cloud reports unavailable")
         return jsonify(error="METAR cloud reports are unavailable. Please refresh shortly."), 502
+
+
+@app.get("/api/conditions")
+def public_conditions_api():
+    from public_conditions import KEY, present
+    try:
+        store = get_store()
+        data = cached("prepared-public-conditions", 10, lambda: store.read_json(KEY)) if store else None
+        result = present(data, utcnow())
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Vary"] = "Accept-Encoding"
+        if request.accept_encodings["gzip"] > 0:
+            response.set_data(gzip.compress(response.data, compresslevel=3))
+            response.headers["Content-Encoding"] = "gzip"
+        return response
+    except Exception:
+        app.logger.exception("Prepared public conditions unavailable")
+        return jsonify(error="Local conditions are being prepared in the background."), 503, {"Cache-Control": "no-store"}
 
 
 @app.get("/healthz")

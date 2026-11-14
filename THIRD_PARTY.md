@@ -1,5 +1,13 @@
 # Third-party software and data
 
+Wisconet / University of Wisconsin–Madison public weather observations:
+https://wisconet.wisc.edu/data/api (CC BY; preserve attribution).
+Original measurements are converted by the provider to the published units;
+Weather Lab derives a local estimate separately, without modifying source times.
+
+MN/WI station-coverage boundaries: U.S. Census Bureau TIGERweb 2026 states.
+The source query URL is preserved in `static/mn-wi-states.geojson`.
+
 Leaflet 1.9.4: https://github.com/Leaflet/Leaflet
 Copyright (c) 2010-2023, Vladimir Agafonkin
 Copyright (c) 2010-2011, CloudMade

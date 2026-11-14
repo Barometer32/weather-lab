@@ -9,18 +9,19 @@ ROOT=Path(__file__).resolve().parents[1]
 PROJECT='weather-lab-261028-205713-506d'
 
 
-def test_all_website_responses_disable_device_location():
+def test_device_location_is_scoped_to_explicit_conditions_controls():
     import app
     client=app.app.test_client()
     for path in ['/', '/static/app.js','/static/vendor/leaflet.js','/healthz','/not-a-page']:
         response=client.get(path)
-        assert response.headers.get('Permissions-Policy')=='geolocation=()'
+        assert response.headers.get('Permissions-Policy')=='geolocation=(self)'
     html=client.get('/').get_data(as_text=True)
-    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','radar','satellite','forecast','air-quality']
+    assert re.findall(r'<button role="tab" id="tab-([^"]+)"',html)==['metar','conditions','radar','satellite','forecast','air-quality']
     assert 'id="radar-location"' not in html and 'radar-location.js' not in html
     assert client.get('/static/radar-location.js').status_code==404
     assert client.get('/api/test/location?q=Shakopee').status_code==404
     for path in (ROOT/'static').glob('*.js'):
+        if path.name == 'conditions-views.js': continue
         assert not re.search(r'navigator\s*\.\s*geolocation|watchPosition\s*\(|getCurrentPosition\s*\(|\.locate\s*\(',path.read_text()),path.name
     assert not (ROOT/'update-weather-radar-location.sh').exists()
 

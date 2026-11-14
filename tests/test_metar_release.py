@@ -58,14 +58,17 @@ elif args[:3]==['scheduler','jobs','describe']:
     if fmt=='value(httpTarget.oidcToken.serviceAccountEmail)': print('weather-scheduler@'+project+'.iam.gserviceaccount.com')
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
     elif fmt=='value(schedule)': print('0,30 * * * *')
+    elif args[3]=='weather-live-public-conditions': print(json.dumps({'schedule':state.get(args[3]+'-schedule','*/2 * * * *'),'state':state.get(args[3]+'-state','ENABLED'),'httpTarget':{'uri':'https://weather-collector.example/collect/public-conditions'}}))
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
 elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','create','http']]:
     state[args[4]+'-schedule']=option('--schedule')
+    if args[4]=='weather-live-public-conditions': state['conditionsExists']=True
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
     if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
+    if args[3]=='weather-live-public-conditions': state['conditionsExists']=False
     if args[3]=='weather-live-mesonet': state['retiredDeleted']=True
     if args[3]=='weather-live-rtmetar': state['activeExists']=False
     if args[3]=='weather-live-rapid-observations': state['observationsExists']=False
@@ -75,6 +78,7 @@ elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
     state[args[3]+'-state']='ENABLED' if args[2]=='resume' else 'PAUSED';state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','list']:
     names=['weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality']
+    if state.get('conditionsExists'): names.append('weather-live-public-conditions')
     if not state.get('retiredDeleted'): names.append('weather-live-mesonet')
     if state.get('activeExists'): names.append('weather-live-rtmetar')
     if state.get('observationsExists'): names.append('weather-live-rapid-observations')
