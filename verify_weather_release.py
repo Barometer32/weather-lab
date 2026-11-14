@@ -47,9 +47,9 @@ def check_layout(base):
     assert '/static/metar-views.js?v=slightly-denser-v19' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
-    assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
+    assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=conditions-removed-v22' in html
+    assert '/static/app.js?v=satellite-three-products-v23' in html
     print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
 
 
@@ -71,7 +71,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
+    for path in ("/api/satellite/truecolor", "/api/prepared/satellite/truecolor/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
         try:
             read(base, path)
         except HTTPError as error:
@@ -85,7 +85,6 @@ def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
-                ("SATELLITE truecolor", "/api/satellite/truecolor", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),
                 ("SATELLITE ntmicro", "/api/satellite/ntmicro", "frames"),
                 ("FORECAST", "/api/forecast", "periods"),

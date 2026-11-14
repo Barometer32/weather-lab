@@ -27,12 +27,14 @@ def test_visible_source_uses_band_02_and_keeps_other_band_images_out():
 def test_default_visible_api_reads_prepared_data_without_upstream_calls():
     store = MemoryStore()
     saved = parse_loop(BASE+'/02/S_Minnesota.02.20261111.194100.jpg', '02', NOW)
+    saved['products'].append({'id':'truecolor','label':'True color'})
     saved.update(checkedAt=NOW.isoformat())
     store.write_json('live/satellite-02.json', saved)
     app._cache.clear()
     with patch('app.get_store', return_value=store), patch('app.utcnow', return_value=NOW), patch('app.download') as upstream:
         response = app.app.test_client().get('/api/satellite/02')
     assert response.status_code == 200 and response.json['product'] == '02'
+    assert [item['id'] for item in response.json['products']] == ['02','dcphase','ntmicro']
     upstream.assert_not_called()
 
 

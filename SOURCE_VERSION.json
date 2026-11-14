@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-conditions-removed",
-  "baseCommit": "bf433066c69bf7802f2768cd7ce71ae3623aa1e4",
+  "variant": "plots-default-three-satellite-products",
+  "baseCommit": "3645ea0e4f8bcab7d1a2d1a26e8b9a6486cc26ff",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -8,7 +8,6 @@
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
-    "truecolor",
     "dcphase",
     "ntmicro"
   ],

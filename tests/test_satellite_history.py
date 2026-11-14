@@ -12,7 +12,7 @@ NOW=datetime(2026,10,24,15,tzinfo=timezone.utc)
 
 
 def source(stamp=NOW,broken=None,count=48):
-    prefix=BASE+'/truecolor/S_Minnesota.truecolor.'
+    prefix=BASE+'/dcphase/S_Minnesota.dcphase.'
     urls=[prefix+(stamp-timedelta(minutes=10+i*5)).strftime('%Y%m%d.%H%M%S')+'.jpg' for i in range(count)]
     data=BytesIO();Image.new('RGB',(1600,900),(60,80,100)).save(data,format='JPEG');jpeg=data.getvalue();calls=[]
     def fetch(url):
@@ -33,21 +33,21 @@ class AtomicStore(MemoryStore):
 def test_cold_backfill_has_24_images_and_reuses_all_bytes_on_repeat():
     store=AtomicStore();fetch,calls,_,jpeg=source()
     with patch('app.download',side_effect=fetch):
-        result=collector.collect_product(store,'truecolor',NOW)
-        data=store.read_json('live/satellite-truecolor.json')
+        result=collector.collect_product(store,'dcphase',NOW)
+        data=store.read_json('live/satellite-dcphase.json')
         assert result['frames']==24 and len(data['frames'])==24
         assert data['frames'][0]['time']=='2026-10-24T12:55:00Z'
         assert data['frames'][-1]['time']=='2026-10-24T14:50:00Z'
         assert store.read(data['frames'][0]['url'].removeprefix('/api/prepared/'))==jpeg
         assert len(calls)==25
-        collector.collect_product(store,'truecolor',NOW+timedelta(minutes=2))
+        collector.collect_product(store,'dcphase',NOW+timedelta(minutes=2))
         assert len(calls)==26,'a repeated source check never redownloads saved imagery'
 
 
 def test_bad_recent_image_is_replaced_by_next_older_available_source_image():
     store=AtomicStore();_,_,urls,_=source();fetch,calls,_,_=source(broken=urls[0])
-    with patch('app.download',side_effect=fetch):collector.collect_product(store,'truecolor',NOW)
-    data=store.read_json('live/satellite-truecolor.json')
+    with patch('app.download',side_effect=fetch):collector.collect_product(store,'dcphase',NOW)
+    data=store.read_json('live/satellite-dcphase.json')
     assert len(data['frames'])==24 and data['unavailableImages']==1
     assert data['frames'][0]['time']=='2026-10-24T12:50:00Z'
     assert data['frames'][-1]['time']=='2026-10-24T14:45:00Z'
@@ -56,10 +56,10 @@ def test_bad_recent_image_is_replaced_by_next_older_available_source_image():
 
 def test_new_image_replaces_oldest_slot_and_keeps_24():
     store=AtomicStore();first,_,_,_=source()
-    with patch('app.download',side_effect=first):collector.collect_product(store,'truecolor',NOW)
+    with patch('app.download',side_effect=first):collector.collect_product(store,'dcphase',NOW)
     fetch,calls,_,_=source(NOW+timedelta(minutes=5))
-    with patch('app.download',side_effect=fetch):collector.collect_product(store,'truecolor',NOW+timedelta(minutes=5))
-    data=store.read_json('live/satellite-truecolor.json')
+    with patch('app.download',side_effect=fetch):collector.collect_product(store,'dcphase',NOW+timedelta(minutes=5))
+    data=store.read_json('live/satellite-dcphase.json')
     assert len(data['frames'])==24 and len(calls)==2
     assert data['frames'][0]['time']=='2026-10-24T13:00:00Z'
     assert data['frames'][-1]['time']=='2026-10-24T14:55:00Z'
@@ -67,12 +67,12 @@ def test_new_image_replaces_oldest_slot_and_keeps_24():
 
 def test_fewer_images_are_reported_truthfully_and_source_failures_preserve_history():
     store=AtomicStore();fetch,_,_,_=source(count=7)
-    with patch('app.download',side_effect=fetch):collector.collect_product(store,'truecolor',NOW)
-    before=store.read_json('live/satellite-truecolor.json')
+    with patch('app.download',side_effect=fetch):collector.collect_product(store,'dcphase',NOW)
+    before=store.read_json('live/satellite-dcphase.json')
     assert len(before['frames'])==7 and before['historyPending']==17
     with patch('app.download',side_effect=TimeoutError('unavailable')),pytest.raises(TimeoutError):
-        collector.collect_product(store,'truecolor',NOW+timedelta(minutes=5))
-    assert store.read_json('live/satellite-truecolor.json')==before
+        collector.collect_product(store,'dcphase',NOW+timedelta(minutes=5))
+    assert store.read_json('live/satellite-dcphase.json')==before
 
 
 def test_future_expired_duplicate_and_malformed_frames_do_not_count_as_history():
@@ -82,13 +82,13 @@ def test_future_expired_duplicate_and_malformed_frames_do_not_count_as_history()
     assert len(selected)==1 and selected[0]['url']=='two'
 
 
-@pytest.mark.parametrize('product', ['02','truecolor','dcphase','ntmicro'])
+@pytest.mark.parametrize('product', ['02','dcphase','ntmicro'])
 def test_remaining_products_keep_24_images_and_public_asset_access(product):
     import app as weather
     from satellite import PRODUCTS
-    assert list(PRODUCTS)==['02','truecolor','dcphase','ntmicro']
+    assert list(PRODUCTS)==['02','dcphase','ntmicro']
     _,_,urls,jpeg=source()
-    images=[url.replace('/truecolor/',f'/{product}/').replace('.truecolor.',f'.{product}.') for url in urls]
+    images=[url.replace('/dcphase/',f'/{product}/').replace('.dcphase.',f'.{product}.') for url in urls]
     def fetch(url):return ' '.join(images).encode() if 'satrad' in url else jpeg
     store=AtomicStore()
     with patch('app.download',side_effect=fetch):result=collector.collect_product(store,product,NOW)
@@ -99,8 +99,11 @@ def test_remaining_products_keep_24_images_and_public_asset_access(product):
     assert response.status_code==200 and response.mimetype=='image/jpeg'
 
 
-def test_retired_infrared_endpoints_are_unavailable_even_with_saved_data():
+def test_retired_satellite_endpoints_are_unavailable_even_with_saved_data():
     import app as weather
     client=weather.app.test_client()
     assert client.get('/api/satellite/13').status_code==404
     assert client.get('/api/prepared/satellite/13/20261024145000.jpg').status_code==404
+
+    assert client.get('/api/satellite/truecolor').status_code==404
+    assert client.get('/api/prepared/satellite/truecolor/20261114230000.jpg').status_code==404

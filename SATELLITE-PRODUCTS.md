@@ -1,9 +1,10 @@
 # Satellite products
 
 The satellite dropdown opens with **Visible (red)**, COD's GOES-East ABI Band
-02 for Central Minnesota (`S_Minnesota`). True color, Day Cloud Phase and NT
-Microphysics follow in that order. A fresh load overrides browser-restored
-selections; users can then switch among all four bands.
+02 for Central Minnesota (`S_Minnesota`). Day Cloud Phase and NT Microphysics
+follow in that order. True Color is removed from collection, API and prefetch.
+A fresh load overrides browser-restored
+selections; users can then switch among all three bands.
 
 Visible (red) is grayscale daylight imagery. The red label refers to the
 spectral band. Source JPEG bytes remain unchanged on the native 1600 × 900
@@ -11,7 +12,7 @@ grid, aligned with the existing county and state overlays. No reprojection or
 recoloring is performed. NT Microphysics remains available after dark; the
 default does not switch automatically at sunset.
 
-The existing satellite scheduler collects all four products every five
+The existing satellite scheduler collects all three products every five
 minutes. Each has its own prepared manifest and latest 24 available images.
 Newest frames publish first; partial source failures preserve valid saved
 history. Missing images are replaced by the next older available image.

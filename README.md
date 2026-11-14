@@ -59,8 +59,9 @@ two minutes beginning at :00. Public page requests read prepared snapshots and
 never start an upstream observation download. Recent browser snapshots help
 repeat visits paint promptly. The removed bottom delay paragraph stays removed.
 
-Satellite retains Visible (red) Band 02 as default and all four existing 24-frame
-loops. The NWS Hopkins forecast checks every five minutes. Other product sources
+Satellite keeps Visible (red) Band 02 as default, with Day Cloud Phase and NT
+Microphysics also available as 24-frame loops. True Color is removed from the
+dropdown, API, browser prefetch and background collection. The NWS Hopkins forecast checks every five minutes. Other product sources
 and schedules are retained. `verify_weather_release.py --all-products` checks the
 PLOTS default, CLOUDS history, retired endpoints, remaining product freshness and
 prepared imagery before publishing the replacement. Older commands below are
