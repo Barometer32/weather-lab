@@ -30,12 +30,12 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations"' in html and '<section id="observations"' in html
-    assert '/static/rtma-observations.js?v=rtma-trial-v1' in html
+    assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
+    assert 'rtma-observations.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=slightly-denser-v19' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "observations", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
@@ -48,8 +48,8 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=rtma-trial-v1' in html
-    print("Verified METAR PLOTS home, CLOUDS retained, and RTMA-RU Observations trial.")
+    assert '/static/app.js?v=observations-removed-v20' in html
+    print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
 
 
 def check_hourly(base):
@@ -70,7 +70,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/rtmetar", "/api/mesonet", "/api/observations/current", "/static/current-observations.js"):
+    for path in ("/api/rtmetar", "/api/mesonet", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
         try:
             read(base, path)
         except HTTPError as error:
@@ -104,22 +104,6 @@ def check_products(base):
             print(f"{name}: upstream source is delayed; the original observation time is preserved.")
 
 
-def check_rtma(base):
-    from rtma_observations import STATIONS, VERSION, average
-    data = json.loads(read(base, "/api/observations/rtma"))
-    assert data.get("version") == VERSION and data.get("sourceType") == "gridded-analysis"
-    assert data.get("stale") is False and data.get("analysisAgeMinutes", 999) < 60, "RTMA-RU analysis is too old"
-    assert data.get("collectionDelayed") is False, "RTMA-RU source checks are delayed"
-    assert [s["station"] for s in data["stations"]] == [s["station"] for s in STATIONS]
-    assert all(s["analysisTime"] == data["analysisTime"] for s in data["stations"])
-    expected = average(data["stations"])
-    assert abs(expected["tempF"]-data["mean"]["tempF"]) < 1e-6
-    assert abs(expected["dewpointF"]-data["mean"]["dewpointF"]) < 1e-6
-    assert abs(expected["wind"]["speedMph"]-data["mean"]["wind"]["speedMph"]) < 1e-6
-    assert expected["wind"]["direction"] == data["mean"]["wind"]["direction"]
-    print(f"Verified RTMA-RU three-point mean: {data['analysisTime']}, {data['analysisAgeMinutes']:.0f} minutes old.")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
@@ -131,5 +115,4 @@ if __name__ == "__main__":
         check_hourly(args.url)
         check_removed(args.url)
         if args.all_products:
-            check_rtma(args.url)
             check_products(args.url)

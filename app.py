@@ -616,19 +616,6 @@ def health():
     return jsonify(status="ok")
 
 
-@app.get("/api/observations/rtma")
-def rtma_observations_api():
-    from rtma_observations import public_snapshot
-    try:
-        data = prepared_snapshot("rtma-observations", 300)
-        return jsonify(public_snapshot(data, utcnow())), 200, {"Cache-Control": "no-store"}
-    except ValueError:
-        return jsonify(error="The first RTMA-RU analysis is being prepared. Please check again shortly."), 503, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.exception("Prepared RTMA-RU observations unavailable")
-        return jsonify(error="The saved RTMA-RU analysis is temporarily unavailable."), 502, {"Cache-Control": "no-store"}
-
-
 @app.get("/api/radar")
 def radar_api():
     try:

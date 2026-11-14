@@ -64,7 +64,6 @@ elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','crea
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
     if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
-    if args[4]=='weather-live-rtma-observations': state['rtmaExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
     if args[3]=='weather-live-mesonet': state['retiredDeleted']=True
@@ -89,7 +88,7 @@ elif args[:2]==['storage','ls']:
     print('gs://'+project+'-weather-data/live/mesonet-v1.json')
     print('gs://'+project+'-weather-data/live/metar-loop.json')
 ''')
-    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
+    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'rtmaExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
     env = {**os.environ, "PATH": str(tmp_path)+os.pathsep+os.environ["PATH"],
            "MOCK_ROOT": str(tmp_path), "MOCK_FAILURE": failure}
     result = subprocess.run(["bash", str(ROOT / "release-plots.sh")], cwd=ROOT,
@@ -120,13 +119,14 @@ elif args[:2]==['storage','ls']:
         assert all(i>verifications[-1] for i in observation_deletions), "Retire OBSERVATIONS only after live verification"
         assert not any(c[:4]==["scheduler","jobs","run","weather-live-rapid-observations"] for c in calls)
         assert not any(c[:5]==["scheduler","jobs","create","http","weather-live-rapid-observations"] for c in calls)
+        rtma_deletions=[i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','delete','weather-live-rtma-observations']]
+        assert bool(rtma_deletions)==retired_exists
+        assert all(i>verifications[-1] for i in rtma_deletions)
+        assert not any(c[:4]==['scheduler','jobs','run','weather-live-rtma-observations'] for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=*/5 * * * *" in c for c in calls)
-        rtma_run=next(i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','run','weather-live-rtma-observations'])
-        assert rtma_run < verifications[0]
-        assert any(c[:5]==['scheduler','jobs','create','http','weather-live-rtma-observations'] and '--schedule=* * * * *' in c for c in calls)
         retention = next(i for i,c in enumerate(calls) if c[:3] == ["storage", "buckets", "update"])
         assert retention > verifications[-1], "Retention changes happen after the replacement passes live checks"
     elif failure == "cleanup":
@@ -149,9 +149,10 @@ elif args[:2]==['storage','ls']:
         assert not any(c[:4] == ["scheduler", "jobs", "delete", "weather-live-rapid-observations"] for c in calls)
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rapid-observations"] for c in calls)==retired_exists
         assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-rtmetar"] for c in calls)==retired_exists
+        assert any(c[:4]==['scheduler','jobs','resume','weather-live-rtma-observations'] for c in calls)==retired_exists
+        assert not any(c[:4]==['scheduler','jobs','delete','weather-live-rtma-observations'] for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-metar-clouds"]
                    and "--schedule=0,5,10 * * * *" in c and "--attempt-deadline=180s" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=0" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=0,30 * * * *" in c for c in calls)
-        assert any(c[:4]==['scheduler','jobs','delete','weather-live-rtma-observations'] for c in calls)

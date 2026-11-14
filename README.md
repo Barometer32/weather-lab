@@ -8,30 +8,18 @@ It stages the web and collector, seeds the retained products, verifies prepared
 snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
-Tabs: METAR, OBSERVATIONS, RADAR, SATELLITE, FORECAST and AIR Q.
-OBSERVATIONS is a test of NOAA RTMA-RU grid estimates at KMIC, KMSP and KFCM,
-not a return of the former METAR/mesonet Observations sources. The collector
-checks NOAA's public S3 inventory every minute, downloads only the four required
-GRIB messages when a newer complete cycle is published, and prepares one saved
-three-location mean. All locations must use the same analysis time. It retains
-the previous complete analysis on failure without relabeling its time. There
-is no upstream download or GRIB decoding when opening the public page.
-
-Temperature and dewpoint use the nearest grid point to each airport coordinate,
-are averaged without intermediate rounding, and display as whole Fahrenheit.
-Wind speed displays as whole mph; direction uses speed-weighted circular
-averaging and eight compass headings. Sun angle is computed for the current
-time at each of the three coordinates, averaged, and displayed as a whole degree.
-The details show each location's values and analysis time. The visible page
-checks prepared data every 15 seconds. RTMA-RU analyses represent quarter hours
-and generally arrive another 15–20 minutes later; polling does not remove that
-source latency. The collection job is `weather-live-rtma-observations` (`* * * * *`).
-The deployment verifies this data before switching web traffic and saves a
-rollback for the new job. Release checks retry transient 503/routing failures.
+Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+The RTMA-RU Observations trial is removed completely: no tab, page script, API,
+collector route, GRIB decoder or ecCodes dependency remains. Its dedicated
+`weather-live-rtma-observations` Scheduler job is paused before verification,
+restored on rollback, and deleted only after the remaining site passes live
+checks. Old browser snapshots are cleared. Existing stored weather objects
+are retained; no RTMA background downloads continue after successful deployment.
+Release checks retain the transient 503/routing retries.
 
 METAR opens PLOTS first on every visit and browser restore, with CLOUDS retained
-in the dropdown. The former METAR/mesonet Observations APIs, page scripts and
-collector routes remain removed. Their current/legacy dedicated Scheduler
+in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
+collector routes and browser prefetch. Its current/legacy dedicated Scheduler
 jobs are paused before staging and deleted only after live verification passes.
 Rollback restores any previously enabled job. Saved weather objects remain
 available for rollback; no retired observation collector continues running.

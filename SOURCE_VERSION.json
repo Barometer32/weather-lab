@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-with-rtma-observations-trial",
-  "baseCommit": "6a265a77ae7010477727320b0706a4b7e83c427f",
+  "variant": "plots-default-observations-removed",
+  "baseCommit": "16e3e569a076bb7325a12dd091d9192a677b0b7b",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -32,9 +32,5 @@
   "metarRequireCompleteStationHistory": false,
   "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
   "metarWindSpacingFactor": 0.9,
-  "observationsSource": "NOAA RTMA-RU three-point grid mean",
-  "observationsStations": ["KMIC", "KMSP", "KFCM"],
-  "observationsCollectionSchedule": "* * * * *",
-  "observationsBrowserCheckSeconds": 15,
-  "observationsPreparedPayload": "live/rtma-observations.json"
+  "retiredObservationCollectorsIncludeRTMA": true
 }
