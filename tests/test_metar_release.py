@@ -64,11 +64,13 @@ elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','crea
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
     if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
+    if args[4]=='weather-live-rtma-observations': state['rtmaExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
     if args[3]=='weather-live-mesonet': state['retiredDeleted']=True
     if args[3]=='weather-live-rtmetar': state['activeExists']=False
     if args[3]=='weather-live-rapid-observations': state['observationsExists']=False
+    if args[3]=='weather-live-rtma-observations': state['rtmaExists']=False
     state_path.write_text(json.dumps(state))
 elif args[:3] in [['scheduler','jobs','resume'],['scheduler','jobs','pause']]:
     state[args[3]+'-state']='ENABLED' if args[2]=='resume' else 'PAUSED';state_path.write_text(json.dumps(state))
@@ -77,6 +79,7 @@ elif args[:3]==['scheduler','jobs','list']:
     if not state.get('retiredDeleted'): names.append('weather-live-mesonet')
     if state.get('activeExists'): names.append('weather-live-rtmetar')
     if state.get('observationsExists'): names.append('weather-live-rapid-observations')
+    if state.get('rtmaExists'): names.append('weather-live-rtma-observations')
     print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED'),'timeZone':'Etc/UTC','httpTarget':{'uri':'https://weather-collector.example/collect/'+name.removeprefix('weather-live-'),'httpMethod':'POST','oidcToken':{'serviceAccountEmail':'weather-scheduler@'+project+'.iam.gserviceaccount.com','audience':'https://weather-collector.example'}}} for name in names]))
 elif args[:3]==['storage','buckets','describe']:
     print(json.dumps({'name':project+'-weather-data','lifecycle':{'rule':[{'action':{'type':'Delete'},'condition':{'age':1,'matchesPrefix':['satellite/truecolor/']}}]}}))
@@ -121,6 +124,9 @@ elif args[:2]==['storage','ls']:
                    and "--schedule=*/2 * * * *" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=*/5 * * * *" in c for c in calls)
+        rtma_run=next(i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','run','weather-live-rtma-observations'])
+        assert rtma_run < verifications[0]
+        assert any(c[:5]==['scheduler','jobs','create','http','weather-live-rtma-observations'] and '--schedule=* * * * *' in c for c in calls)
         retention = next(i for i,c in enumerate(calls) if c[:3] == ["storage", "buckets", "update"])
         assert retention > verifications[-1], "Retention changes happen after the replacement passes live checks"
     elif failure == "cleanup":
@@ -148,3 +154,4 @@ elif args[:2]==['storage','ls']:
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=0" in c for c in calls)
         assert any(c[:5] == ["scheduler", "jobs", "update", "http", "weather-live-forecast"]
                    and "--schedule=0,30 * * * *" in c for c in calls)
+        assert any(c[:4]==['scheduler','jobs','delete','weather-live-rtma-observations'] for c in calls)

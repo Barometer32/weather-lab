@@ -40,6 +40,14 @@ p { line-height: 1.55; }
 .metric h2 { font-size: 16px; font-weight: 400; color: var(--muted); }
 .metric-value { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin: 14px 0 0; font-variant-numeric: tabular-nums; }
 .metric-value.wind { font-size: 30px; min-height: 46px; display: flex; align-items: center; }
+.rtma-content { max-width: 960px; margin: 0 auto; }
+.rtma-time { margin: 0 0 28px; }
+.rtma-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); margin-bottom: 16px; }
+.rtma-metrics .metric { text-align: center; }
+.rtma-metrics .wind { justify-content: center; }
+.rtma-sun-note { margin: 4px 0 0; }
+.rtma-source-note { max-width: 800px; }
+.rtma-table { margin-top: 14px; }
 .history-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
 .history-heading span { font-size: 14px; color: var(--muted); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }

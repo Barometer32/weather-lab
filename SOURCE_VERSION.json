@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-without-observations",
-  "baseCommit": "60a3d6b4fb8ad62cc7c94588b3b181785c31fc08",
+  "variant": "plots-default-with-rtma-observations-trial",
+  "baseCommit": "6a265a77ae7010477727320b0706a4b7e83c427f",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -31,5 +31,10 @@
   "metarCollisionGeometry": "stable all-bearing wind reservation at 90% radius; slight barb-to-number contact allowed; numeric labels kept separate",
   "metarRequireCompleteStationHistory": false,
   "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
-  "metarWindSpacingFactor": 0.9
+  "metarWindSpacingFactor": 0.9,
+  "observationsSource": "NOAA RTMA-RU three-point grid mean",
+  "observationsStations": ["KMIC", "KMSP", "KFCM"],
+  "observationsCollectionSchedule": "* * * * *",
+  "observationsBrowserCheckSeconds": 15,
+  "observationsPreparedPayload": "live/rtma-observations.json"
 }

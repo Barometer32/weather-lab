@@ -3,22 +3,39 @@ import argparse
 from datetime import datetime, timezone
 import json
 import re
+import time
 from urllib.request import urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+
+
+def read_bytes(base, path):
+    # Domain routing can briefly return 503 after a Cloud Run traffic change.
+    # A single transient response must not roll back a healthy replacement.
+    for attempt in range(3):
+        try:
+            with urlopen(base.rstrip("/") + path, timeout=25) as response:
+                return response.read()
+        except HTTPError as error:
+            if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
+                raise
+        except (URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(attempt + 1)
 
 
 def read(base, path):
-    with urlopen(base.rstrip("/") + path, timeout=25) as response:
-        return response.read().decode()
+    return read_bytes(base, path).decode()
 
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
+    assert 'id="tab-observations"' in html and '<section id="observations"' in html
+    assert '/static/rtma-observations.js?v=rtma-trial-v1' in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=slightly-denser-v19' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "observations", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
@@ -31,8 +48,8 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "truecolor", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=slightly-denser-v19' in html
-    print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
+    assert '/static/app.js?v=rtma-trial-v1' in html
+    print("Verified METAR PLOTS home, CLOUDS retained, and RTMA-RU Observations trial.")
 
 
 def check_hourly(base):
@@ -81,11 +98,26 @@ def check_products(base):
         if items == "frames":
             asset = data[items][-1]["url"]
             assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"
-            with urlopen(base.rstrip("/") + asset, timeout=30) as response:
-                assert response.read(), f"{name}: prepared asset is empty"
+            assert read_bytes(base, asset), f"{name}: prepared asset is empty"
         print(f"Verified {name}: {len(data[items])} prepared {items}, checked {data['checkedAt']}.")
         if data.get("sourceDelayed"):
             print(f"{name}: upstream source is delayed; the original observation time is preserved.")
+
+
+def check_rtma(base):
+    from rtma_observations import STATIONS, VERSION, average
+    data = json.loads(read(base, "/api/observations/rtma"))
+    assert data.get("version") == VERSION and data.get("sourceType") == "gridded-analysis"
+    assert data.get("stale") is False and data.get("analysisAgeMinutes", 999) < 60, "RTMA-RU analysis is too old"
+    assert data.get("collectionDelayed") is False, "RTMA-RU source checks are delayed"
+    assert [s["station"] for s in data["stations"]] == [s["station"] for s in STATIONS]
+    assert all(s["analysisTime"] == data["analysisTime"] for s in data["stations"])
+    expected = average(data["stations"])
+    assert abs(expected["tempF"]-data["mean"]["tempF"]) < 1e-6
+    assert abs(expected["dewpointF"]-data["mean"]["dewpointF"]) < 1e-6
+    assert abs(expected["wind"]["speedMph"]-data["mean"]["wind"]["speedMph"]) < 1e-6
+    assert expected["wind"]["direction"] == data["mean"]["wind"]["direction"]
+    print(f"Verified RTMA-RU three-point mean: {data['analysisTime']}, {data['analysisAgeMinutes']:.0f} minutes old.")
 
 
 if __name__ == "__main__":
@@ -99,4 +131,5 @@ if __name__ == "__main__":
         check_hourly(args.url)
         check_removed(args.url)
         if args.all_products:
+            check_rtma(args.url)
             check_products(args.url)
