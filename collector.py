@@ -16,9 +16,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-from observation_stations import collect as collect_hennepin_mesonet
 locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality")}
-locks["hennepin-mesonet"] = threading.Lock()
 
 
 def collect_radar_legacy(store, now):
@@ -233,8 +231,7 @@ def collect(kind):
             "satellite": collect_satellite,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
-            "metar-clouds": collect_metar_clouds,
-            "hennepin-mesonet": collect_hennepin_mesonet}
+            "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = kind

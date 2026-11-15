@@ -9,26 +9,7 @@ snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
 Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
-METAR opens MESONET by default, with PLOTS and CLOUDS retained in its dropdown.
-MESONET restores the approved Hennepin West map selection: no Dakota County,
-Hanover, Dayton, Camden or sites west of the prior Hanover–Orono cutoff; Orono
-and Blaine remain eligible. This is the prior 19-site selection when all report.
-The factory map is limited to the local west/central metro, with primary highways
-only, faint at 23% opacity. It has a separate saved view from the airport maps.
-Temperatures/dewpoints are Fahrenheit and wind barbs are mph. Station popups
-show actual observation timestamps, age and eight-point compass winds.
-
-`weather-live-hennepin-mesonet` collects every five minutes using public MADIS
-Hennepin records as fallback. When `WEATHER_SYNOPTIC_TOKEN` is configured, the collector first requests the approved 19 sites directly from Synoptic in one authenticated API request. Measurements come from one actual report time per station; newer direct reports win over older MADIS copies. Fresh complete direct coverage skips national MADIS downloads. `/api/mesonet` reads the prepared object without an
-upstream download. Current and previous files are checked; a cold start during
-a source gap can recover the preceding two files as well. Existing reports are
-retained for up to 24 hours with their original timestamps and visible ages,
-so a missing hour does not make a station disappear or manufacture a new value.
-The compact map footer labels source delays; the extra explanatory line below the map is removed. Five-minute collection does not guarantee
-five-minute delivery. No averaging, model estimate or device tracking is used.
-
-To enable the direct feed after deploying this checkout, obtain your own Synoptic API access authorized for all 19 sites and this public display, then run `bash connect-synoptic-mesonet.sh`. It reads the token with hidden input and verifies all 19 sites have reports within 15 minutes before changing Cloud configuration. It stores the token in Secret Manager and grants only the collector identity access to that secret. Tokens never enter browser JavaScript, prepared JSON, the repository, or logs. API access and any service plan are the user's responsibility; no service subscription is created by these scripts. Without configured access, MADIS remains active and may be substantially delayed. MesoWest's network status page only proves that at least one network station reported, not that every approved station is fresh. Direct access and latency have not been live-verified without the user's token.
-
+METAR opens PLOTS by default and retains CLOUDS. The Hennepin West MESONET map, API, browser script, prefetch and direct Synoptic integration are removed. The release pauses any `weather-live-hennepin-mesonet` job before verification and deletes it after successful deployment, with rollback support. It also removes the optional Synoptic token binding from the new collector revision. Existing airport spacing, station priorities and all other tabs remain unchanged.
 The public MN/WI CONDITIONS trial is also removed, including its location
 controls, API, collector, calculation scripts and browser prefetch. Device
 location is disabled again. `release-plots.sh` pauses any existing
@@ -43,8 +24,8 @@ checks. Old browser snapshots are cleared. Existing stored weather objects
 are retained; no RTMA background downloads continue after successful deployment.
 Release checks retain the transient 503/routing retries.
 
-MESONET opens first on every visit and return to METAR, with hourly PLOTS and
-CLOUDS retained in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
+METAR opens PLOTS first on every visit and browser restore, with CLOUDS retained
+in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
 collector routes and browser prefetch. Its current/legacy dedicated Scheduler
 jobs are paused before staging and deleted only after live verification passes.
 Rollback restores any previously enabled job. Saved weather objects remain

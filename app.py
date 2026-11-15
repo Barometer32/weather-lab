@@ -589,20 +589,6 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/mesonet")
-def mesonet_api():
-    from observation_stations import KEY, present_map
-    try:
-        store = get_store()
-        data = cached("prepared-hennepin-mesonet", 10, lambda: store.read_json(KEY)) if store else None
-        if not data:
-            return jsonify(error="Hennepin West observations are being prepared."), 503, {"Cache-Control": "no-store"}
-        return jsonify(present_map(data, utcnow())), 200, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.exception("Prepared Hennepin West map unavailable")
-        return jsonify(error="Hennepin West observations are temporarily unavailable."), 503, {"Cache-Control": "no-store"}
-
-
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current

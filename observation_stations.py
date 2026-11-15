@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import json
 import math
-import os
 from pathlib import Path
 import re
 from urllib.error import HTTPError
@@ -90,7 +89,6 @@ def present(saved, now):
             "networks":sorted({row.get("network") or "Other" for row in stations}),
             "checkedAt":checked,"serverTime":iso(now),"sourceFailures":saved.get("sourceFailures",[]),
             "collectorDelayed":not checked or (now-datetime.fromisoformat(checked.replace("Z", "+00:00"))).total_seconds()>360,
-            "directFeedStatus":saved.get("directFeedStatus", "not configured"),
             "average":None}
 
 
@@ -111,11 +109,11 @@ def present_map(saved, now):
     result = present(saved, now)
     rows = []
     for row in result["stations"]:
-        if (not included_on_map(row)
+        if (not included_on_map(row) or row["ageMinutes"] > 60
                 or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
             continue
         rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
-                    "ageMinutes", "network", "tempF", "dewpointF", "wind", "source") if key in row})
+                    "ageMinutes", "network", "tempF", "dewpointF", "wind") if key in row})
     bounds = [[min(r["lat"] for r in rows),min(r["lon"] for r in rows)],
               [max(r["lat"] for r in rows),max(r["lon"] for r in rows)]] if len(rows) > 1 else FALLBACK_BOUNDS
     newest = max((row["time"] for row in rows), default=None)
@@ -127,8 +125,7 @@ def present_map(saved, now):
             "sourceDelayed":not rows or any(row["ageMinutes"]>15 for row in rows),
             "newestObservationAt":newest,"oldestObservationAt":oldest,
             "sourceAgeMinutes":min((row["ageMinutes"] for row in rows), default=None),
-            "directFeedStatus":result["directFeedStatus"],
-            "source":"Hennepin West · newest actual report per station from configured direct Synoptic and public NOAA MADIS"}
+            "source":"NOAA MADIS · Hennepin West"}
 
 
 def collect(store, now, download=None):
@@ -139,28 +136,7 @@ def collect(store, now, download=None):
         previous = {}
     hour = now.replace(minute=0,second=0,microsecond=0)
     files, errors, rows = {}, [], list(previous.get("stations",[]))
-    token = os.environ.get("WEATHER_SYNOPTIC_TOKEN", "").strip()
-    direct_status = "not configured"
-    if token:
-        import hennepin_synoptic
-        try:
-            direct = hennepin_synoptic.fetch(token, now)
-            rows.extend(direct)
-            fresh_ids = {r["station"] for r in direct if hennepin_synoptic.fresh_complete(r, now)}
-            direct_status = f"{len(fresh_ids)}/{len(hennepin_synoptic.STATIONS)} fresh approved stations"
-            if fresh_ids == set(hennepin_synoptic.STATIONS):
-                saved = {"version":VERSION,"coverage":COVERAGE,"stations":latest(rows,now),
-                         "files":previous.get("files",{}),"checkedAt":iso(now),"sourceFailures":[],"directFeedStatus":direct_status}
-                store.write_json(KEY,saved)
-                return present(saved,now)
-        except Exception:
-            # Do not log a provider exception that could contain credentials.
-            direct_status = "unavailable; public MADIS fallback checked"
-    for offset in (0,1,2,3):
-        # A cold restart during a provider gap can recover the latest actual
-        # reports. Their original times/ages remain visible, never relabeled.
-        if offset >= 2 and latest(rows, now):
-            break
+    for offset in (0,1):
         filename = (hour-timedelta(hours=offset)).strftime("%Y%m%d_%H00.gz")
         key = "mesonet/"+filename
         # Re-read the source after a coverage change, even with unchanged ETags.
@@ -170,7 +146,7 @@ def collect(store, now, download=None):
             if payload is None:
                 fresh = old.get("stations",[])
             else:
-                parsed = regional_madis.parse_file(payload,now,window_start=now-timedelta(hours=24),
+                parsed = regional_madis.parse_file(payload,now,window_start=now-timedelta(hours=2),
                     window_end=now+timedelta(microseconds=1),bounds=(-90,-180,90,180),station_prefix="HPN",
                     include_invalid=True,excluded_stations=())
                 fresh = latest(parsed,now)
@@ -183,7 +159,7 @@ def collect(store, now, download=None):
             if old:
                 files[key] = old
                 rows.extend(old.get("stations",[]))
-    saved = {"version":VERSION,"coverage":COVERAGE,"stations":latest(rows,now),"files":files,"checkedAt":iso(now),"sourceFailures":errors,"directFeedStatus":direct_status}
+    saved = {"version":VERSION,"coverage":COVERAGE,"stations":latest(rows,now),"files":files,"checkedAt":iso(now),"sourceFailures":errors}
     if not saved["stations"]:
         raise ValueError("No public Hennepin West observations are available; previous inventory retained")
     store.write_json(KEY,saved)

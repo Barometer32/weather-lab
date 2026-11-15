@@ -77,7 +77,7 @@ gcloud builds submit . "${run[@]}" --tag="$image" \
 
 stage() {
   local extra=()
-  if [[ "$1" == weather-lab ]]; then extra=(--update-env-vars=WEATHER_PREPARED_ONLY=true); else extra=(--memory="$collector_memory"); fi
+  if [[ "$1" == weather-lab ]]; then extra=(--update-env-vars=WEATHER_PREPARED_ONLY=true); else extra=(--memory="$collector_memory" --remove-secrets=WEATHER_SYNOPTIC_TOKEN); fi
   gcloud run services update "$1" "${run[@]}" --image="$image" --no-traffic --tag="$tag" "${extra[@]}" >&2
   gcloud run services describe "$1" "${run[@]}" --format=json |
     python3 -c 'import json,sys; t=next(t for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")==sys.argv[1]); print(t["revisionName"],t["url"])' "$tag"
@@ -100,7 +100,6 @@ changed=true
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 # Reversibly pause retired observation jobs before verifying the retained maps.
 bash "$rollback_dir/live-configure.sh"
-gcloud scheduler jobs run weather-live-hennepin-mesonet "${scheduler[@]}"
 # Check at :00, :02 and every two minutes, using the fast official bulk file
 # when saved history is healthy. Recovery still fills gaps from the archive.
 gcloud scheduler jobs update http weather-live-metar-clouds "${scheduler[@]}" \
@@ -144,8 +143,6 @@ gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_
 python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
 gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rapid-observations","weather-live-hourly-observations","weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations","weather-live-rtma-observations","weather-live-public-conditions")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rapid-observations","weather-live-hourly-observations","weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations","weather-live-rtma-observations","weather-live-public-conditions","weather-live-hennepin-mesonet")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
-gcloud scheduler jobs describe weather-live-hennepin-mesonet "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["state"]=="ENABLED" and d["schedule"]=="*/5 * * * *"; assert d["httpTarget"]["uri"].endswith("/collect/hennepin-mesonet"); print("Verified Hennepin West collection every five minutes")'
-echo "Weather Lab is live at $site. METAR MESONET is the default, with PLOTS and CLOUDS available. The approved Hennepin West map uses faint major highways and actual station report times. All tabs use background-prepared data and share the warm website instance."
+echo "Weather Lab is live at $site. METAR PLOTS is the default and CLOUDS is available. MESONET, OBSERVATIONS, CONDITIONS and their collection jobs are removed. All retained tabs use background-prepared data and share the warm website instance."

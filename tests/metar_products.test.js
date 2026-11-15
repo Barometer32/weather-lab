@@ -14,7 +14,7 @@ for(const f of ['metar-model','metar-views'])vm.runInNewContext(fs.readFileSync(
 const flush=()=>new Promise(r=>setImmediate(r));
 const select=async mode=>{get('metar-product').value=mode;get('metar-product').events.change({target:{value:mode}});await flush();};
 (async()=>{
- get('metar-product').events.change({target:{value:'plots'}});await flush();
+ context.window.WeatherMetars.select('metar');await flush();
  assert.equal(get('metar-product').value,'plots');assert.equal(shown.length,4);
  assert.equal(get('metar-history').hidden,false,'PLOTS displays the four-hour slider');
  assert.equal(get('metar-timeline').max,'3');

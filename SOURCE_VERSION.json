@@ -1,6 +1,6 @@
 {
-  "variant": "hennepin-mesonet-direct-feed-ready-compact",
-  "baseCommit": "68bea50aff498947f6125f23c72ccd8087982bec",
+  "variant": "plots-default-mesonet-fully-retired",
+  "baseCommit": "19a438a5a65ab104dd40eb3395833cdac19f6bcf",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -12,9 +12,8 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "mesonet",
+  "defaultMetarProduct": "plots",
   "metarProducts": [
-    "mesonet",
     "plots",
     "clouds"
   ],
@@ -34,12 +33,5 @@
   "metarWindSpacingFactor": 0.9,
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
-  "mesonetSchedule": "*/5 * * * *",
-  "mesonetStationPolicy": "west-metro-roster-v2",
-  "mesonetHighways": "primary only, 23% opacity",
-  "mesonetTemperatureUnit": "F",
-  "mesonetWindUnit": "mph",
-  "mesonetDirectFeed": "Synoptic API, requires user token and verified approved coverage",
-  "mesonetFallback": "public NOAA MADIS",
-  "mesonetExtraBottomNote": false
+  "retiredHennepinMesonet": true
 }
