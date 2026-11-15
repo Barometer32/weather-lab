@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map(),intervals=[];let callback,reads=0;
+const element=()=>({textContent:'',children:[],events:{},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;}});
+const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
+const hour=new Date();hour.setUTCMinutes(0,0,0);
+const row={hour:hour.toISOString(),tempF:34,dewpointF:27,complete:true,wind:{speedMph:8,direction:350},stations:[{code:'KMSP',observedAt:new Date(hour-7*60000).toISOString(),tempF:34.2,dewpointF:26.9,wind:{speedMph:5.8,direction:315}}]};
+const data={checkedAt:new Date().toISOString(),current:row,history:Array.from({length:12},(_,i)=>({...row,hour:new Date(hour-i*3600000).toISOString()}))};
+const c={window:{WeatherSun:{elevation(){return 25.6;}},WeatherPrepared:{subscribe(url,fn){assert.equal(url,'/api/current');callback=fn;},async read(){reads++;return data;}}},document:{getElementById:get,createElement:element,hidden:false},Intl,Date,Math,Number,setInterval(fn,ms){intervals.push(ms);}};
+vm.runInNewContext(fs.readFileSync('static/current-hourly.js','utf8'),c);
+(async()=>{
+ c.window.WeatherCurrent.select('current');await new Promise(setImmediate);
+ assert.equal(get('current-temperature').textContent,'34°F');assert.equal(get('current-dewpoint').textContent,'27°F');assert.equal(get('current-wind').textContent,'N 8 mph');assert.equal(get('current-sun').textContent,'26°');
+ assert.equal(get('current-history').children.length,12);assert.equal(get('current-stations').children[0].children[4].textContent,'NW 6 mph');
+ assert.ok(intervals.includes(30000));
+ callback({...data,current:{...row,wind:{speedMph:3,direction:90}},pendingHour:new Date(+hour+3600000).toISOString()});
+ assert.equal(get('current-wind').textContent,'CALM');assert.match(get('current-time').textContent,/Waiting for/);
+ callback({...data,current:null,history:data.history.map(h=>({...h,complete:false,tempF:null,dewpointF:null,wind:{}}))});
+ assert.equal(get('current-temperature').textContent,'—');assert.equal(get('current-history').children[0].children[4].textContent,'Incomplete');
+ get('refresh-current').events.click();await new Promise(setImmediate);assert.ok(reads>=2);
+ console.log('CURRENT passed: twelve hourly rows, exact source times, whole-degree display, eight directions, calm wind, pending state and prepared-only refresh.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

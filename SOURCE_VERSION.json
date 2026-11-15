@@ -1,6 +1,6 @@
 {
-  "variant": "tempest-experiment-kstp-secondary-priority",
-  "baseCommit": "3dadc084c2467c0d8c40ced6710bff1170e38cf7",
+  "variant": "current-official-hourly-metars",
+  "baseCommit": "ee2eacfba054d447dd13d8de3b32a222c080d1a7",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -36,12 +36,17 @@
   "retiredHennepinMesonet": true,
   "retiredRapmet": true,
   "retiredAirportObservations": true,
-  "tempestStationCount": 15,
-  "tempestCollectionSchedule": "*/5 * * * *",
-  "tempestSource": "Rendered public Tempest map panels; no website keys or direct private API requests",
-  "tempestMaxReportAgeSeconds": 600,
-  "tempestAverage": "equal Fahrenheit means; scalar mph speed mean, speed-weighted direction; whole F/mph display",
   "metarSecondaryPriorityStations": [
     "KSTP"
-  ]
+  ],
+  "currentStationIds": [
+    "KMSP",
+    "KFCM",
+    "KMIC"
+  ],
+  "currentCollectionSchedule": "*/2 * * * *",
+  "currentHistoryHours": 12,
+  "currentReportWindow": "50-59",
+  "currentTemperaturePrecision": "T remarks only",
+  "retiredTempest": true
 }

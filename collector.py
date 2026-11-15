@@ -13,11 +13,11 @@ from PIL import Image
 
 import app as weather
 from realtime import get_store
-from tempest_public import collect as collect_tempest
+from current_hourly import collect as collect_current_hourly
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "tempest")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "current-hourly")}
 
 
 def collect_radar_legacy(store, now):
@@ -233,7 +233,7 @@ def collect(kind):
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds,
-            "tempest": collect_tempest}
+            "current-hourly": collect_current_hourly}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = kind

@@ -58,18 +58,19 @@ elif args[:3]==['scheduler','jobs','describe']:
     if fmt=='value(httpTarget.oidcToken.serviceAccountEmail)': print('weather-scheduler@'+project+'.iam.gserviceaccount.com')
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
     elif fmt=='value(schedule)': print('0,30 * * * *')
-    elif args[3]=='weather-live-tempest': print(json.dumps({'state':state.get('weather-live-tempest-state','ENABLED'),'schedule':state.get('weather-live-tempest-schedule','*/5 * * * *'),'httpTarget':{'uri':'https://weather-collector.example/collect/tempest'}}))
+    elif args[3]=='weather-live-current': print(json.dumps({'state':state.get('weather-live-current-state','ENABLED'),'schedule':state.get('weather-live-current-schedule','*/2 * * * *'),'httpTarget':{'uri':'https://weather-collector.example/collect/current-hourly'}}))
     elif args[3]=='weather-live-airport-observations': print(json.dumps({'state':'ENABLED','schedule':state.get('weather-live-airport-observations-schedule','*/5 * * * *'),'httpTarget':{'uri':'https://weather-collector.example/collect/airport-observations'}}))
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
 elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','create','http']]:
     state[args[4]+'-schedule']=option('--schedule')
-    if args[4]=='weather-live-tempest': state['tempestExists']=True
+    if args[4]=='weather-live-current': state['currentExists']=True
     if args[4]=='weather-live-airport-observations': state['airportObsExists']=True
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
     if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
+    if args[3]=='weather-live-current': state['currentExists']=False
     if args[3]=='weather-live-tempest': state['tempestExists']=False
     if args[3]=='weather-live-airport-observations': state['airportObsExists']=False
     if args[3]=='weather-live-rapmet': state['rapmetExists']=False
@@ -92,6 +93,7 @@ elif args[:3]==['scheduler','jobs','list']:
     if state.get('hennepinExists'): names.append('weather-live-hennepin-mesonet')
     if state.get('airportObsExists'): names.append('weather-live-airport-observations')
     if state.get('rapmetExists'): names.append('weather-live-rapmet')
+    if state.get('currentExists'): names.append('weather-live-current')
     if state.get('tempestExists'): names.append('weather-live-tempest')
     print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED'),'timeZone':'Etc/UTC','httpTarget':{'uri':'https://weather-collector.example/collect/'+name.removeprefix('weather-live-'),'httpMethod':'POST','oidcToken':{'serviceAccountEmail':'weather-scheduler@'+project+'.iam.gserviceaccount.com','audience':'https://weather-collector.example'}}} for name in names]))
 elif args[:3]==['storage','buckets','describe']:
@@ -102,7 +104,7 @@ elif args[:2]==['storage','ls']:
     print('gs://'+project+'-weather-data/live/mesonet-v1.json')
     print('gs://'+project+'-weather-data/live/metar-loop.json')
 ''')
-    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'rapmetExists':retired_exists,'airportObsExists':retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'rtmaExists':retired_exists,'conditionsExists':retired_exists,'hennepinExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
+    (tmp_path/'state.json').write_text(json.dumps({'tempestExists':retired_exists,'retiredDeleted':not retired_exists,'rapmetExists':retired_exists,'airportObsExists':retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'rtmaExists':retired_exists,'conditionsExists':retired_exists,'hennepinExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
     env = {**os.environ, "PATH": str(tmp_path)+os.pathsep+os.environ["PATH"],
            "MOCK_ROOT": str(tmp_path), "MOCK_FAILURE": failure}
     result = subprocess.run(["bash", str(ROOT / "release-plots.sh")], cwd=ROOT,
@@ -113,12 +115,18 @@ elif args[:2]==['storage','ls']:
     hourly_run = next(i for i,c in enumerate(calls) if c[:4] == ["scheduler", "jobs", "run", "weather-live-metar-clouds"])
     verifications = [i for i,c in enumerate(calls) if c[0] == "verify" and "--all-products" in c]
     assert hourly_run < verifications[0]
+    current_run = next(i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','run','weather-live-current'])
+    assert current_run < verifications[0]
+    assert not any(c[:4]==['scheduler','jobs','run','weather-live-tempest'] for c in calls)
     if failure == "none":
         assert result.returncode == 0, result.stderr
         assert verifications[0] < cutover[0] < verifications[-1]
         assert any(c[:4] == ["run", "services", "update", "weather-collector"] and "--memory=2Gi" in c for c in calls)
         assert any(c[:4] == ["run", "services", "update", "weather-lab"] and "--min=1" in c for c in calls)
         assert not any("--to-revisions=weather-lab-old=100" in c for c in calls)
+        tempest_deletes=[i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','delete','weather-live-tempest']]
+        assert bool(tempest_deletes)==retired_exists
+        assert all(i>verifications[-1] for i in tempest_deletes)
         retired=[i for i,c in enumerate(calls) if c[:4] == ["scheduler", "jobs", "delete", "weather-live-mesonet"]]
         assert bool(retired)==retired_exists
         assert all(i>verifications[-1] for i in retired), "Retire MESONET only after live verification"
@@ -174,6 +182,9 @@ elif args[:2]==['storage','ls']:
         assert any(c[:4]==['scheduler','jobs','resume','weather-live-airport-observations'] for c in calls)==retired_exists
         assert not any(c[:4]==['scheduler','jobs','delete','weather-live-airport-observations'] for c in calls)
         assert not any(c[:4]==['scheduler','jobs','delete','weather-live-rapmet'] for c in calls)
+        assert any(c[:4]==['scheduler','jobs','delete','weather-live-current'] for c in calls)
+        assert not any(c[:4]==['scheduler','jobs','delete','weather-live-tempest'] for c in calls)
+        assert any(c[:4]==['scheduler','jobs','resume','weather-live-tempest'] for c in calls)==retired_exists
         # Existing jobs retain their original state; newly created jobs are removed.
         if retired_exists:
             assert any(c[:4] == ["scheduler", "jobs", "resume", "weather-live-mesonet"] for c in calls)
@@ -199,7 +210,7 @@ def test_conditions_job_retirement_is_reversible_and_never_creates_collection():
     from configure_live_jobs import plan
     for state in ('ENABLED', 'PAUSED'):
         job={'name':'projects/p/locations/r/jobs/weather-live-public-conditions','state':state}
-        configure,rollback=plan([{'name':'weather-live-tempest','state':'ENABLED','schedule':'*/5 * * * *','httpTarget':{'uri':'https://collector.example/collect/tempest'}},job,{'name':'weather-live-airport-observations','state':'ENABLED','schedule':'*/5 * * * *','httpTarget':{'uri':'https://collector.example/collect/airport-observations'}}],'p','r','https://collector.example')
+        configure,rollback=plan([{'name':'weather-live-current','state':'ENABLED','schedule':'*/5 * * * *','httpTarget':{'uri':'https://collector.example/collect/current-hourly'}},job,{'name':'weather-live-airport-observations','state':'ENABLED','schedule':'*/5 * * * *','httpTarget':{'uri':'https://collector.example/collect/airport-observations'}}],'p','r','https://collector.example')
         configure=[c for c in configure if 'weather-live-public-conditions' in c]
         rollback=[c for c in rollback if 'weather-live-public-conditions' in c]
         assert bool(configure)==(state=='ENABLED')
@@ -210,15 +221,15 @@ def test_conditions_job_retirement_is_reversible_and_never_creates_collection():
     active={'name':'weather-live-metar-clouds','httpTarget':{'oidcToken':{'serviceAccountEmail':'scheduler@example'}}}
     configure,rollback=plan([active], 'p', 'r', 'https://collector.example')
     assert len(configure)==1 and configure[0][1:5]==['scheduler','jobs','create','http']
-    assert '--uri=https://collector.example/collect/tempest' in configure[0] and '--schedule=*/5 * * * *' in configure[0]
+    assert '--uri=https://collector.example/collect/current-hourly' in configure[0] and '--schedule=*/2 * * * *' in configure[0]
     assert rollback[0][1:4]==['scheduler','jobs','delete']
 
 
-def test_tempest_job_existing_paused_state_and_schedule_are_reversible():
+def test_current_job_existing_paused_state_and_schedule_are_reversible():
     from configure_live_jobs import plan
-    job={'name':'weather-live-tempest','state':'PAUSED','schedule':'*/15 * * * *','attemptDeadline':'120s','httpTarget':{'uri':'https://collector.example/collect/tempest'}}
+    job={'name':'weather-live-current','state':'PAUSED','schedule':'*/15 * * * *','attemptDeadline':'120s','httpTarget':{'uri':'https://collector.example/collect/current-hourly'}}
     configure,rollback=plan([job],'p','r','https://collector.example')
-    assert any('--schedule=*/5 * * * *' in c for c in configure)
+    assert any('--schedule=*/2 * * * *' in c for c in configure)
     assert any(c[1:4]==['scheduler','jobs','resume'] for c in configure)
     assert any('--schedule=*/15 * * * *' in c for c in rollback)
     assert any(c[1:4]==['scheduler','jobs','pause'] for c in rollback)

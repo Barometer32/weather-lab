@@ -2,13 +2,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const nodes=new Map(),selected=[],windowEvents={};let sourceFetches=0;const cloudSelections=[],airSelections=[];
 function node(){return{hidden:false,tabIndex:0,events:{},textContent:'',writes:[],classList:{contains(){return false;},add(){},remove(){}},setAttribute(k,v){this[k]=v;this.writes.push([k,v]);},getAttribute(k){return this[k]||null;},addEventListener(k,f){this.events[k]=f;},focus(){this.focused=true;}};}
-function get(id){assert.ok(!['current','tab-current','metar-clouds','tab-metar-clouds','clouds','tab-clouds','mesonet','tab-mesonet','observations','tab-observations'].includes(id),'Removed UI accessed');if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}
+function get(id){assert.ok(!['metar-clouds','tab-metar-clouds','clouds','tab-clouds','mesonet','tab-mesonet','observations','tab-observations'].includes(id),'Removed UI accessed');if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);}
 const context={document:{getElementById:get,addEventListener(){},hidden:false,body:{classList:{toggle(){}}}},Intl,Date,Math,Map,Set,window:{addEventListener(name,callback){windowEvents[name]=callback;},WeatherAirQuality:{select(id){airSelections.push(id);}},WeatherCloudHeights:{select(id){cloudSelections.push(id);}},WeatherFullscreen:{attach(){}},WeatherMetars:{select(id){selected.push("metar:"+id);}},WeatherPrepared:{subscribe(){},prime(){}}},WeatherCloudViews:{select(id){selected.push(id);}},fetch(){sourceFetches++;throw Error('Unexpected startup fetch');},setTimeout(){},setInterval(){},clearTimeout(){}};
 vm.runInNewContext(fs.readFileSync('static/app.js','utf8'),context);
 assert.equal(selected[0],'metar:metar');assert.equal(get('metar').hidden,false);
-for(const id of ['tempest','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
+for(const id of ['current','radar','satellite','forecast','air-quality'])assert.equal(get(id).hidden,true);
 assert.equal(sourceFetches,0);
-get('tab-tempest').events.click();assert.equal(get('tempest').hidden,false);
+get('tab-current').events.click();assert.equal(get('current').hidden,false);
 get('tab-metar').events.click();assert.equal(get('metar').hidden,false);
 windowEvents.pageshow({persisted:true});
 assert.equal(get('metar').hidden,false);

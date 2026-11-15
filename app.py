@@ -589,15 +589,18 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/tempest")
-def tempest_api():
-    from tempest_public import KEY, present
+@app.get("/api/current")
+def current_hourly_api():
+    from current_hourly import KEY, present
     try:
-        store=get_store()
-        saved=cached("prepared-tempest",10,lambda:store.read_json(KEY)) if store else None
-        return jsonify(present(saved,utcnow())),200,{"Cache-Control":"no-store"}
+        store = get_store()
+        saved = cached("prepared-current-hourly", 10, lambda: store.read_json(KEY)) if store else None
+        if not saved:
+            return jsonify(error="Official hourly METAR history is being prepared."), 503, {"Cache-Control": "no-store"}
+        return jsonify(present(saved, utcnow())), 200, {"Cache-Control": "no-store"}
     except Exception:
-        return jsonify(error="The experimental Tempest station reports are being prepared."),503,{"Cache-Control":"no-store"}
+        app.logger.exception("Prepared CURRENT history could not be read")
+        return jsonify(error="Hourly METAR history is unavailable. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
 
 
 @app.get("/api/metar-clouds")
