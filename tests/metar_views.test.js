@@ -67,5 +67,13 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(get('metar-surface').hidden,false,'PLOTS keeps the hourly map visible');
  get('metar-product').events.change({target:{value:'plots'}});await flush();
  for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(ids().includes(id),'cloud availability does not remove temperature/wind plots: '+id);
+ const stp={...stations[0],station:'KSTP',lat:13,lon:10},sgs={...stp,station:'KSGS',lat:13.01};
+ let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
+ data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
+ assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'KSTP wins before KSGS at the same cramped zoom');
+ assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'Core airports retain their priority');
+ get('metar-product').events.change({target:{value:'clouds'}});await flush();
+ assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
+ roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

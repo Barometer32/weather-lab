@@ -6,25 +6,27 @@
   <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=plots-home-v32">
+  <link rel="stylesheet" href="/static/style.css?v=tempest-experiment-v33">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
-  <script defer src="/static/sun-angle.js?v=plots-home-v32"></script>
-  <script defer src="/static/prepared-data.js?v=plots-home-v32"></script>
+  <script defer src="/static/sun-angle.js?v=tempest-experiment-v33"></script>
+  <script defer src="/static/prepared-data.js?v=tempest-experiment-v33"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
-  <script defer src="/static/map-fullscreen.js?v=plots-home-v32"></script>
-  <script defer src="/static/default-views.js?v=plots-home-v32"></script>
-  <script defer src="/static/metar-model.js?v=plots-home-v32"></script>
-  <script defer src="/static/metar-views.js?v=plots-home-v32"></script>
+  <script defer src="/static/map-fullscreen.js?v=tempest-experiment-v33"></script>
+  <script defer src="/static/default-views.js?v=tempest-experiment-v33"></script>
+  <script defer src="/static/metar-model.js?v=tempest-experiment-v33"></script>
+  <script defer src="/static/tempest-views.js?v=tempest-experiment-v33"></script>
+  <script defer src="/static/metar-views.js?v=tempest-experiment-v33"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=plots-home-v32"></script>
+  <script defer src="/static/app.js?v=tempest-experiment-v33"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
   <nav aria-label="Weather views" role="tablist">
     <button role="tab" id="tab-metar" aria-selected="true" aria-controls="metar">METAR</button>
+    <button role="tab" id="tab-tempest" aria-selected="false" aria-controls="tempest" tabindex="-1">TEMPEST</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">FORECAST</button>
@@ -42,10 +44,26 @@
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. KMIC, KMSP and KFCM take priority. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. KMIC, KMSP and KFCM take priority, followed by KSTP. KSGS appears when space allows. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
 </section>
 
 
+
+<section id="tempest" role="tabpanel" aria-labelledby="tab-tempest" hidden>
+  <div class="tempest-content">
+    <div class="section-heading"><div><p class="eyebrow">EXPERIMENTAL · SHAKOPEE AREA</p><h1>Tempest observations</h1></div><button class="secondary" id="refresh-tempest">Refresh</button></div>
+    <p class="small-note" id="tempest-time" aria-live="polite">Loading experimental station reports…</p>
+    <div class="tempest-readings">
+      <div class="tempest-reading tempest-temperature"><h2>Temperature</h2><p id="tempest-temperature">—</p></div>
+      <div class="tempest-reading tempest-dewpoint"><h2>Dewpoint</h2><p id="tempest-dewpoint">—</p></div>
+      <div class="tempest-reading tempest-wind"><h2>Wind</h2><p id="tempest-wind">—</p><small id="tempest-wind-count"></small></div>
+      <div class="tempest-reading tempest-count"><h2>Stations included</h2><p id="tempest-count">—</p></div>
+    </div>
+    <div class="tempest-station-heading"><h2>Station reports</h2><a href="https://tempestwx.com/map/139723/44.8053/-93.4113/12" target="_blank" rel="noopener">WeatherFlow Tempest</a></div>
+    <div class="tempest-table"><table><thead><tr><th>Station / ID</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Wind</th><th>Average</th></tr></thead><tbody id="tempest-stations"></tbody></table></div>
+    <p class="tempest-method">Equal averages of reports no more than 10 minutes old. Report times can differ between stations.</p>
+  </div>
+</section>
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>

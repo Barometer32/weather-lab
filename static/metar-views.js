@@ -6,6 +6,7 @@ window.WeatherMetars = (() => {
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
+  const secondary=["KSTP"];
   const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
   const windPlotOptions={dot:true,mphBarbs:true};
   const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
@@ -63,7 +64,7 @@ window.WeatherMetars = (() => {
       bySite.set(id,{station,frames:Array.from({length:data.history.length},()=>reserve.boxes),radius:reserve.radius,f:reserve.bounds,reserveOnly:true});
     }
     const rank=s=>{
-      const i=preferred.indexOf(s.station);return i<0?preferred.length:i;
+      const i=preferred.indexOf(s.station);return i<0?preferred.length+(secondary.includes(s.station)?0:1):i;
     };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
@@ -107,8 +108,10 @@ window.WeatherMetars = (() => {
     }
     for(const site of best)take(site);
     for(const site of candidates)if(site.reserveOnly||(!preferred.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
-    // Fill gaps with the least-conflicting remaining stations first. KSTP and
-    // KSGS stay eligible and appear whenever they fit around the preferred trio.
+    // KSTP wins available space after the core trio, before KSGS or others.
+    // KSGS remains eligible when zooming gives both stations room.
+    for(const id of secondary){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
+    // Fill remaining gaps with the least-conflicting stations first.
     while(remaining.size){
       let best,degree=Infinity;
       for(const site of remaining){

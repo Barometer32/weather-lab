@@ -589,6 +589,17 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
+@app.get("/api/tempest")
+def tempest_api():
+    from tempest_public import KEY, present
+    try:
+        store=get_store()
+        saved=cached("prepared-tempest",10,lambda:store.read_json(KEY)) if store else None
+        return jsonify(present(saved,utcnow())),200,{"Cache-Control":"no-store"}
+    except Exception:
+        return jsonify(error="The experimental Tempest station reports are being prepared."),503,{"Cache-Control":"no-store"}
+
+
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current

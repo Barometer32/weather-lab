@@ -1,6 +1,6 @@
 {
-  "variant": "metar-plots-home-observations-removed",
-  "baseCommit": "0045e23f9f297cbeedafb418c46b463edaa1783c",
+  "variant": "tempest-experiment-kstp-secondary-priority",
+  "baseCommit": "3dadc084c2467c0d8c40ced6710bff1170e38cf7",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -35,5 +35,13 @@
   "retiredPublicConditionsCollector": true,
   "retiredHennepinMesonet": true,
   "retiredRapmet": true,
-  "retiredAirportObservations": true
+  "retiredAirportObservations": true,
+  "tempestStationCount": 15,
+  "tempestCollectionSchedule": "*/5 * * * *",
+  "tempestSource": "Rendered public Tempest map panels; no website keys or direct private API requests",
+  "tempestMaxReportAgeSeconds": 600,
+  "tempestAverage": "equal Fahrenheit means; scalar mph speed mean, speed-weighted direction; whole F/mph display",
+  "metarSecondaryPriorityStations": [
+    "KSTP"
+  ]
 }

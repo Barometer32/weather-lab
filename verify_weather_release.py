@@ -37,8 +37,8 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=plots-home-v32' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
+    assert '/static/metar-model.js?v=tempest-experiment-v33' in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "tempest", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
     assert 'rapmet' not in html.lower()
@@ -46,12 +46,13 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=plots-home-v32' in html
+    assert '/static/metar-views.js?v=tempest-experiment-v33' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=plots-home-v32' in html
+    assert '/static/app.js?v=tempest-experiment-v33' in html
+    assert 'id="tab-tempest"' in html and 'tempest-views.js' in html
     print("Verified METAR PLOTS home with CLOUDS and all other retained tabs.")
 
 
@@ -85,6 +86,10 @@ def check_removed(base):
 
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
+    tempest=json.loads(read(base,"/api/tempest"))
+    assert tempest.get("experimental") and len(tempest["stations"])==15
+    assert tempest["summary"]["stationCount"]>0 and not tempest["stale"],"No fresh Tempest public-page reports are prepared"
+    print("Verified Tempest experiment:",tempest["summary"]["stationCount"],"of 15 station reports included")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),
