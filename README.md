@@ -8,7 +8,7 @@ GitHub branch: `rtmetar-default-20261111`.
 ## Current pages
 
 - **CURRENT** opens first on every visit. Equal averages from KMSP, KFCM and KMIC official :50–:59 METARs, assigned to the following hour. Precise T-remark Celsius readings are averaged before whole-Fahrenheit conversion. Only complete three-airport hours appear in the last-12-hours table. Wind speed includes variable reports; their directions are omitted from the speed-weighted circular direction. Display uses whole mph and eight compass points; 3 mph or less is CALM. Sun angle uses Hopkins coordinates, tenths of a degree and the current time every ten seconds.
-- **METAR** opens PLOTS, with CLOUDS as the other option. KMSP/KFCM/KMIC have first map priority, then KSTP; KSGS appears when space allows. The four-hour loop uses each hour's actual reports.
+- **METAR** opens CLOUDS, with PLOTS as the other option. KMSP/KFCM/KMIC have first map priority, then KSTP; KSGS appears when space allows. The four-hour loop uses each hour's actual reports.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to Visible (red) Band 02, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** uses the NWS Hopkins MapClick text forecast, with its original narrative and issuance time.

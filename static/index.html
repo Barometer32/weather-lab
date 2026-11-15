@@ -16,7 +16,7 @@
   <script defer src="/static/default-views.js?v=current-home-v35"></script>
   <script defer src="/static/metar-model.js?v=current-home-v35"></script>
   <script defer src="/static/current-hourly.js?v=current-wind-compact-v37"></script>
-  <script defer src="/static/metar-views.js?v=current-home-v35"></script>
+  <script defer src="/static/metar-views.js?v=clouds-default-v38"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -51,7 +51,7 @@
 
 
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots" selected>PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots">PLOTS</option><option value="clouds" selected>CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">

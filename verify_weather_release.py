@@ -40,13 +40,13 @@ def check_layout(base):
     assert '/static/metar-model.js?v=current-home-v35' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["current", "metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
-    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert '<option value="clouds" selected>CLOUDS</option>' in html
     assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=current-home-v35' in html
+    assert '<option value="plots">PLOTS</option>' in html
+    assert '/static/metar-views.js?v=clouds-default-v38' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]

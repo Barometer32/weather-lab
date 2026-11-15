@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "77dce2f29b12906e197a96bef1da2a262e783532",
+  "baseCommit": "3978df1f73f8aaeb7645618137a358c04f53ea56",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -12,7 +12,7 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "plots",
+  "defaultMetarProduct": "clouds",
   "metarProducts": [
     "plots",
     "clouds"

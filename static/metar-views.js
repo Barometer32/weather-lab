@@ -3,7 +3,7 @@
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="clouds",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const secondary=["KSTP"];
@@ -221,7 +221,7 @@ window.WeatherMetars = (() => {
   setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){
-    selectProduct("plots");
+    selectProduct("clouds");
     setTimeout(()=>map?.invalidateSize({pan:false}),0);
   }},refresh(){render();load();}};
 })();
