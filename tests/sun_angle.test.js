@@ -1,7 +1,9 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const label={},events={};let interval;
-const context={window:{},document:{getElementById:()=>label,addEventListener:(e,f)=>events[e]=f,hidden:false},Date,Math,setInterval:(f,ms)=>{interval=ms;}};
+const label={},events={};let interval,tick;
+let localMs=Date.parse('2026-10-21T04:03:54Z');
+class ClockDate extends Date {constructor(...args){super(...(args.length?args:[localMs]));}static now(){return localMs;}}
+const context={window:{},document:{getElementById:id=>{assert.equal(id,"current-sun");return label;},addEventListener:(e,f)=>events[e]=f,hidden:false},Date:ClockDate,Math,setInterval:(f,ms)=>{interval=ms;tick=f;}};
 vm.runInNewContext(fs.readFileSync('static/sun-angle.js','utf8'),context);
 const sun=context.window.WeatherSun.elevation;
 assert.ok(sun(new Date('2026-06-21T18:15:00Z'))>68&&sun(new Date('2026-06-21T18:15:00Z'))<69);
@@ -24,4 +26,11 @@ assert.equal(context.window.WeatherSun.longitude,-93.463);
 // Correct a deliberately wrong device clock using the server timestamp.
 context.window.WeatherSun.sync('2026-10-21T04:01:54Z');
 assert.equal(label.textContent,'-47.6°');
+localMs+=60000;tick();
+const expectedAfterMinute=`${sun(new Date('2026-10-21T04:02:54Z')).toFixed(1)}°`;
+assert.equal(label.textContent,expectedAfterMinute,'The shared clock advances in real time after synchronization');
+// A late response from an older request must not replace the newer clock.
+context.window.WeatherSun.sync('2026-10-21T03:00:00Z',localMs-120000);
+assert.equal(label.textContent,expectedAfterMinute);
+events.visibilitychange();assert.equal(label.textContent,expectedAfterMinute);
 console.log('Sun checks passed: NOAA reference values, Hopkins coordinates, seasons, refraction, time zones, server clock and 10-second refresh.');

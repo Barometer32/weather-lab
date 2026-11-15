@@ -3,7 +3,7 @@
 // https://gml.noaa.gov/grad/solcalc/main.js
 window.WeatherSun = (() => {
   const rad=Math.PI/180,latitude=44.925,longitude=-93.463;
-  let clockOffset=0;
+  let clockOffset=0,lastSyncServer=-Infinity;
   function geometricElevation(date, lat=latitude, lon=longitude) {
     const jd=date.getTime()/86400000+2440587.5,t=(jd-2451545)/36525;
     const l=((280.46646+t*(36000.76983+.0003032*t))%360+360)%360;
@@ -32,17 +32,20 @@ window.WeatherSun = (() => {
   }
   function update(){
     const value=`${elevation(new Date(Date.now()+clockOffset)).toFixed(1)}°`;
-    for(const id of ["sun-angle"]){
+    for(const id of ["current-sun"]){
       const el=document.getElementById(id);if(el)el.textContent=value;
     }
   }
   function sync(serverTime, requestStarted=Date.now()) {
     const server=Date.parse(serverTime),received=Date.now();
-    if(Number.isFinite(server))clockOffset=server-(requestStarted+received)/2;
+    if(Number.isFinite(server)&&Number.isFinite(requestStarted)&&server>=lastSyncServer&&requestStarted<=received){
+      clockOffset=server-(requestStarted+received)/2;
+      lastSyncServer=server;
+    }
     update();
   }
   update();
   setInterval(update,10000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)update();});
-  return {elevation,geometricElevation,refraction,sync,latitude,longitude};
+  return {elevation,geometricElevation,refraction,sync,update,latitude,longitude};
 })();

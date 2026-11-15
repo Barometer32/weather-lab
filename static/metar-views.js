@@ -184,7 +184,6 @@ window.WeatherMetars = (() => {
     prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
-    if(data.serverTime&&!data._savedCopy)window.WeatherSun?.sync(data.serverTime);
     render();
   }
   async function load(force=false){

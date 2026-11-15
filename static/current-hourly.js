@@ -24,7 +24,7 @@ window.WeatherCurrent=(()=>{
     el("current-time").textContent=latest?clock.format(new Date(latest.hour)):"—";
     const history=el("current-history");history.replaceChildren();
     for(const hour of data.history)if(hour.complete)appendRow(history,[clock.format(new Date(hour.hour)),degrees(hour.tempF),degrees(hour.dewpointF),windText(hour.wind,true)]);
-    if(window.WeatherSun)el("current-sun").textContent=`${window.WeatherSun.elevation(new Date()).toFixed(1)}°`;
+    window.WeatherSun?.update?.();
   }
   function adopt(next){
     if(!Array.isArray(next.history)||next.history.length>12)throw Error("Hourly METAR history is not ready");
@@ -41,5 +41,5 @@ window.WeatherCurrent=(()=>{
   window.WeatherPrepared.subscribe(endpoint,adopt);
   setInterval(()=>{if(active&&!document.hidden)load(true);},30000);
   setInterval(()=>{if(active&&!document.hidden)render();},10000);
-  return {select(id){active=id==="current";if(active){render();load();}},refresh(){if(active)load(true);}};
+  return {select(id){active=id==="current";if(active){window.WeatherSun?.update?.();render();load();}},refresh(){if(active)load(true);}};
 })();

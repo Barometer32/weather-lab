@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "3978df1f73f8aaeb7645618137a358c04f53ea56",
+  "baseCommit": "4ae00e11289c8ccaec3207f2933f51cc16edf980",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -62,5 +62,7 @@
     "weather-live-satellite",
     "weather-live-forecast",
     "weather-live-air-quality"
-  ]
+  ],
+  "currentSunClock": "one server-response-calibrated updater; cached data never resets clock",
+  "metarSunReadout": false
 }

@@ -39,8 +39,12 @@ window.WeatherPrepared = (() => {
     if(pending.has(url))return pending.get(url);
     const work=(async()=>{
       try{
+        const started=Date.now();
         const response=await fetch(url,{cache:"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
+        // Only a real network response has a current server clock. Cached
+        // manifests must never move the solar clock back to their fetch time.
+        if(data.serverTime&&url==="/api/current")window.WeatherSun?.sync(data.serverTime,started);
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
         return data;
