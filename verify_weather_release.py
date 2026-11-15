@@ -45,12 +45,12 @@ def check_layout(base):
     assert 'mesonet-views.js' in html and 'id="mesonet-map"' in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=mesonet-default-v24' in html
+    assert '/static/metar-views.js?v=mesonet-direct-v25' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=mesonet-default-v24' in html
+    assert '/static/app.js?v=mesonet-direct-v25' in html
     print("Verified METAR MESONET default with PLOTS and CLOUDS retained.")
 
 

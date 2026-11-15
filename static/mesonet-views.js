@@ -20,7 +20,7 @@ window.WeatherMesonet=(()=>{
     map=L.map("mesonet-map",{minZoom:8.5,maxZoom:13,zoomSnap:.25,zoomDelta:.25,wheelPxPerZoomLevel:90,maxBounds:panBounds,maxBoundsViscosity:1});
     reset();
     for(const [kind,opacity] of [["uscounties",.23],["usstates",.65]])L.tileLayer(`https://mesonet.agron.iastate.edu/c/tile.py/1.0.0/${kind}/{z}/{x}/{y}.png`,{opacity,attribution:"Boundaries: Iowa Environmental Mesonet"}).addTo(map);
-    const roads=window.WeatherRadarRoads?.addTo(map,()=>{el("mesonet-road-status").hidden=false;el("mesonet-road-status").textContent="Some highway lines could not load. Station plots remain available.";},{primaryOnly:true});
+    const roads=window.WeatherRadarRoads?.addTo(map,()=>{el("mesonet-map").setAttribute("data-highway-status","unavailable");},{primaryOnly:true});
     roads?.setOpacity(.23);
     layer=L.layerGroup().addTo(map);
   }

@@ -1,6 +1,6 @@
 {
-  "variant": "hennepin-mesonet-default-local-highways",
-  "baseCommit": "dc5ee4f67b800043a93c51b2136f5c1f02dc96bb",
+  "variant": "hennepin-mesonet-direct-feed-ready-compact",
+  "baseCommit": "68bea50aff498947f6125f23c72ccd8087982bec",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -38,5 +38,8 @@
   "mesonetStationPolicy": "west-metro-roster-v2",
   "mesonetHighways": "primary only, 23% opacity",
   "mesonetTemperatureUnit": "F",
-  "mesonetWindUnit": "mph"
+  "mesonetWindUnit": "mph",
+  "mesonetDirectFeed": "Synoptic API, requires user token and verified approved coverage",
+  "mesonetFallback": "public NOAA MADIS",
+  "mesonetExtraBottomNote": false
 }

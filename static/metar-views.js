@@ -201,7 +201,6 @@ window.WeatherMetars = (() => {
     el("metar-product").value=mode;
     el("metar-surface").hidden=mode==="mesonet";
     el("mesonet-surface").hidden=mode!=="mesonet";
-    el("mesonet-source").hidden=mode!=="mesonet";
     el("metar-eyebrow").textContent=mode==="mesonet"?"HENNEPIN WEST · °F · MPH":"AIRPORT METARS · UPPER MIDWEST";
     window.WeatherMesonet?.select(mode);
     if(mode==="mesonet")return;

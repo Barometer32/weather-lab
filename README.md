@@ -19,13 +19,15 @@ Temperatures/dewpoints are Fahrenheit and wind barbs are mph. Station popups
 show actual observation timestamps, age and eight-point compass winds.
 
 `weather-live-hennepin-mesonet` collects every five minutes using public MADIS
-Hennepin records only. `/api/mesonet` reads the prepared object without an
+Hennepin records as fallback. When `WEATHER_SYNOPTIC_TOKEN` is configured, the collector first requests the approved 19 sites directly from Synoptic in one authenticated API request. Measurements come from one actual report time per station; newer direct reports win over older MADIS copies. Fresh complete direct coverage skips national MADIS downloads. `/api/mesonet` reads the prepared object without an
 upstream download. Current and previous files are checked; a cold start during
 a source gap can recover the preceding two files as well. Existing reports are
 retained for up to 24 hours with their original timestamps and visible ages,
 so a missing hour does not make a station disappear or manufacture a new value.
-The footer labels source delays. Five-minute collection does not guarantee
+The compact map footer labels source delays; the extra explanatory line below the map is removed. Five-minute collection does not guarantee
 five-minute delivery. No averaging, model estimate or device tracking is used.
+
+To enable the direct feed after deploying this checkout, obtain your own Synoptic API access authorized for all 19 sites and this public display, then run `bash connect-synoptic-mesonet.sh`. It reads the token with hidden input and verifies all 19 sites have reports within 15 minutes before changing Cloud configuration. It stores the token in Secret Manager and grants only the collector identity access to that secret. Tokens never enter browser JavaScript, prepared JSON, the repository, or logs. API access and any service plan are the user's responsibility; no service subscription is created by these scripts. Without configured access, MADIS remains active and may be substantially delayed. MesoWest's network status page only proves that at least one network station reported, not that every approved station is fresh. Direct access and latency have not been live-verified without the user's token.
 
 The public MN/WI CONDITIONS trial is also removed, including its location
 controls, API, collector, calculation scripts and browser prefetch. Device
