@@ -5,19 +5,19 @@ window.WeatherAirportObservations=(()=>{
   const directions=["N","NE","E","SE","S","SW","W","NW"];
   let data,active=false,busy=false;
   const finite=Number.isFinite;
-  function windText(w={}){
+  function windText(w={},summary=false){
     if(!finite(w.speedMph))return "Unavailable";
+    if(summary&&Math.round(w.speedMph)<=3)return "CALM";
     if(w.speedMph<.5)return "Calm";
-    const direction=w.cardinal||(finite(w.direction)?directions[Math.round(w.direction/45)%8]:w.variable?"Variable":"Unknown");
+    const direction=w.variable?"Variable":w.cardinal||(finite(w.direction)?directions[Math.round(w.direction/45)%8]:"Unknown");
     return `${direction} ${Math.round(w.speedMph)} mph`;
   }
   function render(){
     if(!active||!data)return;
     const current=data.current,age=current?Math.max(0,Math.floor((Date.now()-Date.parse(current.observedAt))/60000)):null;
-    el("observations-time").textContent=current?`${time.format(new Date(current.observedAt))} · ${age} min old · 3 airports${age>15?" · Source delayed":""}${data.stale?" · Collector delayed":""}${data._savedCopy?" · Saved":""}`:"Waiting for matching five-minute reports from all three airports";
+    el("observations-time").textContent=current?`${time.format(new Date(current.observedAt))} · ${age} min old · 3 airports${data.stale?" · Collector delayed":""}${data._savedCopy?" · Saved":""}`:"Waiting for matching five-minute reports from all three airports";
     for(const [id,key] of [["observations-temperature","tempF"],["observations-dewpoint","dewpointF"]])el(id).textContent=finite(current?.[key])?`${current[key]}°F`:"—";
-    for(const [id,key] of [["observations-temperature-c","tempC"],["observations-dewpoint-c","dewpointC"]])el(id).textContent=finite(current?.[key])?`${current[key].toFixed(1)}°C average`:"";
-    el("observations-wind").textContent=current?windText(current.wind):"—";
+    el("observations-wind").textContent=current?windText(current.wind,true):"—";
     const body=el("observations-stations");body.replaceChildren();
     for(const s of data.stations||[]){
       const row=document.createElement("tr");

@@ -1,20 +1,18 @@
-"""Direct NOAA five-minute HF-ASOS plots, with a strict raw HF fallback."""
+"""Direct NOAA five-minute HF-ASOS feed for the three-airport Observations summary."""
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
 import json
 import math
-from pathlib import Path
 import threading
 import time
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
 
-KEY="live/rapmet-v1.json"
-VERSION="five-state-direct-hf-celsius-v2"
-STATES=frozenset({"ND","SD","IA","MN","WI"})
-EXCLUDED=frozenset({"KSTP","KCFE"})
+KEY="live/airport-observations-v1.json"
+VERSION="three-airport-direct-hf-celsius-v1"
+STATES=frozenset({"MN"})
+EXCLUDED=frozenset()
 MAX_AGE=3600
 UTC=timezone.utc
 
@@ -23,10 +21,8 @@ def iso(t):
     return t.astimezone(UTC).isoformat().replace("+00:00","Z")
 
 
-@lru_cache(maxsize=1)
 def inventory():
-    return json.loads((Path(__file__).parent/"static/rapmet-stations.json").read_text())["stations"]
-
+    return {'KMSP': {'state': 'MN', 'name': 'MINNEAPOLIS', 'lat': 44.8854, 'lon': -93.2313, 'iemId': 'MSP'}, 'KFCM': {'state': 'MN', 'name': 'Minneapolis - Flying Cloud', 'lat': 44.8261, 'lon': -93.4607, 'iemId': 'FCM'}, 'KMIC': {'state': 'MN', 'name': 'Minneapolis - Crystal', 'lat': 45.0622, 'lon': -93.3511, 'iemId': 'MIC'}}
 
 def eligible(row,now):
     try:
@@ -88,7 +84,7 @@ def from_madis(payload,now,*,latest_only=True):
 
 
 def metro_history(previous,fresh,now):
-    # A small shared pool allows the average to select the latest exact
+    # A small three-airport pool allows the average to select the latest exact
     # five-minute time reported by all three, without another NOAA download.
     merged={}
     for r in previous.get("metroReports",previous.get("stations",[]))+fresh:
@@ -107,7 +103,7 @@ def source_urls(now):
                 "network":state+"_ASOS","station":ids[start:start+25],"data":"metar","sts":(now-timedelta(hours=1)).strftime("%Y-%m-%dT%H:%MZ"),
                 "ets":(now+timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%MZ"),"tz":"Etc/UTC","format":"onlycomma",
                 "latlon":"no","elev":"no","missing":"M","trace":"T","report_type":"1"},doseq=True),None))
-    # The preferred airports also use the smaller live history API. Compare
+    # The same three airports also use the smaller live history API. Compare
     # actual report timestamps and retain whichever raw report arrives first.
     urls.extend((station,url,station) for station,url in live_urls(now))
     return urls
@@ -185,16 +181,3 @@ def collect(store,now,download=None,raw_download=None):
     store.write_json(KEY,saved)
     if not rows:raise ValueError("No five-minute airport reports are available")
     return {"stations":len(selected(rows,now)),"newestObservationAt":max(r["time"] for r in rows),"sourceFailures":saved["sourceFailures"]}
-
-
-def present(saved,now):
-    if not saved or saved.get("version")!=VERSION:raise ValueError("RAPMET is not prepared")
-    rows=selected(saved.get("stations",[]),now)
-    for r in rows:r["ageMinutes"]=round((now-datetime.fromisoformat(r["time"].replace("Z","+00:00"))).total_seconds()/60,1)
-    checked=saved.get("checkedAt")
-    delayed=not checked or (now-datetime.fromisoformat(checked.replace("Z","+00:00"))).total_seconds()>600
-    return {"version":VERSION,"stations":rows,"states":sorted(STATES),"excludedStations":sorted(EXCLUDED),
-            "checkedAt":checked,"serverTime":iso(now),"stale":delayed,"sourceDelayed":any(r["ageMinutes"]>15 for r in rows),
-            "newestObservationAt":max((r["time"] for r in rows),default=None),"updateIntervalSeconds":300,
-            "temperatureUnit":"C","windUnit":"mph","temperatureBasis":"HF-ASOS-Celsius","feed":saved.get("feed"),
-            "sourceFailures":saved.get("sourceFailures",[])}

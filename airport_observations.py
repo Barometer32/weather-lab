@@ -1,4 +1,4 @@
-"""Three-airport average from the same prepared direct NOAA RAPMET feed."""
+"""Three-airport average from the prepared direct NOAA three-airport feed."""
 from datetime import datetime
 import math
 from statistics import mean
@@ -17,26 +17,33 @@ def wind_average(rows):
     if not all(type(v) in (int,float) and math.isfinite(v) and 0<=v<=290 for v in speeds):
         return {"speedMph":None,"direction":None,"cardinal":"Unknown"}
     speed=mean(speeds)
-    if speed<.5:return {"speedMph":nearest(speed),"direction":None,"cardinal":"Calm"}
+    if nearest(speed)<=3:return {"speedMph":nearest(speed),"direction":None,"cardinal":"CALM"}
     east=north=0.0
+    variable=False
+    bearings=0
     for r,s in zip(rows,speeds):
         if s<.5:continue
         w=r.get("wind") or {};d=w.get("direction")
+        if w.get("variable"):
+            variable=True
+            continue
         if type(d) not in (int,float) or not math.isfinite(d) or not 0<=d<=360:
-            return {"speedMph":nearest(speed),"direction":None,"cardinal":"Variable" if w.get("variable") else "Unknown"}
+            continue
+        bearings+=1
         east+=s*math.sin(math.radians(d));north+=s*math.cos(math.radians(d))
-    if math.hypot(east,north)<1e-6:return {"speedMph":nearest(speed),"direction":None,"cardinal":"Variable"}
+    if math.hypot(east,north)<1e-6:
+        return {"speedMph":nearest(speed),"direction":None,"cardinal":"Variable" if variable or bearings else "Unknown"}
     direction=math.degrees(math.atan2(east,north))%360
     return {"speedMph":nearest(speed),"direction":direction,"cardinal":CARDINALS[nearest(direction/45)%8]}
 
 
 def present(saved,now):
-    import rapmet
-    if not saved or saved.get("version")!=rapmet.VERSION:raise ValueError("Airport observations are not prepared")
+    import airport_feed
+    if not saved or saved.get("version")!=airport_feed.VERSION:raise ValueError("Airport observations are not prepared")
     pool={}
     for r in saved.get("metroReports",saved.get("stations",[])):
-        if r.get("station") in STATIONS and rapmet.eligible(r,now):pool[r["station"],r["time"]]=r
-    times=[{t for s,t in pool if s==station and rapmet.complete(pool[s,t])} for station in STATIONS]
+        if r.get("station") in STATIONS and airport_feed.eligible(r,now):pool[r["station"],r["time"]]=r
+    times=[{t for s,t in pool if s==station and airport_feed.complete(pool[s,t])} for station in STATIONS]
     common=set.intersection(*times)
     observed=max(common,default=None)
     current=None
@@ -52,6 +59,6 @@ def present(saved,now):
     stale=not checked or (now-datetime.fromisoformat(checked.replace("Z","+00:00"))).total_seconds()>600
     age=(now-datetime.fromisoformat(observed.replace("Z","+00:00"))).total_seconds()/60 if observed else None
     return {"current":current,"stations":rows,"stationIds":list(STATIONS),"checkedAt":checked,
-            "serverTime":rapmet.iso(now),"ageMinutes":age,"sourceDelayed":age is None or age>15,"stale":stale,
+            "serverTime":airport_feed.iso(now),"ageMinutes":age,"sourceDelayed":age is None or age>15,"stale":stale,
             "updateIntervalSeconds":300,"source":saved.get("feed"),"waiting":current is None,
             "calculation":"equal Celsius average of all three airports at the same five-minute report time; convert to Fahrenheit and round once"}

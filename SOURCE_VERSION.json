@@ -1,6 +1,6 @@
 {
-  "variant": "observations-home-three-airport-direct-noaa",
-  "baseCommit": "a10eb037a884783d532afe1a17bb683b7ad91f28",
+  "variant": "observations-home-plots-calm-wind",
+  "baseCommit": "bc605051ffe846cf346b57e062581e340d90f48c",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -12,9 +12,8 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "rapmet",
+  "defaultMetarProduct": "plots",
   "metarProducts": [
-    "rapmet",
     "plots",
     "clouds"
   ],
@@ -35,29 +34,26 @@
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
   "retiredHennepinMesonet": true,
-  "rapmetCollectionSchedule": "*/5 * * * *",
-  "rapmetStates": [
-    "ND",
-    "SD",
-    "IA",
-    "MN",
-    "WI"
-  ],
-  "rapmetExcludedStations": [
-    "KSTP",
-    "KCFE"
-  ],
-  "rapmetTemperatureBasis": "direct HF-ASOS Kelvin decoded to Celsius; whole-C display",
-  "rapmetReports": "HF-ASOS only at five-minute timestamps; no routine METAR or SPECI",
-  "rapmetMaxReportAgeSeconds": 3600,
-  "rapmetSource": "NOAA MADIS direct, raw IEM HF fallback only",
-  "rapmetPriorityAlwaysVisible": true,
   "observationStationIds": [
     "KMSP",
     "KFCM",
     "KMIC"
   ],
   "observationAverage": "latest common five-minute time, equal Celsius mean, Fahrenheit conversion then whole-degree rounding",
-  "observationWind": "scalar mph mean rounded once; speed-weighted vector and eight compass points",
-  "observationPreparedSource": "shared RAPMET object, no additional upstream request or job"
+  "observationWind": "all three scalar mph speeds averaged then rounded once; <=3 mph CALM; variable bearings omitted from speed-weighted eight-point direction",
+  "observationPreparedSource": "direct NOAA HF-ASOS for KMSP/KFCM/KMIC only; live/airport-observations-v1.json",
+  "retiredRapmet": true,
+  "observationCollectionSchedule": "*/5 * * * *",
+  "observationMobileLayout": [
+    [
+      "temperature",
+      "wind"
+    ],
+    [
+      "dewpoint",
+      "sun"
+    ]
+  ],
+  "observationCelsiusSubtitles": false,
+  "observationSourceDelayedLabel": false
 }

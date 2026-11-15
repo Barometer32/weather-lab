@@ -37,22 +37,22 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
-    assert '/static/metar-model.js?v=observations-home-v29' in html
+    assert '/static/metar-model.js?v=observations-plots-v31' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["rapmet", "plots", "clouds"]
-    assert '<option value="rapmet" selected>RAPMET</option>' in html
-    assert 'rapmet-views.js' in html and 'id="rapmet-map"' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=observations-home-v29' in html
+    assert '/static/metar-views.js?v=observations-plots-v31' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=observations-home-v29' in html
-    print("Verified OBSERVATIONS home and METAR RAPMET default with PLOTS/CLOUDS retained.")
+    assert '/static/app.js?v=observations-plots-v31' in html
+    print("Verified OBSERVATIONS home and METAR PLOTS default with CLOUDS retained.")
 
 
 def check_hourly(base):
@@ -73,7 +73,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/satellite/truecolor", "/api/prepared/satellite/truecolor/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
+    for path in ("/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/truecolor", "/api/prepared/satellite/truecolor/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js"):
         try:
             read(base, path)
         except HTTPError as error:
@@ -90,13 +90,6 @@ def check_products(base):
     assert {s["station"] for s in observations["stations"]}=={"KMSP","KFCM","KMIC"}
     assert len({s["time"] for s in observations["stations"]})==1,"Average station times differ"
     print("Verified three-airport average:",observations["current"]["observedAt"],observations["current"]["tempF"],"F")
-    data=json.loads(read(base,"/api/rapmet"))
-    assert data.get("stations") and not data.get("stale"),"RAPMET prepared collection is unavailable"
-    assert data["temperatureUnit"]=="C" and data["windUnit"]=="mph" and data["temperatureBasis"]=="HF-ASOS-Celsius"
-    assert set(data["states"])=={"ND","SD","IA","MN","WI"}
-    assert all(s["reportType"]=="HFMETAR" and s["station"]!="KSTP" and s["state"] in data["states"] and s["tempC"] is not None and s["dewpointC"] is not None for s in data["stations"])
-    print("Verified RAPMET:",len(data["stations"]),"five-minute airports. Newest actual report:",data["newestObservationAt"])
-    if data.get("sourceDelayed"):print("RAPMET: source is delayed; actual observation ages are displayed.")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),

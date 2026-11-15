@@ -100,7 +100,7 @@ changed=true
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 # Reversibly pause retired observation jobs before verifying the retained maps.
 bash "$rollback_dir/live-configure.sh"
-gcloud scheduler jobs run weather-live-rapmet "${scheduler[@]}"
+gcloud scheduler jobs run weather-live-airport-observations "${scheduler[@]}"
 # Check at :00, :02 and every two minutes, using the fast official bulk file
 # when saved history is healthy. Recovery still fills gaps from the archive.
 gcloud scheduler jobs update http weather-live-metar-clouds "${scheduler[@]}" \
@@ -144,8 +144,8 @@ gcloud storage buckets describe "gs://$bucket" --raw --format=json > "$rollback_
 python3 extend_satellite_lifecycle.py "$bucket" < "$rollback_dir/bucket-before.json" > "$rollback_dir/satellite-lifecycle.json"
 gcloud storage buckets update "gs://$bucket" --lifecycle-file="$rollback_dir/satellite-lifecycle.json"
 gcloud scheduler jobs list "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rapid-observations","weather-live-hourly-observations","weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations","weather-live-rtma-observations","weather-live-public-conditions","weather-live-hennepin-mesonet")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
+  python3 -c 'import json,sys; jobs={j["name"].split("/")[-1]:j for j in json.load(sys.stdin)}; assert all(name not in jobs for name in ("weather-live-rapid-observations","weather-live-hourly-observations","weather-live-rtmetar","weather-live-mesonet","weather-live-observation-stations","weather-live-rtma-observations","weather-live-public-conditions","weather-live-hennepin-mesonet","weather-live-rapmet")),"A retired station scheduler still exists"; names=["weather-live-metar-clouds","weather-live-radar","weather-live-satellite","weather-live-forecast","weather-live-air-quality"]; [print("Verified background job:",name,jobs[name]["state"],jobs[name]["schedule"]) for name in names if jobs[name]["state"]=="ENABLED"]; assert all(jobs[name]["state"]=="ENABLED" for name in names),"A weather collection job is paused"; assert " ".join(jobs["weather-live-forecast"]["schedule"].split())=="*/5 * * * *","Forecast must check NWS every five minutes"; assert " ".join(jobs["weather-live-metar-clouds"]["schedule"].split())=="*/2 * * * *","METAR must check every two minutes starting at :00"'
 trap - ERR
-gcloud scheduler jobs describe weather-live-rapmet "${scheduler[@]}" --format=json |
-  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["state"]=="ENABLED" and d["schedule"]=="*/5 * * * *"; assert d["httpTarget"]["uri"].endswith("/collect/rapmet"); print("Verified RAPMET collection every five minutes")'
-echo "Weather Lab is live at $site. OBSERVATIONS opens first with the three-airport NOAA average, rounded Fahrenheit, mph wind and current sun angle. METAR opens RAPMET, with all three preferred airports always plotted when in view and reporting; PLOTS and CLOUDS remain available."
+gcloud scheduler jobs describe weather-live-airport-observations "${scheduler[@]}" --format=json |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["state"]=="ENABLED" and d["schedule"]=="*/5 * * * *"; assert d["httpTarget"]["uri"].endswith("/collect/airport-observations"); print("Verified observations collection every five minutes")'
+echo "Weather Lab is live at $site. OBSERVATIONS opens first with the three-airport NOAA average, rounded Fahrenheit, mph wind and current sun angle. METAR opens PLOTS; CLOUDS remains available. RAPMET is removed."

@@ -6,22 +6,21 @@
   <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=observations-home-v29">
+  <link rel="stylesheet" href="/static/style.css?v=observations-plots-v31">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
-  <script defer src="/static/sun-angle.js?v=observations-home-v29"></script>
-  <script defer src="/static/prepared-data.js?v=observations-home-v29"></script>
+  <script defer src="/static/sun-angle.js?v=observations-plots-v31"></script>
+  <script defer src="/static/prepared-data.js?v=observations-plots-v31"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
-  <script defer src="/static/map-fullscreen.js?v=observations-home-v29"></script>
-  <script defer src="/static/default-views.js?v=observations-home-v29"></script>
-  <script defer src="/static/metar-model.js?v=observations-home-v29"></script>
-  <script defer src="/static/airport-observations.js?v=observations-home-v29"></script>
-  <script defer src="/static/rapmet-views.js?v=rapmet-always-metro-v28"></script>
-  <script defer src="/static/metar-views.js?v=observations-home-v29"></script>
+  <script defer src="/static/map-fullscreen.js?v=observations-plots-v31"></script>
+  <script defer src="/static/default-views.js?v=observations-plots-v31"></script>
+  <script defer src="/static/metar-model.js?v=observations-plots-v31"></script>
+  <script defer src="/static/airport-observations.js?v=observations-plots-v31"></script>
+  <script defer src="/static/metar-views.js?v=observations-plots-v31"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=observations-home-v29"></script>
+  <script defer src="/static/app.js?v=observations-plots-v31"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
@@ -40,29 +39,22 @@
     <div class="section-heading"><div><p class="eyebrow">KMSP · KFCM · KMIC · FIVE-MINUTE ASOS</p><h1>Current observations</h1></div><button class="secondary" id="refresh-observations">Refresh</button></div>
     <p class="small-note" id="observations-time" aria-live="polite">Loading three-airport observations…</p>
     <div class="observations-readings">
-      <div class="observation-reading"><h2>Temperature</h2><p id="observations-temperature">—</p><span id="observations-temperature-c"></span></div>
-      <div class="observation-reading"><h2>Dewpoint</h2><p id="observations-dewpoint">—</p><span id="observations-dewpoint-c"></span></div>
-      <div class="observation-reading"><h2>Wind</h2><p id="observations-wind">—</p></div>
-      <div class="observation-reading"><h2>Sun angle</h2><p id="observations-sun-angle">—</p></div>
+      <div class="observation-reading observation-temperature"><h2>Temperature</h2><p id="observations-temperature">—</p></div>
+      <div class="observation-reading observation-dewpoint"><h2>Dewpoint</h2><p id="observations-dewpoint">—</p></div>
+      <div class="observation-reading observation-wind"><h2>Wind</h2><p id="observations-wind">—</p></div>
+      <div class="observation-reading observation-sun"><h2>Sun angle</h2><p id="observations-sun-angle">—</p></div>
     </div>
     <details class="observation-reports"><summary>Station reports</summary><div class="observation-table"><table><thead><tr><th>Airport</th><th>Report time</th><th>Temperature</th><th>Dewpoint</th><th>Wind</th></tr></thead><tbody id="observations-stations"></tbody></table></div></details>
   </div>
 </section>
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">FIVE-MINUTE ASOS · °C · MPH</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="rapmet" selected>RAPMET</option><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
-  <div id="metar-surface" class="cloud-map-surface map-viewer" hidden>
-    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL"></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="plots" selected>PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle" title="Current apparent solar elevation for Hopkins, 44.925°N, 93.463°W.">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div id="metar-surface" class="cloud-map-surface map-viewer">
+    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs with state and county boundaries"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
-    </div>
-  </div>
-  <div id="rapmet-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="rapmet-map" aria-label="Five-minute airport temperature, dewpoint and wind in ND, SD, IA, MN and WI"></div></div>
-    <div class="radar-controls rapmet-controls">
-      <span class="viewer-frame-time" id="rapmet-time" aria-live="polite">Loading five-minute airport reports…</span>
-      <div class="viewer-actions"><button class="secondary" id="rapmet-set-default">Set default</button><button class="secondary" id="rapmet-reset">Reset view</button><button class="secondary" id="rapmet-fullscreen" aria-label="Open full-screen RAPMET map">Full screen</button></div>
     </div>
   </div>
   <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. KMIC, KMSP and KFCM take priority. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>

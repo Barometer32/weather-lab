@@ -3,7 +3,7 @@
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="rapmet",wantedHour=null;
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
@@ -121,7 +121,7 @@ window.WeatherMetars = (() => {
   }
 
   function render(){
-    if(mode==="rapmet"||el("metar").hidden||moving)return;
+    if(el("metar").hidden||moving)return;
     if(!data)return;
     init();
     const hours=data.history;
@@ -185,7 +185,6 @@ window.WeatherMetars = (() => {
     render();
   }
   async function load(force=false){
-    if(mode==="rapmet")return window.WeatherRapmet?.load(force);
     if(busy)return;busy=true;el("refresh-metar").disabled=true;
     try{adopt(await window.WeatherPrepared.read("/api/station-plots?view=loop",{force}));}
     catch(error){
@@ -197,13 +196,8 @@ window.WeatherMetars = (() => {
   }
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
   function selectProduct(product){
-    mode=product==="rapmet"?"rapmet":product==="clouds"?"clouds":"plots";
+    mode=product==="clouds"?"clouds":"plots";
     el("metar-product").value=mode;
-    el("metar-surface").hidden=mode==="rapmet";
-    el("rapmet-surface").hidden=mode!=="rapmet";
-    el("metar-eyebrow").textContent=mode==="rapmet"?"FIVE-MINUTE ASOS · °C · MPH":"AIRPORT METARS · UPPER MIDWEST";
-    window.WeatherRapmet?.select(mode);
-    if(mode==="rapmet")return;
     if(data)prepareSpacing();
     if(map&&window.WeatherDefaultViews?.savedMetar?.(mode))reset();
     render();
@@ -221,10 +215,10 @@ window.WeatherMetars = (() => {
   });
   el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);wantedHour=data.history[index]?.hour;followLatest=index===data.history.length-1;render();});
   window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
-  setInterval(()=>{if(mode!=="rapmet"&&!document.hidden&&!el("metar").hidden)load();},30000);
+  setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){
-    selectProduct("rapmet");
+    selectProduct("plots");
     setTimeout(()=>map?.invalidateSize({pan:false}),0);
   }},refresh(){render();load();}};
 })();

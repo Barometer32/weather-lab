@@ -6,7 +6,7 @@ from io import BytesIO
 import json
 import logging
 import threading
-from rapmet import collect as collect_rapmet
+from airport_feed import collect as collect_airport_observations
 import time
 
 from flask import Flask, jsonify
@@ -17,7 +17,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "rapmet")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "airport-observations")}
 
 
 def collect_radar_legacy(store, now):
@@ -233,7 +233,7 @@ def collect(kind):
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds,
-            "rapmet": collect_rapmet}
+            "airport-observations": collect_airport_observations}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = kind

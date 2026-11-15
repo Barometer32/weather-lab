@@ -10,10 +10,12 @@ vm.runInNewContext(fs.readFileSync('static/airport-observations.js','utf8'),c);
 (async()=>{
  c.window.WeatherAirportObservations.select('observations');await new Promise(setImmediate);
  assert.equal(get('observations-temperature').textContent,'34°F');assert.equal(get('observations-dewpoint').textContent,'27°F');
- assert.equal(get('observations-wind').textContent,'NW 4 mph');assert.equal(get('observations-temperature-c').textContent,'1.3°C average');
- assert.match(get('observations-time').textContent,/20 min old/);assert.match(get('observations-time').textContent,/Source delayed/);
+ assert.equal(get('observations-wind').textContent,'NW 4 mph');assert.ok(!nodes.has('observations-temperature-c')&&!nodes.has('observations-dewpoint-c'));
+ assert.match(get('observations-time').textContent,/20 min old/);assert.doesNotMatch(get('observations-time').textContent,/Source delayed/i);
  assert.equal(get('observations-stations').children.length,3);assert.equal(get('observations-stations').children[0].children[4].textContent,'NW 4 mph');
  assert.ok(syncs>0&&intervals.includes(300000),'Prepared server clock and five-minute refresh');
+ subscriber({...data,current:{...data.current,wind:{speedMph:3,cardinal:'E'}}});assert.equal(get('observations-wind').textContent,'CALM');
+ subscriber({...data,stations:[{...data.stations[0],wind:{speedMph:9,direction:90,variable:true}}]});assert.equal(get('observations-stations').children[0].children[4].textContent,'Variable 9 mph');
  subscriber({...data,current:null});assert.equal(get('observations-temperature').textContent,'—');assert.match(get('observations-time').textContent,/Waiting for matching/);
  get('refresh-observations').events.click();await new Promise(setImmediate);assert.ok(reads>=2);
  console.log('OBSERVATIONS passed: rounded Fahrenheit cards, mph/cardinal wind, report ages, station directions, missing-cohort handling and five-minute refresh.');
