@@ -98,7 +98,7 @@ elif args[:2]==['storage','ls']:
     print('gs://'+project+'-weather-data/live/mesonet-v1.json')
     print('gs://'+project+'-weather-data/live/metar-loop.json')
 ''')
-    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'rapmetExists':retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'rtmaExists':retired_exists,'conditionsExists':retired_exists,'hennepinExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
+    (tmp_path/'state.json').write_text(json.dumps({'retiredDeleted':not retired_exists,'rapmetExists':retired_exists,'airportObsExists':retired_exists,'activeExists':retired_exists,'observationsExists':retired_exists,'rtmaExists':retired_exists,'conditionsExists':retired_exists,'hennepinExists':retired_exists,'weather-live-satellite-state':'PAUSED'}))
     env = {**os.environ, "PATH": str(tmp_path)+os.pathsep+os.environ["PATH"],
            "MOCK_ROOT": str(tmp_path), "MOCK_FAILURE": failure}
     result = subprocess.run(["bash", str(ROOT / "release-plots.sh")], cwd=ROOT,
@@ -151,7 +151,10 @@ elif args[:2]==['storage','ls']:
         rapid_deletions=[i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','delete','weather-live-rapmet']]
         assert bool(rapid_deletions)==retired_exists
         assert all(i>verifications[-1] for i in rapid_deletions)
-        assert any(c[:4]==['scheduler','jobs','run','weather-live-airport-observations'] for c in calls)
+        assert not any(c[:4]==['scheduler','jobs','run','weather-live-airport-observations'] for c in calls)
+        obs_deletions=[i for i,c in enumerate(calls) if c[:4]==['scheduler','jobs','delete','weather-live-airport-observations']]
+        assert bool(obs_deletions)==retired_exists
+        assert all(i>verifications[-1] for i in obs_deletions)
         assert not any(c[:4]==['scheduler','jobs','run','weather-live-rapmet'] for c in calls)
     elif failure == "cleanup":
         assert result.returncode != 0
@@ -164,6 +167,8 @@ elif args[:2]==['storage','ls']:
         for service in ["weather-lab", "weather-collector"]:
             assert any(c[:4] == ["run", "services", "update-traffic", service] and f"--to-revisions={service}-old=100" in c for c in calls)
         assert any(c[:4]==['scheduler','jobs','resume','weather-live-rapmet'] for c in calls)==retired_exists
+        assert any(c[:4]==['scheduler','jobs','resume','weather-live-airport-observations'] for c in calls)==retired_exists
+        assert not any(c[:4]==['scheduler','jobs','delete','weather-live-airport-observations'] for c in calls)
         assert not any(c[:4]==['scheduler','jobs','delete','weather-live-rapmet'] for c in calls)
         # Existing jobs retain their original state; newly created jobs are removed.
         if retired_exists:
@@ -200,6 +205,4 @@ def test_conditions_job_retirement_is_reversible_and_never_creates_collection():
             assert rollback[0][2:5]==['jobs','resume','weather-live-public-conditions']
     active={'name':'weather-live-metar-clouds','httpTarget':{'oidcToken':{'serviceAccountEmail':'scheduler@example'}}}
     configure,rollback=plan([active], 'p', 'r', 'https://collector.example')
-    assert configure[0][1:5]==['scheduler','jobs','create','http']
-    assert '--schedule=*/5 * * * *' in configure[0] and '--uri=https://collector.example/collect/airport-observations' in configure[0]
-    assert rollback[0][1:4]==['scheduler','jobs','delete']
+    assert configure==[] and rollback==[]

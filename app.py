@@ -589,18 +589,6 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
-@app.get("/api/airport-observations")
-def airport_observations_api():
-    from airport_feed import KEY
-    from airport_observations import present
-    try:
-        store=get_store()
-        saved=cached("prepared-airport-observations",10,lambda:store.read_json(KEY)) if store else None
-        return jsonify(present(saved,utcnow())),200,{"Cache-Control":"no-store"}
-    except Exception:
-        return jsonify(error="The three-airport observations are being prepared."),503,{"Cache-Control":"no-store"}
-
-
 @app.get("/api/metar-clouds")
 def metar_clouds_api():
     from metar_clouds import current

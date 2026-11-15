@@ -399,23 +399,3 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
 }
-
-
-#observations { overflow-y:auto; }
-.observations-content { width:100%;max-width:960px;margin:0 auto;padding:4px 0 20px; }
-.observations-readings { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"temperature dewpoint wind sun";gap:16px;margin:28px 0 22px; }
-.observation-reading { border:1px solid var(--border);border-radius:9px;padding:22px 10px;text-align:center;min-height:150px; }
-.observation-reading h2 { margin:0;color:var(--muted);font-size:16px;font-weight:400; }
-.observation-reading p { font-size:34px;font-weight:650;margin:22px 0 12px;line-height:1.2;font-variant-numeric:tabular-nums; }
-#observations-wind { font-size:27px; }
-.observation-reports summary { cursor:pointer;color:var(--muted);font-size:14px; }
-.observation-table { overflow-x:auto;margin-top:12px;border:1px solid var(--border);border-radius:8px; }
-.observation-table table { width:100%;border-collapse:collapse;font-size:14px; }
-.observation-table th,.observation-table td { padding:14px 18px;white-space:nowrap; }
-@media(max-width:650px) { .observations-readings { grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px; } .observation-reading { padding:18px 8px;min-height:135px; } .observation-reading p { font-size:30px;margin-top:18px; } #observations-wind { font-size:23px; } }
-
-.observation-temperature { grid-area:temperature; }
-.observation-dewpoint { grid-area:dewpoint; }
-.observation-wind { grid-area:wind; }
-.observation-sun { grid-area:sun; }
-@media(max-width:650px) { .observations-readings { grid-template-areas:"temperature wind" "dewpoint sun"; } }

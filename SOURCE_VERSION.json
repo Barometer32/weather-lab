@@ -1,10 +1,10 @@
 {
-  "variant": "observations-home-plots-calm-wind",
-  "baseCommit": "bc605051ffe846cf346b57e062581e340d90f48c",
+  "variant": "metar-plots-home-observations-removed",
+  "baseCommit": "0045e23f9f297cbeedafb418c46b463edaa1783c",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
-  "defaultTab": "observations",
+  "defaultTab": "metar",
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
@@ -34,26 +34,6 @@
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
   "retiredHennepinMesonet": true,
-  "observationStationIds": [
-    "KMSP",
-    "KFCM",
-    "KMIC"
-  ],
-  "observationAverage": "latest common five-minute time, equal Celsius mean, Fahrenheit conversion then whole-degree rounding",
-  "observationWind": "all three scalar mph speeds averaged then rounded once; <=3 mph CALM; variable bearings omitted from speed-weighted eight-point direction",
-  "observationPreparedSource": "direct NOAA HF-ASOS for KMSP/KFCM/KMIC only; live/airport-observations-v1.json",
   "retiredRapmet": true,
-  "observationCollectionSchedule": "*/5 * * * *",
-  "observationMobileLayout": [
-    [
-      "temperature",
-      "wind"
-    ],
-    [
-      "dewpoint",
-      "sun"
-    ]
-  ],
-  "observationCelsiusSubtitles": false,
-  "observationSourceDelayedLabel": false
+  "retiredAirportObservations": true
 }
