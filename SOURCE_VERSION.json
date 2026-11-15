@@ -1,6 +1,6 @@
 {
   "variant": "current-home-complete-hours",
-  "baseCommit": "7270984aa28af500911dbb8cb2d9de617877d2af",
+  "baseCommit": "f76bacaa75803b90f531145a6209ccd63c80210e",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -51,5 +51,7 @@
   "retiredTempest": true,
   "currentCompleteHoursOnly": true,
   "currentTimestamp": "hour only",
-  "currentStationBreakdown": false
+  "currentStationBreakdown": false,
+  "currentSunDecimalPlaces": 1,
+  "currentSunUpdateSeconds": 10
 }
