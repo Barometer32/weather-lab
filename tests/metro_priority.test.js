@@ -12,7 +12,7 @@ function viewer(stations,{width=375,height=560,zoom=9,geographic=false,historyDa
  for(const file of ['metar-model','metar-views'])vm.runInNewContext(fs.readFileSync('static/'+file+'.js','utf8'),context);
  const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
  const boxes=(s,clouds)=>{const m=context.window.WeatherStationModel,p=point([s.lat,s.lon]);return (clouds?[m.cloudFootprint(s)]:m.combinedCollisionBoxes(s,{dot:true,mphBarbs:true})).map(b=>({...b,left:b.left+p.x,right:b.right+p.x,top:b.top+p.y,bottom:b.bottom+p.y}));};
- return {async load(){context.window.WeatherMetars.select('metar');await new Promise(setImmediate);},ids:()=>[...shown.keys()].sort(),barb(id){return shown.get(id)?.icon.html.includes('class="wind-barb"');},popup(id){return shown.get(id)?.popup;},mode(value){get('metar-product').events.change({target:{value}});},zoom(value){zoom=value;events.moveend();},frame(value){get('metar-timeline').events.input({target:{value:String(value)}});},check(clouds=false){
+ return {async load(){get('metar-product').events.change({target:{value:'plots'}});await new Promise(setImmediate);},ids:()=>[...shown.keys()].sort(),barb(id){return shown.get(id)?.icon.html.includes('class="wind-barb"');},popup(id){return shown.get(id)?.popup;},mode(value){get('metar-product').events.change({target:{value}});},zoom(value){zoom=value;events.moveend();},frame(value){get('metar-timeline').events.input({target:{value:String(value)}});},check(clouds=false){
   for(let h=0;h<4;h++){
    this.frame(h);
    const rows=data.history[h].stations.filter(s=>shown.has(s.station));

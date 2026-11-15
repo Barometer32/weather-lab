@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map(),shown=new Map(),requests=[],events={};let highwayOptions,subscriber,fitBounds,mapOptions;
+const element=()=>({hidden:false,children:[],events:{},style:{},textContent:'',setAttribute(k,v){this[k]=v;},append(...v){this.children.push(...v);},addEventListener(k,f){this.events[k]=f;}});
+const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
+const map={fitBounds(bounds){fitBounds=bounds;},setView(){},invalidateSize(){},getCenter(){return{lat:44.95,lng:-93.4};},getZoom(){return 10;}};
+const stamp=new Date(Date.now()-90*60000).toISOString(),data={checkedAt:new Date().toISOString(),newestObservationAt:stamp,sourceDelayed:true,stations:[{station:'HPN20',displayName:'Hopkins',lat:44.955,lon:-93.411,time:stamp,tempF:40,dewpointF:25,wind:{speedMph:10,direction:270}}]};
+const context={window:{WeatherPrepared:{subscribe(url,fn){assert.equal(url,'/api/mesonet');subscriber=fn;},async read(url){requests.push(url);return data;}},WeatherFullscreen:{attach(){}},WeatherDefaultViews:{savedMetar(){return null;},saveMetar(){return true;}},WeatherRadarRoads:{addTo(m,onError,options){highwayOptions=options;return{setOpacity(value){assert.ok(value<=.25);}};}},addEventListener(){}},document:{getElementById:get,createElement:element,addEventListener(k,f){events[k]=f;},hidden:false},Intl,Date,Math,Number,Map,Set,setTimeout(){},setInterval(){},L:{map(id,options){mapOptions=options;return map;},tileLayer(){return{addTo(){}};},layerGroup(){return{addTo(){return this;},removeLayer(marker){shown.delete(marker.title);}};},divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(){return this;},setPopupContent(){return this;}})}};
+for(const file of ['metar-model','mesonet-views'])vm.runInNewContext(fs.readFileSync('static/'+file+'.js','utf8'),context);
+(async()=>{
+ context.window.WeatherMesonet.select('mesonet');await new Promise(setImmediate);
+ assert.equal(requests[0],'/api/mesonet');assert.equal(highwayOptions.primaryOnly,true);
+ assert.ok(mapOptions.minZoom>=8.5&&mapOptions.maxBounds,'Map cannot zoom out to the state');
+ assert.ok(fitBounds[1][1]-fitBounds[0][1]<1&&fitBounds[1][0]-fitBounds[0][0]<1,'Factory extent stays local');
+ const marker=[...shown.values()][0];assert.match(marker.icon.html,/plot-temp|wind-barb/);
+ assert.ok(marker.popup.children.some(n=>n.textContent.includes('Observed')));
+ assert.ok(marker.popup.children.some(n=>n.textContent.includes('W 10 mph')));
+ assert.match(get('mesonet-time').textContent,/90 min old/);assert.match(get('mesonet-time').textContent,/Source delayed/);
+ context.window.WeatherMesonet.select('plots');subscriber({...data,stations:[]});assert.equal(shown.size,1,'Hidden map does not draw over airport products');
+ console.log('MESONET checks passed: local extent, major highways only, station plots, real report times and source-delay labeling.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

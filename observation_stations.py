@@ -109,7 +109,7 @@ def present_map(saved, now):
     result = present(saved, now)
     rows = []
     for row in result["stations"]:
-        if (not included_on_map(row) or row["ageMinutes"] > 60
+        if (not included_on_map(row)
                 or all(v is None for v in (row.get("tempF"), row.get("dewpointF"), (row.get("wind") or {}).get("speedMph")))):
             continue
         rows.append({key:row[key] for key in ("station", "displayName", "lat", "lon", "time",
@@ -136,7 +136,11 @@ def collect(store, now, download=None):
         previous = {}
     hour = now.replace(minute=0,second=0,microsecond=0)
     files, errors, rows = {}, [], list(previous.get("stations",[]))
-    for offset in (0,1):
+    for offset in (0,1,2,3):
+        # A cold restart during a provider gap can recover the latest actual
+        # reports. Their original times/ages remain visible, never relabeled.
+        if offset >= 2 and latest(rows, now):
+            break
         filename = (hour-timedelta(hours=offset)).strftime("%Y%m%d_%H00.gz")
         key = "mesonet/"+filename
         # Re-read the source after a coverage change, even with unchanged ETags.
@@ -146,7 +150,7 @@ def collect(store, now, download=None):
             if payload is None:
                 fresh = old.get("stations",[])
             else:
-                parsed = regional_madis.parse_file(payload,now,window_start=now-timedelta(hours=2),
+                parsed = regional_madis.parse_file(payload,now,window_start=now-timedelta(hours=24),
                     window_end=now+timedelta(microseconds=1),bounds=(-90,-180,90,180),station_prefix="HPN",
                     include_invalid=True,excluded_stations=())
                 fresh = latest(parsed,now)

@@ -9,6 +9,24 @@ snapshots, then switches web traffic. Failed verification restores previous
 traffic and Scheduler settings. At least one web instance stays warm.
 
 Tabs: METAR, RADAR, SATELLITE, FORECAST and AIR Q.
+METAR opens MESONET by default, with PLOTS and CLOUDS retained in its dropdown.
+MESONET restores the approved Hennepin West map selection: no Dakota County,
+Hanover, Dayton, Camden or sites west of the prior Hanover–Orono cutoff; Orono
+and Blaine remain eligible. This is the prior 19-site selection when all report.
+The factory map is limited to the local west/central metro, with primary highways
+only, faint at 23% opacity. It has a separate saved view from the airport maps.
+Temperatures/dewpoints are Fahrenheit and wind barbs are mph. Station popups
+show actual observation timestamps, age and eight-point compass winds.
+
+`weather-live-hennepin-mesonet` collects every five minutes using public MADIS
+Hennepin records only. `/api/mesonet` reads the prepared object without an
+upstream download. Current and previous files are checked; a cold start during
+a source gap can recover the preceding two files as well. Existing reports are
+retained for up to 24 hours with their original timestamps and visible ages,
+so a missing hour does not make a station disappear or manufacture a new value.
+The footer labels source delays. Five-minute collection does not guarantee
+five-minute delivery. No averaging, model estimate or device tracking is used.
+
 The public MN/WI CONDITIONS trial is also removed, including its location
 controls, API, collector, calculation scripts and browser prefetch. Device
 location is disabled again. `release-plots.sh` pauses any existing
@@ -23,8 +41,8 @@ checks. Old browser snapshots are cleared. Existing stored weather objects
 are retained; no RTMA background downloads continue after successful deployment.
 Release checks retain the transient 503/routing retries.
 
-METAR opens PLOTS first on every visit and browser restore, with CLOUDS retained
-in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
+MESONET opens first on every visit and return to METAR, with hourly PLOTS and
+CLOUDS retained in the dropdown. OBSERVATIONS is removed from navigation, page scripts, API,
 collector routes and browser prefetch. Its current/legacy dedicated Scheduler
 jobs are paused before staging and deleted only after live verification passes.
 Rollback restores any previously enabled job. Saved weather objects remain

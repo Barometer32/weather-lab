@@ -21,6 +21,23 @@ def plan(jobs, project, region, collector):
         if old["state"] == "ENABLED":
             configure.insert(0, ["gcloud", "scheduler", "jobs", "pause", name, *common])
             rollback.append(["gcloud", "scheduler", "jobs", "resume", name, *common])
+    name = "weather-live-hennepin-mesonet"
+    old = by_name.get(name)
+    if old:
+        assert old["state"] in ("ENABLED", "PAUSED")
+        assert old["httpTarget"]["uri"] == collector+"/collect/hennepin-mesonet", "Unexpected Hennepin collection target"
+        configure.append(["gcloud", "scheduler", "jobs", "update", "http", name, *common, "--schedule=*/5 * * * *", "--attempt-deadline=300s"])
+        rollback.append(["gcloud", "scheduler", "jobs", "update", "http", name, *common, "--schedule="+old["schedule"], "--attempt-deadline="+old.get("attemptDeadline", "180s")])
+        if old["state"] == "PAUSED":
+            configure.append(["gcloud", "scheduler", "jobs", "resume", name, *common])
+            rollback.append(["gcloud", "scheduler", "jobs", "pause", name, *common])
+    else:
+        email = by_name["weather-live-metar-clouds"]["httpTarget"]["oidcToken"]["serviceAccountEmail"]
+        configure.append(["gcloud", "scheduler", "jobs", "create", "http", name, *common,
+                          "--schedule=*/5 * * * *", "--time-zone=Etc/UTC", "--attempt-deadline=300s",
+                          "--uri="+collector+"/collect/hennepin-mesonet", "--http-method=POST",
+                          "--oidc-service-account-email="+email, "--oidc-token-audience="+collector])
+        rollback.append(["gcloud", "scheduler", "jobs", "delete", name, *common, "--quiet"])
     return configure, rollback
 
 

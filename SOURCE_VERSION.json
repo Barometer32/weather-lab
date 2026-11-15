@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-three-satellite-products",
-  "baseCommit": "3645ea0e4f8bcab7d1a2d1a26e8b9a6486cc26ff",
+  "variant": "hennepin-mesonet-default-local-highways",
+  "baseCommit": "dc5ee4f67b800043a93c51b2136f5c1f02dc96bb",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -12,8 +12,9 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "plots",
+  "defaultMetarProduct": "mesonet",
   "metarProducts": [
+    "mesonet",
     "plots",
     "clouds"
   ],
@@ -32,5 +33,10 @@
   "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
   "metarWindSpacingFactor": 0.9,
   "retiredObservationCollectorsIncludeRTMA": true,
-  "retiredPublicConditionsCollector": true
+  "retiredPublicConditionsCollector": true,
+  "mesonetSchedule": "*/5 * * * *",
+  "mesonetStationPolicy": "west-metro-roster-v2",
+  "mesonetHighways": "primary only, 23% opacity",
+  "mesonetTemperatureUnit": "F",
+  "mesonetWindUnit": "mph"
 }

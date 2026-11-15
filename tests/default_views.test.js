@@ -38,7 +38,7 @@ assert.equal(views.saveMetar('madis',[45,-93.5],10.5),false);
 assert.equal(views.saveMetar('unknown',[45,-93],9),false);
 assert.equal(views.saveMetar('rtmetar',[45,-93],9),false);
 assert.equal(views.savedMetar('rtmetar'),null);
-assert.equal(views.saveMetar('mesonet',[44.9,-93.5],10),false);
+assert.equal(views.saveMetar('mesonet',[44.9,-93.5],10),true);
 vm.runInNewContext(fs.readFileSync('static/default-views.js','utf8'),context);
 assert.equal(context.window.WeatherDefaultViews.savedMetar('plots').zoom,9.25);
 assert.equal(context.window.WeatherDefaultViews.savedMetar('clouds').zoom,10);

@@ -3,7 +3,7 @@
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="mesonet",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
@@ -121,7 +121,7 @@ window.WeatherMetars = (() => {
   }
 
   function render(){
-    if(el("metar").hidden||moving)return;
+    if(mode==="mesonet"||el("metar").hidden||moving)return;
     if(!data)return;
     init();
     const hours=data.history;
@@ -185,6 +185,7 @@ window.WeatherMetars = (() => {
     render();
   }
   async function load(force=false){
+    if(mode==="mesonet")return window.WeatherMesonet?.load(force);
     if(busy)return;busy=true;el("refresh-metar").disabled=true;
     try{adopt(await window.WeatherPrepared.read("/api/station-plots?view=loop",{force}));}
     catch(error){
@@ -196,8 +197,14 @@ window.WeatherMetars = (() => {
   }
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
   function selectProduct(product){
-    mode=product==="clouds"?"clouds":"plots";
+    mode=product==="mesonet"?"mesonet":product==="clouds"?"clouds":"plots";
     el("metar-product").value=mode;
+    el("metar-surface").hidden=mode==="mesonet";
+    el("mesonet-surface").hidden=mode!=="mesonet";
+    el("mesonet-source").hidden=mode!=="mesonet";
+    el("metar-eyebrow").textContent=mode==="mesonet"?"HENNEPIN WEST · °F · MPH":"AIRPORT METARS · UPPER MIDWEST";
+    window.WeatherMesonet?.select(mode);
+    if(mode==="mesonet")return;
     if(data)prepareSpacing();
     if(map&&window.WeatherDefaultViews?.savedMetar?.(mode))reset();
     render();
@@ -218,7 +225,7 @@ window.WeatherMetars = (() => {
   setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){
-    if(mode!=="plots")selectProduct("plots");else {render();load();}
+    selectProduct("mesonet");
     setTimeout(()=>map?.invalidateSize({pan:false}),0);
   }},refresh(){render();load();}};
 })();

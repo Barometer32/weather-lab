@@ -101,7 +101,9 @@ def test_mesonet_map_shows_recent_network_reports_except_dakota():
         sample("HPN38",lat=44.83196,lon=-93.47098,dewpointF=None),
     ]}
     result=obs.present_map(saved, NOW)
-    assert {r['station'] for r in result['stations']}=={'HPN03','HPN20','HPN30','HPN38','HPN45'}
+    assert {r['station'] for r in result['stations']}=={'HPN03','HPN20','HPN26','HPN30','HPN38','HPN45'}
+    assert next(r for r in result['stations'] if r['station']=='HPN26')['ageMinutes']==61
+    assert result['sourceDelayed']
     assert result['checkedAt']==obs.iso(NOW)
     assert all(not obs.in_county(r['lat'],r['lon'],'dakota') for r in result['stations'])
 
