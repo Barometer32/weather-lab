@@ -30,14 +30,15 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
+    assert 'id="tab-observations" aria-selected="true"' in html
+    assert '<section id="observations" role="tabpanel" aria-labelledby="tab-observations">' in html
+    assert 'airport-observations.js' in html
     assert 'rtma-observations.js' not in html
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
-    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=rapmet-default-v27' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
-    assert 'id="tab-metar" aria-selected="true"' in html
+    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
+    assert '/static/metar-model.js?v=observations-home-v29' in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["rapmet", "plots", "clouds"]
     assert '<option value="rapmet" selected>RAPMET</option>' in html
     assert 'rapmet-views.js' in html and 'id="rapmet-map"' in html
@@ -45,13 +46,13 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=rapmet-default-v27' in html
+    assert '/static/metar-views.js?v=observations-home-v29' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=rapmet-default-v27' in html
-    print("Verified METAR RAPMET default, PLOTS/CLOUDS retained, MESONET/OBSERVATIONS removed.")
+    assert '/static/app.js?v=observations-home-v29' in html
+    print("Verified OBSERVATIONS home and METAR RAPMET default with PLOTS/CLOUDS retained.")
 
 
 def check_hourly(base):
@@ -84,6 +85,11 @@ def check_removed(base):
 
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
+    observations=json.loads(read(base,"/api/airport-observations"))
+    assert observations.get("current") and not observations.get("stale"),"Three-airport observations are not prepared"
+    assert {s["station"] for s in observations["stations"]}=={"KMSP","KFCM","KMIC"}
+    assert len({s["time"] for s in observations["stations"]})==1,"Average station times differ"
+    print("Verified three-airport average:",observations["current"]["observedAt"],observations["current"]["tempF"],"F")
     data=json.loads(read(base,"/api/rapmet"))
     assert data.get("stations") and not data.get("stale"),"RAPMET prepared collection is unavailable"
     assert data["temperatureUnit"]=="C" and data["windUnit"]=="mph" and data["temperatureBasis"]=="HF-ASOS-Celsius"

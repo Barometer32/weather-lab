@@ -148,4 +148,4 @@ gcloud scheduler jobs list "${scheduler[@]}" --format=json |
 trap - ERR
 gcloud scheduler jobs describe weather-live-rapmet "${scheduler[@]}" --format=json |
   python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["state"]=="ENABLED" and d["schedule"]=="*/5 * * * *"; assert d["httpTarget"]["uri"].endswith("/collect/rapmet"); print("Verified RAPMET collection every five minutes")'
-echo "Weather Lab is live at $site. METAR RAPMET is the default; PLOTS and CLOUDS remain available. RAPMET uses direct NOAA five-minute HF-ASOS, Celsius and mph wind, with a strict raw five-minute fallback. Actual report times and source delay remain visible."
+echo "Weather Lab is live at $site. OBSERVATIONS opens first with the three-airport NOAA average, rounded Fahrenheit, mph wind and current sun angle. METAR opens RAPMET, with all three preferred airports always plotted when in view and reporting; PLOTS and CLOUDS remain available."

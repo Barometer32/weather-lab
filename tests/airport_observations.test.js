@@ -1,0 +1,20 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map(),intervals=[];let subscriber,reads=0,syncs=0;
+const element=()=>({textContent:'',children:[],events:{},disabled:false,append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(k,f){this.events[k]=f;}});
+const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
+const stamp=new Date(Date.now()-20*60000).toISOString();
+const data={checkedAt:new Date().toISOString(),serverTime:new Date().toISOString(),current:{observedAt:stamp,tempF:34,dewpointF:27,tempC:4/3,dewpointC:-8/3,wind:{speedMph:4,cardinal:'NW'}},stations:['KMSP','KFCM','KMIC'].map(station=>({station,time:stamp,tempC:1,dewpointC:-3,wind:{speedMph:4,direction:315}}))};
+const c={window:{WeatherPrepared:{subscribe(url,fn){assert.equal(url,'/api/airport-observations');subscriber=fn;},async read(url){assert.equal(url,'/api/airport-observations');reads++;return data;}},WeatherSun:{sync(){syncs++;}}},document:{getElementById:get,createElement:element,hidden:false},Date,Intl,Math,Number,setInterval(fn,ms){intervals.push(ms);}};
+vm.runInNewContext(fs.readFileSync('static/airport-observations.js','utf8'),c);
+(async()=>{
+ c.window.WeatherAirportObservations.select('observations');await new Promise(setImmediate);
+ assert.equal(get('observations-temperature').textContent,'34°F');assert.equal(get('observations-dewpoint').textContent,'27°F');
+ assert.equal(get('observations-wind').textContent,'NW 4 mph');assert.equal(get('observations-temperature-c').textContent,'1.3°C average');
+ assert.match(get('observations-time').textContent,/20 min old/);assert.match(get('observations-time').textContent,/Source delayed/);
+ assert.equal(get('observations-stations').children.length,3);assert.equal(get('observations-stations').children[0].children[4].textContent,'NW 4 mph');
+ assert.ok(syncs>0&&intervals.includes(300000),'Prepared server clock and five-minute refresh');
+ subscriber({...data,current:null});assert.equal(get('observations-temperature').textContent,'—');assert.match(get('observations-time').textContent,/Waiting for matching/);
+ get('refresh-observations').events.click();await new Promise(setImmediate);assert.ok(reads>=2);
+ console.log('OBSERVATIONS passed: rounded Fahrenheit cards, mph/cardinal wind, report ages, station directions, missing-cohort handling and five-minute refresh.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

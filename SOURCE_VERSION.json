@@ -1,10 +1,10 @@
 {
-  "variant": "rapmet-direct-noaa-always-metro",
-  "baseCommit": "edc26c41090f78e96de2609c0ba19cfdcba58486",
+  "variant": "observations-home-three-airport-direct-noaa",
+  "baseCommit": "a10eb037a884783d532afe1a17bb683b7ad91f28",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
-  "defaultTab": "metar",
+  "defaultTab": "observations",
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
@@ -51,5 +51,13 @@
   "rapmetReports": "HF-ASOS only at five-minute timestamps; no routine METAR or SPECI",
   "rapmetMaxReportAgeSeconds": 3600,
   "rapmetSource": "NOAA MADIS direct, raw IEM HF fallback only",
-  "rapmetPriorityAlwaysVisible": true
+  "rapmetPriorityAlwaysVisible": true,
+  "observationStationIds": [
+    "KMSP",
+    "KFCM",
+    "KMIC"
+  ],
+  "observationAverage": "latest common five-minute time, equal Celsius mean, Fahrenheit conversion then whole-degree rounding",
+  "observationWind": "scalar mph mean rounded once; speed-weighted vector and eight compass points",
+  "observationPreparedSource": "shared RAPMET object, no additional upstream request or job"
 }

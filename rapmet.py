@@ -55,7 +55,7 @@ def selected(rows,now):
     return [r for r in latest_rows(rows,now) if complete(r)]
 
 
-def parse_reports(payload,now):
+def parse_reports(payload,now,*,latest_only=True):
     from five_minute_observations import parse_reports as parse_raw
     rows=[]
     for r in parse_raw(payload,now,stations=set(inventory())):
@@ -65,10 +65,10 @@ def parse_reports(payload,now):
                      "wind":{"speedMph":r["windSpeedMph"],"direction":r["windDirection"],"variable":r["windVariable"]},
                      "source":"NOAA MADIS five-minute ASOS via Iowa Environmental Mesonet",
                      "temperatureBasis":"main-XX/XX","rawOb":r["rawOb"]})
-    return latest_rows(rows,now)
+    return latest_rows(rows,now) if latest_only else [r for r in rows if eligible(r,now)]
 
 
-def from_madis(payload,now):
+def from_madis(payload,now,*,latest_only=True):
     from madis_observations import parse_file
     rows=[]
     for r in parse_file(payload,set(inventory()),now,high_frequency_only=True,allow_advisory_wind=True):
@@ -84,7 +84,17 @@ def from_madis(payload,now):
                      "wind":{"speedMph":r["wspd"]*1852/1609.344 if r.get("wspd") is not None else None,
                              "direction":r.get("wdir"),"variable":False},
                      "source":"NOAA MADIS direct five-minute HF-ASOS","temperatureBasis":"decoded-HF-ASOS-Celsius"})
-    return latest_rows(rows,now)
+    return latest_rows(rows,now) if latest_only else [r for r in rows if eligible(r,now)]
+
+
+def metro_history(previous,fresh,now):
+    # A small shared pool allows the average to select the latest exact
+    # five-minute time reported by all three, without another NOAA download.
+    merged={}
+    for r in previous.get("metroReports",previous.get("stations",[]))+fresh:
+        if r.get("station") in ("KMSP","KFCM","KMIC") and eligible(r,now):
+            merged[r["station"],r["time"]]=r
+    return sorted(merged.values(),key=lambda r:(r["time"],r["station"]))
 
 
 def source_urls(now):
@@ -110,7 +120,7 @@ def collect(store,now,download=None,raw_download=None):
     old=previous.get("stations",[]) if previous.get("version")==VERSION else []
     hour=now.replace(minute=0,second=0,microsecond=0)
     def direct(target):
-        try:return from_madis(download(file_url(target)),now),None
+        try:return from_madis(download(file_url(target)),now,latest_only=False),None
         except HTTPError as e:return [],None if e.code==404 and target==hour else "NOAA HF-ASOS file unavailable"
         except Exception:return [],"NOAA HF-ASOS file unavailable"
     with ThreadPoolExecutor(max_workers=2) as pool:direct_batches=list(pool.map(direct,[hour-timedelta(hours=1),hour]))
@@ -118,7 +128,7 @@ def collect(store,now,download=None,raw_download=None):
     if direct_rows:
         rows=latest_rows(old+direct_rows,now)
         saved={"version":VERSION,"stations":rows,"checkedAt":iso(now),"sourceFailures":[e for _,e in direct_batches if e],
-               "feed":"NOAA direct HF-ASOS","retryAfter":previous.get("retryAfter",0)}
+               "feed":"NOAA direct HF-ASOS","retryAfter":previous.get("retryAfter",0),"metroReports":metro_history(previous,direct_rows,now)}
         store.write_json(KEY,saved)
         return {"stations":len(selected(rows,now)),"newestObservationAt":max(r["time"] for r in rows),"feed":saved["feed"]}
     from app import download as default_download
@@ -165,13 +175,13 @@ def collect(store,now,download=None,raw_download=None):
                 stream=StringIO();writer=csv.writer(stream);writer.writerow(["station","valid","metar"])
                 for r in source["data"]:writer.writerow([station,r.get("utc_valid"),r.get("raw")])
                 payload=stream.getvalue().encode()
-            return parse_reports(payload,now),None
+            return parse_reports(payload,now,latest_only=False),None
         except Exception:return [],label+" raw feed unavailable"
     with ThreadPoolExecutor(max_workers=4) as pool:batches=list(pool.map(read,source_urls(now)))
     fresh=[r for batch,_ in batches for r in batch]
     rows=latest_rows(old+fresh,now)
     saved={"version":VERSION,"stations":rows,"checkedAt":iso(now),"sourceFailures":[e for _,e in direct_batches+batches if e],
-           "retryAfter":pace["retryAfter"],"feed":"raw HF-ASOS fallback"}
+           "retryAfter":pace["retryAfter"],"feed":"raw HF-ASOS fallback","metroReports":metro_history(previous,fresh,now)}
     store.write_json(KEY,saved)
     if not rows:raise ValueError("No five-minute airport reports are available")
     return {"stations":len(selected(rows,now)),"newestObservationAt":max(r["time"] for r in rows),"sourceFailures":saved["sourceFailures"]}
