@@ -9,7 +9,7 @@ window.WeatherCurrent=(()=>{
     const speed=Math.round(w.speedMph);
     if(average?speed<=3:w.speedMph<.5)return "CALM";
     const direction=Number.isFinite(w.direction)?dirs[Math.round(w.direction/45)%8]:w.variable?"Variable":"Unknown";
-    return `${direction} ${speed} mph`;
+    return `${direction} ${speed}`;
   }
   function appendRow(body,texts){
     const row=document.createElement("tr");

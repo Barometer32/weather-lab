@@ -10,13 +10,13 @@ const c={window:{WeatherSun:{elevation(){return 25.6;}},WeatherPrepared:{subscri
 vm.runInNewContext(fs.readFileSync('static/current-hourly.js','utf8'),c);
 (async()=>{
  c.window.WeatherCurrent.select('current');await new Promise(setImmediate);
- assert.equal(get('current-temperature').textContent,'34°F');assert.equal(get('current-dewpoint').textContent,'27°F');assert.equal(get('current-wind').textContent,'N 8 mph');assert.equal(get('current-sun').textContent,'25.6°');
+ assert.equal(get('current-temperature').textContent,'34°F');assert.equal(get('current-dewpoint').textContent,'27°F');assert.equal(get('current-wind').textContent,'N 8');assert.equal(get('current-sun').textContent,'25.6°');
  assert.equal(get('current-history').children.length,12);assert.ok(get('current-history').children.every(row=>row.children.length===4));
  assert.equal(get('current-time').textContent,new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(hour));
  assert.ok(intervals.includes(30000));assert.ok(intervals.includes(10000));
  callback({...data,current:{...row,wind:{speedMph:3,direction:90}},pendingHour:new Date(+hour+3600000).toISOString()});
  assert.equal(get('current-wind').textContent,'CALM');assert.doesNotMatch(get('current-time').textContent,/Checked|Waiting|average|Saved/);
- callback({...data,current:{...row,wind:{speedMph:4,direction:315}}});assert.equal(get('current-wind').textContent,'NW 4 mph');
+ callback({...data,current:{...row,wind:{speedMph:4,direction:315}}});assert.equal(get('current-wind').textContent,'NW 4');
  callback({...data,history:data.history.map((h,i)=>i===3?{...h,complete:false}:h)});assert.equal(get('current-history').children.length,11);
  callback({...data,current:null,history:data.history.map(h=>({...h,complete:false,tempF:null,dewpointF:null,wind:{}}))});
  assert.equal(get('current-temperature').textContent,'—');assert.equal(get('current-history').children.length,0);

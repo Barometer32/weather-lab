@@ -407,7 +407,7 @@ body.map-focus #metar .eyebrow { display:none; }
 .current-reading h2 { margin:0;color:var(--muted);font-size:16px;font-weight:400; }
 .current-reading p { font-size:34px;font-weight:650;margin:22px 0 10px;line-height:1.2;font-variant-numeric:tabular-nums; }
 .current-temperature { grid-area:temperature; }.current-dewpoint { grid-area:dewpoint; }.current-wind { grid-area:wind; }.current-sun { grid-area:sun; }
-#current-wind { font-size:27px; }.current-history-heading { margin:20px 0 10px;font-size:20px; }
+.current-history-heading { margin:20px 0 10px;font-size:20px; }
 .current-table { overflow-x:auto;border:1px solid var(--border);border-radius:8px; }
 .current-table table { width:100%;font-size:14px;white-space:nowrap; }.current-table td,.current-table th { padding:12px 14px; }
-@media(max-width:650px) { .current-readings { grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"temperature wind" "dewpoint sun";gap:10px;margin-top:16px; }.current-reading { min-height:116px;padding:16px 8px; }.current-reading p { font-size:29px;margin-top:17px; }#current-wind { font-size:23px; }.current-table td,.current-table th { padding:10px; } }
+@media(max-width:650px) { .current-readings { grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"temperature wind" "dewpoint sun";gap:10px;margin-top:16px; }.current-reading { min-height:116px;padding:16px 8px; }.current-reading p { font-size:29px;margin-top:17px; }.current-table td,.current-table th { padding:10px; } }
