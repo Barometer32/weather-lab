@@ -1,6 +1,6 @@
 {
-  "variant": "rapmet-direct-noaa-five-minute-celsius-default",
-  "baseCommit": "88b2f3c0b2c0d8223a100518d4dca7cdf695011f",
+  "variant": "rapmet-direct-noaa-always-metro",
+  "baseCommit": "edc26c41090f78e96de2609c0ba19cfdcba58486",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -50,5 +50,6 @@
   "rapmetTemperatureBasis": "direct HF-ASOS Kelvin decoded to Celsius; whole-C display",
   "rapmetReports": "HF-ASOS only at five-minute timestamps; no routine METAR or SPECI",
   "rapmetMaxReportAgeSeconds": 3600,
-  "rapmetSource": "NOAA MADIS direct, raw IEM HF fallback only"
+  "rapmetSource": "NOAA MADIS direct, raw IEM HF fallback only",
+  "rapmetPriorityAlwaysVisible": true
 }

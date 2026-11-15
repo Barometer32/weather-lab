@@ -19,6 +19,18 @@ function run(width){
   assert.ok(intervals.includes(300000),'Five-minute refresh interval');
   const msp=shown.get('KMSP');assert.doesNotMatch(msp.icon.html,/>999</);assert.match(msp.icon.html,/>-2</);assert.ok(msp.popup.children.some(n=>n.textContent==='Temperature: -2°C'));
   assert.match(get('rapmet-time').textContent,/°C · mph/);assert.match(get('rapmet-time').textContent,/Source delayed/);
+  const preferred=['KMSP','KFCM','KMIC'];
+  for(let z=5;z<=13;z+=.25)for(const id of preferred){
+   const station=data.stations.find(s=>s.station===id);map.setView([station.lat,station.lon],z);events.moveend();
+   for(const other of preferred){
+    const s=data.stations.find(s=>s.station===other),p=project([s.lat,s.lon]);
+    if(p.x>=0&&p.x<=width&&p.y>=0&&p.y<=500)assert.ok(shown.has(other),width+'px zoom '+z+' must retain '+other+' despite overlap');
+   }
+  }
+  map.setView([44.945,-93.343],5);events.moveend();
+  for(const id of preferred)assert.ok(shown.has(id),'All three remain plotted together at minimum zoom');
+  subscriber({...data,checkedAt:new Date(Date.now()+1).toISOString(),stations:data.stations.filter(s=>s.station!=='KMIC')});
+  assert.ok(!shown.has('KMIC'),'Always-visible preference never invents a missing report');
   context.window.WeatherRapmet.select('plots');subscriber({...data,stations:[]});assert.ok(shown.has('KMSP'),'Inactive RAPMET cannot draw over hourly map');
  });
 }

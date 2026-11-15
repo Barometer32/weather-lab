@@ -40,13 +40,9 @@ window.WeatherRapmet=(()=>{
     }
     const keep=new Set(),remaining=new Set(list),take=s=>{keep.add(s.id);remaining.delete(s);for(const c of s.conflicts)remaining.delete(c);};
     const primary=preferred.map(id=>list.find(s=>s.id===id)).filter(Boolean);
-    let best=[];
-    const available=primary.filter(s=>!s.reserveOnly);
-    for(let mask=0;mask<2**available.length;mask++){
-      const subset=available.filter((_,i)=>mask&(1<<i));
-      if(subset.length>best.length&&!subset.some((a,i)=>subset.slice(0,i).some(b=>a.conflicts.has(b))))best=subset;
-    }
-    for(const s of best)take(s);
+    // Always admit actual preferred reports, even when they overlap one
+    // another at a wide zoom. Neighbors still yield to all three airports.
+    for(const s of primary)if(!s.reserveOnly)take(s);
     for(const s of list)if(s.reserveOnly||!preferred.includes(s.id)&&primary.some(p=>p.conflicts.has(s)))remaining.delete(s);
     while(remaining.size){let chosen,degree=Infinity;for(const s of remaining){const d=[...s.conflicts].filter(c=>remaining.has(c)).length;if(d<degree){chosen=s;degree=d;}}take(chosen);}
     return list.filter(s=>keep.has(s.id)&&!s.reserveOnly).map(s=>s.station);
