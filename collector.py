@@ -17,7 +17,7 @@ from current_hourly import collect as collect_current_hourly
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "current", "madis-stations", "air-quality", "current-hourly")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality", "current-hourly")}
 
 
 def collect_radar_legacy(store, now):
@@ -178,26 +178,6 @@ def collect_metar_clouds(store, now):
     # Incomplete collection never erases a previously usable prepared loop.
     return {"stations": len(data["stations"]), "routineReports": len(data["observationReports"]),
             "loopReady": loop is not None}
-
-
-def collect_observations(store, now):
-    # Retained legacy manual route for hourly cloud snapshots.
-    return collect_metar_clouds(store, now)
-
-
-def collect_current(store, now):
-    from local_current import collect
-    data = collect(store, now)
-    return {"available": data["available"], "held": data["held"], "sourceFailures": data["sourceFailures"]}
-
-
-def collect_madis_stations(store, now):
-    from regional_madis import collect
-    data = collect(store, now)
-    latest = data["history"][-1]["stations"]
-    return {"stations": len(latest), "hennepin": sum(row["network"] == "Hennepin West" for row in latest),
-            "sourceErrors": data["errors"]}
-
 
 
 def collect_air_quality(store, now):

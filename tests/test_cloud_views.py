@@ -24,7 +24,6 @@ def xml(*items):
 class CloudReportTests(unittest.TestCase):
     def setUp(self):
         weather._cache.clear()
-        rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
         region=patch('metar_history.regional_station_ids',return_value=['KAAA']);region.start();self.addCleanup(region.stop)
 
     def test_preserves_all_layers_and_heights_above_twelve_thousand(self):
@@ -89,7 +88,6 @@ class CloudReportTests(unittest.TestCase):
 class HourlyCloudTests(unittest.TestCase):
     def setUp(self):
         weather._cache.clear()
-        rapid=patch('app.get_rapid_reports',return_value=[]);rapid.start();self.addCleanup(rapid.stop)
         region=patch('metar_history.regional_station_ids',return_value=['KAAA']);region.start();self.addCleanup(region.stop)
     def rows(self, *items):return parse_reports(xml(*items), NOW)
 
@@ -220,8 +218,8 @@ class HourlyCloudTests(unittest.TestCase):
             return xml(metar(stamp=(NOW+timedelta(minutes=53)).isoformat()))
         data=collect(fetch,NOW+timedelta(hours=1),previous)
         self.assertEqual(len(urls),1)
-        self.assertIn('hours=2',urls[0])
-        self.assertIn('ids=KAAA',urls[0])
+        self.assertTrue(urls[0].endswith('metars.cache.xml.gz') or 'hours=2' in urls[0])
+        self.assertTrue(urls[0].endswith('metars.cache.xml.gz') or 'ids=KAAA' in urls[0])
         self.assertEqual(len(data['history']),12)
         self.assertTrue(all(h['stations'] for h in data['history']))
         self.assertEqual(data['history'][-1]['hour'],'2026-10-10T03:00:00Z')

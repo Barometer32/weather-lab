@@ -119,13 +119,6 @@ def get_reports():
     return cached("metar", 300, lambda: json.loads(download(url)))
 
 
-def get_rapid_reports(now=None, regional=False):
-    from madis_observations import get_reports
-    now = now or utcnow()
-    rows = cached("madis-regional", 45, lambda: get_reports(None, now))
-    return rows if regional else [row for row in rows if row["icaoId"] in STATIONS]
-
-
 def valid_number(value, minimum, maximum):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and minimum <= value <= maximum
 

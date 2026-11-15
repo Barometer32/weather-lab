@@ -1,54 +1,36 @@
-"""Prepare reviewable Scheduler changes and rollback commands, without mutations."""
-import json
-from pathlib import Path
-import shlex
-import sys
-
-RETIRED = ("weather-live-rapid-observations", "weather-live-hourly-observations",
-           "weather-live-rtmetar", "weather-live-mesonet", "weather-live-observation-stations",
-           "weather-live-rtma-observations", "weather-live-public-conditions",
-           "weather-live-hennepin-mesonet", "weather-live-rapmet", "weather-live-airport-observations", "weather-live-tempest")
+"""Configure only the six schedules used by the current Weather Lab site."""
+import subprocess
+from cleanup_weather_jobs import ACCOUNT, PROJECT, REGION, REQUIRED, gcloud, jobs, owned, service
 
 
-def plan(jobs, project, region, collector):
-    by_name = {j["name"].split("/")[-1]: j for j in jobs}
-    configure, rollback = [], []
-    common = ["--project="+project, "--location="+region]
-    for name in RETIRED:
-        old = by_name.get(name)
-        if not old:
-            continue
-        assert old["state"] in ("ENABLED", "PAUSED"), "Unsupported retired-job state"
-        if old["state"] == "ENABLED":
-            configure.insert(0, ["gcloud", "scheduler", "jobs", "pause", name, *common])
-            rollback.append(["gcloud", "scheduler", "jobs", "resume", name, *common])
-    name="weather-live-current"
-    old=by_name.get(name)
-    if old:
-        assert old["state"] in ("ENABLED","PAUSED")
-        assert old["httpTarget"]["uri"]==collector+"/collect/current-hourly","Unexpected CURRENT collection target"
-        configure.append(["gcloud","scheduler","jobs","update","http",name,*common,"--schedule=*/2 * * * *","--attempt-deadline=180s"])
-        rollback.append(["gcloud","scheduler","jobs","update","http",name,*common,"--schedule="+old["schedule"],"--attempt-deadline="+old.get("attemptDeadline","180s")])
-        if old["state"]=="PAUSED":
-            configure.append(["gcloud","scheduler","jobs","resume",name,*common])
-            rollback.append(["gcloud","scheduler","jobs","pause",name,*common])
-    else:
-        email=by_name["weather-live-metar-clouds"]["httpTarget"]["oidcToken"]["serviceAccountEmail"]
-        configure.append(["gcloud","scheduler","jobs","create","http",name,*common,"--schedule=*/2 * * * *",
-                          "--time-zone=Etc/UTC","--attempt-deadline=180s","--uri="+collector+"/collect/current-hourly",
-                          "--http-method=POST","--oidc-service-account-email="+email,"--oidc-token-audience="+collector])
-        rollback.append(["gcloud","scheduler","jobs","delete",name,*common,"--quiet"])
-    return configure, rollback
+def plan(rows, collector):
+    indexed = {row['name'].split('/')[-1]: row for row in rows}
+    commands = []
+    common = ['--project='+PROJECT, '--location='+REGION]
+    for name, endpoint in REQUIRED.items():
+        old = indexed.get(name)
+        if old:
+            if not owned(old, collector) or old['httpTarget']['uri'] != collector+'/collect/'+endpoint:
+                raise ValueError('Unexpected target for required schedule: '+name)
+            if old.get('state') not in ('ENABLED','PAUSED'):
+                raise ValueError('Unexpected schedule state: '+name)
+            schedule = {'weather-live-current':'*/2 * * * *',
+                        'weather-live-metar-clouds':'*/2 * * * *',
+                        'weather-live-forecast':'*/5 * * * *'}.get(name)
+            if schedule and old['schedule'] != schedule:
+                commands.append(['gcloud','scheduler','jobs','update','http',name,*common,'--schedule='+schedule])
+            if old['state'] == 'PAUSED':
+                commands.append(['gcloud','scheduler','jobs','resume',name,*common])
+        elif name == 'weather-live-current':
+            commands.append(['gcloud','scheduler','jobs','create','http',name,*common,
+                             '--schedule=*/2 * * * *','--time-zone=Etc/UTC','--attempt-deadline=180s',
+                             '--uri='+collector+'/collect/current-hourly','--http-method=POST',
+                             '--oidc-service-account-email='+ACCOUNT,'--oidc-token-audience='+collector])
+        else:
+            raise ValueError('Required schedule is missing: '+name)
+    return commands
 
 
-if __name__ == "__main__":
-    _, action, source, directory, project, region, collector = sys.argv
-    assert action == "plan"
-    configure, rollback = plan(json.loads(Path(source).read_text()), project, region, collector)
-    for name, commands in [("configure", configure), ("rollback", rollback)]:
-        Path(directory, "live-"+name+".sh").write_text("#!/usr/bin/env bash\n"+("set -e\n" if name == "configure" else "")+"\n".join(shlex.join(c) for c in commands)+"\n")
-    # Retirement runs only after the replacement passes live verification.
-    existing = {j["name"].split("/")[-1] for j in json.loads(Path(source).read_text())}
-    commands = [["gcloud", "scheduler", "jobs", "delete", name, "--project="+project, "--location="+region, "--quiet"]
-                for name in RETIRED if name in existing]
-    Path(directory, "live-retire.sh").write_text("#!/usr/bin/env bash\nset -e\n"+"\n".join(shlex.join(c) for c in commands)+"\n")
+if __name__ == '__main__':
+    for command in plan(jobs(), service('weather-collector')):
+        subprocess.run(command, check=True)

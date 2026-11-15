@@ -1,6 +1,6 @@
 {
-  "variant": "current-home-complete-hours",
-  "baseCommit": "f76bacaa75803b90f531145a6209ccd63c80210e",
+  "variant": "current-site-repository-cleanup",
+  "baseCommit": "77dce2f29b12906e197a96bef1da2a262e783532",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -53,5 +53,14 @@
   "currentTimestamp": "hour only",
   "currentStationBreakdown": false,
   "currentSunDecimalPlaces": 1,
-  "currentSunUpdateSeconds": 10
+  "currentSunUpdateSeconds": 10,
+  "deploymentRollbackCopies": false,
+  "cleanupRequiredJobs": [
+    "weather-live-current",
+    "weather-live-metar-clouds",
+    "weather-live-radar",
+    "weather-live-satellite",
+    "weather-live-forecast",
+    "weather-live-air-quality"
+  ]
 }

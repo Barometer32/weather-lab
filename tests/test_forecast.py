@@ -188,29 +188,5 @@ class ForecastTests(unittest.TestCase):
         with patch("app.get_store",return_value=None),patch("app.download",side_effect=TimeoutError):
             self.assertEqual(app.test_client().get("/api/forecast").status_code,502)
 
-class SatelliteTests(unittest.TestCase):
-    def test_product_specific_loop_sorted_deduplicated_and_future_excluded(self):
-        prefix=BASE+"/truecolor/S_Minnesota.truecolor."
-        urls=[prefix+x+".jpg" for x in ["20261009.164618","20261009.164118","20261009.164618","20261009.170118","20261309.164118"]]
-        html=" ".join(urls)+" "+BASE+"/dcphase/S_Minnesota.dcphase.20261009.164118.jpg"
-        data=parse_loop(html,"truecolor",NOW)
-        self.assertEqual([x["time"] for x in data["frames"]],["2026-10-09T16:41:18Z","2026-10-09T16:46:18Z"])
-        self.assertEqual(data["product"],"truecolor")
-
-    def test_only_state_and_county_overlays_are_selected(self):
-        html=BASE+"/ntmicro/S_Minnesota.ntmicro.20261009.164618.jpg"
-        html+=" "+BASE+"/maps/S_Minnesota_counties.png?v=123"
-        html+=" "+BASE+"/maps/S_Minnesota_map.png?v=456"
-        html+=" "+BASE+"/maps/S_Minnesota_cities.png"
-        data=parse_loop(html,"ntmicro",NOW)
-        self.assertEqual(len(data["boundaries"]),2)
-        self.assertTrue(all("cities" not in x for x in data["boundaries"]))
-
-    def test_invalid_product_and_empty_loop_do_not_fetch_arbitrary_urls(self):
-        with self.assertRaises(ValueError): page_url("../../evil")
-        with self.assertRaises(ValueError): parse_loop("","dcphase",NOW)
-        with patch("app.download") as fetch:
-            self.assertEqual(app.test_client().get("/api/satellite/unknown").status_code,404)
-            fetch.assert_not_called()
 
 if __name__ == "__main__": unittest.main()

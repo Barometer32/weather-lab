@@ -5,13 +5,31 @@ import math
 from urllib.parse import urlencode
 
 import app as weather
-from hourly_airport_observations import select_reports
 
 KEY = 'live/current-hourly-v1.json'
 VERSION = 'official-hourly-t-remarks-v1'
 HISTORY_HOURS = 12
 STATIONS = ('KMSP', 'KFCM', 'KMIC')
 SOURCE_URL = 'https://aviationweather.gov/api/data/metar'
+
+
+def select_reports(reports, now):
+    target = now.replace(minute=0, second=0, microsecond=0)
+    start = target - timedelta(hours=HISTORY_HOURS)
+    chosen = {}
+    for report in reports:
+        station = report.get("icaoId")
+        raw = report.get("rawOb") or ""
+        if station not in weather.STATIONS or not raw or "NIL" in raw.partition(" RMK")[0].split():
+            continue
+        hour = weather.routine_hour(report, now, first_minute=50)
+        if hour is None or not start <= hour <= target:
+            continue
+        key = hour, station
+        rank = weather.routine_report_rank(report, hour)
+        if key not in chosen or rank <= chosen[key][0]:
+            chosen[key] = rank, report
+    return chosen
 
 
 def nearest(value):

@@ -13,7 +13,7 @@ def test_prepared_only_public_pages_never_download_upstream_data_when_empty():
     with patch.dict(os.environ,{'WEATHER_PREPARED_ONLY':'true'}),patch('app.get_store',return_value=None),patch('app.download') as source:
         client=app.app.test_client()
         assert client.get('/api/forecast').status_code==503
-        assert client.get('/api/satellite/truecolor').status_code==503
+        assert client.get('/api/satellite/02').status_code==503
         assert client.get('/api/station-plots').status_code==503
     source.assert_not_called()
 
@@ -36,7 +36,7 @@ def test_slim_station_payload_retains_four_products_and_actual_routine_report_ti
 
 def test_missing_prepared_asset_does_not_flush_other_warmed_images():
     app.prepared_image.cache_clear();store=MemoryStore()
-    existing='satellite/truecolor/20261024175000.jpg';missing='satellite/truecolor/20261024175500.jpg';store.write(existing,b'jpeg','image/jpeg')
+    existing='satellite/02/20261024175000.jpg';missing='satellite/02/20261024175500.jpg';store.write(existing,b'jpeg','image/jpeg')
     with patch('app.get_store',return_value=store),patch.object(store,'read',wraps=store.read) as reads:
         client=app.app.test_client()
         assert client.get('/api/prepared/'+existing).status_code==200

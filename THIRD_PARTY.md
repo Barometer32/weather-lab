@@ -4,10 +4,7 @@ Leaflet 1.9.4: https://github.com/Leaflet/Leaflet
 Copyright (c) 2010-2023, Vladimir Agafonkin
 Copyright (c) 2010-2011, CloudMade
 
-SunCalc 1.9.0: https://github.com/mourner/suncalc
-Copyright (c) 2011-2015, Vladimir Agafonkin
-
-Both bundled libraries use the following BSD 2-Clause license:
+The bundled Leaflet library uses the following BSD 2-Clause license:
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

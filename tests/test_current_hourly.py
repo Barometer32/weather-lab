@@ -6,11 +6,23 @@ from urllib.parse import parse_qs, urlparse
 import app
 import collector
 import current_hourly as current
-from tests.test_hourly_airport_observations import report, Store
 
 NOW = datetime(2026,11,10,2,3,tzinfo=timezone.utc)
 HOUR = NOW.replace(minute=0)
 
+
+
+class Store(dict):
+    read_json = dict.get
+    write_json = dict.__setitem__
+
+
+def report(code, hour=HOUR, minute=53, *, remark="T00101005", kind="METAR", receipt=None):
+    observed = hour - timedelta(minutes=60-minute)
+    raw = f"{kind} {code} {observed:%d%H%M}Z 35010KT 10SM CLR 20/05 A2998 RMK AO2 {remark}"
+    return {"icaoId": code, "obsTime": observed.timestamp(), "metarType": kind,
+            "receiptTime": app.iso(receipt or observed), "rawOb": raw,
+            "temp": 20, "dewp": 5, "wspd": 10, "wdir": 350 if code == "KFCM" else 10}
 
 def trio(hour=HOUR):
     return [report(c,hour=hour) for c in current.STATIONS]
