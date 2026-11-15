@@ -80,7 +80,7 @@ def fetch_reports(now, download):
     return fresh
 
 
-def parse_reports(payload, now):
+def parse_reports(payload, now, *, stations=STATIONS):
     rows = csv.DictReader(StringIO(payload.decode("utf-8-sig")))
     if not rows.fieldnames or not {"station", "valid", "metar"} <= set(rows.fieldnames):
         raise ValueError("Invalid five-minute raw METAR response")
@@ -88,7 +88,7 @@ def parse_reports(payload, now):
     for row in rows:
         station = (row.get("station") or "").strip().upper()
         station = station if len(station)==4 else "K"+station
-        if station not in STATIONS:
+        if station not in stations:
             continue
         raw = row.get("metar") or ""
         body, _, remarks = raw.partition(" RMK")

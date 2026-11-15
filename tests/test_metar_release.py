@@ -58,14 +58,17 @@ elif args[:3]==['scheduler','jobs','describe']:
     if fmt=='value(httpTarget.oidcToken.serviceAccountEmail)': print('weather-scheduler@'+project+'.iam.gserviceaccount.com')
     elif fmt=='value(state)': print('PAUSED' if args[3]=='weather-live-hourly-observations' else state.get(args[3]+'-state','ENABLED'))
     elif fmt=='value(schedule)': print('0,30 * * * *')
+    elif args[3]=='weather-live-rapmet': print(json.dumps({'state':'ENABLED','schedule':state.get('weather-live-rapmet-schedule','*/5 * * * *'),'httpTarget':{'uri':'https://weather-collector.example/collect/rapmet'}}))
     else: print(json.dumps({'schedule':'0,5,10 * * * *','attemptDeadline':'180s','state':'ENABLED'}))
 elif args[:4] in [['scheduler','jobs','update','http'],['scheduler','jobs','create','http']]:
     state[args[4]+'-schedule']=option('--schedule')
+    if args[4]=='weather-live-rapmet': state['rapmetExists']=True
     if args[4]=='weather-live-mesonet': state['retiredDeleted']=False
     if args[4]=='weather-live-rtmetar': state['activeExists']=True
     if args[4]=='weather-live-rapid-observations': state['observationsExists']=True
     state_path.write_text(json.dumps(state))
 elif args[:3]==['scheduler','jobs','delete']:
+    if args[3]=='weather-live-rapmet': state['rapmetExists']=False
     if args[3]=='weather-live-mesonet': state['retiredDeleted']=True
     if args[3]=='weather-live-rtmetar': state['activeExists']=False
     if args[3]=='weather-live-rapid-observations': state['observationsExists']=False
@@ -83,6 +86,7 @@ elif args[:3]==['scheduler','jobs','list']:
     if state.get('rtmaExists'): names.append('weather-live-rtma-observations')
     if state.get('conditionsExists'): names.append('weather-live-public-conditions')
     if state.get('hennepinExists'): names.append('weather-live-hennepin-mesonet')
+    if state.get('rapmetExists'): names.append('weather-live-rapmet')
     print(json.dumps([{'name':'projects/'+project+'/locations/us-central1/jobs/'+name,'schedule':state.get(name+'-schedule','*/5 * * * *'),'state':state.get(name+'-state','ENABLED'),'timeZone':'Etc/UTC','httpTarget':{'uri':'https://weather-collector.example/collect/'+name.removeprefix('weather-live-'),'httpMethod':'POST','oidcToken':{'serviceAccountEmail':'weather-scheduler@'+project+'.iam.gserviceaccount.com','audience':'https://weather-collector.example'}}} for name in names]))
 elif args[:3]==['storage','buckets','describe']:
     print(json.dumps({'name':project+'-weather-data','lifecycle':{'rule':[{'action':{'type':'Delete'},'condition':{'age':1,'matchesPrefix':['satellite/truecolor/']}}]}}))
@@ -177,10 +181,16 @@ def test_conditions_job_retirement_is_reversible_and_never_creates_collection():
     from configure_live_jobs import plan
     for state in ('ENABLED', 'PAUSED'):
         job={'name':'projects/p/locations/r/jobs/weather-live-public-conditions','state':state}
-        configure,rollback=plan([job],'p','r','https://collector.example')
+        configure,rollback=plan([job,{'name':'weather-live-rapmet','state':'ENABLED','schedule':'*/5 * * * *','httpTarget':{'uri':'https://collector.example/collect/rapmet'}}],'p','r','https://collector.example')
+        configure=[c for c in configure if 'weather-live-public-conditions' in c]
+        rollback=[c for c in rollback if 'weather-live-public-conditions' in c]
         assert bool(configure)==(state=='ENABLED')
         assert bool(rollback)==(state=='ENABLED')
         if configure:
             assert configure[0][2:5]==['jobs','pause','weather-live-public-conditions']
             assert rollback[0][2:5]==['jobs','resume','weather-live-public-conditions']
-    assert plan([], 'p', 'r', 'https://collector.example')==([],[])
+    active={'name':'weather-live-metar-clouds','httpTarget':{'oidcToken':{'serviceAccountEmail':'scheduler@example'}}}
+    configure,rollback=plan([active], 'p', 'r', 'https://collector.example')
+    assert configure[0][1:5]==['scheduler','jobs','create','http']
+    assert '--schedule=*/5 * * * *' in configure[0] and '--uri=https://collector.example/collect/rapmet' in configure[0]
+    assert rollback[0][1:4]==['scheduler','jobs','delete']

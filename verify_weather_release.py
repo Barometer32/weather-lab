@@ -35,22 +35,23 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=metar-only-v26' in html
+    assert '/static/metar-model.js?v=rapmet-default-v27' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="tab-metar" aria-selected="true"' in html
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
-    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["rapmet", "plots", "clouds"]
+    assert '<option value="rapmet" selected>RAPMET</option>' in html
+    assert 'rapmet-views.js' in html and 'id="rapmet-map"' in html
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=metar-only-v26' in html
+    assert '/static/metar-views.js?v=rapmet-default-v27' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=metar-only-v26' in html
-    print("Verified METAR PLOTS home, CLOUDS retained, and OBSERVATIONS removed.")
+    assert '/static/app.js?v=rapmet-default-v27' in html
+    print("Verified METAR RAPMET default, PLOTS/CLOUDS retained, MESONET/OBSERVATIONS removed.")
 
 
 def check_hourly(base):
@@ -83,6 +84,13 @@ def check_removed(base):
 
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
+    data=json.loads(read(base,"/api/rapmet"))
+    assert data.get("stations") and not data.get("stale"),"RAPMET prepared collection is unavailable"
+    assert data["temperatureUnit"]=="C" and data["windUnit"]=="mph" and data["temperatureBasis"]=="HF-ASOS-Celsius"
+    assert set(data["states"])=={"ND","SD","IA","MN","WI"}
+    assert all(s["reportType"]=="HFMETAR" and s["station"]!="KSTP" and s["state"] in data["states"] and s["tempC"] is not None and s["dewpointC"] is not None for s in data["stations"])
+    print("Verified RAPMET:",len(data["stations"]),"five-minute airports. Newest actual report:",data["newestObservationAt"])
+    if data.get("sourceDelayed"):print("RAPMET: source is delayed; actual observation ages are displayed.")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),

@@ -1,6 +1,6 @@
 {
-  "variant": "plots-default-mesonet-fully-retired",
-  "baseCommit": "19a438a5a65ab104dd40eb3395833cdac19f6bcf",
+  "variant": "rapmet-direct-noaa-five-minute-celsius-default",
+  "baseCommit": "88b2f3c0b2c0d8223a100518d4dca7cdf695011f",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -12,8 +12,9 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "plots",
+  "defaultMetarProduct": "rapmet",
   "metarProducts": [
+    "rapmet",
     "plots",
     "clouds"
   ],
@@ -33,5 +34,21 @@
   "metarWindSpacingFactor": 0.9,
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
-  "retiredHennepinMesonet": true
+  "retiredHennepinMesonet": true,
+  "rapmetCollectionSchedule": "*/5 * * * *",
+  "rapmetStates": [
+    "ND",
+    "SD",
+    "IA",
+    "MN",
+    "WI"
+  ],
+  "rapmetExcludedStations": [
+    "KSTP",
+    "KCFE"
+  ],
+  "rapmetTemperatureBasis": "direct HF-ASOS Kelvin decoded to Celsius; whole-C display",
+  "rapmetReports": "HF-ASOS only at five-minute timestamps; no routine METAR or SPECI",
+  "rapmetMaxReportAgeSeconds": 3600,
+  "rapmetSource": "NOAA MADIS direct, raw IEM HF fallback only"
 }
