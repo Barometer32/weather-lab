@@ -150,4 +150,4 @@ gcloud scheduler jobs list "${scheduler[@]}" --format=json |
 gcloud scheduler jobs describe weather-live-current "${scheduler[@]}" --format=json |
   python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["state"]=="ENABLED" and d["schedule"]=="*/2 * * * *" and d["httpTarget"]["uri"].endswith("/collect/current-hourly"); print("Verified official CURRENT collection every two minutes until the current hour is complete")'
 trap - ERR
-echo "Weather Lab is live at $site. METAR PLOTS opens first by default; CLOUDS, RADAR, SATELLITE, FORECAST and AIR Q remain available. CURRENT shows twelve official three-airport hourly averages; checks every two minutes until complete. TEMPEST is removed. OBSERVATIONS and RAPMET remain removed."
+echo "Weather Lab is live at $site. CURRENT opens first by default; METAR PLOTS/CLOUDS, RADAR, SATELLITE, FORECAST and AIR Q remain available. CURRENT shows only complete official three-airport hourly averages from the last twelve hours; checks every two minutes until complete. TEMPEST is removed. OBSERVATIONS and RAPMET remain removed."

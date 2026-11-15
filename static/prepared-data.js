@@ -6,7 +6,7 @@ window.WeatherPrepared = (() => {
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/02";
-  const paths=[metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality","/api/current"];
+  const paths=["/api/current",metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -97,8 +97,8 @@ window.WeatherPrepared = (() => {
   async function prime(){
     // Start all prepared manifests independently. Slow imagery must never
     // block CLOUDS/PLOTS from becoming ready before the user switches views.
-    await Promise.allSettled([metarLoop,radarManifest,satelliteManifest,
-      "/api/satellite/dcphase","/api/satellite/ntmicro","/api/forecast","/api/air-quality","/api/current"]
+    await Promise.allSettled(["/api/current",metarLoop,radarManifest,satelliteManifest,
+      "/api/satellite/dcphase","/api/satellite/ntmicro","/api/forecast","/api/air-quality"]
       .map(url=>read(url)));
   }
   function warmLatest(){

@@ -48,7 +48,7 @@ def present(saved, now):
     pending = not hours[0]['complete']
     current = next((row for row in hours if row['complete']), None)
     # Preserve twelve prior hours while the new one is still incomplete.
-    history = hours[1:13] if pending else hours[:12]
+    history = [row for row in (hours[1:13] if pending else hours[:12]) if row['complete']]
     return {'version': VERSION, 'current': current, 'history': history,
             'pending': hours[0] if pending else None, 'pendingHour': weather.iso(target) if pending else None,
             'checkedAt': saved.get('checkedAt'), 'serverTime': weather.iso(now),

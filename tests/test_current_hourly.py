@@ -24,7 +24,7 @@ def test_only_official_50_through_59_and_precise_remarks_with_latest_correction(
                  report('KSTP',remark='T01900050')]
     rows+=[report('KMSP',receipt=HOUR,remark='T00201005')]
     data=current.present({'reports':rows},NOW)
-    assert len(data['history'])==12 and data['current']['complete']
+    assert len(data['history'])==1 and data['current']['complete']
     assert data['current']['tempF']==34 and data['current']['dewpointF']==31
     assert data['current']['tempC']==4/3
     assert data['pendingHour'] is None
@@ -55,7 +55,7 @@ def test_missing_precision_or_station_never_creates_partial_average_and_keeps_pr
         assert data['current']['hour']==app.iso(HOUR-timedelta(hours=1))
         assert data['history'][0]['hour']==data['current']['hour']
         assert data['pending']['tempF'] is None or data['pending']['dewpointF'] is None
-        assert len(data['history'])==12
+        assert len(data['history'])==1
     incomplete=trio();incomplete[0]['wspd']=None
     assert not current.present({'reports':incomplete},NOW)['pending']['complete']
 
@@ -106,3 +106,16 @@ def test_source_failure_does_not_erase_history_and_public_api_never_downloads():
     with patch('collector.get_store',return_value=store),patch('collector.collect_current_hourly',return_value={'status':'already prepared'}) as collect:
         assert collector.app.test_client().post('/collect/current-hourly').status_code==200
         collect.assert_called_once()
+
+
+def test_incomplete_middle_hour_is_omitted_and_never_replaced_with_partial_values():
+    missing_hour=HOUR-timedelta(hours=4)
+    reports=[r for i in range(12) for r in trio(HOUR-timedelta(hours=i))
+             if not (i==4 and r['icaoId']=='KMIC')]
+    data=current.present({'reports':reports},NOW)
+    assert len(data['history'])==11
+    assert all(h['complete'] and h['count']==3 for h in data['history'])
+    assert app.iso(missing_hour) not in [h['hour'] for h in data['history']]
+    assert data['current']['hour']==app.iso(HOUR)
+    empty=current.present({},NOW)
+    assert empty['history']==[] and empty['current'] is None

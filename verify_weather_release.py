@@ -30,15 +30,15 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-metar" aria-selected="true"' in html
+    assert 'id="tab-current" aria-selected="true"' in html
     assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
     assert 'airport-observations.js' not in html
     assert 'rtma-observations.js' not in html
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
-    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=current-hourly-v34' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "current", "radar", "satellite", "forecast", "air-quality"]
+    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar" hidden>' in html
+    assert '/static/metar-model.js?v=current-home-v35' in html
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["current", "metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
     assert 'rapmet' not in html.lower()
@@ -46,15 +46,18 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="clouds">CLOUDS</option>' in html
-    assert '/static/metar-views.js?v=current-hourly-v34' in html
+    assert '/static/metar-views.js?v=current-home-v35' in html
     assert 'id="metar-notice"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=current-hourly-v34' in html
+    assert '/static/app.js?v=current-home-v35' in html
     assert 'id="tab-current"' in html and 'current-hourly.js' in html
     assert 'tempest' not in html.lower()
-    print("Verified METAR PLOTS home with CLOUDS and all other retained tabs.")
+    current_html=html.split('<section id="current"',1)[1].split('</section>',1)[0]
+    assert 'current-stations' not in current_html and 'current-method' not in current_html
+    assert '<th>Reports</th>' not in current_html
+    print("Verified CURRENT home with METAR PLOTS/CLOUDS and all other retained tabs.")
 
 
 def check_hourly(base):
@@ -89,14 +92,15 @@ def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
     current=json.loads(read(base,"/api/current"))
     assert current.get("version")=="official-hourly-t-remarks-v1"
-    assert len(current["history"])==12 and current.get("current") and not current["stale"],"Official CURRENT history is not ready"
+    assert 0<len(current["history"])<=12 and current.get("current") and not current["stale"],"Official CURRENT history is not ready"
     for hour in current["history"]:
+        assert hour["complete"], "An incomplete three-airport hour must be omitted"
         for station in hour["stations"]:
             if station["available"]:
                 stamp=datetime.fromisoformat(station["observedAt"].replace("Z","+00:00"))
                 assert 50<=stamp.minute<=59
     assert current["current"]["complete"] and current["precision"]=="T remarks only"
-    print("Verified twelve CURRENT hours with precise T-remark three-airport averages.")
+    print("Verified complete-only CURRENT hours with precise T-remark three-airport averages.")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),

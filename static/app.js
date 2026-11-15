@@ -276,7 +276,7 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar","current","radar","satellite","forecast","air-quality"];
+const tabs = ["current","metar","radar","satellite","forecast","air-quality"];
 function selectTab(id) {
   window.WeatherFullscreen.select?.(id);
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}

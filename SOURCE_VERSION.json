@@ -1,10 +1,10 @@
 {
-  "variant": "current-official-hourly-metars",
-  "baseCommit": "ee2eacfba054d447dd13d8de3b32a222c080d1a7",
+  "variant": "current-home-complete-hours",
+  "baseCommit": "7270984aa28af500911dbb8cb2d9de617877d2af",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
-  "defaultTab": "metar",
+  "defaultTab": "current",
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
@@ -48,5 +48,8 @@
   "currentHistoryHours": 12,
   "currentReportWindow": "50-59",
   "currentTemperaturePrecision": "T remarks only",
-  "retiredTempest": true
+  "retiredTempest": true,
+  "currentCompleteHoursOnly": true,
+  "currentTimestamp": "hour only",
+  "currentStationBreakdown": false
 }
