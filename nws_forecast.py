@@ -1,4 +1,4 @@
-"""Present the official NWS MapClick forecast without rewriting its narrative."""
+"""Official NWS narrative with timed numerical detail from the same point."""
 from datetime import datetime, timedelta, timezone
 from html import unescape
 import math
@@ -61,10 +61,14 @@ def normalize_forecast(document, now=None):
         end = start_times[i+1] if i+1 < len(start_times) else start.astimezone(CENTRAL) + timedelta(hours=12)
         pop = data.get("pop", [])
         summary = data.get("weather", [])
+        falling = re.search(r"\btemperatures?\s+falling\s+to\s+(?:around\s+|near\s+)?(-?\d+)\b(?:\s+by\s+([^.,]+))?", text, re.I)
         periods.append({"name": name, "startTime": start.isoformat(), "endTime": end.isoformat(),
                         "isDaytime": label == "High", "temperature": number(temperature, -150, 150),
                         "temperatureUnit": "F", "shortForecast": summary[i] if i < len(summary) else None,
                         "detailedForecast": text.strip(), "precipChancePct": number(pop[i], 0, 100) if i < len(pop) else None})
+        if falling:
+            periods[-1].update(temperature=number(falling[1], -150, 150), temperatureTrend="falling",
+                               trendTargetTime=falling[2].strip() if falling[2] else None)
     periods = current_periods(periods, now)
     if not periods:
         raise ValueError("NWS returned no current or future forecast periods")
@@ -173,6 +177,34 @@ def grid_weather(document):
     return intervals
 
 
+def cloud_label(percent):
+    # User's categories: 20 stays clear; 40/60/80 start the next category.
+    if percent is None:
+        return None
+    if percent <= 20:
+        return "Clear"
+    if percent < 40:
+        return "Mostly clear"
+    if percent < 60:
+        return "Partly cloudy"
+    return "Mostly cloudy" if percent < 80 else "Cloudy"
+
+
+def numeric_intervals(grid, key, minimum, maximum):
+    intervals = []
+    for item in grid.get("properties", {}).get(key, {}).get("values", []):
+        try:
+            left, duration = item["validTime"].split("/", 1)
+            start = timestamp(left)
+            end = grid_end(start, duration)
+            value = number(item.get("value"), minimum, maximum)
+            if value is not None and end > start:
+                intervals.append((start, end, value))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            continue
+    return sorted(intervals)
+
+
 def wet_description(start, end, intervals, condition):
     descriptions = []
     for left, right, entries in intervals:
@@ -197,8 +229,8 @@ def normalize_hourly(document, grid, now):
     props = document["properties"]
     issued = timestamp(props.get("updateTime") or props["generatedAt"])
     intervals = grid_weather(grid)
-    # Only keep the first 48 hours; the regular NWS outlook continues beyond that.
-    limit = now + timedelta(hours=48)
+    sky = numeric_intervals(grid, "skyCover", 0, 100)
+    limit = now + timedelta(days=8)
     hours = []
     for period in props["periods"]:
         try:
@@ -206,7 +238,14 @@ def normalize_hourly(document, grid, now):
             condition = period["shortForecast"].strip()
             chance = number((period.get("probabilityOfPrecipitation") or {}).get("value"), 0, 100)
             if now < end and start < limit and end - start == timedelta(hours=1) and condition:
-                hours.append((start, end, condition, chance, wet_description(start, end, intervals, condition)))
+                cloud = next((value for left, right, value in sky if left <= start and end <= right), None)
+                weather = wet_description(start, end, intervals, condition)
+                # Retain fog, rain, snow etc. when no structured weather entry
+                # exists; never replace weather hazards with a cloud label.
+                cloud_only = re.fullmatch(r"(?:mostly |partly )?(?:sunny|clear|cloudy)|overcast", condition, re.I)
+                if not weather and not cloud_only:
+                    weather = [condition]
+                hours.append((start, end, cloud_label(cloud) or condition, chance, weather, cloud))
         except (TypeError, ValueError, KeyError, AttributeError):
             continue
     if not hours:
@@ -226,24 +265,71 @@ def add_hourly_windows(forecast, hourly, grid, now):
     for period in forecast["periods"]:
         left, right = (timestamp(period[k]) for k in ("startTime", "endTime"))
         windows = []
-        for start, end, condition, chance, weather in hours:
+        for start, end, condition, chance, weather, cloud in hours:
             start, end = max(left, start), min(right, end)
             if start >= end:
                 continue
             band = chance_band(chance)
             prior = windows[-1] if windows else None
             if (prior and timestamp(prior["endTime"]) == start and prior["condition"] == condition
-                    and prior["weather"] == weather and chance_band(prior["maxChancePct"]) == band):
+                    and prior["weather"] == weather and chance_band(prior["maxChancePct"]) == band
+                    and (prior["minCloudPct"] is None) == (cloud is None)):
                 prior["endTime"] = end.isoformat()
                 if chance is not None:
                     prior["minChancePct"] = min(prior["minChancePct"], chance)
                     prior["maxChancePct"] = max(prior["maxChancePct"], chance)
+                if cloud is not None:
+                    prior["minCloudPct"] = min(prior["minCloudPct"], cloud)
+                    prior["maxCloudPct"] = max(prior["maxCloudPct"], cloud)
             else:
                 windows.append({"startTime": start.isoformat(), "endTime": end.isoformat(),
                                 "condition": condition, "weather": weather,
+                                "minCloudPct": cloud, "maxCloudPct": cloud,
                                 "minChancePct": chance, "maxChancePct": chance})
         if windows:
             period["hourlyWindows"] = windows
+
+
+def amount_window(period):
+    # Fixed 12Z/00Z boundaries are 6/6 CST and 7/7 CDT, as requested.
+    date = timestamp(period["startTime"]).astimezone(CENTRAL).date()
+    start = datetime(date.year, date.month, date.day, 12, tzinfo=timezone.utc)
+    if not period["isDaytime"]:
+        start += timedelta(hours=12)
+    return start, start + timedelta(hours=12)
+
+
+def interval_total(intervals, start, end):
+    cursor, total = start, 0
+    for left, right, value in intervals:
+        if right <= start or left >= end:
+            continue
+        a, b = max(start, left), min(end, right)
+        # A positive amount spanning a boundary cannot be divided reliably.
+        # Zero can safely be clipped. Missing/overlapping intervals are not 0.
+        if a != cursor or (value > 0 and (left < start or right > end)):
+            return None
+        total += value
+        cursor = b
+    return total if cursor == end else None
+
+
+def add_precip_amounts(forecast, grid, now):
+    for key, label in (("quantitativePrecipitation", "Liquid precipitation"),
+                       ("snowfallAmount", "Snow"), ("iceAccumulation", "Ice accumulation")):
+        unit = grid.get("properties", {}).get(key, {}).get("uom")
+        factor = {"wmoUnit:mm": 1/25.4, "wmoUnit:in": 1, "wmoUnit:m": 1000/25.4}.get(unit)
+        if factor is None:
+            continue
+        intervals = numeric_intervals(grid, key, 0, 10000)
+        for period in forecast["periods"]:
+            start, end = amount_window(period)
+            if end <= now:
+                continue
+            value = interval_total(intervals, start, end)
+            if value is not None and value > 0:
+                period.setdefault("precipAmounts", []).append({"kind": label, "startTime": start.isoformat(),
+                    "endTime": end.isoformat(), "inches": value*factor})
 
 
 def enrich_from_nws(forecast, fetch_json, now):
@@ -260,3 +346,7 @@ def enrich_from_nws(forecast, fetch_json, now):
         except (OSError, ValueError):
             grid = {}
     add_hourly_windows(forecast, hourly, grid, now)
+    add_precip_amounts(forecast, grid, now)
+    forecast["hourlySourceUrl"] = hourly_url
+    forecast["gridSourceUrl"] = grid_url
+    forecast["gridUpdatedAt"] = grid.get("properties", {}).get("updateTime")

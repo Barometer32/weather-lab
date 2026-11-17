@@ -41,6 +41,9 @@ def text_page(issued="11:56 am CDT Oct 9, 2026", periods=None):
 class ForecastTests(unittest.TestCase):
     def setUp(self):
         _cache.clear()
+        detail = patch("nws_forecast.enrich_from_nws")
+        detail.start()
+        self.addCleanup(detail.stop)
 
     def test_feed_narrative_periods_and_issuance_come_from_same_mapclick_response(self):
         upstream=document()
@@ -129,7 +132,8 @@ class ForecastTests(unittest.TestCase):
         newer = normalize_text_forecast(text_page("11:06 am CST Nov 11, 2026", (
             ("Veterans Day", revised), ("Tonight", "Mostly cloudy, with a low around 33."))), now)
         self.assertEqual(older["periods"][0]["detailedForecast"], falling)
-        self.assertIsNone(older["periods"][0]["temperature"])
+        self.assertEqual(older["periods"][0]["temperature"], 46)
+        self.assertEqual(older["periods"][0]["temperatureTrend"], "falling")
         store = MemoryStore()
         store.write_json("live/forecast.json", older)
         with patch("app.get_forecast", return_value=newer):

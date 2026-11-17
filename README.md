@@ -11,7 +11,7 @@ GitHub branch: `rtmetar-default-20261111`.
 - **METAR** opens CLOUDS, with PLOTS as the other option. CLOUDS retains individual KMSP/KFCM/KMIC with first priority, then KSTP; KSGS appears when space allows. PLOTS replaces the trio with one marker at their geographic centroid, using the exact complete hourly averages from CURRENT, including its calm-wind rule; each timeline frame uses its own matching hour. All other airports retain their plots. The four-hour loop uses each hour's actual reports.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to Visible (red) Band 02, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
-- **FORECAST** uses the NWS Hopkins MapClick text forecast, with its original narrative and issuance time.
+- **FORECAST** retains the official NWS Hopkins MapClick narrative. Falling-temperature periods show a down arrow and the stated target, rather than a high. The existing five-minute collector adds NWS hourly/grid detail for the same coordinates: timed cloud-cover categories and actual percentages, weather and precipitation chances. Cloud categories are Clear ≤20%, Mostly clear >20–<40%, Partly cloudy 40–<60%, Mostly cloudy 60–<80%, and Cloudy ≥80%. Liquid precipitation, snow and ice amounts appear only as complete day/night totals for 12Z–00Z and 00Z–12Z (6–6 CST, 7–7 CDT). Missing accumulation intervals are not treated as zero or prorated. Detail-feed failures leave the official narrative available. No AI service is used.
 - **AIR Q** uses prepared Minnesota AirNow/MPCA source-hour maps.
 
 ## Background updates

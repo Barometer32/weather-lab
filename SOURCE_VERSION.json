@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "aea98ac2396034483355c049cd72532fbbdeb255",
+  "baseCommit": "7de09cd52be7b2ca796989c3e5447d60b8432e55",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -75,5 +75,16 @@
     "position": "three-airport geographic centroid",
     "replacesIndividualPlots": true,
     "cloudsUnchanged": true
+  },
+  "forecastDetail": {
+    "source": "NWS same-point hourly and grid data",
+    "cloudCategories": "Clear <=20; Mostly clear >20 <40; Partly cloudy >=40 <60; Mostly cloudy >=60 <80; Cloudy >=80",
+    "fallingTemperatureTarget": true,
+    "amountWindowsUTC": [
+      "12:00-00:00",
+      "00:00-12:00"
+    ],
+    "amountsRequireCompleteWindow": true,
+    "AI": false
   }
 }

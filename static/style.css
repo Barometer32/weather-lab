@@ -129,6 +129,11 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 .forecast-temperature span { font-size: 12px; line-height: 1.2; font-weight: 600; color: var(--muted); }
 .forecast-temperature strong { font-size: 32px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .forecast-detail { font-size: 15px; line-height: 1.55; margin: 0; }
+.forecast-copy { min-width:0; }
+.forecast-detail-heading { margin:10px 0 3px; font-size:13px; font-weight:600; color:var(--muted); }
+.forecast-windows { margin:0; padding-left:18px; font-size:14px; line-height:1.55; overflow-wrap:anywhere; }
+.forecast-windows li + li { margin-top:3px; }
+.forecast-temperature.falling { flex-direction:column; gap:2px; }
 .satellite-product-row { display: flex; gap: 12px; align-items: center; }
 .satellite-product-row label { font-size: 14px; font-weight: 600; }
 #satellite-description { min-height: 44px; }
