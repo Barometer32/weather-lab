@@ -200,7 +200,7 @@ def collect_forecast(store, now):
     # browser. An API failure must not take the official narrative offline.
     data = {**data, "periods": [{k:v for k,v in p.items() if k not in ("hourlyWindows", "precipAmounts")}
                                for p in data["periods"]]}
-    for key in ("hourlyUpdatedAt", "gridUpdatedAt", "hourlySourceUrl", "gridSourceUrl"):
+    for key in ("hourly", "hourlyUpdatedAt", "gridUpdatedAt", "hourlySourceUrl", "gridSourceUrl"):
         data.pop(key, None)
     try:
         enrich_from_nws(data, lambda url: json.loads(weather.download(url)), now)

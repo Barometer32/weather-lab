@@ -126,24 +126,22 @@ async function loadRadar() {
     }
   }
 }
-let forecastBusy = false, forecastData, forecastError;
-const forecastHour=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"});
-const forecastDay=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric"});
-function forecastRange(start,end){
-  const a=new Date(start),b=new Date(end),crossesDay=forecastDay.format(a)!==forecastDay.format(b);
-  return `${forecastHour.format(a)}–${crossesDay?forecastDay.format(b)+", ":""}${forecastHour.format(b)}`;
-}
-function forecastPercent(low,high){
-  const fmt=n=>Number.isInteger(n)?String(n):n.toFixed(1);
-  return low===high?`${fmt(low)}%`:`${fmt(low)}–${fmt(high)}%`;
+let forecastBusy = false, forecastData, forecastError, forecastMode="text";
+function selectForecastMode(mode){
+  forecastMode=mode==="hourly"?"hourly":"text";
+  $("forecast-periods").hidden=forecastMode!=="text";
+  $("forecast-hourly").hidden=forecastMode!=="hourly";
+  for(const id of ["text","hourly"])$("forecast-view-"+id).setAttribute("aria-pressed",String(forecastMode===id));
+  renderForecast();
 }
 function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
   const now = Date.now();
   const periods = data.periods.filter(p => Date.parse(p.endTime) > now);
-  $("forecast-updated").textContent = (data.updatedAt ? `${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time` : "Official NWS point forecast · Central time")+
-    (data.hourlyUpdatedAt?` · Hourly detail updated ${fullTime.format(new Date(data.hourlyUpdatedAt))}`:"");
+  const issued=forecastMode==="hourly"?data.hourlyUpdatedAt:data.updatedAt;
+  $("forecast-updated").textContent = issued?`${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(issued))} · Central time`:"National Weather Service · Central time";
+  if(forecastMode==="hourly")window.WeatherHourlyForecast?.render(data,now);
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();
@@ -164,25 +162,7 @@ function renderForecast() {
     }
     const detail = document.createElement("p"); detail.className = "forecast-detail";
     detail.textContent = period.detailedForecast;
-    const copy=document.createElement("div");copy.className="forecast-copy";copy.append(detail);
-    const windows=(period.hourlyWindows||[]).filter(w=>Date.parse(w.endTime)>now);
-    const amounts=(period.precipAmounts||[]).filter(w=>Date.parse(w.endTime)>now);
-    if(windows.length||amounts.length){
-      const title=document.createElement("p");title.className="forecast-detail-heading";title.textContent="Hourly detail";copy.append(title);
-      const list=document.createElement("ul");list.className="forecast-windows";
-      for(const w of windows){
-        const bits=[w.condition+(Number.isFinite(w.minCloudPct)&&Number.isFinite(w.maxCloudPct)?` (${forecastPercent(w.minCloudPct,w.maxCloudPct)} cloud cover)`:""),...(w.weather||[])];
-        if(Number.isFinite(w.minChancePct)&&Number.isFinite(w.maxChancePct))bits.push(`Precipitation chance ${forecastPercent(w.minChancePct,w.maxChancePct)}`);
-        const item=document.createElement("li");item.textContent=`${forecastRange(w.startTime,w.endTime)}: ${[...new Set(bits)].join(" · ")}`;list.append(item);
-      }
-      for(const amount of amounts){
-        if(!Number.isFinite(amount.inches))continue;
-        const item=document.createElement("li"),value=amount.inches<.01?"<0.01":amount.inches.toFixed(2);
-        item.textContent=`${forecastRange(amount.startTime,amount.endTime)}: ${amount.kind} ${value} in total`;list.append(item);
-      }
-      copy.append(list);
-    }
-    row.append(heading, copy); $("forecast-periods").append(row);
+    row.append(heading, detail); $("forecast-periods").append(row);
   });
 }
 async function loadForecast(force = false) {
@@ -315,7 +295,7 @@ function selectTab(id) {
   window.WeatherMetars?.select(id);
   window.WeatherCurrent?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
-  if(id === "forecast") loadForecast();
+  if(id === "forecast"){selectForecastMode("text");loadForecast();}
   window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
@@ -329,6 +309,7 @@ for(const id of tabs) {
   });
 }
 $("refresh-forecast").addEventListener("click",()=>loadForecast(true));
+for(const mode of ["text","hourly"])$("forecast-view-"+mode).addEventListener("click",()=>selectForecastMode(mode));
 $("refresh-radar").addEventListener("click",loadRadar);
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;

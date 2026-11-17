@@ -52,7 +52,10 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=forecast-detail-v41' in html
+    assert '/static/app.js?v=hourly-concept-v42' in html
+    assert '/static/hourly-forecast.js?v=hourly-concept-v42' in html
+    assert 'id="forecast-view-text" aria-pressed="true"' in html
+    assert 'id="forecast-hourly" class="hourly-forecast" hidden' in html
     assert 'id="tab-current"' in html and 'current-hourly.js' in html
     assert 'tempest' not in html.lower()
     current_html=html.split('<section id="current"',1)[1].split('</section>',1)[0]

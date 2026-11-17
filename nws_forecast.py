@@ -225,111 +225,63 @@ def wet_description(start, end, intervals, condition):
     return list(dict.fromkeys(descriptions))
 
 
-def normalize_hourly(document, grid, now):
-    props = document["properties"]
+def grid_hour_value(grid, key, start, end, minimum, maximum):
+    return next((value for left, right, value in numeric_intervals(grid, key, minimum, maximum)
+                 if left <= start and end <= right), None)
+
+
+def fahrenheit(value, unit):
+    value = number(value, -150, 160)
+    if value is None:
+        return None
+    if unit in ("C", "wmoUnit:degC"):
+        return value*1.8+32
+    return value if unit in ("F", "wmoUnit:degF") else None
+
+
+def add_hourly_forecast(forecast, hourly, grid, now):
+    props = hourly["properties"]
     issued = timestamp(props.get("updateTime") or props["generatedAt"])
-    intervals = grid_weather(grid)
-    sky = numeric_intervals(grid, "skyCover", 0, 100)
-    limit = now + timedelta(days=8)
-    hours = []
+    wet = grid_weather(grid)
+    rows = {}
+    limit = now.replace(minute=0, second=0, microsecond=0)+timedelta(hours=48)
     for period in props["periods"]:
         try:
             start, end = (timestamp(period[k]).astimezone(timezone.utc) for k in ("startTime", "endTime"))
+            if end <= now or start >= limit or end-start != timedelta(hours=1):
+                continue
+            temp = period.get("temperature")
+            temp_unit = period.get("temperatureUnit")
+            if isinstance(temp, dict):
+                temp_unit, temp = temp.get("unitCode"), temp.get("value")
+            temp_f = fahrenheit(temp, temp_unit)
             condition = period["shortForecast"].strip()
+            if temp_f is None or not condition:
+                continue
+            cloud = grid_hour_value(grid, "skyCover", start, end, 0, 100)
+            weather = wet_description(start, end, wet, condition)
+            cloud_only = re.fullmatch(r"(?:mostly |partly )?(?:sunny|clear|cloudy)|overcast", condition, re.I)
+            description = cloud_label(cloud) if cloud_only and cloud is not None else condition
             chance = number((period.get("probabilityOfPrecipitation") or {}).get("value"), 0, 100)
-            if now < end and start < limit and end - start == timedelta(hours=1) and condition:
-                cloud = next((value for left, right, value in sky if left <= start and end <= right), None)
-                weather = wet_description(start, end, intervals, condition)
-                # Retain fog, rain, snow etc. when no structured weather entry
-                # exists; never replace weather hazards with a cloud label.
-                cloud_only = re.fullmatch(r"(?:mostly |partly )?(?:sunny|clear|cloudy)|overcast", condition, re.I)
-                if not weather and not cloud_only:
-                    weather = [condition]
-                hours.append((start, end, cloud_label(cloud) or condition, chance, weather, cloud))
+            dew = period.get("dewpoint") or {}
+            dew_f = fahrenheit(dew.get("value"), dew.get("unitCode"))
+            feels = grid_hour_value(grid, "apparentTemperature", start, end, -150, 160)
+            feels_f = fahrenheit(feels, grid.get("properties", {}).get("apparentTemperature", {}).get("uom"))
+            wind = period.get("windSpeed")
+            if not isinstance(wind, str):
+                wind = None
+            rows[start] = {"startTime": start.isoformat(), "endTime": end.isoformat(),
+                "temperatureF": temp_f, "dewpointF": dew_f, "feelsLikeF": feels_f,
+                "condition": description, "nwsCondition": condition, "weather": weather,
+                "cloudCoverPct": cloud, "precipChancePct": chance,
+                "windSpeed": wind, "windDirection": period.get("windDirection"),
+                "isDaytime": period.get("isDaytime")}
         except (TypeError, ValueError, KeyError, AttributeError):
             continue
-    if not hours:
+    if not rows:
         raise ValueError("NWS hourly feed has no usable forecast hours")
-    return issued.isoformat(), sorted({hour[0]: hour for hour in hours}.values())
-
-
-def chance_band(chance):
-    if chance is None:
-        return None
-    return sum(chance >= threshold for threshold in (15, 30, 60, 80))
-
-
-def add_hourly_windows(forecast, hourly, grid, now):
-    issued, hours = normalize_hourly(hourly, grid, now)
-    forecast["hourlyUpdatedAt"] = issued
-    for period in forecast["periods"]:
-        left, right = (timestamp(period[k]) for k in ("startTime", "endTime"))
-        windows = []
-        for start, end, condition, chance, weather, cloud in hours:
-            start, end = max(left, start), min(right, end)
-            if start >= end:
-                continue
-            band = chance_band(chance)
-            prior = windows[-1] if windows else None
-            if (prior and timestamp(prior["endTime"]) == start and prior["condition"] == condition
-                    and prior["weather"] == weather and chance_band(prior["maxChancePct"]) == band
-                    and (prior["minCloudPct"] is None) == (cloud is None)):
-                prior["endTime"] = end.isoformat()
-                if chance is not None:
-                    prior["minChancePct"] = min(prior["minChancePct"], chance)
-                    prior["maxChancePct"] = max(prior["maxChancePct"], chance)
-                if cloud is not None:
-                    prior["minCloudPct"] = min(prior["minCloudPct"], cloud)
-                    prior["maxCloudPct"] = max(prior["maxCloudPct"], cloud)
-            else:
-                windows.append({"startTime": start.isoformat(), "endTime": end.isoformat(),
-                                "condition": condition, "weather": weather,
-                                "minCloudPct": cloud, "maxCloudPct": cloud,
-                                "minChancePct": chance, "maxChancePct": chance})
-        if windows:
-            period["hourlyWindows"] = windows
-
-
-def amount_window(period):
-    # Fixed 12Z/00Z boundaries are 6/6 CST and 7/7 CDT, as requested.
-    date = timestamp(period["startTime"]).astimezone(CENTRAL).date()
-    start = datetime(date.year, date.month, date.day, 12, tzinfo=timezone.utc)
-    if not period["isDaytime"]:
-        start += timedelta(hours=12)
-    return start, start + timedelta(hours=12)
-
-
-def interval_total(intervals, start, end):
-    cursor, total = start, 0
-    for left, right, value in intervals:
-        if right <= start or left >= end:
-            continue
-        a, b = max(start, left), min(end, right)
-        # A positive amount spanning a boundary cannot be divided reliably.
-        # Zero can safely be clipped. Missing/overlapping intervals are not 0.
-        if a != cursor or (value > 0 and (left < start or right > end)):
-            return None
-        total += value
-        cursor = b
-    return total if cursor == end else None
-
-
-def add_precip_amounts(forecast, grid, now):
-    for key, label in (("quantitativePrecipitation", "Liquid precipitation"),
-                       ("snowfallAmount", "Snow"), ("iceAccumulation", "Ice accumulation")):
-        unit = grid.get("properties", {}).get(key, {}).get("uom")
-        factor = {"wmoUnit:mm": 1/25.4, "wmoUnit:in": 1, "wmoUnit:m": 1000/25.4}.get(unit)
-        if factor is None:
-            continue
-        intervals = numeric_intervals(grid, key, 0, 10000)
-        for period in forecast["periods"]:
-            start, end = amount_window(period)
-            if end <= now:
-                continue
-            value = interval_total(intervals, start, end)
-            if value is not None and value > 0:
-                period.setdefault("precipAmounts", []).append({"kind": label, "startTime": start.isoformat(),
-                    "endTime": end.isoformat(), "inches": value*factor})
+    forecast["hourly"] = [rows[start] for start in sorted(rows)]
+    forecast["hourlyUpdatedAt"] = issued.isoformat()
 
 
 def enrich_from_nws(forecast, fetch_json, now):
@@ -345,8 +297,6 @@ def enrich_from_nws(forecast, fetch_json, now):
             grid = grid_work.result()
         except (OSError, ValueError):
             grid = {}
-    add_hourly_windows(forecast, hourly, grid, now)
-    add_precip_amounts(forecast, grid, now)
+    add_hourly_forecast(forecast, hourly, grid, now)
     forecast["hourlySourceUrl"] = hourly_url
     forecast["gridSourceUrl"] = grid_url
-    forecast["gridUpdatedAt"] = grid.get("properties", {}).get("updateTime")

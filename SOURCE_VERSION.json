@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "7de09cd52be7b2ca796989c3e5447d60b8432e55",
+  "baseCommit": "377209be7e5abd3c921ca57c45876258f8d61839",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -76,15 +76,14 @@
     "replacesIndividualPlots": true,
     "cloudsUnchanged": true
   },
-  "forecastDetail": {
+  "forecastViews": {
+    "default": "text",
+    "hourly": "24-hour experimental chart and expandable rows",
     "source": "NWS same-point hourly and grid data",
-    "cloudCategories": "Clear <=20; Mostly clear >20 <40; Partly cloudy >=40 <60; Mostly cloudy >=60 <80; Cloudy >=80",
+    "preparedHours": 48,
+    "displayWindowHours": 24,
     "fallingTemperatureTarget": true,
-    "amountWindowsUTC": [
-      "12:00-00:00",
-      "00:00-12:00"
-    ],
-    "amountsRequireCompleteWindow": true,
+    "customDetailsInText": false,
     "AI": false
   }
 }
