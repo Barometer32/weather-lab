@@ -10,7 +10,37 @@ window.WeatherMetars = (() => {
   const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
   const windPlotOptions={dot:true,mphBarbs:true};
   const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
-  let busy=false,sourceData;
+  let busy=false,sourceData,currentData,averageBusy=false,plotFrames=[];
+  const averageId="METRO",averageName="KMSP / KFCM / KMIC average";
+  const averageLocation=preferred.map(id=>priorityLocations[id]).reduce((a,p)=>[a[0]+p[0]/3,a[1]+p[1]/3],[0,0]);
+  function averageFrames(){
+    // Reuse CURRENT's complete, precise T-remark averages for the SAME hour.
+    // Never average rounded map readings or substitute a different hour.
+    const rows=new Map((currentData?.history||[]).filter(row=>row.complete).map(row=>[Date.parse(row.hour),row]));
+    return data.history.map(frame=>{
+      const stations=frame.stations.filter(s=>!preferred.includes(s.station)),row=rows.get(Date.parse(frame.hour));
+      if(row&&Number.isFinite(row.tempF)&&Number.isFinite(row.dewpointF)&&Number.isFinite(row.wind?.speedMph)){
+        const locations=preferred.map(id=>{const site=frame.stations.find(s=>s.station===id);return site&&Number.isFinite(site.lat)&&Number.isFinite(site.lon)?[site.lat,site.lon]:priorityLocations[id];});
+        const [lat,lon]=locations.reduce((a,p)=>[a[0]+p[0]/3,a[1]+p[1]/3],[0,0]);
+        const calm=row.wind.speedMph<=3;
+        stations.push({station:averageId,name:averageName,lat,lon,time:frame.hour,tempF:row.tempF,dewpointF:row.dewpointF,
+          average:true,averageWind:row.wind,wind:calm?{...row.wind,speedMph:0,speedKnots:0}:row.wind});
+      }
+      return {...frame,stations};
+    });
+  }
+  function adoptAverage(next){
+    if(!Array.isArray(next.history)||next.history.length>12)return;
+    if(currentData&&(next===currentData||next.checkedAt<currentData.checkedAt))return;
+    currentData=next;
+    if(data&&mode==="plots"){prepareSpacing();render();}
+  }
+  async function loadAverage(force=false){
+    if(averageBusy)return;averageBusy=true;
+    try{adoptAverage(await window.WeatherPrepared.read("/api/current",{force}));}
+    catch(_){/* Retain matching complete averages; other airports remain usable. */}
+    finally{averageBusy=false;}
+  }
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
@@ -47,7 +77,9 @@ window.WeatherMetars = (() => {
   function prepareSpacing(){
     // Index each hour independently. A missing report in one hour must not
     // remove the airport from another hour where it has usable data.
-    const reports=data.history.map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
+    if(mode==="plots")plotFrames=averageFrames();
+    const priority=mode==="plots"?[averageId]:preferred;
+    const reports=(mode==="plots"?plotFrames:data.history).map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
     const bySite=new Map();
     for(const [index,stations] of reports.entries())for(const station of stations){
       const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
@@ -57,18 +89,19 @@ window.WeatherMetars = (() => {
       bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
         f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
-    if(mode==="plots")for(const id of preferred)if(!bySite.has(id)){
+    if(mode==="plots")for(const id of priority)if(!bySite.has(id)){
       // Layout-only reservation: it never becomes a report or a plotted value.
-      const [lat,lon]=priorityLocations[id],station={station:id,lat,lon,tempF:-99,dewpointF:-99};
+      const [lat,lon]=id===averageId?averageLocation:priorityLocations[id],station={station:id,lat,lon,tempF:-99,dewpointF:-99};
       const reserve=model.combinedReservation(station,windPlotOptions);
       bySite.set(id,{station,frames:Array.from({length:data.history.length},()=>reserve.boxes),radius:reserve.radius,f:reserve.bounds,reserveOnly:true});
     }
     const rank=s=>{
-      const i=preferred.indexOf(s.station);return i<0?preferred.length+(secondary.includes(s.station)?0:1):i;
+      const i=priority.indexOf(s.station);return i<0?priority.length+(secondary.includes(s.station)?0:1):i;
     };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
   function visible(stations){
+    const priority=mode==="plots"?[averageId]:preferred;
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
     const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
     const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
@@ -96,7 +129,7 @@ window.WeatherMetars = (() => {
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const reservedPrimary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
+    const reservedPrimary=priority.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
     const primary=reservedPrimary.filter(site=>!site.reserveOnly);
     // At a wide zoom, retain the largest nonoverlapping subset of the three
     // preferred airports. Once there is room, all three always beat neighbors.
@@ -107,7 +140,7 @@ window.WeatherMetars = (() => {
       best=subset;
     }
     for(const site of best)take(site);
-    for(const site of candidates)if(site.reserveOnly||(!preferred.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
+    for(const site of candidates)if(site.reserveOnly||(!priority.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
     // KSTP wins available space after the core trio, before KSGS or others.
     // KSGS remains eligible when zooming gives both stations room.
     for(const id of secondary){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
@@ -130,7 +163,7 @@ window.WeatherMetars = (() => {
     const hours=data.history;
     if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
     index=Math.max(0,Math.min(index,hours.length-1));
-    const frame=hours[index];
+    const frame=(mode==="plots"?plotFrames:hours)[index];
     draw(visible(frame.stations));
     const slider=el("metar-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
@@ -149,12 +182,18 @@ window.WeatherMetars = (() => {
       let cached=plots.get(station);
       if(!cached){
       const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      popup.append(node("strong",station.name&&station.average?station.name:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
-      popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      const averageWind=station.averageWind,dirs=["N","NE","E","SE","S","SW","W","NW"];
+      if(averageWind){
+        const speed=Math.round(averageWind.speedMph),direction=Number.isFinite(averageWind.direction)?dirs[Math.round(averageWind.direction/45)%8]:averageWind.variable?"Variable":"Unknown";
+        popup.append(node("p",`Wind: ${speed<=3?"CALM":direction+" "+speed+" mph"}`));
+      }else popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      if(!station.average){
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
         popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
+      }
       if(barb.kind==="barb"){
         const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
         popup.append(node("p",`Barb feathers: ${feathers}`));
@@ -187,6 +226,7 @@ window.WeatherMetars = (() => {
     render();
   }
   async function load(force=false){
+    if(mode==="plots")loadAverage(force);
     if(busy)return;busy=true;el("refresh-metar").disabled=true;
     try{adopt(await window.WeatherPrepared.read("/api/station-plots?view=loop",{force}));}
     catch(error){
@@ -197,6 +237,7 @@ window.WeatherMetars = (() => {
     finally{busy=false;el("refresh-metar").disabled=false;}
   }
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
+  window.WeatherPrepared.subscribe("/api/current",adoptAverage);
   function selectProduct(product){
     mode=product==="clouds"?"clouds":"plots";
     el("metar-product").value=mode;

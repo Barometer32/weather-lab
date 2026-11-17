@@ -4,7 +4,7 @@ function viewer(){
  const nodes=new Map(),shown=new Map();let subscriber,reads=0;
  const get=id=>{if(!nodes.has(id))nodes.set(id,{value:'',hidden:false,children:[],events:{},style:{setProperty(){}},setAttribute(){},append(...v){this.children.push(...v);},addEventListener(name,fn){this.events[name]=fn;}});return nodes.get(id);};
  const map={setView(){return this;},getSize(){return{x:2000,y:1000};},latLngToContainerPoint([lat,lon]){return{x:lat*100,y:lon*100};},on(){},invalidateSize(){}};
- const context={window:{WeatherPrepared:{read:async()=>{reads++;return initial;},subscribe(url,fn){if(url.includes('station-plots'))subscriber=fn;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:()=>get(Symbol()),hidden:false},Intl,Math,Number,Date,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(marker){shown.delete(marker.title);}}),divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(){return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(pos){this.position=pos;return this;},setPopupContent(){return this;}})}};
+ const context={window:{WeatherPrepared:{read:async(url)=>{if(url==='/api/current')return {history:[]};reads++;return initial;},subscribe(url,fn){if(url.includes('station-plots'))subscriber=fn;}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:()=>get(Symbol()),hidden:false},Intl,Math,Number,Date,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(marker){shown.delete(marker.title);}}),divIcon:x=>x,marker:(position,options)=>({position,...options,bindPopup(){return this;},addTo(){shown.set(this.title,this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(pos){this.position=pos;return this;},setPopupContent(){return this;}})}};
  get('metar-product').value='plots';
  let initial;
  for(const path of ['static/metar-model.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
@@ -40,7 +40,8 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  const neighbor=history({KAAA:'111111110111',KZZZ:'111111111111'});for(const f of neighbor.history)for(const s of f.stations)s.lat=5;
  v.adopt(neighbor);for(let i=0;i<4;i++){v.frame(i);assert.deepEqual(v.ids(),['KZZZ'],'A fixed reservation prefers the steady neighbor when overlapping stations tie in priority');}
  assert.ok(neighbor.history[9].stations.some(s=>s.station==='KAAA'),'Original reports remain intact');
- const regional=Object.fromEntries(['KFCM','KMIC','KMSP',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
+ // Ordinary airports still retain independent hourly eligibility.
+ const regional=Object.fromEntries(['KCHECK','KCHECK2','KCHECK3',...Array.from({length:97},(_,i)=>'K'+String(i).padStart(3,'0'))].map(id=>[id,'111111111111']));
  function regionalHistory(){
   const data=history(regional);for(const frame of data.history)for(const station of frame.stations)if(station.station==='K096'){station.lat=7;station.lon=4;}
   return data;
@@ -48,7 +49,7 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  const rolling=viewer(),pending=regionalHistory();pending.history.at(-1).stations=[];
  await rolling.load(pending);
  assert.match(rolling.label,/9:00 AM CST/,'Cold opening at the hour boundary uses the preceding populated loop');
- assert.ok(rolling.ids().includes('KFCM'));
+ assert.ok(rolling.ids().includes('KCHECK'));
  assert.equal(rolling.sliderMax,'3');
  const partial=regionalHistory();partial.history.at(-1).stations=partial.history.at(-1).stations.slice(0,20);rolling.adopt(partial);
  assert.match(rolling.label,/9:00 AM CST/,'A severely partial hourly batch is staged without changing the display');
@@ -58,11 +59,11 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
  assert.match(rolling.label,/10:00 AM CST/,'Exactly 90% coverage advances the loop');
  const nearly=regionalHistory();nearly.history.at(-1).stations=nearly.history.at(-1).stations.filter(s=>s.station!=='K096');rolling.adopt(nearly);
  assert.match(rolling.label,/10:00 AM CST/,'Broadly complete data advances automatically');
- for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KFCM'));assert.equal(rolling.ids().includes('K096'),i!==3,'A missing latest report leaves earlier hourly reports visible');}
+ for(let i=0;i<4;i++){rolling.frame(i);assert.ok(rolling.ids().includes('KCHECK'));assert.equal(rolling.ids().includes('K096'),i!==3,'A missing latest report leaves earlier hourly reports visible');}
  const blip=viewer();await blip.load(pending);
- const missingPrimary=regionalHistory();missingPrimary.history.at(-1).stations=missingPrimary.history.at(-1).stations.filter(s=>s.station!=='KFCM');
+ const missingPrimary=regionalHistory();missingPrimary.history.at(-1).stations=missingPrimary.history.at(-1).stations.filter(s=>s.station!=='KCHECK');
  blip.adopt(missingPrimary);assert.match(blip.label,/10:00 AM CST/,'A missing airport must not hold every other airport in the prior hour');
- assert.ok(!blip.ids().includes('KFCM'),'No airport report is invented in the missing hour');blip.frame(2);assert.ok(blip.ids().includes('KFCM'),'The actual earlier KFCM report stays visible');
+ assert.ok(!blip.ids().includes('KCHECK'),'No airport report is invented in the missing hour');blip.frame(2);assert.ok(blip.ids().includes('KCHECK'),'The actual earlier KCHECK report stays visible');
  const back=history(regional);back.history.at(-1).stations=[];rolling.adopt(back);
  assert.match(rolling.label,/10:00 AM CST/,'An incomplete later response cannot roll the accepted loop backwards');
  const noHistory=viewer();await noHistory.load({...history(regional),history:pending.history.slice(-3)});

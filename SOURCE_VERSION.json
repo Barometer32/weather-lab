@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "4ae00e11289c8ccaec3207f2933f51cc16edf980",
+  "baseCommit": "aea98ac2396034483355c049cd72532fbbdeb255",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -64,5 +64,16 @@
     "weather-live-air-quality"
   ],
   "currentSunClock": "one server-response-calibrated updater; cached data never resets clock",
-  "metarSunReadout": false
+  "metarSunReadout": false,
+  "plotsMetroAverage": {
+    "stations": [
+      "KMSP",
+      "KFCM",
+      "KMIC"
+    ],
+    "source": "/api/current matching complete hour",
+    "position": "three-airport geographic centroid",
+    "replacesIndividualPlots": true,
+    "cloudsUnchanged": true
+  }
 }

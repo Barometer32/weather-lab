@@ -46,7 +46,7 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '<option value="plots">PLOTS</option>' in html
-    assert '/static/metar-views.js?v=shared-sun-clock-v39' in html
+    assert '/static/metar-views.js?v=metro-average-v40' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' not in html and 'id="current-sun"' in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]

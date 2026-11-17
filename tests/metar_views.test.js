@@ -2,12 +2,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function element(){return{value:'',events:{},children:[],hidden:false,disabled:false,textContent:'',style:{setProperty(){}},setAttribute(k,v){this[k]=v;},append(...v){this.children.push(...v);},addEventListener(k,f){this.events[k]=f;}};}
 const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
-const stations=[{station:'KFCM',lat:3,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:71,dewpointF:50,wind:{speedMph:7,direction:270},layers:[{cover:'BKN',baseFtAGL:2700}]},{station:'KNEAR',lat:3.01,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:70,dewpointF:49,wind:{speedMph:0},layers:[{cover:'CLR',baseFtAGL:null}]},{station:'KMSP',lat:9,lon:2,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:72,dewpointF:51,wind:{speedMph:10,direction:225},layers:[{cover:'OVC',baseFtAGL:25000}]}];
+// Generic airports exercise unchanged individual PLOTS; the core trio is tested in metro_average.
+const stations=[{station:'KAAA',lat:3,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:71,dewpointF:50,wind:{speedMph:7,direction:270},layers:[{cover:'BKN',baseFtAGL:2700}]},{station:'KNEAR',lat:3.01,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:70,dewpointF:49,wind:{speedMph:0},layers:[{cover:'CLR',baseFtAGL:null}]},{station:'KBBB',lat:9,lon:2,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:72,dewpointF:51,wind:{speedMph:10,direction:225},layers:[{cover:'OVC',baseFtAGL:25000}]}];
 let data={checkedAt:'2026-10-24T18:01:00Z',serverTime:'2026-10-24T18:02:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,24,7+i)).toISOString(),stations:stations.map(s=>({...s,tempF:i===0?100:s.tempF}))}))};
 get('metar-product').value='plots'; // Simulate a browser-restored old selection.
 let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber,created=0,footprints=0;const callbacks={};
 const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*10000+100:lat*50,y:lon*50};},invalidateSize(){}};
-const context={window:{WeatherPrepared:{read:async()=>{reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){if(url==='/api/station-plots?view=loop')subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
+const context={window:{WeatherPrepared:{read:async(url)=>{if(url==='/api/current')return {history:[]};reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){if(url==='/api/station-plots?view=loop')subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
@@ -32,7 +33,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  const kept=ids();fail=true;get('refresh-metar').events.click();await flush();assert.deepEqual(ids(),kept);assert.match(get('metar-status').textContent,/Previous reports retained/);
  fail=false;
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
- assert.deepEqual(ids(),['KFCM','KMSP'],'cloud circles and heights use nonoverlapping boxes');
+ assert.deepEqual(ids(),['KAAA','KBBB'],'cloud circles and heights use nonoverlapping boxes');
  for(const marker of shown){
   assert.match(marker.icon.html,/class="plot-sky"/);
   assert.match(marker.icon.html,/class="plot-ceiling" x="20" y="12" text-anchor="start"/);
@@ -71,7 +72,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
  data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'KSTP wins before KSGS at the same cramped zoom');
- assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'Core airports retain their priority');
+ assert.ok(ids().includes('KAAA')&&ids().includes('KBBB'),'Other airport plots remain available');
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
