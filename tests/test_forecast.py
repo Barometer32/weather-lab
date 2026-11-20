@@ -41,9 +41,6 @@ def text_page(issued="11:56 am CDT Oct 9, 2026", periods=None):
 class ForecastTests(unittest.TestCase):
     def setUp(self):
         _cache.clear()
-        detail = patch("lamp_forecast.refresh_lamp", side_effect=OSError("no LAMP in text-only fixture"))
-        detail.start()
-        self.addCleanup(detail.stop)
 
     def test_feed_narrative_periods_and_issuance_come_from_same_mapclick_response(self):
         upstream=document()
@@ -146,20 +143,25 @@ class ForecastTests(unittest.TestCase):
     def test_malformed_text_uses_json_without_regressing_to_older_issuance(self):
         store = MemoryStore()
         existing = normalize_text_forecast(text_page("5:00 pm CDT Oct 9, 2026"), NOW)
+        existing["lamp"] = {"hours": []}
         store.write_json("live/forecast.json", existing)
         with patch("app.download", side_effect=[b"<html>Unavailable</html>", json.dumps(document()).encode()]) as download:
             collector.collect_forecast(store, NOW)
         self.assertEqual([call.args[0] for call in download.call_args_list], [SOURCE_URL, FORECAST_URL])
-        self.assertEqual(store.read_json("live/forecast.json")["forecastFeed"], TEXT_FEED)
+        saved = store.read_json("live/forecast.json")
+        self.assertEqual(saved["forecastFeed"], TEXT_FEED)
+        self.assertNotIn("lamp", saved)
 
     def test_saved_forecast_is_filtered_at_request_time_without_upstream_calls(self):
         store=MemoryStore();data=normalize_forecast(document(),NOW);data["checkedAt"]="2026-10-09T22:55:00Z"
+        data["lamp"] = {"hours": []}
         store.write_json("live/forecast.json",data)
         with patch("app.get_store",return_value=store),patch("app.utcnow",return_value=datetime(2026,10,9,23,tzinfo=timezone.utc)),patch("app.download") as upstream:
             response=app.test_client().get("/api/forecast")
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.json["periods"][0]["name"],"Tonight")
             self.assertEqual(response.json["updatedAt"],data["updatedAt"])
+            self.assertNotIn("lamp", response.json)
             upstream.assert_not_called()
 
     def test_legacy_snapshot_does_not_masquerade_as_matching_webpage(self):

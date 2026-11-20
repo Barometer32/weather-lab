@@ -38,6 +38,17 @@ def current_periods(periods, now):
     return [period for period in periods if timestamp(period["endTime"]) > now]
 
 
+def text_forecast_only(data, periods):
+    """Discard hourly fields that may still be present in older snapshots."""
+    retired_fields = {"hourly", "hourlyUpdatedAt", "gridUpdatedAt", "hourlySourceUrl", "gridSourceUrl", "lamp"}
+    result = {key: value for key, value in data.items() if key not in retired_fields}
+    result["periods"] = [
+        {key: value for key, value in period.items() if key not in ("hourlyWindows", "precipAmounts")}
+        for period in periods
+    ]
+    return result
+
+
 def normalize_forecast(document, now=None):
     now = now or datetime.now(timezone.utc)
     timing, data = document["time"], document["data"]

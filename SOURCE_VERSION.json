@@ -78,15 +78,6 @@
   },
   "forecastViews": {
     "default": "text",
-    "hourly": "NOAA station LAMP",
-    "stations": [
-      "KMSP",
-      "KFCM",
-      "KMIC"
-    ],
-    "displayWindowHours": 24,
-    "cycleMinuteUtc": 30,
-    "precipitation": "P01 for the hour ending at the displayed interval end",
     "fallingTemperatureTarget": true
   }
 }

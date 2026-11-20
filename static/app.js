@@ -126,22 +126,15 @@ async function loadRadar() {
     }
   }
 }
-let forecastBusy = false, forecastData, forecastError, forecastMode="text";
-function selectForecastMode(mode){
-  forecastMode=mode==="hourly"?"hourly":"text";
-  $("forecast-periods").hidden=forecastMode!=="text";
-  $("forecast-hourly").hidden=forecastMode!=="hourly";
-  for(const id of ["text","hourly"])$("forecast-view-"+id).setAttribute("aria-pressed",String(forecastMode===id));
-  renderForecast();
-}
+let forecastBusy = false, forecastData, forecastError;
 function renderForecast() {
   if (!forecastData) return;
   const data = forecastData;
   const now = Date.now();
   const periods = data.periods.filter(p => Date.parse(p.endTime) > now);
-  const issued=forecastMode==="hourly"?data.lamp?.cycleTime:data.updatedAt;
-  $("forecast-updated").textContent = issued?`${data._savedCopy?"Saved · ":""}${forecastMode === "hourly" ? "LAMP run" : "NWS updated"} ${fullTime.format(new Date(issued))} · Central time`:"National Weather Service · Central time";
-  if(forecastMode==="hourly")window.WeatherLampForecast?.render(data.lamp, now);
+  $("forecast-updated").textContent = data.updatedAt
+    ? `${data._savedCopy ? "Saved · " : ""}NWS updated ${fullTime.format(new Date(data.updatedAt))} · Central time`
+    : "National Weather Service · Central time";
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();
@@ -295,7 +288,7 @@ function selectTab(id) {
   window.WeatherMetars?.select(id);
   window.WeatherCurrent?.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
-  if(id === "forecast"){selectForecastMode("text");loadForecast();}
+  if(id === "forecast") { renderForecast(); loadForecast(); }
   window.WeatherAirQuality?.select(id);
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
@@ -309,7 +302,6 @@ for(const id of tabs) {
   });
 }
 $("refresh-forecast").addEventListener("click",()=>loadForecast(true));
-for(const mode of ["text","hourly"])$("forecast-view-"+mode).addEventListener("click",()=>selectForecastMode(mode));
 $("refresh-radar").addEventListener("click",loadRadar);
 $("radar-save-view").addEventListener("click",()=>{
   if(!map)return;

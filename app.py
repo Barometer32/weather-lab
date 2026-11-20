@@ -481,7 +481,7 @@ def observation_payload(saved_only=False):
 @app.get("/api/forecast")
 def forecast_api():
     try:
-        from nws_forecast import FORECAST_VERSION, current_periods
+        from nws_forecast import FORECAST_VERSION, current_periods, text_forecast_only
         now = utcnow()
         data = prepared_snapshot("forecast", 2100)
         if data is None and os.environ.get("WEATHER_PREPARED_ONLY") == "true":
@@ -492,7 +492,7 @@ def forecast_api():
         periods = current_periods(data["periods"], now)
         if not periods:
             return jsonify(error="No current forecast periods remain. Background updates may be delayed."), 503
-        return jsonify({**data, "periods": periods}), 200, {"Cache-Control": "no-store"}
+        return jsonify(text_forecast_only(data, periods)), 200, {"Cache-Control": "no-store"}
     except Exception:
         app.logger.exception("NWS forecast unavailable")
         return jsonify(error="The NWS forecast is unavailable. Please try again shortly."), 502

@@ -186,8 +186,7 @@ def collect_air_quality(store, now):
 
 
 def collect_forecast(store, now):
-    from nws_forecast import current_periods, timestamp
-    from lamp_forecast import refresh_lamp
+    from nws_forecast import current_periods, text_forecast_only, timestamp
     weather._cache.pop("nws-forecast", None)
     data = weather.get_forecast(now)
     previous = store.read_json("live/forecast.json")
@@ -197,16 +196,7 @@ def collect_forecast(store, now):
             timestamp(data["updatedAt"]).replace(second=0, microsecond=0)):
         # NWS's two formats can briefly disagree. Keep the newer forecast.
         data = previous
-    # Remove the former point-hourly concept and prepare the LAMP run on the
-    # same five-minute schedule. Keep text available during LAMP outages.
-    data = {**data, "periods": [{k: v for k, v in p.items() if k not in ("hourlyWindows", "precipAmounts")}
-                               for p in data["periods"]]}
-    for key in ("hourly", "hourlyUpdatedAt", "gridUpdatedAt", "hourlySourceUrl", "gridSourceUrl", "lamp"):
-        data.pop(key, None)
-    try:
-        data["lamp"] = refresh_lamp((previous or {}).get("lamp"), weather.download, now)
-    except (OSError, ValueError) as error:
-        weather.app.logger.warning("LAMP unavailable; retaining official narrative: %s", error)
+    data = text_forecast_only(data, data["periods"])
     data["checkedAt"] = weather.iso(now)
     store.write_json("live/forecast.json", data)
     return {"periods": len(data["periods"]), "feed": data.get("forecastFeed")}

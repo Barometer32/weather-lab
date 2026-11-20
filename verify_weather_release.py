@@ -1,6 +1,6 @@
 """Verify prepared weather products and PLOTS default with standard-library tools."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 import re
 import time
@@ -52,10 +52,9 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=lamp-v43' in html
-    assert '/static/lamp-forecast.js?v=lamp-v44' in html
-    assert 'id="forecast-view-text" aria-pressed="true"' in html
-    assert 'id="forecast-hourly" class="hourly-forecast" hidden' in html
+    assert '/static/app.js?v=text-forecast-v45' in html
+    assert 'id="forecast-periods"' in html
+    assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'id="tab-current"' in html and 'current-hourly.js' in html
     assert 'tempest' not in html.lower()
     current_html=html.split('<section id="current"',1)[1].split('</section>',1)[0]
@@ -118,10 +117,7 @@ def check_products(base):
         if path == "/api/satellite/02":
             assert data.get("product") == "02" and len(data["frames"]) == 24, "Default visible band loop is still preparing"
         if path == "/api/forecast":
-            lamp = data.get("lamp") or {}
-            assert lamp.get("version") == 2, "Updated LAMP ceiling guidance is still preparing"
-            assert lamp.get("stations") == ["KMSP", "KFCM", "KMIC"] and len(lamp.get("hours", [])) == 24, "Three-station LAMP guidance is still preparing"
-            assert any(datetime.fromisoformat(h["endTime"]) > datetime.now(timezone.utc) for h in lamp["hours"]), "LAMP guidance has expired"
+            assert "lamp" not in data and "hourly" not in data, "Expected the text forecast only"
         if items == "frames":
             asset = data[items][-1]["url"]
             assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"
