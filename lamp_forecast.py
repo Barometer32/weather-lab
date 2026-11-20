@@ -1,5 +1,6 @@
 """Three-airport hourly guidance from the NOAA station LAMP bulletin."""
 from datetime import datetime, timedelta, timezone
+from math import floor
 import re
 from statistics import mean
 
@@ -13,8 +14,9 @@ FIELDS = ("UTC", "TMP", "DPT", "WDR", "WSP", "P01", "CLD", "CIG")
 # Category midpoints in oktas. LAMP does not report exact cloud percentages.
 SKY = {"CL": (0, "Clear"), "FW": (1, "Few clouds"), "SC": (3, "Scattered"),
        "BK": (6, "Broken"), "OV": (8, "Overcast")}
-CEILING = ("<200 ft", "200–400 ft", "500–900 ft", "1,000–1,900 ft",
-           "2,000–3,000 ft", "3,100–6,500 ft", "6,600–12,000 ft", ">12,000 ft or unlimited")
+CEILING_MIDPOINT_FT = (100, 300, 700, 1450, 2500, 4800, 9300)
+OPEN_CEILING_FT = 12000
+VERSION = 2
 
 
 def bulletin_url(cycle):
@@ -59,6 +61,20 @@ def all_station_mean(values):
     return mean(values) if None not in values else None
 
 
+def ceiling_text(categories):
+    if None in categories:
+        return None
+    estimate = mean(CEILING_MIDPOINT_FT[code-1] if code < 8 else OPEN_CEILING_FT for code in categories)
+    if 8 in categories:
+        # The top bin is open-ended. Its lower edge gives a bound on the
+        # midpoint estimate; rounding down preserves that bound in the label.
+        return f">{floor(estimate / 100) / 10:g}k"
+    if estimate < 1000:
+        return f"{round(estimate / 100) * 100} ft"
+    thousands = estimate / 1000
+    return f"{round(thousands, 1) if thousands < 5 else round(thousands):g}k"
+
+
 def parse_bulletin(bulletin, cycle):
     stations = station_columns(bulletin, cycle)
     hours = []
@@ -75,9 +91,7 @@ def parse_bulletin(bulletin, cycle):
         sky = [SKY.get(v, (None, None))[0] for v in values["CLD"]]
         cover = all_station_mean(sky)
         ceilings = [integer(v, 1, 8) for v in values["CIG"]]
-        # Ceiling bins are ordered and the highest is open-ended. Use the
-        # middle station's category instead of inventing a height in feet.
-        ceiling = CEILING[sorted(ceilings)[1]-1] + " AGL" if None not in ceilings else None
+        ceiling = ceiling_text(ceilings)
         start = cycle.replace(minute=0) + HOUR*(i+1)
         # P01 in the following column ends at the end of this row's hour.
         chance = all_station_mean([integer(s["P01"][i+1], 0, 100) for s in stations.values()])
@@ -91,7 +105,7 @@ def parse_bulletin(bulletin, cycle):
         })
     if not any(row["temperatureF"] is not None for row in hours):
         raise ValueError("No complete three-station LAMP temperatures")
-    return {"cycleTime": cycle.isoformat(), "stations": list(STATIONS), "hours": hours}
+    return {"version": VERSION, "cycleTime": cycle.isoformat(), "stations": list(STATIONS), "hours": hours}
 
 
 def refresh_lamp(previous, download, now):
@@ -99,14 +113,21 @@ def refresh_lamp(previous, download, now):
     cycle = now.replace(minute=30, second=0, microsecond=0)
     if cycle > now:
         cycle -= HOUR
-    if previous and previous["cycleTime"] >= cycle.isoformat():
+    current_format = previous and previous.get("version") == VERSION
+    if current_format and previous["cycleTime"] >= cycle.isoformat():
         return previous
     # Once a run is prepared, retry only the new cycle on the next scheduled
     # check. At cold start, the prior cycle can fill the initial release gap.
     try:
         return parse_bulletin(download(bulletin_url(cycle)), cycle)
     except (OSError, ValueError):
-        if previous and datetime.fromisoformat(previous["hours"][-1]["endTime"]) > now:
+        usable_previous = previous and datetime.fromisoformat(previous["hours"][-1]["endTime"]) > now
+        if current_format and usable_previous:
             return previous
         prior = cycle-HOUR
-        return parse_bulletin(download(bulletin_url(prior)), prior)
+        try:
+            return parse_bulletin(download(bulletin_url(prior)), prior)
+        except (OSError, ValueError):
+            if usable_previous:
+                return previous
+            raise

@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import app
 import collector
-from lamp_forecast import STATIONS, bulletin_url, parse_bulletin, refresh_lamp
+from lamp_forecast import STATIONS, bulletin_url, ceiling_text, parse_bulletin, refresh_lamp
 from test_forecast import document
 from test_realtime import MemoryStore
 from nws_forecast import normalize_forecast
@@ -36,11 +36,28 @@ def test_bulletin_averages_wrap_north_and_align_p01_to_the_forward_hour():
     assert first["precipChancePct"] == 100  # Column 01, not column 00.
     assert (first["temperatureF"], first["dewpointF"]) == (51, 33)
     assert first["windDirection"] in (0, 360) and first["windMph"] == 11.5
-    assert first["skyCover"] == "Broken" and first["ceiling"] == "2,000–3,000 ft AGL"
+    assert first["skyCover"] == "Broken" and first["ceiling"] == ">5k"
     assert result["hours"][2]["startTime"] == "2026-10-10T02:00:00+00:00"
     assert result["hours"][2]["endTime"] == "2026-10-10T03:00:00+00:00"
     assert result["hours"][2]["precipChancePct"] == 100
     assert result["hours"][3]["precipChancePct"] == 50
+
+
+def test_ceiling_average_and_open_categories():
+    assert ceiling_text([7, 7, 7]) == "9k"
+    assert ceiling_text([5, 6, 7]) == "6k"
+    assert ceiling_text([8, 8, 8]) == ">12k"
+    assert ceiling_text([7, 7, 8]) == ">10.2k"
+    assert ceiling_text([None, 7, 8]) is None
+
+
+def test_refresh_redecodes_an_old_snapshot_of_the_same_run():
+    old = parse_bulletin(bulletin(), CYCLE)
+    old.pop("version")
+    download = Mock(return_value=bulletin())
+    result = refresh_lamp(old, download, CYCLE)
+    assert result["version"] == 2
+    download.assert_called_once_with(bulletin_url(CYCLE))
 
 
 def test_collection_checks_new_cycle_and_keeps_previous_until_it_is_ready():

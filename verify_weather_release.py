@@ -53,7 +53,7 @@ def check_layout(base):
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
     assert '/static/app.js?v=lamp-v43' in html
-    assert '/static/lamp-forecast.js?v=lamp-v43' in html
+    assert '/static/lamp-forecast.js?v=lamp-v44' in html
     assert 'id="forecast-view-text" aria-pressed="true"' in html
     assert 'id="forecast-hourly" class="hourly-forecast" hidden' in html
     assert 'id="tab-current"' in html and 'current-hourly.js' in html
@@ -119,6 +119,7 @@ def check_products(base):
             assert data.get("product") == "02" and len(data["frames"]) == 24, "Default visible band loop is still preparing"
         if path == "/api/forecast":
             lamp = data.get("lamp") or {}
+            assert lamp.get("version") == 2, "Updated LAMP ceiling guidance is still preparing"
             assert lamp.get("stations") == ["KMSP", "KFCM", "KMIC"] and len(lamp.get("hours", [])) == 24, "Three-station LAMP guidance is still preparing"
             assert any(datetime.fromisoformat(h["endTime"]) > datetime.now(timezone.utc) for h in lamp["hours"]), "LAMP guidance has expired"
         if items == "frames":
