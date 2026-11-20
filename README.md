@@ -7,8 +7,7 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Current pages
 
-- **CURRENT** opens first on every visit. Equal averages from KMSP, KFCM and KMIC official :50–:59 METARs, assigned to the following hour. Precise T-remark Celsius readings are averaged before whole-Fahrenheit conversion. Only complete three-airport hours appear in the last-12-hours table. Wind speed includes variable reports; their directions are omitted from the speed-weighted circular direction. Display uses whole mph and eight compass points; 3 mph or less is CALM. Sun angle uses Hopkins coordinates (44.925°N, 93.463°W), NOAA/Meeus apparent solar-centre elevation with refraction, tenths of a degree and one shared server-calibrated clock updated every ten seconds. Fresh network responses calibrate the clock; cached manifests never reset it. The sun angle appears only on CURRENT.
-- **METAR** opens CLOUDS, with PLOTS as the other option. CLOUDS retains individual KMSP/KFCM/KMIC with first priority, then KSTP; KSGS appears when space allows. PLOTS replaces the trio with one marker at their geographic centroid, using the exact complete hourly averages from CURRENT, including its calm-wind rule; each timeline frame uses its own matching hour. All other airports retain their plots. The four-hour loop uses each hour's actual reports.
+- **METAR** opens first with PLOTS selected. PLOTS shows one marker at the KMSP/KFCM/KMIC centroid using complete, precise hourly averages from their official :50–:59 METARs. Each frame uses its matching hour. CLOUDS retains individual airports, prioritizing KMSP/KFCM/KMIC and then KSTP. KSGS appears when space allows.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to Visible (red) Band 02, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
@@ -27,7 +26,7 @@ GitHub branch: `rtmetar-default-20261111`.
 | weather-live-forecast | /collect/forecast |
 | weather-live-air-quality | /collect/air-quality |
 
-CURRENT checks at :00, :02, :04 and every two minutes until all three reports are complete, then skips upstream work until the next hour. METAR checks every two minutes. Forecast checks every five minutes. Other existing schedules are preserved. Page views read saved objects, without triggering collection.
+The three-airport average collector checks at :00, :02, :04 and every two minutes until all three reports are complete, then skips upstream work until the next hour. METAR checks every two minutes. Forecast checks every five minutes. Other existing schedules are preserved. Page views read saved objects, without triggering collection.
 
 ## Operate
 
@@ -43,7 +42,7 @@ Clean obsolete schedules and old deployment versions without a rebuild:
 python3 cleanup_weather_jobs.py --apply --old-revisions
 ```
 
-Without `--apply`, cleanup is a preview. Cleanup checks the live CURRENT data and all six required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
+Without `--apply`, cleanup is a preview. Cleanup checks the live PLOTS averages and all six required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for release details and [THIRD_PARTY.md](THIRD_PARTY.md) for software/data credits.
 

@@ -1,10 +1,10 @@
 {
-  "variant": "current-site-repository-cleanup",
-  "baseCommit": "ad29ef5e13aadf4036a53e93b29d300e79845456",
+  "variant": "metar-plots-home",
+  "baseCommit": "f743f470a469fe2e231f62b21bd699e1bb29a3fd",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
-  "defaultTab": "current",
+  "defaultTab": "metar",
   "defaultSatelliteProduct": "02",
   "satelliteProducts": [
     "02",
@@ -12,7 +12,7 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "clouds",
+  "defaultMetarProduct": "plots",
   "metarProducts": [
     "plots",
     "clouds"
@@ -50,10 +50,6 @@
   "currentTemperaturePrecision": "T remarks only",
   "retiredTempest": true,
   "currentCompleteHoursOnly": true,
-  "currentTimestamp": "hour only",
-  "currentStationBreakdown": false,
-  "currentSunDecimalPlaces": 1,
-  "currentSunUpdateSeconds": 10,
   "deploymentRollbackCopies": false,
   "cleanupRequiredJobs": [
     "weather-live-current",
@@ -63,7 +59,6 @@
     "weather-live-forecast",
     "weather-live-air-quality"
   ],
-  "currentSunClock": "one server-response-calibrated updater; cached data never resets clock",
   "metarSunReadout": false,
   "plotsMetroAverage": {
     "stations": [

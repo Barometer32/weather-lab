@@ -3,7 +3,8 @@
 window.WeatherMetars = (() => {
   const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="clouds",wantedHour=null;
+  const defaultProduct="plots";
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=defaultProduct,wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const secondary=["KSTP"];
@@ -14,7 +15,7 @@ window.WeatherMetars = (() => {
   const averageId="METRO",averageName="KMSP / KFCM / KMIC average";
   const averageLocation=preferred.map(id=>priorityLocations[id]).reduce((a,p)=>[a[0]+p[0]/3,a[1]+p[1]/3],[0,0]);
   function averageFrames(){
-    // Reuse CURRENT's complete, precise T-remark averages for the SAME hour.
+    // Use the complete, precise T-remark average for the matching hour.
     // Never average rounded map readings or substitute a different hour.
     const rows=new Map((currentData?.history||[]).filter(row=>row.complete).map(row=>[Date.parse(row.hour),row]));
     return data.history.map(frame=>{
@@ -261,7 +262,7 @@ window.WeatherMetars = (() => {
   setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
   window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
   return {select(id){if(id==="metar"){
-    selectProduct("clouds");
+    selectProduct(defaultProduct);
     setTimeout(()=>map?.invalidateSize({pan:false}),0);
   }},refresh(){render();load();}};
 })();

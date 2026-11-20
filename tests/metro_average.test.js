@@ -13,8 +13,10 @@ const popup=m=>m.popup.children.map(n=>n.textContent).join(' ');
  const originals=JSON.stringify({data,current});
  for(const width of [320,375,1870]){
   const v=viewer(data,current,{width,zoom:9});await v.load();
+  assert.ok(v.ids().includes('METRO'),'the three-airport average appears on the opening map');
+  await v.mode('clouds');
   const clouds=v.snapshot();for(const id of core)assert.ok(v.ids().includes(id),'CLOUDS retains '+id);
-  await v.current();await v.mode('plots');
+  await v.mode('plots');
   for(const z of [7.5,8,8.5,9,10]){
    v.zoom(z);
    for(let i=0;i<4;i++){
@@ -31,9 +33,8 @@ const popup=m=>m.popup.children.map(n=>n.textContent).join(' ');
    }
   }
   v.zoom(9);v.frame(3);
-  assert.match(popup(v.marker('METRO')),new RegExp('Temperature: '+v.get('current-temperature').textContent.replace('°F','.0°F')));
-  assert.match(popup(v.marker('METRO')),new RegExp('Dewpoint: '+v.get('current-dewpoint').textContent.replace('°F','.0°F')));
-  assert.equal(v.get('current-wind').textContent,'N 7');
+  assert.ok(popup(v.marker('METRO')).includes(`Temperature: ${current.current.tempF.toFixed(1)}°F`));
+  assert.ok(popup(v.marker('METRO')).includes(`Dewpoint: ${current.current.dewpointF.toFixed(1)}°F`));
   v.failCurrent();await v.refresh();assert.ok(v.ids().includes('METRO'),'transient CURRENT failure retains prepared average');
   const partial=JSON.parse(JSON.stringify(current));partial.checkedAt='2026-11-17T18:04:00Z';partial.history[0].complete=false;
   v.adoptCurrent(partial);assert.ok(!v.ids().includes('METRO'),'no partial average or prior-hour substitution');
@@ -46,5 +47,5 @@ const popup=m=>m.popup.children.map(n=>n.textContent).join(' ');
  }
  assert.equal(JSON.stringify({data,current}),originals,'shared CURRENT and CLOUDS source data is never mutated');
  const empty=viewer(data,{history:[]},{zoom:9});await empty.load();await empty.mode('plots');assert.ok(!empty.ids().includes('METRO')&&core.every(id=>!empty.ids().includes(id)),'missing CURRENT never falls back to a partial or rounded-map average');
- console.log('Metro average passed: CURRENT equality, exact-hour matching, centroid, 320/375px and desktop maps, calm wind, delayed arrivals, failure retention and unchanged CLOUDS.');
+ console.log('Metro average passed: opening map, exact-hour matching, centroid, 320/375px and desktop maps, calm wind, delayed arrivals, failure retention and unchanged CLOUDS.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

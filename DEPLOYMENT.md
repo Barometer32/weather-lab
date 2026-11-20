@@ -18,6 +18,6 @@ The release then verifies the live website and removes obsolete schedules and de
 python3 cleanup_weather_jobs.py --apply --old-revisions
 ```
 
-The cleanup is scoped to the Weather Lab project and region. It preserves the six named CURRENT, METAR, radar, satellite, forecast and air-quality tasks. Other HTTP schedules qualify for removal only when their Weather Lab name, collector URL, POST method, OIDC audience and service account verify ownership. Each candidate and required schedule is reread immediately before deletion; configuration changes stop cleanup. Unknown ownership is reported and left alone.
+The cleanup is scoped to the Weather Lab project and region. It preserves the six named tasks for the METAR averages, METAR maps, radar, satellite, forecast and air quality. Other HTTP schedules qualify for removal only when their Weather Lab name, collector URL, POST method, OIDC audience and service account verify ownership. Each candidate and required schedule is reread immediately before deletion; configuration changes stop cleanup. Unknown ownership is reported and left alone.
 
 Old deployment versions are deleted only after verifying their service's traffic assignments. Versions serving traffic, latest created/ready versions and tags referenced by remaining schedules are protected. Old tags are removed while preserving the current traffic percentages. Current/latest versions cannot all be deleted because Cloud Run requires them. Container registry images, weather data, credentials and billing are outside this cleanup.

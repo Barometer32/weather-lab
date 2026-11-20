@@ -10,11 +10,10 @@ module.exports=function viewer(data,current,{width=375,height=560,zoom=9,codePat
  const map={setView(){return this;},getSize(){return{x:width,y:height};},latLngToContainerPoint:point,on(k,f){events[k]=f;},invalidateSize(){}};
  let failCurrent=false;
  const context={window:{WeatherPrepared:{async read(url){reads.push(url);if(url==='/api/current'){if(failCurrent)throw Error('Current unavailable');return current;}return data;},subscribe(url,fn){if(!subscribers.has(url))subscribers.set(url,[]);subscribers.get(url).push(fn);}},WeatherFullscreen:{attach(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Number,Date,Map,Set,WeakMap,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},removeLayer(m){shown.delete(m.title.split(' · ')[0]);}}),divIcon:x=>x,marker:(position,opts)=>({position,...opts,bindPopup(value){this.popup=value;return this;},addTo(){shown.set(this.title.split(' · ')[0],this);return this;},setIcon(v){this.icon=v;return this;},setLatLng(v){this.position=v;return this;},setPopupContent(value){this.popup=value;return this;}})}};
- for(const path of ['static/metar-model.js','static/current-hourly.js',codePath])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
+ for(const path of ['static/metar-model.js',codePath])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
  const flush=()=>new Promise(setImmediate);
  return {get,reads,marker:id=>shown.get(id),ids:()=>[...shown.keys()].sort(),
   async load(){context.window.WeatherMetars.select('metar');await flush();},
-  async current(){context.window.WeatherCurrent.select('current');await flush();},
   async mode(value){get('metar-product').events.change({target:{value}});await flush();},
   frame(value){get('metar-timeline').events.input({target:{value:String(value)}});},
   zoom(value){zoom=value;events.moveend();},
