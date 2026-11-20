@@ -1,7 +1,7 @@
 "use strict";
 window.WeatherCurrent=(()=>{
   const el=id=>document.getElementById(id),endpoint="/api/current",dirs=["N","NE","E","SE","S","SW","W","NW"];
-  const clock=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+  const clock=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   let data,active=false,busy=false;
   const degrees=v=>Number.isFinite(v)?`${Math.round(v)}°F`:"—";
   function windText(w={},average=false){

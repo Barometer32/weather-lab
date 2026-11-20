@@ -41,7 +41,7 @@ def text_page(issued="11:56 am CDT Oct 9, 2026", periods=None):
 class ForecastTests(unittest.TestCase):
     def setUp(self):
         _cache.clear()
-        detail = patch("nws_forecast.enrich_from_nws")
+        detail = patch("lamp_forecast.refresh_lamp", side_effect=OSError("no LAMP in text-only fixture"))
         detail.start()
         self.addCleanup(detail.stop)
 

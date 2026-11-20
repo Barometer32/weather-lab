@@ -139,9 +139,9 @@ function renderForecast() {
   const data = forecastData;
   const now = Date.now();
   const periods = data.periods.filter(p => Date.parse(p.endTime) > now);
-  const issued=forecastMode==="hourly"?data.hourlyUpdatedAt:data.updatedAt;
-  $("forecast-updated").textContent = issued?`${data._savedCopy?"Saved · ":""}NWS updated ${fullTime.format(new Date(issued))} · Central time`:"National Weather Service · Central time";
-  if(forecastMode==="hourly")window.WeatherHourlyForecast?.render(data,now);
+  const issued=forecastMode==="hourly"?data.lamp?.cycleTime:data.updatedAt;
+  $("forecast-updated").textContent = issued?`${data._savedCopy?"Saved · ":""}${forecastMode === "hourly" ? "LAMP run" : "NWS updated"} ${fullTime.format(new Date(issued))} · Central time`:"National Weather Service · Central time";
+  if(forecastMode==="hourly")window.WeatherLampForecast?.render(data.lamp, now);
   $("forecast-status").hidden = !forecastError && periods.length > 0;
   $("forecast-status").textContent = forecastError ? `${forecastError} Any displayed forecast is from the previous successful refresh.` : "No current forecast periods remain. Please refresh.";
   $("forecast-periods").replaceChildren();

@@ -52,8 +52,8 @@ def check_layout(base):
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=hourly-concept-v42' in html
-    assert '/static/hourly-forecast.js?v=hourly-concept-v42' in html
+    assert '/static/app.js?v=lamp-v43' in html
+    assert '/static/lamp-forecast.js?v=lamp-v43' in html
     assert 'id="forecast-view-text" aria-pressed="true"' in html
     assert 'id="forecast-hourly" class="hourly-forecast" hidden' in html
     assert 'id="tab-current"' in html and 'current-hourly.js' in html
@@ -117,6 +117,10 @@ def check_products(base):
         assert data.get(items), f"{name}: no prepared {items}"
         if path == "/api/satellite/02":
             assert data.get("product") == "02" and len(data["frames"]) == 24, "Default visible band loop is still preparing"
+        if path == "/api/forecast":
+            lamp = data.get("lamp") or {}
+            assert lamp.get("stations") == ["KMSP", "KFCM", "KMIC"] and len(lamp.get("hours", [])) == 24, "Three-station LAMP guidance is still preparing"
+            assert any(datetime.fromisoformat(h["endTime"]) > datetime.now(timezone.utc) for h in lamp["hours"]), "LAMP guidance has expired"
         if items == "frames":
             asset = data[items][-1]["url"]
             assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"

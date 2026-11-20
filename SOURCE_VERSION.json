@@ -1,6 +1,6 @@
 {
   "variant": "current-site-repository-cleanup",
-  "baseCommit": "377209be7e5abd3c921ca57c45876258f8d61839",
+  "baseCommit": "ad29ef5e13aadf4036a53e93b29d300e79845456",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -78,12 +78,15 @@
   },
   "forecastViews": {
     "default": "text",
-    "hourly": "24-hour experimental chart and expandable rows",
-    "source": "NWS same-point hourly and grid data",
-    "preparedHours": 48,
+    "hourly": "NOAA station LAMP",
+    "stations": [
+      "KMSP",
+      "KFCM",
+      "KMIC"
+    ],
     "displayWindowHours": 24,
-    "fallingTemperatureTarget": true,
-    "customDetailsInText": false,
-    "AI": false
+    "cycleMinuteUtc": 30,
+    "precipitation": "P01 for the hour ending at the displayed interval end",
+    "fallingTemperatureTarget": true
   }
 }

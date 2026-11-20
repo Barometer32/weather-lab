@@ -1,9 +1,8 @@
-"""Official NWS narrative with timed numerical detail from the same point."""
+"""Official NWS day/night forecast for Hopkins."""
 from datetime import datetime, timedelta, timezone
 from html import unescape
 import math
 import re
-from concurrent.futures import ThreadPoolExecutor
 from zoneinfo import ZoneInfo
 
 LATITUDE, LONGITUDE = 44.9244, -93.4140
@@ -11,7 +10,6 @@ SOURCE_URL = ("https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414
               "&unit=0&lg=english&FcstType=text&TextType=1")
 FORECAST_URL = ("https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414"
                 "&unit=0&lg=english&FcstType=json")
-POINT_URL = f"https://api.weather.gov/points/{LATITUDE:.4f},{LONGITUDE:.4f}"
 FORECAST_VERSION = "nws-mapclick-v1"
 CENTRAL = ZoneInfo("America/Chicago")
 TEXT_FEED = "nws-mapclick-text"
@@ -144,159 +142,3 @@ def normalize_text_forecast(html, now):
          "data": {"temperature": temperatures, "text": narratives}}, now)
     forecast["forecastFeed"] = TEXT_FEED
     return forecast
-
-
-def grid_end(start, duration):
-    parts = re.fullmatch(r"P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?", duration)
-    if not parts or not any(parts.groups()):
-        raise ValueError("Invalid NWS weather interval")
-    days, hours, minutes, seconds = (int(part or 0) for part in parts.groups())
-    return start + timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
-
-
-WET_TYPES = {
-    "freezing_rain": "freezing rain", "freezing_drizzle": "freezing drizzle",
-    "rain": "rain", "rain_showers": "rain showers", "drizzle": "drizzle",
-    "snow": "snow", "snow_showers": "snow showers", "sleet": "sleet",
-    "thunderstorms": "thunderstorms", "hail": "hail",
-}
-
-
-def grid_weather(document):
-    intervals = []
-    for item in document.get("properties", {}).get("weather", {}).get("values", []):
-        try:
-            start_text, duration = item["validTime"].split("/", 1)
-            start = timestamp(start_text).astimezone(timezone.utc)
-            end = grid_end(start, duration)
-            wet = [entry for entry in item["value"] if entry.get("weather") in WET_TYPES]
-            if wet:
-                intervals.append((start, end, wet))
-        except (TypeError, ValueError, KeyError, AttributeError):
-            continue
-    return intervals
-
-
-def cloud_label(percent):
-    # User's categories: 20 stays clear; 40/60/80 start the next category.
-    if percent is None:
-        return None
-    if percent <= 20:
-        return "Clear"
-    if percent < 40:
-        return "Mostly clear"
-    if percent < 60:
-        return "Partly cloudy"
-    return "Mostly cloudy" if percent < 80 else "Cloudy"
-
-
-def numeric_intervals(grid, key, minimum, maximum):
-    intervals = []
-    for item in grid.get("properties", {}).get(key, {}).get("values", []):
-        try:
-            left, duration = item["validTime"].split("/", 1)
-            start = timestamp(left)
-            end = grid_end(start, duration)
-            value = number(item.get("value"), minimum, maximum)
-            if value is not None and end > start:
-                intervals.append((start, end, value))
-        except (TypeError, ValueError, KeyError, AttributeError):
-            continue
-    return sorted(intervals)
-
-
-def wet_description(start, end, intervals, condition):
-    descriptions = []
-    for left, right, entries in intervals:
-        if not left <= start < end <= right:
-            continue
-        for entry in entries:
-            kind = WET_TYPES[entry["weather"]]
-            if not re.search(r"\b" + re.escape(kind.rstrip("s")) + r"s?\b", condition.lower()):
-                continue
-            coverage = entry.get("coverage")
-            coverage = coverage.replace("_", " ") if isinstance(coverage, str) else ""
-            intensity = entry.get("intensity")
-            intensity = intensity.replace("_", " ") if intensity in ("very_light", "light", "moderate", "heavy") else ""
-            wording = (f"{coverage} of {kind}" if coverage in ("chance", "slight chance", "areas", "periods")
-                       else f"{kind} likely" if coverage == "likely"
-                       else kind if coverage == "definite" else " ".join(filter(None, (coverage, kind))))
-            descriptions.append(wording.capitalize() + (f" ({intensity})" if intensity else ""))
-    return list(dict.fromkeys(descriptions))
-
-
-def grid_hour_value(grid, key, start, end, minimum, maximum):
-    return next((value for left, right, value in numeric_intervals(grid, key, minimum, maximum)
-                 if left <= start and end <= right), None)
-
-
-def fahrenheit(value, unit):
-    value = number(value, -150, 160)
-    if value is None:
-        return None
-    if unit in ("C", "wmoUnit:degC"):
-        return value*1.8+32
-    return value if unit in ("F", "wmoUnit:degF") else None
-
-
-def add_hourly_forecast(forecast, hourly, grid, now):
-    props = hourly["properties"]
-    issued = timestamp(props.get("updateTime") or props["generatedAt"])
-    wet = grid_weather(grid)
-    rows = {}
-    limit = now.replace(minute=0, second=0, microsecond=0)+timedelta(hours=48)
-    for period in props["periods"]:
-        try:
-            start, end = (timestamp(period[k]).astimezone(timezone.utc) for k in ("startTime", "endTime"))
-            if end <= now or start >= limit or end-start != timedelta(hours=1):
-                continue
-            temp = period.get("temperature")
-            temp_unit = period.get("temperatureUnit")
-            if isinstance(temp, dict):
-                temp_unit, temp = temp.get("unitCode"), temp.get("value")
-            temp_f = fahrenheit(temp, temp_unit)
-            condition = period["shortForecast"].strip()
-            if temp_f is None or not condition:
-                continue
-            cloud = grid_hour_value(grid, "skyCover", start, end, 0, 100)
-            weather = wet_description(start, end, wet, condition)
-            cloud_only = re.fullmatch(r"(?:mostly |partly )?(?:sunny|clear|cloudy)|overcast", condition, re.I)
-            description = cloud_label(cloud) if cloud_only and cloud is not None else condition
-            chance = number((period.get("probabilityOfPrecipitation") or {}).get("value"), 0, 100)
-            dew = period.get("dewpoint") or {}
-            dew_f = fahrenheit(dew.get("value"), dew.get("unitCode"))
-            feels = grid_hour_value(grid, "apparentTemperature", start, end, -150, 160)
-            feels_f = fahrenheit(feels, grid.get("properties", {}).get("apparentTemperature", {}).get("uom"))
-            wind = period.get("windSpeed")
-            if not isinstance(wind, str):
-                wind = None
-            rows[start] = {"startTime": start.isoformat(), "endTime": end.isoformat(),
-                "temperatureF": temp_f, "dewpointF": dew_f, "feelsLikeF": feels_f,
-                "condition": description, "nwsCondition": condition, "weather": weather,
-                "cloudCoverPct": cloud, "precipChancePct": chance,
-                "windSpeed": wind, "windDirection": period.get("windDirection"),
-                "isDaytime": period.get("isDaytime")}
-        except (TypeError, ValueError, KeyError, AttributeError):
-            continue
-    if not rows:
-        raise ValueError("NWS hourly feed has no usable forecast hours")
-    forecast["hourly"] = [rows[start] for start in sorted(rows)]
-    forecast["hourlyUpdatedAt"] = issued.isoformat()
-
-
-def enrich_from_nws(forecast, fetch_json, now):
-    props = fetch_json(POINT_URL)["properties"]
-    hourly_url, grid_url = props["forecastHourly"], props["forecastGridData"]
-    if not re.fullmatch(r"https://api\.weather\.gov/gridpoints/[A-Z]{3}/\d+,\d+", grid_url) or hourly_url != grid_url + "/forecast/hourly":
-        raise ValueError("Unexpected NWS grid URLs")
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        grid_work = pool.submit(fetch_json, grid_url)
-        hourly_work = pool.submit(fetch_json, hourly_url)
-        hourly = hourly_work.result()
-        try:
-            grid = grid_work.result()
-        except (OSError, ValueError):
-            grid = {}
-    add_hourly_forecast(forecast, hourly, grid, now)
-    forecast["hourlySourceUrl"] = hourly_url
-    forecast["gridSourceUrl"] = grid_url
