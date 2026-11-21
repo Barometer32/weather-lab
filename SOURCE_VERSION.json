@@ -1,6 +1,6 @@
 {
   "variant": "metar-plots-home",
-  "baseCommit": "f743f470a469fe2e231f62b21bd699e1bb29a3fd",
+  "baseCommit": "b523e53e103f93e89fb291f4f7b66088f6a16d91",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -60,17 +60,6 @@
     "weather-live-air-quality"
   ],
   "metarSunReadout": false,
-  "plotsMetroAverage": {
-    "stations": [
-      "KMSP",
-      "KFCM",
-      "KMIC"
-    ],
-    "source": "/api/current matching complete hour",
-    "position": "three-airport geographic centroid",
-    "replacesIndividualPlots": true,
-    "cloudsUnchanged": true
-  },
   "forecastViews": {
     "default": "text",
     "fallingTemperatureTarget": true

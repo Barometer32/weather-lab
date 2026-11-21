@@ -6,7 +6,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require(
  const hash=crypto.createHash('sha256');
  for(const file of ['metro-20261113-20z.json','metro-20261113-21z.json'])for(const width of [320,375,1870]){
   const data=JSON.parse(fs.readFileSync('tests/fixtures/'+file));
-  const v=viewer(data,{history:[]},{width});await v.load();await v.mode('clouds');
+  const v=viewer(data,{width});await v.load();await v.mode('clouds');
   for(const zoom of [7.5,8,8.5,9,9.5,10,12]){
    v.zoom(zoom);
    for(let frame=0;frame<4;frame++){
