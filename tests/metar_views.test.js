@@ -22,7 +22,9 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-vector','plot-speed'])assert.ok(svg.includes(cls),cls);
  assert.doesNotMatch(svg,/wind-barb|plot-ceiling|plot-sky|wind-calm/);
  assert.match(svg,/class="plot-speed"[^>]*>7</);
- assert.match(svg,/rotate\(90\)/,'A west wind arrow points east, in the direction of flow');
+ const [,dotX,dotY]=svg.match(/class="mesonet-dot" cx="([^"]+)" cy="([^"]+)"/);
+ const [,arrowX,arrowY]=svg.match(/class="wind-vector" transform="translate\(([^ ]+) ([^ ]+)\) rotate\(90\)"/);
+ assert.deepEqual([arrowX,arrowY],[dotX,dotY],'A west wind points east from a vector centered on the station dot');
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');
  assert.match(popup,/Temperature: 71.0°F/);assert.match(popup,/Dewpoint: 50.0°F/);assert.match(popup,/Wind: 7 mph from 270°/);assert.match(popup,/BKN: 2,700 ft AGL/);
