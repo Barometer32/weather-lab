@@ -1,4 +1,4 @@
-"""Remove obsolete, verified Weather Lab schedules."""
+"""Remove obsolete, verified Weather Lab schedules; preserve the six live tasks."""
 import argparse
 import json
 import subprocess
@@ -12,7 +12,6 @@ ACCOUNT = f'weather-scheduler@{PROJECT}.iam.gserviceaccount.com'
 REQUIRED = {
     'weather-live-current': 'current-hourly',
     'weather-live-metar-clouds': 'metar-clouds',
-    'weather-live-rapmetar': 'rapmetar',
     'weather-live-radar': 'radar-KMPX',
     'weather-live-satellite': 'satellite',
     'weather-live-forecast': 'forecast',
@@ -85,12 +84,19 @@ def check_site(web):
         raise ValueError('The CURRENT page does not yet have a complete official hour')
 
 
-def cleanup(apply=False):
+def cleanup(apply=False, only_job=None):
+    if only_job in REQUIRED:
+        raise ValueError('Schedule is still required: '+only_job)
     collector = service('weather-collector')
     web = service('weather-lab')
     check_site(web)
     before = jobs()
     remove, leave = plan(before, collector)
+    if only_job is not None:
+        target = PARENT + only_job
+        if any(row['name'] == target for row in leave):
+            raise ValueError('Cannot verify ownership of schedule: '+only_job)
+        remove = [row for row in remove if row['name'] == target]
     for name in REQUIRED:
         print('KEEP', name, flush=True)
     for row in remove:
@@ -115,12 +121,14 @@ def cleanup(apply=False):
         gcloud('scheduler','jobs','delete',row['name'],'--location='+REGION,'--quiet',output=False)
     remaining = jobs()
     leftovers, _ = plan(remaining, collector)
+    if only_job is not None:
+        leftovers = [row for row in remaining if row['name'] == target]
     if leftovers:
         raise ValueError('Obsolete owned jobs remain; rerun after inspecting the output')
     after = {r['name']: configuration(r) for r in remaining if r['name'].split('/')[-1] in REQUIRED}
     if after != required_before:
         raise ValueError('A required schedule changed; inspect Cloud Scheduler')
-    print('Cleanup complete. All required schedules are enabled.', flush=True)
+    print('Cleanup complete. All six required schedules are enabled and unchanged.', flush=True)
 
 
 def revision_plan(info, revisions, scheduled_uris=()):
@@ -178,7 +186,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--old-revisions',action='store_true',help='Also remove unused old deployment versions')
+    parser.add_argument('--only-job', help='Limit schedule cleanup to this obsolete job')
     args=parser.parse_args()
-    cleanup(args.apply)
+    cleanup(args.apply, args.only_job)
     if args.old_revisions:
         cleanup_revisions(args.apply)

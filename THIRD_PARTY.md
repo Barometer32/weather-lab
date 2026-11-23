@@ -52,10 +52,6 @@ Cloud bases are feet above ground level; original coverage codes are retained.
 https://aviationweather.gov/data/api/
 https://aviationweather.gov/help/data/
 
-RAPMETAR: NOAA MADIS public five-minute HF-METAR feed. Station inventory
-metadata is from the Iowa Environmental Mesonet state ASOS networks.
-https://madis-data.ncep.noaa.gov/madisPublic1/data/LDAD/hfmetar/netCDF/
-
 Native radar decoder: MetPy 1.7.1 (NSF Unidata), BSD 3-Clause.
 https://github.com/Unidata/MetPy
 https://registry.opendata.aws/noaa-nexrad/

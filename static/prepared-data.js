@@ -6,7 +6,7 @@ window.WeatherPrepared = (() => {
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/02";
-  const paths=[metarLoop,"/api/rapmetar",radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const paths=[metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -42,7 +42,7 @@ window.WeatherPrepared = (() => {
         const started=Date.now();
         const response=await fetch(url,{cache:"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
-        if((url===metarLoop||url==="/api/rapmetar")&&data.serverTime)window.WeatherSun?.sync(data.serverTime,started);
+        if(url===metarLoop&&data.serverTime)window.WeatherSun?.sync(data.serverTime,started);
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
         return data;

@@ -1,4 +1,4 @@
-"""Configure the schedules used by the current Weather Lab site."""
+"""Configure only the six schedules used by the current Weather Lab site."""
 import subprocess
 from cleanup_weather_jobs import ACCOUNT, PROJECT, REGION, REQUIRED, gcloud, jobs, owned, service
 
@@ -7,10 +7,6 @@ def plan(rows, collector):
     indexed = {row['name'].split('/')[-1]: row for row in rows}
     commands = []
     common = ['--project='+PROJECT, '--location='+REGION]
-    schedules = {'weather-live-current':'*/2 * * * *',
-                 'weather-live-metar-clouds':'*/2 * * * *',
-                 'weather-live-forecast':'*/5 * * * *',
-                 'weather-live-rapmetar':'*/5 * * * *'}
     for name, endpoint in REQUIRED.items():
         old = indexed.get(name)
         if old:
@@ -18,15 +14,17 @@ def plan(rows, collector):
                 raise ValueError('Unexpected target for required schedule: '+name)
             if old.get('state') not in ('ENABLED','PAUSED'):
                 raise ValueError('Unexpected schedule state: '+name)
-            schedule = schedules.get(name)
+            schedule = {'weather-live-current':'*/2 * * * *',
+                        'weather-live-metar-clouds':'*/2 * * * *',
+                        'weather-live-forecast':'*/5 * * * *'}.get(name)
             if schedule and old['schedule'] != schedule:
                 commands.append(['gcloud','scheduler','jobs','update','http',name,*common,'--schedule='+schedule])
             if old['state'] == 'PAUSED':
                 commands.append(['gcloud','scheduler','jobs','resume',name,*common])
-        elif name in ('weather-live-current', 'weather-live-rapmetar'):
+        elif name == 'weather-live-current':
             commands.append(['gcloud','scheduler','jobs','create','http',name,*common,
-                             '--schedule='+schedules[name],'--time-zone=Etc/UTC','--attempt-deadline=180s',
-                             '--uri='+collector+'/collect/'+endpoint,'--http-method=POST',
+                             '--schedule=*/2 * * * *','--time-zone=Etc/UTC','--attempt-deadline=180s',
+                             '--uri='+collector+'/collect/current-hourly','--http-method=POST',
                              '--oidc-service-account-email='+ACCOUNT,'--oidc-token-audience='+collector])
         else:
             raise ValueError('Required schedule is missing: '+name)

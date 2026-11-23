@@ -8,7 +8,6 @@ GitHub branch: `rtmetar-default-20261111`.
 ## Current pages
 
 - **METAR** opens first with PLOTS selected. PLOTS and CLOUDS show individual airport reports from the selected hour. Both maps prioritize KMSP, KFCM and KMIC, followed by KSTP. Nearby stations appear when there is room for their plots.
-- **RAPMETAR** is a separate METAR map for NOAA MADIS five-minute HF-METAR reports in ND, SD, IA, MN and WI. Temperatures and dew points are in °C. Each marker shows its own report time. The original PLOTS and CLOUDS views use hourly airport reports.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to Visible (red) Band 02, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
@@ -16,19 +15,18 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Background updates
 
-`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Seven Cloud Scheduler tasks are required:
+`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Six Cloud Scheduler tasks are required:
 
 | Task | Endpoint |
 |---|---|
 | weather-live-current | /collect/current-hourly |
 | weather-live-metar-clouds | /collect/metar-clouds |
-| weather-live-rapmetar | /collect/rapmetar |
 | weather-live-radar | /collect/radar-KMPX |
 | weather-live-satellite | /collect/satellite |
 | weather-live-forecast | /collect/forecast |
 | weather-live-air-quality | /collect/air-quality |
 
-The retained `/api/current` feed calculates three-airport averages separately from the maps. Hourly METAR checks every two minutes. RAPMETAR and forecast check every five minutes. Page views read saved objects without triggering collection.
+The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
 
 ## Operate
 
@@ -44,7 +42,7 @@ Clean obsolete schedules and old deployment versions without a rebuild:
 python3 cleanup_weather_jobs.py --apply --old-revisions
 ```
 
-Without `--apply`, cleanup is a preview. Cleanup checks the retained `/api/current` feed and all seven required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
+Without `--apply`, cleanup is a preview. Cleanup checks the retained `/api/current` feed and all six required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for release details and [THIRD_PARTY.md](THIRD_PARTY.md) for software/data credits.
 
@@ -55,4 +53,4 @@ python3 -m pytest -q
 for test in tests/*.test.js; do node "$test" || exit; done
 ```
 
-`verify_weather_release.py https://weather-lab.cloud.run --all-products` checks METAR PLOTS/CLOUDS, RAPMETAR, imagery and the other retained products. `metar_history.py` retains the bounded official archive reader used by map recovery. `data-lifecycle.json` and `extend_satellite_lifecycle.py` document and preserve the weather bucket's existing retention rules.
+`verify_weather_release.py https://weather-lab.cloud.run --all-products` checks METAR PLOTS/CLOUDS, imagery and the other retained products. `metar_history.py` retains the bounded official archive reader used by map recovery. `data-lifecycle.json` and `extend_satellite_lifecycle.py` document and preserve the weather bucket's existing retention rules.

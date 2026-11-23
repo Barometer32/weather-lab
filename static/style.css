@@ -282,7 +282,7 @@ h1 { font-size:23px; margin:2px 0 0; line-height:1.15; }
 .metar-view-controls { width:auto; flex-wrap:nowrap; justify-content:flex-end; gap:12px; }
 main > [role="tabpanel"] > .map-viewer { display:flex; flex-direction:column; flex:1 1 0; min-height:0; }
 .map-viewer > .map-area { flex:1 1 0; min-height:0; }
-.map-viewer > .map-area > :is(#map,#metar-map,#rapmetar-map,#satellite-map) { width:100%; height:100%; min-height:0; aspect-ratio:auto; }
+.map-viewer > .map-area > :is(#map,#metar-map,#satellite-map) { width:100%; height:100%; min-height:0; aspect-ratio:auto; }
 .map-viewer > .viewer-controls { flex:0 0 auto; }
 .viewer-controls { grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; grid-template-areas:"time timeline actions"; padding:5px 10px; gap:4px 12px; }
 .viewer-controls .timeline-control { width:100%; }
@@ -371,7 +371,7 @@ body.map-focus #metar .eyebrow { display:none; }
 
 /* Compact phone toolbars leave more of the viewport for the map. */
 @media (max-width:600px), (max-width:950px) and (max-height:500px) and (pointer:coarse) {
-  :is(#fullscreen,#metar-fullscreen,#rapmetar-fullscreen,#satellite-fullscreen) { display:none!important; }
+  :is(#fullscreen,#metar-fullscreen,#satellite-fullscreen) { display:none!important; }
   :is(#metar-surface,#radar-surface,#satellite-surface) > .viewer-controls {
     grid-template-columns:minmax(0,1fr) auto;
     grid-template-areas:"time actions" "timeline timeline";
@@ -397,13 +397,4 @@ body.map-focus #metar .eyebrow { display:none; }
   .section-heading { min-height:36px; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
   #metar-product { min-height:32px; }
-}
-
-#rapmetar-map { background:white; }
-#rapmetar-surface .rapmetar-controls { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"time actions"; }
-#metar-product:has(option[value="rapmetar"]:checked) { max-width:115px; }
-@media(max-width:600px) {
-  #metar-product:has(option[value="rapmetar"]:checked) { max-width:94px; }
-  #rapmetar-surface .rapmetar-controls { grid-template-columns:1fr; grid-template-areas:"time" "actions"; }
-  #rapmetar-surface .viewer-actions { justify-self:center; }
 }

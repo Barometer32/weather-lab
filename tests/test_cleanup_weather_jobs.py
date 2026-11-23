@@ -17,7 +17,7 @@ def required():
     return [job(name) for name in cleanup.REQUIRED]
 
 
-def test_cleanup_removes_only_verified_owned_obsolete_jobs_and_keeps_required_jobs():
+def test_cleanup_removes_only_verified_owned_obsolete_jobs_and_keeps_six():
     rows=required()+[job('weather-live-nbm','nbm',state='PAUSED'),job('weather-live-mn-asos-audit','mn-asos-audit'),
                      job('weather-live-duplicate','current-hourly'),job('other-project-task')]
     foreign=job('weather-live-foreign');foreign['httpTarget']['uri']='https://other.example/collect/retired';rows.append(foreign)
@@ -45,7 +45,23 @@ def test_apply_checks_twice_and_never_deletes_or_updates_required_jobs():
     with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_site'),patch.object(cleanup,'jobs',side_effect=lambda:deepcopy(rows)),patch.object(cleanup,'gcloud',side_effect=cloud):
         cleanup.cleanup(True)
     assert len(calls)==1 and calls[0][3]==cleanup.PARENT+'weather-live-nbm'
-    assert {r['name'].removeprefix(cleanup.PARENT) for r in rows} == set(cleanup.REQUIRED)
+    assert len(rows)==6
+
+
+def test_targeted_cleanup_retires_rapmetar_without_deleting_other_jobs():
+    rapid = job('weather-live-rapmetar', 'rapmetar')
+    other = job('weather-live-nbm', 'nbm')
+    rows = required() + [rapid, other]
+
+    def delete(*args, **kwargs):
+        assert args[:4] == ('scheduler', 'jobs', 'delete', rapid['name'])
+        rows.remove(rapid)
+
+    with patch.object(cleanup, 'service', return_value=COLLECTOR), patch.object(cleanup, 'check_site'), patch.object(cleanup, 'jobs', side_effect=lambda: deepcopy(rows)), patch.object(cleanup, 'gcloud', side_effect=delete) as cloud:
+        cleanup.cleanup(True, 'weather-live-rapmetar')
+        cleanup.cleanup(True, 'weather-live-rapmetar')
+        cloud.assert_called_once()
+    assert rows == required() + [other]
 
 
 def test_cleanup_preview_never_mutates_and_changed_candidate_stops_apply():
