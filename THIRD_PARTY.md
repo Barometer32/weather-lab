@@ -30,6 +30,15 @@ POSSIBILITY OF SUCH DAMAGE.
 Weather data attribution: NOAA/NWS Aviation Weather Center; native KMPX Level II radar via NSF Unidata public S3 feeds; map boundaries via Iowa Environmental Mesonet. Transparent county and state boundary tiles:
 https://mesonet.agron.iastate.edu/ogc/
 
+Radar road lines: U.S. Census Bureau TIGERweb transportation layers.
+https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_apps.html
+
+Air Quality: U.S. EPA AirNow and Minnesota Pollution Control Agency.
+https://www.pca.state.mn.us/air-water-land-climate/current-air-quality-conditions
+
+Solar elevation: NOAA Global Monitoring Laboratory solar position calculations.
+https://gml.noaa.gov/grad/solcalc/calcdetails.html
+
 
 Forecast data: National Weather Service MapClick point forecast JSON/text feed.
 https://forecast.weather.gov/MapClick.php?lat=44.9244&lon=-93.414&FcstType=json

@@ -32,7 +32,7 @@ function showFrame(n) {
 function initMap() {
   if (map) return;
   const initial=window.WeatherDefaultViews?.radar()||radarViews[radarSite];
-  map = L.map("map", {minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(initial.center,initial.zoom);
+  map = L.map("map", {attributionControl:false,minZoom:5,maxZoom:13,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:60}).setView(initial.center,initial.zoom);
   map.createPane("radar"); map.getPane("radar").style.zIndex = 350;
   nativeLayer=NativeRadar.layer().addTo(map);
   window.WeatherRadarRoads.addTo(map,()=>{
@@ -187,13 +187,12 @@ function fitSatelliteView() {
 }
 function initSatelliteMap() {
   if (satelliteMap) return;
-  satelliteMap = L.map("satellite-map", {crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0,zoomDelta:.1});
+  satelliteMap = L.map("satellite-map", {attributionControl:false,crs:L.CRS.Simple,minZoom:-3,maxZoom:2,zoomSnap:0,zoomDelta:.1});
   satelliteMap.createPane("satellite-images"); satelliteMap.getPane("satellite-images").style.zIndex = 350;
   satelliteMap.createPane("satellite-boundaries"); satelliteMap.getPane("satellite-boundaries").style.zIndex = 410;
   satelliteMap.getPane("satellite-boundaries").style.pointerEvents = "none";
   fitSatelliteView();
   satelliteMap.on("resize", fitSatelliteView);
-  satelliteMap.attributionControl.addAttribution('NOAA GOES / <a href="https://weather.cod.edu/satrad/">COD NEXLAB</a>');
 }
 function showSatelliteFrame(n) {
   if (!satelliteOverlays.length) return;

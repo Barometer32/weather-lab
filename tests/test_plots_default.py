@@ -17,7 +17,7 @@ def test_plots_default_and_retained_airports_pass_release_layout_check():
 def test_retired_routes_do_not_read_storage_or_download_anything():
     with patch('app.get_store') as store, patch('app.download') as source:
         client = app.app.test_client()
-        for path in ['/api/tempest','/static/tempest-views.js','/api/airport-observations','/static/airport-observations.js','/api/rapmet','/static/rapmet-views.js','/static/rapmet-stations.json','/api/conditions', '/static/conditions-views.js', '/static/conditions-model.js', '/api/rtmetar', '/api/mesonet', '/static/mesonet-views.js', '/api/observations', '/api/observations/hourly', '/api/observations/current', '/api/observations/rtma', '/static/current-observations.js', '/static/rtma-observations.js', '/static/current-hourly.js', '/static/sun-angle.js']:
+        for path in ['/api/tempest','/static/tempest-views.js','/api/airport-observations','/static/airport-observations.js','/api/rapmet','/static/rapmet-views.js','/static/rapmet-stations.json','/api/conditions', '/static/conditions-views.js', '/static/conditions-model.js', '/api/rtmetar', '/api/mesonet', '/static/mesonet-views.js', '/api/observations', '/api/observations/hourly', '/api/observations/current', '/api/observations/rtma', '/static/current-observations.js', '/static/rtma-observations.js', '/static/current-hourly.js']:
             assert client.get(path).status_code == 404
         store.assert_not_called()
         source.assert_not_called()

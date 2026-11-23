@@ -32,7 +32,7 @@ def check_layout(base):
     html = read(base, "/")
     assert 'id="tab-metar" aria-selected="true"' in html
     assert 'id="tab-current"' not in html and '<section id="current"' not in html
-    assert 'current-hourly.js' not in html and 'sun-angle.js' not in html
+    assert 'current-hourly.js' not in html
     assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
     assert 'airport-observations.js' not in html
     assert 'rtma-observations.js' not in html
@@ -47,14 +47,15 @@ def check_layout(base):
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/metar-views.js?v=individual-plots-v47' in html
-    assert '/static/prepared-data.js?v=individual-plots-v47' in html
+    assert '/static/metar-views.js?v=metar-sun-v48' in html
+    assert '/static/prepared-data.js?v=metar-sun-v48' in html
+    assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html
-    assert 'id="sun-angle"' not in html and 'id="current-sun"' not in html
+    assert 'id="sun-angle"' in html and 'id="current-sun"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
     assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=plots-home-v46' in html
+    assert '/static/app.js?v=metar-sun-v48' in html
     assert 'id="forecast-periods"' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()

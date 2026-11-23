@@ -39,8 +39,10 @@ window.WeatherPrepared = (() => {
     if(pending.has(url))return pending.get(url);
     const work=(async()=>{
       try{
+        const started=Date.now();
         const response=await fetch(url,{cache:"no-store"}),data=await response.json();
         if(!response.ok)throw Error(data.error||"Prepared weather data unavailable.");
+        if(url===metarLoop&&data.serverTime)window.WeatherSun?.sync(data.serverTime,started);
         const stamp=Date.now();memory.set(url,{data,stamp});remember(url,data,stamp);
         for(const callback of listeners.get(url)||[]){try{callback(data);}catch(_){}}
         return data;

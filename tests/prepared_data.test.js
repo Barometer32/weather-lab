@@ -6,10 +6,14 @@ function setup(fetcher,cacheFail=false){const requests=[],imageReads=[],events={
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
  cacheRows.clear();let release;const blocked=new Promise(r=>release=r);const a=setup(()=>blocked);
- const first=a.api.read('/api/station-plots?view=loop'),second=a.api.read('/api/station-plots?view=loop');assert.equal(a.requests.length,1,'in-flight API reads deduplicate');release(new Response(JSON.stringify({history:[{hour:'current'}]})));await Promise.all([first,second]);await a.api.read('/api/station-plots?view=loop');assert.equal(a.requests.length,1,'prefetched manifest is reused');await flush();
- let fresh;const pending=new Promise(r=>fresh=r);const b=setup(()=>pending);let received;b.api.subscribe('/api/station-plots?view=loop',d=>received=d);
+ const first=a.api.read('/api/station-plots?view=loop'),second=a.api.read('/api/station-plots?view=loop');assert.equal(a.requests.length,1,'in-flight API reads deduplicate');release(new Response(JSON.stringify({history:[{hour:'current'}],serverTime:'2026-11-21T14:00:00Z'})));await Promise.all([first,second]);await a.api.read('/api/station-plots?view=loop');assert.equal(a.requests.length,1,'prefetched manifest is reused');await flush();
+ let fresh;const pending=new Promise(r=>fresh=r);const b=setup(()=>pending);let received;const clockSyncs=[];
+ b.context.window.WeatherSun={sync:(...args)=>clockSyncs.push(args)};
+ b.api.subscribe('/api/station-plots?view=loop',d=>received=d);
  const saved=await b.api.read('/api/station-plots?view=loop');assert.equal(saved._savedCopy,true,'repeat visit can paint a saved copy before network completes');assert.equal(received,undefined);
- fresh(new Response(JSON.stringify({history:[{hour:'new'}]})));await flush();assert.equal(received.history[0].hour,'new');assert.equal(received._savedCopy,undefined,'network update is no longer marked saved');
+ assert.equal(clockSyncs.length,0,'a cached manifest cannot reset the sun clock');
+ fresh(new Response(JSON.stringify({history:[{hour:'new'}],serverTime:'2026-11-21T14:01:00Z'})));await flush();assert.equal(received.history[0].hour,'new');assert.equal(received._savedCopy,undefined,'network update is no longer marked saved');
+ assert.equal(clockSyncs.length,1);assert.equal(clockSyncs[0][0],'2026-11-21T14:01:00Z');assert.equal(typeof clockSyncs[0][1],'number');
  const c=setup(()=>Promise.reject(Error('Offline')));const retained=await c.api.read('/api/station-plots?view=loop');assert.equal(retained._savedCopy,true);await flush();
  await assert.rejects(c.api.read('/api/unknown'),/Unknown prepared/);
  await assert.rejects(c.api.read('/api/observations/current'),/Unknown prepared/);
