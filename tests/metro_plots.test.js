@@ -42,7 +42,8 @@ const data = {checkedAt: '2026-11-17T18:02:00Z', history};
         assert.ok(popup.includes(`Temperature: ${station.tempF}.0°F`));
         assert.ok(popup.includes(`Dewpoint: ${station.dewpointF}.0°F`));
         assert.ok(popup.includes(`Wind: ${station.wind.speedMph} mph from ${station.wind.direction}°`));
-        assert.match(marker.icon.html, new RegExp(`rotate\\(${station.wind.direction}\\)`));
+        assert.ok(marker.icon.html.includes(`>${station.wind.speedMph}</text>`));
+        assert.match(marker.icon.html, new RegExp(`rotate\\(${(station.wind.direction + 180) % 360}\\)`));
       }
     }
     assert.deepEqual(map.reads, ['/api/station-plots?view=loop']);

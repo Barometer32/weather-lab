@@ -87,6 +87,37 @@ window.WeatherStationModel = (() => {
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
   const barbScale=1.1448,barbLengthScale=.9405;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
+  const plotWind={arrowX:14,speedX:27,labelY:4,shape:"M0 -8L4.6 -2H1.4V6H-1.4V-2H-4.6Z"};
+  function plotWindSpeed(wind){
+    // Convert original knots when available so prepared mph is not rounded twice.
+    const speed=Number.isFinite(wind?.speedKnots)?wind.speedKnots*1.150779:wind?.speedMph;
+    return Number.isFinite(speed)&&speed>=0?Math.round(speed):null;
+  }
+  function airportPlot(station){
+    const c=combined,w=plotWind,wind=station.wind||{},speed=plotWindSpeed(wind);
+    const text=(cls,x,y,label,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${label}</text>`;
+    let direction="";
+    if(speed>0){
+      direction=wind.variable||!Number.isFinite(wind.direction)
+        ?text("plot-wind-state",w.arrowX,3,wind.variable?"VRB":"?","middle")
+        :windVector(wind,speed,c.x+w.arrowX,c.y,w.shape);
+    }
+    const visualWidth=Math.max(c.width,c.x+w.speedX+textWidth(numeric(speed))+2);
+    const html=`<svg class="metar-plot combined-station-plot" width="${visualWidth*scale}" height="${c.height*scale}" viewBox="0 0 ${visualWidth} ${c.height}" aria-hidden="true">${text("plot-temp",c.tempX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(station.dewpointF),"end")}<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${direction}${text("plot-speed",w.speedX,w.labelY,numeric(speed))}</svg>`;
+    return {html,size:[visualWidth*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
+  }
+  function airportPlotReservation(station){
+    const c=combined,w=plotWind;
+    const label=(x,y,value)=>[x-textWidth(numeric(value))-2,x+2,y-13,y+3];
+    // Keep the wind slot reserved through the entire loop, including calm hours.
+    const windRight=w.speedX+Math.max(textWidth("00"),textWidth(numeric(plotWindSpeed(station.wind))))+2;
+    const boxes=[label(c.tempX,c.tempY,station.tempF),label(c.dewX,c.dewY,station.dewpointF),
+      [-3,3,-3,3],[w.arrowX-10,windRight,-10,8]]
+      .map(([left,right,top,bottom])=>({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale}));
+    const bounds={left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
+      top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
+    return {boxes,bounds};
+  }
   function combinedWind(wind={},mphBarbs=false){
     wind=wind||{};
     const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
@@ -188,7 +219,7 @@ window.WeatherStationModel = (() => {
     return {boxes,radius,bounds:{left:Math.min(-radius,...boxes.map(b=>b.left)),right:Math.max(radius,...boxes.map(b=>b.right)),
       top:Math.min(-radius,...boxes.map(b=>b.top)),bottom:Math.max(radius,...boxes.map(b=>b.bottom))}};
   }
-  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  return {airportPlot,airportPlotReservation,plotWindSpeed,combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

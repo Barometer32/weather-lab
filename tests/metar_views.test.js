@@ -9,7 +9,7 @@ get('metar-product').value='clouds'; // Simulate a browser-restored old selectio
 let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber,created=0,footprints=0;const callbacks={};
 const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*10000+100:lat*50,y:lon*50};},invalidateSize(){}};
 const context={window:{WeatherPrepared:{read:async(url)=>{if(url==='/api/current')return {history:[]};reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){if(url==='/api/station-plots?view=loop')subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
-vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
+vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.airportPlotReservation;context.window.WeatherStationModel.airportPlotReservation=s=>{footprints++;return footprint(s);};vm.runInNewContext(fs.readFileSync('static/metar-views.js','utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
  assert.equal(get('metar-product').value,'plots','PLOTS overrides a restored product selection on startup');
@@ -19,9 +19,10 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  const firstMarker=shown[0],initialFootprints=footprints;
  callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Four-frame footprints are cached until new data arrives');
  const svg=shown[0].icon.html;
- for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-barb'])assert.ok(svg.includes(cls),cls);
- assert.doesNotMatch(svg,/plot-speed|plot-ceiling|plot-sky|wind-calm/);
- assert.match(svg,/rotate\(270\)/,'A standard west-wind barb extends west toward the source');
+ for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-vector','plot-speed'])assert.ok(svg.includes(cls),cls);
+ assert.doesNotMatch(svg,/wind-barb|plot-ceiling|plot-sky|wind-calm/);
+ assert.match(svg,/class="plot-speed"[^>]*>7</);
+ assert.match(svg,/rotate\(90\)/,'A west wind arrow points east, in the direction of flow');
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');
  assert.match(popup,/Temperature: 71.0°F/);assert.match(popup,/Dewpoint: 50.0°F/);assert.match(popup,/Wind: 7 mph from 270°/);assert.match(popup,/BKN: 2,700 ft AGL/);
@@ -75,5 +76,5 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
- console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
+ console.log('Combined METAR view passed: one plot, exact anchors, downwind arrows and mph, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

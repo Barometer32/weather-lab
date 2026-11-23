@@ -39,7 +39,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=current-home-v35' in html
+    assert '/static/metar-model.js?v=wind-vectors-v50' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
@@ -47,7 +47,7 @@ def check_layout(base):
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/metar-views.js?v=metar-sun-v48' in html
+    assert '/static/metar-views.js?v=wind-vectors-v50' in html
     assert '/static/prepared-data.js?v=metar-sun-v48' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html

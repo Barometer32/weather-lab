@@ -20,9 +20,21 @@ function history(patterns=masks){return {checkedAt:'2026-11-01T14:10:00Z',histor
   assert.match(v.label,new RegExp((7+i)+':00 AM CST'),'10 AM includes 7, 8, 9 and 10 AM');
   assert.deepEqual(v.ids(),data.history.slice(-4)[i].stations.map(s=>s.station).filter(id=>id!=='KCFE').sort(),'PLOTS uses each hour independently; a gap elsewhere does not exclude an airport');
  }
- assert.match(v.icon("KSTEADY"),/data-mph="10"/,'Seven knots is about 8 mph, so PLOTS draws one full feather');
+ assert.match(v.icon("KSTEADY"),/class="plot-speed"[^>]*>8</,'Seven knots rounds to 8 mph');
  assert.match(v.icon("KUNKNOWN"),/mesonet-dot/);
- assert.doesNotMatch(v.icon("KUNKNOWN"),/wind-barb|wind-shaft|wind-calm|>VRB</,'Light airport winds have a dot even with variable direction');
+ assert.doesNotMatch(v.icon("KUNKNOWN"),/wind-vector|wind-barb/);
+ assert.match(v.icon("KUNKNOWN"),/>VRB<.*class="plot-speed"[^>]*>2</,'Variable wind keeps its speed without a directional arrow');
+ const alternate=history();
+ const last=alternate.history.at(-1).stations;
+ last.find(s=>s.station==="KSTEADY").wind={speedKnots:23,speedMph:26.5,direction:360};
+ last.find(s=>s.station==="KOLDGAP").wind={speedKnots:0,direction:0};
+ last.find(s=>s.station==="KONCE").wind=null;
+ v.adopt(alternate);
+ assert.match(v.icon("KSTEADY"),/rotate\(180\).*class="plot-speed"[^>]*>26</,'A north wind points south and uses original knots before rounding');
+ assert.doesNotMatch(v.icon("KOLDGAP"),/wind-vector/);
+ assert.match(v.icon("KOLDGAP"),/class="plot-speed"[^>]*>0</);
+ assert.doesNotMatch(v.icon("KONCE"),/wind-vector/);
+ assert.match(v.icon("KONCE"),/class="plot-speed"[^>]*>—</);
  assert.equal(data.history.length,12,'The prepared source cache is not mutated');
  assert.equal(v.reads,1,'Filtering uses the history already downloaded');
  v.mode('clouds');
