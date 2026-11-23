@@ -38,12 +38,12 @@ window.WeatherDefaultViews = (()=>{
     try{window.localStorage.setItem(radarKey,JSON.stringify(view));return true;}catch(_){return false;}
   }
   function savedMetar(mode){
-    if(!["plots","clouds"].includes(mode))return null;
+    if(!["plots","clouds","rapmetar"].includes(mode))return null;
     try{const view=JSON.parse(window.localStorage.getItem("weather-metar-default-v1-"+mode));if(valid(view))return view;}catch(_){}
     return null;
   }
   function saveMetar(mode,center,zoom){
-    const view={center,zoom};if(!["plots","clouds"].includes(mode)||!valid(view))return false;
+    const view={center,zoom};if(!["plots","clouds","rapmetar"].includes(mode)||!valid(view))return false;
     try{window.localStorage.setItem("weather-metar-default-v1-"+mode,JSON.stringify(view));return true;}catch(_){return false;}
   }
   return {metar,radar,saveRadar,savedMetar,saveMetar};

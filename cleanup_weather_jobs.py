@@ -1,4 +1,4 @@
-"""Remove obsolete, verified Weather Lab schedules; preserve the six live tasks."""
+"""Remove obsolete, verified Weather Lab schedules."""
 import argparse
 import json
 import subprocess
@@ -12,6 +12,7 @@ ACCOUNT = f'weather-scheduler@{PROJECT}.iam.gserviceaccount.com'
 REQUIRED = {
     'weather-live-current': 'current-hourly',
     'weather-live-metar-clouds': 'metar-clouds',
+    'weather-live-rapmetar': 'rapmetar',
     'weather-live-radar': 'radar-KMPX',
     'weather-live-satellite': 'satellite',
     'weather-live-forecast': 'forecast',
@@ -119,7 +120,7 @@ def cleanup(apply=False):
     after = {r['name']: configuration(r) for r in remaining if r['name'].split('/')[-1] in REQUIRED}
     if after != required_before:
         raise ValueError('A required schedule changed; inspect Cloud Scheduler')
-    print('Cleanup complete. All six required schedules are enabled and unchanged.', flush=True)
+    print('Cleanup complete. All required schedules are enabled.', flush=True)
 
 
 def revision_plan(info, revisions, scheduled_uris=()):

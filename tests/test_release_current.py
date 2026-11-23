@@ -46,4 +46,4 @@ if a[:3]==['run','services','describe']:
         checks=[i for i,c in enumerate(calls) if c[:2]==['python','verify_weather_release.py'] and '--all-products' in c]
         assert checks[0]<switches[0]<checks[-1]<cleanup[0]
         runs=[c[3] for c in calls if c[:3]==['scheduler','jobs','run']]
-        assert set(runs)=={'weather-live-current','weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality'}
+        assert set(runs)=={'weather-live-current','weather-live-metar-clouds','weather-live-rapmetar','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality'}

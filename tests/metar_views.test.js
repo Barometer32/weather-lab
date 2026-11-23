@@ -75,5 +75,16 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
+ const rapidCalls=[];
+ context.window.WeatherRapmetar={select(active){rapidCalls.push(active);},load(force){rapidCalls.push(force);}};
+ get('metar-product').events.change({target:{value:'rapmetar'}});
+ assert.equal(get('metar-surface').hidden,true);
+ assert.equal(get('rapmetar-surface').hidden,false);
+ get('refresh-metar').events.click();
+ get('metar-product').events.change({target:{value:'clouds'}});await flush();
+ assert.deepEqual(rapidCalls,[true,true,false]);
+ assert.equal(get('metar-surface').hidden,false);
+ assert.equal(get('rapmetar-surface').hidden,true);
+ assert.ok(shown.every(marker=>marker.icon.html.includes('plot-sky')));
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

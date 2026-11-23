@@ -1,6 +1,6 @@
 {
   "variant": "metar-plots-home",
-  "baseCommit": "62f80bc54553178ef8b879c47890b70238b37584",
+  "baseCommit": "52f3324c11f50412b74eade846452ec0208f7f01",
   "branch": "rtmetar-default-20261111",
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
@@ -15,7 +15,8 @@
   "defaultMetarProduct": "plots",
   "metarProducts": [
     "plots",
-    "clouds"
+    "clouds",
+    "rapmetar"
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",
   "hourlyMapRecoveryHours": 5,
@@ -54,12 +55,14 @@
   "cleanupRequiredJobs": [
     "weather-live-current",
     "weather-live-metar-clouds",
+    "weather-live-rapmetar",
     "weather-live-radar",
     "weather-live-satellite",
     "weather-live-forecast",
     "weather-live-air-quality"
   ],
   "metarSunReadout": true,
+  "rapmetarSchedule": "*/5 * * * *",
   "forecastViews": {
     "default": "text",
     "fallingTemperatureTarget": true

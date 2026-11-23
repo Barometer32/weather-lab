@@ -41,14 +41,15 @@ def check_layout(base):
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=current-home-v35' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds", "rapmetar"]
     assert '<option value="plots" selected>PLOTS</option>' in html
-    assert 'rapmet' not in html.lower()
+    assert '<option value="rapmetar">RAPMETAR</option>' in html and 'id="rapmetar-map"' in html
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/metar-views.js?v=metar-sun-v48' in html
-    assert '/static/prepared-data.js?v=metar-sun-v48' in html
+    assert '/static/metar-views.js?v=rapmetar-v49' in html
+    assert '/static/prepared-data.js?v=rapmetar-v49' in html
+    assert '/static/rapmetar-views.js?v=rapmetar-v49' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' in html and 'id="current-sun"' not in html
@@ -92,6 +93,13 @@ def check_removed(base):
 
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
+    rapid = json.loads(read(base, "/api/rapmetar"))
+    assert rapid.get("temperatureUnit") == "C" and rapid.get("updateIntervalSeconds") == 300
+    assert rapid.get("stations") and not rapid.get("stale"), "RAPMETAR observations are not ready"
+    for station in rapid["stations"]:
+        stamp = datetime.fromisoformat(station["time"])
+        assert station["reportType"] == "HFMETAR" and stamp.timestamp() % 300 == 0
+    print(f"Verified RAPMETAR: {len(rapid['stations'])} airports, newest {rapid['newestObservationAt']}.")
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
                 ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),

@@ -23,7 +23,7 @@ collector_base="${collector_base%:*}"
 [[ "$collector_base" == "$base" ]] || { echo 'Collector and website repositories differ.' >&2; exit 1; }
 warm_min=1
 if [[ "${existing[1]}" =~ ^[0-9]+$ ]] && (( existing[1] > 1 )); then warm_min="${existing[1]}"; fi
-python3 -c 'from configure_live_jobs import plan; from cleanup_weather_jobs import jobs,service; plan(jobs(),service("weather-collector")); print("Verified six current job targets")'
+python3 -c 'from configure_live_jobs import plan; from cleanup_weather_jobs import jobs,service; plan(jobs(),service("weather-collector")); print("Verified current job targets")'
 tag="live-ready-$(git rev-parse --short=12 HEAD)"
 image="$base:$tag"
 gcloud builds submit . "${run[@]}" --tag="$image" \
@@ -39,7 +39,7 @@ collector_revision="$(gcloud run services describe weather-collector "${run[@]}"
   python3 -c 'import json,sys; print(next(t["revisionName"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")==sys.argv[1]))' "$tag")"
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 python3 configure_live_jobs.py
-for job in weather-live-current weather-live-metar-clouds weather-live-radar weather-live-satellite weather-live-forecast weather-live-air-quality; do
+for job in weather-live-current weather-live-metar-clouds weather-live-rapmetar weather-live-radar weather-live-satellite weather-live-forecast weather-live-air-quality; do
   gcloud scheduler jobs run "$job" "${scheduler[@]}"
 done
 log="$(mktemp /tmp/weather-ready.XXXXXX)"

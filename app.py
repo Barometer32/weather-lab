@@ -582,6 +582,21 @@ def station_plots_api():
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
 
 
+@app.get("/api/rapmetar")
+def rapmetar_api():
+    from rapmetar import KEY, present
+    headers = {"Cache-Control": "no-store"}
+    try:
+        store = get_store()
+        saved = cached("prepared-rapmetar", 10, lambda: store.read_json(KEY)) if store else None
+        return jsonify(present(saved, utcnow())), 200, headers
+    except ValueError as error:
+        return jsonify(error=str(error)), 503, headers
+    except Exception:
+        app.logger.exception("Prepared RAPMETAR observations unavailable")
+        return jsonify(error="Five-minute airport reports are unavailable."), 503, headers
+
+
 @app.get("/api/current")
 def current_hourly_api():
     from current_hourly import KEY, present
