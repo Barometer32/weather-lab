@@ -87,8 +87,9 @@ window.WeatherStationModel = (() => {
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
   const barbScale=1.1448,barbLengthScale=.9405;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
-  const plotWind={stateX:14,speedX:27,labelY:4,shape:"M0 -8L4.6 -2H1.4V6H-1.4V-2H-4.6Z",radius:9};
-  const airportTemperatureX=-10.5;
+  const plotWind={labelY:4,stateY:18,shape:"M0 -8L5.4 -2H.9V6H-.9V-2H-5.4Z",radius:9};
+  // Leave clearance for the rotated arrow and the 1.5px label halo.
+  const airportLabelOffset=12;
   function plotWindSpeed(wind){
     // Convert original knots when available so prepared mph is not rounded twice.
     const speed=Number.isFinite(wind?.speedKnots)?wind.speedKnots*1.150779:wind?.speedMph;
@@ -100,23 +101,24 @@ window.WeatherStationModel = (() => {
     let arrow="",state="";
     if(speed>0){
       if(wind.variable||!Number.isFinite(wind.direction)){
-        state=text("plot-wind-state",w.stateX,3,wind.variable?"VRB":"?","middle");
+        state=text("plot-wind-state",0,w.stateY,wind.variable?"VRB":"?","middle");
       }else{
         arrow=windVector(wind,speed,c.x,c.y,w.shape);
       }
     }
-    const visualWidth=Math.max(c.width,c.x+w.speedX+textWidth(numeric(speed))+2);
-    const html=`<svg class="metar-plot combined-station-plot" width="${visualWidth*scale}" height="${c.height*scale}" viewBox="0 0 ${visualWidth} ${c.height}" aria-hidden="true">${text("plot-temp",airportTemperatureX,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",airportTemperatureX,c.dewY,numeric(station.dewpointF),"end")}${arrow}<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${state}${text("plot-speed",w.speedX,w.labelY,numeric(speed))}</svg>`;
+    const visualWidth=Math.max(c.width,c.x+airportLabelOffset+textWidth(numeric(speed))+2);
+    const html=`<svg class="metar-plot combined-station-plot" width="${visualWidth*scale}" height="${c.height*scale}" viewBox="0 0 ${visualWidth} ${c.height}" aria-hidden="true">${text("plot-temp",-airportLabelOffset,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",-airportLabelOffset,c.dewY,numeric(station.dewpointF),"end")}${arrow}<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${state}${text("plot-speed",airportLabelOffset,w.labelY,numeric(speed))}</svg>`;
     return {html,size:[visualWidth*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
   function airportPlotReservation(station){
-    const c=combined,w=plotWind;
+    const c=combined,w=plotWind,wind=station.wind,speed=plotWindSpeed(wind);
     const label=(x,y,value)=>[x-textWidth(numeric(value))-2,x+2,y-13,y+3];
     // Keep the wind slot reserved through the entire loop, including calm hours.
-    const windRight=w.speedX+Math.max(textWidth("00"),textWidth(numeric(plotWindSpeed(station.wind))))+2;
-    const boxes=[label(airportTemperatureX,c.tempY,station.tempF),label(airportTemperatureX,c.dewY,station.dewpointF),
-      [-w.radius,w.radius,-w.radius,w.radius],[w.stateX-10,windRight,-10,8]]
-      .map(([left,right,top,bottom])=>({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale}));
+    const windRight=airportLabelOffset+Math.max(textWidth("00"),textWidth(numeric(speed)))+2;
+    const slots=[label(-airportLabelOffset,c.tempY,station.tempF),label(-airportLabelOffset,c.dewY,station.dewpointF),
+      [-w.radius,w.radius,-w.radius,w.radius],[airportLabelOffset-2,windRight,w.labelY-13,w.labelY+3]];
+    if(speed>0&&(wind.variable||!Number.isFinite(wind.direction)))slots.push([-12,12,w.stateY-10,w.stateY+3]);
+    const boxes=slots.map(([left,right,top,bottom])=>({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale}));
     const bounds={left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
       top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
     return {boxes,bounds};

@@ -25,6 +25,10 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  const [,dotX,dotY]=svg.match(/class="mesonet-dot" cx="([^"]+)" cy="([^"]+)"/);
  const [,arrowX,arrowY]=svg.match(/class="wind-vector" transform="translate\(([^ ]+) ([^ ]+)\) rotate\(90\)"/);
  assert.deepEqual([arrowX,arrowY],[dotX,dotY],'A west wind points east from a vector centered on the station dot');
+ const labelX=name=>Number(svg.match(new RegExp(`class="plot-${name}" x="([^"]+)"`))[1]);
+ assert.equal(labelX('temp'),labelX('dew'));
+ assert.equal(labelX('speed')-Number(dotX),Number(dotX)-labelX('temp'),'Wind and temperature labels start equally far from the dot');
+ assert.ok(labelX('speed')-Number(dotX)>8+.8+1.5,'The full arrow and text halos clear even when the arrow points directly at a label');
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');
  assert.match(popup,/Temperature: 71.0°F/);assert.match(popup,/Dewpoint: 50.0°F/);assert.match(popup,/Wind: 7 mph from 270°/);assert.match(popup,/BKN: 2,700 ft AGL/);

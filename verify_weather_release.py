@@ -39,7 +39,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=wind-anchor-v51' in html
+    assert '/static/metar-model.js?v=wind-spacing-v52' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
