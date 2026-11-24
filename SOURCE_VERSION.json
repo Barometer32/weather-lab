@@ -5,9 +5,9 @@
   "projectId": "weather-lab-261105-184200-1a9b",
   "region": "us-central1",
   "defaultTab": "metar",
-  "defaultSatelliteProduct": "02",
+  "defaultSatelliteProduct": "truecolor",
   "satelliteProducts": [
-    "02",
+    "truecolor",
     "dcphase",
     "ntmicro"
   ],

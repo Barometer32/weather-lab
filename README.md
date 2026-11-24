@@ -9,7 +9,7 @@ GitHub branch: `rtmetar-default-20261111`.
 
 - **METAR** opens first with PLOTS selected. PLOTS and CLOUDS show individual airport reports from the selected hour. PLOTS excludes KMSP and KSTP and prioritizes KFCM and KMIC. CLOUDS prioritizes KMSP, KFCM and KMIC, followed by KSTP. Nearby stations appear when there is room for their plots.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
-- **SATELLITE** defaults to Visible (red) Band 02, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
+- **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
 - **AIR Q** uses prepared Minnesota AirNow/MPCA source-hour maps.
 

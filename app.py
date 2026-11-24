@@ -500,13 +500,14 @@ def forecast_api():
 
 @app.get("/api/satellite/<product>")
 def satellite_api(product):
-    from satellite import PRODUCTS, page_url, parse_loop, latest_frames, frame_window
+    from satellite import DEFAULT_PRODUCT, PRODUCTS, page_url, parse_loop, latest_frames, frame_window
     if product not in PRODUCTS:
         return jsonify(error="Unknown satellite product."), 404
     try:
         data = prepared_snapshot("satellite-" + product, 900)
         if data:
             data.pop("boundarySources", None)
+            data.update(PRODUCTS[product], defaultProduct=DEFAULT_PRODUCT)
             data["products"] = [{"id": key, "label": value["label"]} for key, value in PRODUCTS.items()]
             now = utcnow()
             data["frames"] = latest_frames(data["frames"],now)
@@ -707,7 +708,7 @@ def prepared_asset(key):
     # arbitrary bucket files. Only the private collector can trigger processing.
     allowed = (re.fullmatch(r"radar/" + re.escape(NATIVE_VERSION) + r"/KMPX/\d{17}\.bin", key)
                or re.fullmatch(r"radar/" + re.escape(RENDER_VERSION) + r"/\d{12}\.png", key)
-               or re.fullmatch(r"satellite/(02|dcphase|ntmicro)/\d{14}\.jpg", key)
+               or re.fullmatch(r"satellite/(truecolor|dcphase|ntmicro)/\d{14}\.jpg", key)
                or re.fullmatch(r"satellite/maps/[a-f0-9]{24}\.png", key)
                or re.fullmatch(r"air-quality/mn-region-v1/\d{14}\.png", key)
                or re.fullmatch(r"air-quality/mn-region-v2/\d{14}-[a-f0-9]{16}\.png", key))

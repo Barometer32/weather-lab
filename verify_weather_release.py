@@ -48,14 +48,14 @@ def check_layout(base):
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '/static/metar-views.js?v=plots-stations-v50' in html
-    assert '/static/prepared-data.js?v=metar-sun-v48' in html
+    assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' in html and 'id="current-sun"' not in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
-    assert re.findall(r'<option value="([^\"]+)"', options) == ["02", "dcphase", "ntmicro"]
-    assert '<option value="02" selected>Visible (red)</option>' in options
-    assert '/static/app.js?v=metar-sun-v48' in html
+    assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
+    assert '<option value="truecolor" selected>True Color</option>' in options
+    assert '/static/app.js?v=satellite-truecolor-v51' in html
     assert 'id="forecast-periods"' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
@@ -80,7 +80,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/truecolor", "/api/prepared/satellite/truecolor/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
+    for path in ("/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
                  "/api/rapmetar", "/static/rapmetar-views.js"):
         try:
             read(base, path)
@@ -94,7 +94,7 @@ def check_removed(base):
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
-                ("SATELLITE Visible (red)", "/api/satellite/02", "frames"),
+                ("SATELLITE True Color", "/api/satellite/truecolor", "frames"),
                 ("SATELLITE dcphase", "/api/satellite/dcphase", "frames"),
                 ("SATELLITE ntmicro", "/api/satellite/ntmicro", "frames"),
                 ("FORECAST", "/api/forecast", "periods"),
@@ -103,8 +103,8 @@ def check_products(base):
         data = json.loads(read(base, path))
         assert data.get("checkedAt") and data.get("stale") is False, f"{name}: background data is stale"
         assert data.get(items), f"{name}: no prepared {items}"
-        if path == "/api/satellite/02":
-            assert data.get("product") == "02" and len(data["frames"]) == 24, "Default visible band loop is still preparing"
+        if path == "/api/satellite/truecolor":
+            assert data.get("product") == data.get("defaultProduct") == "truecolor" and len(data["frames"]) == 24, "Default True Color loop is still preparing"
         if path == "/api/forecast":
             assert "lamp" not in data and "hourly" not in data, "Expected the text forecast only"
         if items == "frames":

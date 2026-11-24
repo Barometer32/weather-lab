@@ -5,7 +5,7 @@ window.WeatherPrepared = (() => {
   const cacheName="weather-prepared-metar-v1",memory=new Map(),pending=new Map(),listeners=new Map();
   const images=new Map(),radars=new Map();
   const metarLoop="/api/station-plots?view=loop";
-  const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/02";
+  const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/truecolor";
   const paths=[metarLoop,radarManifest,"/api/forecast",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
@@ -15,7 +15,7 @@ window.WeatherPrepared = (() => {
     cache.delete("/api/tempest",{ignoreSearch:true}),
     cache.delete("/api/conditions",{ignoreSearch:true}),
     cache.delete("/api/satellite/13"),
-    cache.delete("/api/satellite/truecolor",{ignoreSearch:true}),
+    cache.delete("/api/satellite/02",{ignoreSearch:true}),
     cache.delete("/api/hrmetar",{ignoreSearch:true}),
     cache.delete("/api/mesonet",{ignoreSearch:true}),
     cache.delete("/api/rtmetar",{ignoreSearch:true}),

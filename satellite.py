@@ -3,11 +3,11 @@ from datetime import datetime, timedelta, timezone
 import re
 
 FRAME_COUNT = 24
-DEFAULT_PRODUCT = "02"
+DEFAULT_PRODUCT = "truecolor"
 SECTOR = "S_Minnesota"
 BASE = f"https://weather.cod.edu/wxdata/satellite/local/{SECTOR}"
 PRODUCTS = {
-    "02": {"label": "Visible (red)", "description": "Grayscale Band 02 visible-red imagery shows daytime cloud detail. Requires sunlight; use NT Microphysics after dark."},
+    "truecolor": {"label": "True Color", "description": "Natural-color daytime imagery shows clouds and the ground. Requires sunlight; use NT Microphysics after dark."},
     "dcphase": {"label": "Day Cloud Phase", "description": "Daytime RGB imagery helps distinguish liquid-water clouds, ice clouds, and snow. Its colors are meaningful in daylight."},
     "ntmicro": {"label": "NT Microphysics", "description": "Nighttime RGB imagery helps distinguish low clouds and fog from higher clouds. Solar reflection affects its colors during daylight."},
 }

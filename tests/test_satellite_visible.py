@@ -11,30 +11,41 @@ from test_realtime import MemoryStore
 NOW = datetime(2026, 11, 11, 19, 45, tzinfo=timezone.utc)
 
 
-def test_visible_source_uses_band_02_and_keeps_other_band_images_out():
-    prefix = BASE + '/02/S_Minnesota.02.'
+def test_true_color_source_keeps_latest_24_and_ignores_visible_red_images():
+    prefix = BASE + '/truecolor/S_Minnesota.truecolor.'
     images = [prefix + (NOW-timedelta(minutes=i*5+4)).strftime('%Y%m%d.%H%M%S') + '.jpg' for i in range(48)]
-    html = ' '.join(images) + ' ' + BASE + '/truecolor/S_Minnesota.truecolor.20261111.194100.jpg'
-    data = parse_loop(html, '02', NOW)
+    html = ' '.join(images) + ' ' + BASE + '/02/S_Minnesota.02.20261111.194100.jpg'
+    data = parse_loop(html, 'truecolor', NOW)
     assert len(data['frames']) == 24
-    assert data['product'] == data['defaultProduct'] == DEFAULT_PRODUCT == '02'
+    assert data['product'] == data['defaultProduct'] == DEFAULT_PRODUCT == 'truecolor'
     assert [p['id'] for p in data['products']] == list(PRODUCTS)
-    assert all('/02/S_Minnesota.02.' in f['url'] for f in data['frames'])
-    assert 'local-S_Minnesota-02-' in page_url('02')
+    assert all('/truecolor/S_Minnesota.truecolor.' in f['url'] for f in data['frames'])
+    assert 'local-S_Minnesota-truecolor-' in page_url('truecolor')
     assert 'Requires sunlight' in data['description']
 
 
-def test_default_visible_api_reads_prepared_data_without_upstream_calls():
+def test_default_true_color_reads_prepared_data_and_retires_visible_red():
     store = MemoryStore()
-    saved = parse_loop(BASE+'/02/S_Minnesota.02.20261111.194100.jpg', '02', NOW)
-    saved['products'].append({'id':'truecolor','label':'True color'})
-    saved.update(checkedAt=NOW.isoformat())
-    store.write_json('live/satellite-02.json', saved)
+    saved = parse_loop(BASE+'/truecolor/S_Minnesota.truecolor.20261111.194100.jpg', 'truecolor', NOW)
+    saved['products'].append({'id':'02','label':'Visible (red)'})
+    key = 'satellite/truecolor/20261111194100.jpg'
+    red_key = 'satellite/02/20261111194100.jpg'
+    saved['frames'][0]['url'] = '/api/prepared/' + key
+    saved.update(checkedAt=NOW.isoformat(), defaultProduct='02')
+    store.write_json('live/satellite-truecolor.json', saved)
+    store.write(key, b'prepared satellite frame', 'image/jpeg')
+    store.write(red_key, b'old visible red frame', 'image/jpeg')
     app._cache.clear()
+    app.prepared_image.cache_clear()
     with patch('app.get_store', return_value=store), patch('app.utcnow', return_value=NOW), patch('app.download') as upstream:
-        response = app.app.test_client().get('/api/satellite/02')
-    assert response.status_code == 200 and response.json['product'] == '02'
-    assert [item['id'] for item in response.json['products']] == ['02','dcphase','ntmicro']
+        client = app.app.test_client()
+        response = client.get('/api/satellite/truecolor')
+        assert client.get(response.json['frames'][0]['url']).data == b'prepared satellite frame'
+        assert client.get('/api/satellite/02').status_code == 404
+        assert client.get('/api/prepared/' + red_key).status_code == 404
+    assert response.status_code == 200
+    assert response.json['product'] == response.json['defaultProduct'] == 'truecolor'
+    assert [item['id'] for item in response.json['products']] == ['truecolor','dcphase','ntmicro']
     upstream.assert_not_called()
 
 
