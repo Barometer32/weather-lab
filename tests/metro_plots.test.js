@@ -18,13 +18,18 @@ const history = Array.from({length: 4}, (_, hour) => ({
     layers: [{cover: 'BKN', baseFtAGL: 2000 + 1000 * i}],
   })),
 }));
-// A missing KMIC report should affect only this frame. The nearby airport
-// competes for KMSP's plot space without sharing its identifier.
+// A missing KMIC report should affect only this frame. A nearby station
+// can use the slot previously reserved for KMSP.
 history[1].stations.pop();
 for (const frame of history) {
-  frame.stations.push({station: 'KNEAR', lat: 44.884, lon: -93.2289, tempF: 31, dewpointF: 30});
+  const msp = frame.stations.find(s => s.station === 'KMSP');
+  frame.stations.push(
+    {...msp, station: 'KNEAR', lat: 44.884, tempF: 31, dewpointF: 30},
+    {...msp, station: 'KSTP', lat: 44.9345, lon: -93.0600},
+  );
 }
 const data = {checkedAt: '2026-11-17T18:02:00Z', history};
+const excluded = new Set(['KMSP', 'KSTP']);
 
 (async () => {
   for (const width of [320, 375, 1870]) {
@@ -33,8 +38,9 @@ const data = {checkedAt: '2026-11-17T18:02:00Z', history};
     assert.equal(map.get('metar-product').value, 'plots');
     for (const [i, frame] of history.entries()) {
       map.frame(i);
-      assert.deepEqual(map.ids(), frame.stations.filter(s => s.station !== 'KNEAR').map(s => s.station).sort());
-      for (const station of frame.stations.filter(s => s.station !== 'KNEAR')) {
+      const expected = frame.stations.filter(s => !excluded.has(s.station));
+      assert.deepEqual(map.ids(), expected.map(s => s.station).sort());
+      for (const station of expected) {
         const marker = map.marker(station.station);
         assert.deepEqual(Array.from(marker.position), [station.lat, station.lon]);
         const popup = marker.popup.children.map(node => node.textContent);
@@ -45,7 +51,11 @@ const data = {checkedAt: '2026-11-17T18:02:00Z', history};
         assert.match(marker.icon.html, new RegExp(`rotate\\(${station.wind.direction}\\)`));
       }
     }
-    assert.deepEqual(map.reads, ['/api/station-plots?view=loop']);
+    await map.mode('clouds');
+    assert.ok(map.ids().includes('KMSP'), 'CLOUDS still uses the original KMSP report');
+    await map.mode('plots');
+    assert.ok(map.ids().every(id => !excluded.has(id)), 'CLOUDS markers are removed from PLOTS when switching back');
+    assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'), 'Both products still use the same feed');
   }
-  console.log('METAR PLOTS shows each metro airport’s own readings, location, and wind for each available hour.');
+  console.log('METAR PLOTS omits KMSP and KSTP in every hour and lets nearby stations use their space.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

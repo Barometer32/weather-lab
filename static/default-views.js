@@ -14,8 +14,8 @@ window.WeatherDefaultViews = (()=>{
     return [Math.atan(Math.sinh(Math.PI*(1-2*y/world)))*180/Math.PI,x/world*360-180];
   }
   function overlap(a,b){return a.left<b.right+2&&a.right>b.left-2&&a.top<b.bottom+2&&a.bottom>b.top-2;}
-  function metar(sites,size){
-    const focus=airports.map(airport=>{
+  function metar(sites,size,stationIds=airports.map(airport=>airport.station)){
+    const focus=airports.filter(airport=>stationIds.includes(airport.station)).map(airport=>{
       const found=sites.find(s=>s.station.station===airport.station);
       return {station:found?.station||airport,f:found?.f||fallbackFootprint};
     });

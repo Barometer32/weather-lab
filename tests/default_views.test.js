@@ -52,4 +52,9 @@ for(const size of [{x:320,y:400},{x:375,y:560},{x:1800,y:720}]){
  const view=views.metar(reservedSites,size),reserved=boxes(view,size,reservedSites);
  assert.ok(!overlaps(reserved),'the factory view fits all three complete potential-wind reservations');
  assert.ok(reserved.every(b=>b.left>=16-1e-7&&b.right<=size.x-16+1e-7&&b.top>=16-1e-7&&b.bottom<=size.y-16+1e-7));
+ const plotFocus=['KFCM','KMIC'];
+ const plotSites=reservedSites.filter(site=>plotFocus.includes(site.station.station));
+ const plotView=views.metar(reservedSites,size,plotFocus);
+ assert.deepEqual(plotView,views.metar(plotSites,size,plotFocus),'KMSP has no effect on the PLOTS opening view');
+ assert.ok(!overlaps(boxes(plotView,size,plotSites)),'PLOTS opens with room for both preferred airports');
 }

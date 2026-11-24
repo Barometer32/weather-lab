@@ -70,10 +70,12 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  const stp={...stations[0],station:'KSTP',lat:13,lon:10},sgs={...stp,station:'KSGS',lat:13.01};
  let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
  data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
- assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'KSTP wins before KSGS at the same cramped zoom');
+ assert.ok(!ids().includes('KSTP')&&ids().includes('KSGS'),'PLOTS lets nearby KSGS use the space freed by KSTP');
  assert.ok(ids().includes('KAAA')&&ids().includes('KBBB'),'Other airport plots remain available');
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
+ get('metar-product').events.change({target:{value:'plots'}});await flush();
+ assert.ok(!ids().includes('KSTP')&&ids().includes('KSGS'),'Switching back to PLOTS clears the KSTP marker even at a roomy zoom');
  console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -13,9 +13,9 @@
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=current-home-v35"></script>
-  <script defer src="/static/default-views.js?v=current-home-v35"></script>
+  <script defer src="/static/default-views.js?v=plots-stations-v50"></script>
   <script defer src="/static/metar-model.js?v=current-home-v35"></script>
-  <script defer src="/static/metar-views.js?v=metar-sun-v48"></script>
+  <script defer src="/static/metar-views.js?v=plots-stations-v50"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -42,7 +42,7 @@
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. KMIC, KMSP and KFCM take priority, followed by KSTP. KSGS appears when space allows. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. PLOTS shows surrounding airports, excluding KMSP and KSTP and prioritizing KFCM and KMIC. CLOUDS prioritizes KMSP, KFCM and KMIC, followed by KSTP. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
 </section>
 
 
