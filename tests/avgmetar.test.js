@@ -41,20 +41,22 @@ function distance(a, b) {
     + Math.cos(a.lat * radians) * Math.cos(b.lat * radians) * Math.sin((a.lon - b.lon) * radians / 2) ** 2;
   return 2 * 3958.76 * Math.asin(Math.sqrt(angle));
 }
-nearly(distance(metro, east), 30);
-nearly(distance(metro, north), 30);
+nearly(distance(metro, east), 40);
+nearly(distance(metro, north), 40);
 for (const source of metro.contributors) {
   nearly(source.miles, metro.contributors[0].miles);
   nearly(source.weight, 1 / 3);
 }
 nearly(metro.tempF, 49);
 nearly(metro.dewpointF, 44);
-nearly(metro.wind.speedMph, 10);
+nearly(metro.wind.meanSpeedMph, 10);
+nearly(metro.wind.speedMph, 10 * (1 + 2 * Math.cos(10 * radians)) / 3);
 nearly((metro.wind.direction + 1) % 360, 1);
-assert.deepEqual(Array.from(east.contributors, source => source.station), ['KE01', 'KE02', 'KE03']);
-assert.ok(east.contributors[0].weight > east.contributors[1].weight && east.contributors[1].weight > east.contributors[2].weight);
+assert.deepEqual(Array.from(east.contributors, source => source.station), ['KE01', 'KSTP', 'KE02']);
+nearly(east.contributors[0].weight, east.contributors[1].weight);
+assert.ok(east.contributors[1].weight > east.contributors[2].weight);
 const total = east.contributors.reduce((sum, source) => sum + 1 / Math.max(1, source.miles), 0);
-nearly(east.tempF, (30 + 45 / east.contributors[1].miles + 60 / east.contributors[2].miles) / total);
+nearly(east.tempF, (30 + 99 + 45 / east.contributors[2].miles) / total);
 assert.equal(model.estimates(frame), points, 'Changing zoom can reuse an hourly calculation');
 const later = model.estimates(history[1]).find(point => point.metro);
 assert.deepEqual([later.lat, later.lon], [metro.lat, metro.lon]);
@@ -64,6 +66,21 @@ assert.equal(model.estimates({...frame, stations: reports.slice(0, 2)}).length, 
 const missingDew = model.estimates({...frame, stations: reports.map(report => report.station === 'KMIC'
   ? {...report, dewpointF: null} : report)}).find(point => point.metro);
 assert.equal(missingDew.dewpointF, null);
+const metroWind = winds => model.estimates({...frame, stations: reports.map((report, i) =>
+  i < 3 ? {...report, wind: winds[i]} : report)}).find(point => point.metro).wind;
+const eastWest = metroWind([{speedMph: 12, direction: 90}, {speedMph: 12, direction: 270}, {speedMph: 0}]);
+nearly(eastWest.meanSpeedMph, 8);
+assert.equal(eastWest.speedMph, 0);
+assert.equal(eastWest.direction, null);
+const eastResult = metroWind([{speedKnots: 10, speedMph: 11.5, direction: 90},
+  {speedMph: 5, direction: 270}, {speedMph: 12, variable: true}]);
+nearly(eastResult.speedMph, (11.50779 - 5) / 2);
+nearly(eastResult.direction, 90);
+assert.equal(eastResult.vectorCount, 2);
+const variable = metroWind(Array.from({length: 3}, () => ({speedMph: 7, variable: true})));
+nearly(variable.speedMph, 7);
+assert.equal(variable.direction, null);
+assert.equal(variable.variable, true);
 
 (async () => {
   const map = viewer({history}, {width: 1200, height: 800});
@@ -73,7 +90,9 @@ assert.equal(missingDew.dewpointF, null);
   assert.ok(center);
   assert.equal(center.popup.children[0].textContent, 'Metro average');
   assert.ok(center.popup.children.some(line => line.textContent.startsWith('KMSP ·')));
-  assert.match(center.icon.html, /data-mph="10"/);
+  assert.match(center.icon.html, /data-mph="10"[^>]*rotate\(0\)/);
+  assert.ok(center.popup.children.some(line => line.textContent.includes("9.9 mph from N (0°)")));
+  assert.ok(center.popup.children.some(line => line.textContent.includes("10.0 mph from N (350°)")));
   map.frame(0);
   assert.match(map.marker('AVG-METRO').popup.children[2].textContent, /49\.0°F/);
   assert.ok(map.ids().includes('AVG-1,0'));
@@ -84,5 +103,5 @@ assert.equal(missingDew.dewpointF, null);
   assert.ok(!map.ids().includes('KMSP'));
   await map.mode('avgmetar');
   assert.ok(map.ids().includes('AVG-METRO'));
-  console.log('AVGMETAR passed: fixed 30-mile grid, equal metro mean, nearest-station weighting, and hourly view switching.');
+  console.log('AVGMETAR passed: fixed 40-mile grid, equal metro mean, nearest-station weighting, and hourly view switching.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -3,7 +3,8 @@
 window.WeatherAvgMetar = (() => {
   const earthMiles = 3958.76;
   const radians = Math.PI / 180;
-  const spacing = 30;
+  const spacing = 40;
+  const mphPerKnot = 1.150779;
   const metroAirports = [
     {id: "KMSP", lat: 44.8852, lon: -93.2313},
     {id: "KFCM", lat: 44.8321, lon: -93.4705},
@@ -68,11 +69,51 @@ window.WeatherAvgMetar = (() => {
     return nearest;
   }
 
+  function stationWind(wind) {
+    const knots = wind?.speedKnots;
+    const mph = Number.isFinite(knots) && knots >= 0 ? knots * mphPerKnot : wind?.speedMph;
+    const speedMph = Number.isFinite(mph) && mph >= 0 ? mph : null;
+    const bearing = wind?.direction;
+    const variable = wind?.variable === true;
+    const direction = speedMph > 0 && !variable && Number.isFinite(bearing) && bearing >= 0 && bearing <= 360
+      ? bearing % 360 : null;
+    return {speedMph, direction, variable};
+  }
+
+  function averageWind(contributors) {
+    let east = 0, north = 0, vectorWeight = 0, directed = 0, vectorCount = 0;
+    let speedSum = 0, speedWeight = 0, variable = false;
+    for (const {wind, weight} of contributors) {
+      const {speedMph, direction} = wind;
+      if (speedMph === null) continue;
+      speedSum += speedMph * weight;
+      speedWeight += weight;
+      if (speedMph === 0 || direction !== null) {
+        vectorWeight += weight;
+        vectorCount++;
+      }
+      if (direction !== null) {
+        east += weight * speedMph * Math.sin(direction * radians);
+        north += weight * speedMph * Math.cos(direction * radians);
+        directed++;
+      }
+      variable ||= wind.variable;
+    }
+    const meanSpeedMph = speedWeight > 0 ? speedSum / speedWeight : null;
+    // Speeds with no bearing contribute only to the scalar mean. Calm reports
+    // count as zero vectors, and a directed result uses one vector for both fields.
+    if (!directed) return {speedMph: meanSpeedMph, direction: null, variable, meanSpeedMph, vectorCount};
+    const speedMph = Math.hypot(east, north) / vectorWeight;
+    const direction = speedMph >= .05 ? (Math.atan2(east, north) / radians + 360) % 360 : null;
+    return {speedMph: direction === null ? 0 : speedMph, direction, variable: false, meanSpeedMph, vectorCount};
+  }
+
   function average(point, sources, time, metro = false) {
     const contributors = sources.map(({report, distance}) => ({
       station: report.station,
       miles: miles(distance),
       report,
+      wind: stationWind(report.wind),
     }));
     const weights = contributors.map(source => metro ? 1 : 1 / Math.max(1, source.miles));
     const total = weights.reduce((sum, weight) => sum + weight, 0);
@@ -83,23 +124,12 @@ window.WeatherAvgMetar = (() => {
         ? contributors.reduce((sum, source, i) => sum + source.weight * values[i], 0)
         : null;
     }
-    const speed = report => report.wind?.speedMph ?? (Number.isFinite(report.wind?.speedKnots) ? report.wind.speedKnots * 1.150779 : null);
-    const speedMph = mean(speed);
-    let sin = 0, cos = 0;
-    for (const source of contributors) {
-      const direction = source.report.wind?.direction;
-      if (!Number.isFinite(direction) || source.report.wind?.variable) continue;
-      const strength = source.weight * (speed(source.report) ?? 0);
-      sin += strength * Math.sin(direction * radians);
-      cos += strength * Math.cos(direction * radians);
-    }
-    const direction = Math.hypot(sin, cos) > .01 ? (Math.atan2(sin, cos) / radians + 360) % 360 : null;
     return {
       station: point.station, lat: point.lat, lon: point.lon, east: point.east, north: point.north, time, metro,
       tempF: mean(report => report.tempF),
       dewpointF: mean(report => report.dewpointF),
-      wind: {speedMph, direction, variable: speedMph > 0 && direction === null},
-      contributors: contributors.map(({station, miles, weight}) => ({station, miles, weight})),
+      wind: averageWind(contributors),
+      contributors: contributors.map(({station, miles, weight, wind}) => ({station, miles, weight, wind})),
     };
   }
 
@@ -108,7 +138,7 @@ window.WeatherAvgMetar = (() => {
     const saved = cache.get(frame);
     if (saved) return saved;
     const reports = frame.stations
-      .filter(report => report.reportType === "METAR" && report.station !== "KSTP"
+      .filter(report => report.reportType === "METAR"
         && [report.lat, report.lon, report.tempF].every(Number.isFinite))
       .map(report => ({...report, vector: xyz(report.lat, report.lon)}))
       .sort((first, second) => first.station.localeCompare(second.station));
@@ -124,5 +154,5 @@ window.WeatherAvgMetar = (() => {
     return points;
   }
 
-  return {center, nextEast: gridPosition(1, 0), nextNorth: gridPosition(0, 1), estimates};
+  return {center, spacing, nextEast: gridPosition(1, 0), nextNorth: gridPosition(0, 1), estimates};
 })();

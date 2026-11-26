@@ -161,10 +161,19 @@ window.WeatherMetars = (() => {
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="avgmetar"
-      ?"Hourly metro average and distance-weighted temperature, dew point and wind estimates on a 30-mile grid"
+      ?`Hourly metro average and distance-weighted temperature, dew point and wind estimates on a ${averages.spacing}-mile grid`
       :mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
     el("metar-status").textContent=`${reports.length} ${mode==="avgmetar"?"estimates":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
+  function describeAverageWind(wind){
+    if(wind.speedMph===null)return "unavailable";
+    if(wind.speedMph===0)return "Calm (0 mph)";
+    const speed=`${wind.speedMph.toFixed(1)} mph`;
+    if(wind.direction===null)return `${speed} · ${wind.variable?"variable direction":"direction unavailable"}`;
+    const heading=["N","NE","E","SE","S","SW","W","NW"][Math.round(wind.direction/45)%8];
+    return `${speed} from ${heading} (${Math.round(wind.direction)%360}°)`;
+  }
+
   function draw(drawn){
     const keep=new Set(drawn.map(s=>s.station));
     for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
@@ -179,11 +188,19 @@ window.WeatherMetars = (() => {
       popup.append(node("strong",title),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs);
-      popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      const windText=mode==="avgmetar"?describeAverageWind(wind)
+        :`${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`;
+      popup.append(node("p",`Wind: ${windText}`));
       if(mode==="avgmetar"){
         popup.append(node("p",station.metro?"Equal weight per airport":"Distance-weighted from the three nearest reporting airports"));
+        if(wind.meanSpeedMph!==null&&Math.abs(wind.speedMph-wind.meanSpeedMph)>=.05){
+          popup.append(node("p",`Mean reported speed: ${wind.meanSpeedMph.toFixed(1)} mph`));
+        }
+        if(wind.direction!==null&&wind.vectorCount<station.contributors.length){
+          popup.append(node("p",`Wind vector uses ${wind.vectorCount} of ${station.contributors.length} stations with usable wind vectors`));
+        }
         for(const source of station.contributors){
-          popup.append(node("p",`${source.station} · ${source.miles.toFixed(1)} mi · ${Math.round(source.weight*100)}%`));
+          popup.append(node("p",`${source.station} · ${source.miles.toFixed(1)} mi · ${Math.round(source.weight*100)}% · ${describeAverageWind(source.wind)}`));
         }
       }else{
         const layer=model.firstCloudLayer(station);
@@ -236,7 +253,7 @@ window.WeatherMetars = (() => {
     const previous=mode;
     mode=product==="clouds"||product==="plots"?product:defaultProduct;
     el("metar-product").value=mode;
-    el("metar-eyebrow").textContent=mode==="avgmetar"?"EXPERIMENTAL · 30 MI GRID":"AIRPORT METARS · UPPER MIDWEST";
+    el("metar-eyebrow").textContent=mode==="avgmetar"?`EXPERIMENTAL · ${averages.spacing} MI GRID`:"AIRPORT METARS · UPPER MIDWEST";
     if(data)prepareSpacing();
     if(map&&(window.WeatherDefaultViews?.savedMetar?.(mode)
       || (previous!==mode && (previous==="avgmetar"||mode==="avgmetar"))))reset();
