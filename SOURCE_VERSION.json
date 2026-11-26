@@ -12,8 +12,9 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "plots",
+  "defaultMetarProduct": "avgmetar",
   "metarProducts": [
+    "avgmetar",
     "plots",
     "clouds"
   ],

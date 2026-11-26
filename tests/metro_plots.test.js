@@ -35,7 +35,8 @@ const excluded = new Set(['KMSP', 'KSTP']);
   for (const width of [320, 375, 1870]) {
     const map = viewer(data, {width});
     await map.load();
-    assert.equal(map.get('metar-product').value, 'plots');
+    assert.equal(map.get('metar-product').value, 'avgmetar');
+    await map.mode('plots');
     for (const [i, frame] of history.entries()) {
       map.frame(i);
       const expected = frame.stations.filter(s => !excluded.has(s.station));

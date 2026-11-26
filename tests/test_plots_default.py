@@ -5,11 +5,11 @@ import collector
 import verify_weather_release as verify
 
 
-def test_plots_default_and_retained_airports_pass_release_layout_check():
+def test_avgmetar_default_and_retained_airports_pass_release_layout_check():
     html = app.app.test_client().get('/').text
     with patch.object(verify, 'read', return_value=html):
         verify.check_layout('local')
-    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert '<option value="avgmetar" selected>AVGMETAR</option>' in html
     assert 'id="metar-history" hidden' not in html
     assert 'id="metar-notice"' not in html
 

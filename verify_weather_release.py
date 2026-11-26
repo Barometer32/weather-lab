@@ -1,4 +1,4 @@
-"""Verify prepared weather products and PLOTS default with standard-library tools."""
+"""Verify prepared weather products and AVGMETAR default with standard-library tools."""
 import argparse
 from datetime import datetime
 import json
@@ -41,13 +41,14 @@ def check_layout(base):
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=current-home-v35' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
-    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["avgmetar", "plots", "clouds"]
+    assert '<option value="avgmetar" selected>AVGMETAR</option>' in html
     assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/metar-views.js?v=plots-stations-v50' in html
+    assert '/static/avgmetar.js?v=avgmetar-v52' in html
+    assert '/static/metar-views.js?v=avgmetar-v52' in html
     assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html
@@ -59,7 +60,7 @@ def check_layout(base):
     assert 'id="forecast-periods"' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
-    print("Verified METAR PLOTS home with CLOUDS and all other retained tabs.")
+    print("Verified AVGMETAR home with PLOTS, CLOUDS and all other retained tabs.")
 
 
 def check_hourly(base):
