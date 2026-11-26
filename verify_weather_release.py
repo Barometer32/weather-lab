@@ -49,7 +49,7 @@ def check_layout(base):
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '/static/avgmetar.js?v=avgmetar-grid-v54' in html
     assert '/static/metar-views.js?v=grid-plots-v55' in html
-    assert '/static/air-quality-views.js?v=airq-pending-hour-v2' in html
+    assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
     assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html
@@ -109,6 +109,10 @@ def check_products(base):
             assert data.get("product") == data.get("defaultProduct") == "truecolor" and len(data["frames"]) == 24, "Default True Color loop is still preparing"
         if path == "/api/forecast":
             assert "lamp" not in data and "hourly" not in data, "Expected the text forecast only"
+        if path == "/api/air-quality":
+            assert "pendingHour" not in data
+            assert all(f["time"] == f["sourceTime"] and f.get("sourceProduct") != "airnow-combined-kml"
+                       for f in data["frames"]), "Air Q loop must use published source-hour maps"
         if items == "frames":
             asset = data[items][-1]["url"]
             assert asset.startswith("/api/prepared/"), f"{name}: asset is not prepared"

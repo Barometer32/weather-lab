@@ -11,7 +11,7 @@ GitHub branch: `rtmetar-default-20261111`.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
-- **AIR Q** uses prepared Minnesota AirNow/MPCA source-hour maps and shows when the next hour is pending. Each new timeline position appears after its image loads.
+- **AIR Q** uses prepared Minnesota maps from EPA AirNow’s latest and 24-hour combined AQI contour layers. Each source hour appears after its image loads.
 
 ## Background updates
 

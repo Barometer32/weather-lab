@@ -102,7 +102,7 @@ def test_history_api_reads_only_saved_data_and_preserves_actual_history_length()
         response=weather.app.test_client().get('/api/air-quality')
     assert response.status_code==200 and len(response.json['frames'])==1
     assert response.json['timeBasis']=='source' and response.json['frames'][0]['time']==aq.iso(SOURCE)
-    assert response.json['pendingHour']==aq.iso(SOURCE+timedelta(hours=1))
+    assert 'pendingHour' not in response.json
     assert response.json['historyPending'] is True and response.headers['Cache-Control']=='no-store'
     source.assert_not_called()
 
@@ -142,7 +142,6 @@ def test_new_source_hour_is_captured_even_within_same_download_clock_hour():
     frames=manifest['frames']
     assert [f['time'] for f in frames]==[aq.iso(SOURCE),aq.iso(SOURCE+timedelta(hours=1))]
     assert all(f['capturedAt'].startswith('2026-10-24T00:') for f in frames)
-    assert manifest['pendingHour'] is None
 
 
 def test_source_hour_correction_replaces_frame_instead_of_duplicating_it():
@@ -255,35 +254,36 @@ def test_stalled_latest_layer_uses_newer_archive_even_with_no_existing_gaps():
     assert aq.public_manifest(data,NOW+timedelta(hours=4))['sourceDelayed']
 
 
-def test_direct_airnow_file_advances_beyond_stalled_contours_and_reuses_etag():
+def test_retired_feed_hour_is_hidden_then_rebuilt_from_airnow_archive():
+    from copy import deepcopy
+
     store=MemoryStore()
     basic,_=fetcher()
-    latest=SOURCE+timedelta(hours=1)
-    kml=f'''<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Folder>
-      <name>1hr_Combined_AQI_USA_{latest:%Y%m%d%H}</name>
-      <Placemark><styleUrl>#Moderate</styleUrl><Polygon>
-        <outerBoundaryIs><LinearRing><coordinates>-98,43 -98,50 -89,50 -89,43 -98,43</coordinates></LinearRing></outerBoundaryIs>
-        <innerBoundaryIs><LinearRing><coordinates>-94,44 -94,45 -93,45 -93,44 -94,44</coordinates></LinearRing></innerBoundaryIs>
-        <innerBoundaryIs><LinearRing><coordinates>-92,45 -92,45</coordinates></LinearRing></innerBoundaryIs>
-      </Polygon></Placemark></Folder></Document></kml>'''.encode()
-    seen=[]
-    def direct(etag):
-        seen.append(etag)
-        return (kml,'test-tag') if etag is None else (None,etag)
+    aq.collect(store,NOW,basic)
+    previous=store.read_json('live/air-quality.json')
+    original=previous['frames'][0]
+    missing_hour=SOURCE-timedelta(hours=1)
+    retired={**original,'time':aq.iso(missing_hour),'sourceTime':aq.iso(missing_hour),
+             'sourceProduct':'airnow-combined-kml','url':'retired-map.png'}
+    previous['frames'].insert(0,retired)
+    store.write_json('live/air-quality.json',previous)
+    assert aq.public_manifest(previous,NOW)['frames']==[original]
 
-    aq.collect(store,NOW,basic,fetch_direct=direct)
-    data=store.read_json('live/air-quality.json')
-    frame=data['frames'][-1]
-    assert frame['sourceTime']==aq.iso(latest) and frame['sourceProduct']=='airnow-combined-kml'
-    image_key=frame['url'].removeprefix('/api/prepared/')
-    with Image.open(BytesIO(store.read(image_key))) as image:
-        x,y=aq.xy(aq.mercator(-93.5,44.5))
-        assert image.getpixel((round(x),round(y)))==(255,255,255)
+    rows,_=feature_data()
+    recovered=deepcopy(rows[0])
+    recovered['attributes'].update(Timestamp=missing_hour.timestamp()*1000,gridcode=1)
+    def fetch(url):
+        if aq.HISTORY in url:
+            return json.dumps({'features':[recovered]}).encode()
+        return basic(url)
+
+    later=NOW+timedelta(minutes=5)
+    aq.collect(store,later,fetch)
+    frames=aq.public_manifest(store.read_json('live/air-quality.json'),later)['frames']
+    assert [frame['sourceTime'] for frame in frames]==[aq.iso(missing_hour),aq.iso(SOURCE)]
+    restored,current=frames
+    assert current==original and restored['capturedAt']==aq.iso(later)
+    assert 'sourceProduct' not in restored and restored['url']!=retired['url']
+    with Image.open(BytesIO(store.read(restored['url'].removeprefix('/api/prepared/')))) as image:
         x,y=aq.xy(aq.mercator(-92,46))
-        assert image.getpixel((round(x),round(y)))==(255,255,0)
-    aq.collect(store,NOW+timedelta(minutes=5),basic,fetch_direct=direct)
-    data=store.read_json('live/air-quality.json')
-    assert seen==[None,'test-tag']
-    assert data['frames'][-1]==frame
-    assert data['directCheckedAt']==aq.iso(NOW+timedelta(minutes=5))
-    assert 'directETag' not in aq.public_manifest(data,NOW+timedelta(minutes=5))
+        assert image.getpixel((round(x),round(y)))==(0,228,0)

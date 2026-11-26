@@ -3,7 +3,6 @@
 window.WeatherAirQuality = (() => {
   const el=id=>document.getElementById(id);
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  const hour=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"});
   const images=new Map();let data,index=0,followLatest=true,busy=false,serial=0,queued=false,queuedForce=false,notice="";
   async function imageReady(url){
     if(!images.has(url)){
@@ -14,8 +13,7 @@ window.WeatherAirQuality = (() => {
   function updateTime(){
     if(!data){el("airq-time").textContent=notice||"Loading Air Q snapshots…";return;}
     const frame=data.frames[index];
-    const pending=index===data.frames.length-1&&data.pendingHour? `Waiting for ${hour.format(new Date(data.pendingHour))} map`:"";
-    const warning=notice||(data.stale?"Background collection delayed":data.sourceDelayed?"AirNow map delayed":data._savedCopy?"Saved copy":pending);
+    const warning=notice||(data.stale?"Background collection delayed":data.sourceDelayed?"AirNow map delayed":data._savedCopy?"Saved copy":"");
     el("airq-time").textContent=`Data as of ${time.format(new Date(frame.sourceTime||frame.time))} · ${index+1}/${data.frames.length}${warning?" · "+warning:""}`;
     el("airq-timeline").setAttribute("aria-valuetext",el("airq-time").textContent);
   }
@@ -38,7 +36,9 @@ window.WeatherAirQuality = (() => {
     if(busy){queued=true;queuedForce=queuedForce||force;return;}
     busy=true;el("refresh-air-quality").disabled=true;
     try{
-      const next=await window.WeatherPrepared.read("/api/air-quality",{force});
+      const snapshot=await window.WeatherPrepared.read("/api/air-quality",{force});
+      // A saved browser manifest can still contain maps from the retired feed.
+      const next={...snapshot,frames:snapshot.frames?.filter(frame=>frame.sourceProduct!=="airnow-combined-kml")};
       if(!next.frames?.length)throw Error("Air Q history is building; no snapshots are ready yet.");
       const selected=data?.frames[index]?.sourceTime||data?.frames[index]?.time;
       const restored=!followLatest&&selected?next.frames.findIndex(f=>(f.sourceTime||f.time)===selected):-1;
