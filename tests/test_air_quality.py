@@ -102,6 +102,7 @@ def test_history_api_reads_only_saved_data_and_preserves_actual_history_length()
         response=weather.app.test_client().get('/api/air-quality')
     assert response.status_code==200 and len(response.json['frames'])==1
     assert response.json['timeBasis']=='source' and response.json['frames'][0]['time']==aq.iso(SOURCE)
+    assert response.json['pendingHour']==aq.iso(SOURCE+timedelta(hours=1))
     assert response.json['historyPending'] is True and response.headers['Cache-Control']=='no-store'
     source.assert_not_called()
 
@@ -135,10 +136,13 @@ def test_snapshot_lifecycle_does_not_expire_cached_geography():
 def test_new_source_hour_is_captured_even_within_same_download_clock_hour():
     store=MemoryStore();fetch,_=fetcher();aq.collect(store,NOW,fetch)
     fetch.set_source(SOURCE+timedelta(hours=1))
-    aq.collect(store,NOW+timedelta(minutes=30),fetch)
-    frames=store.read_json('live/air-quality.json')['frames']
+    later=NOW+timedelta(minutes=30)
+    aq.collect(store,later,fetch)
+    manifest=aq.public_manifest(store.read_json('live/air-quality.json'),later)
+    frames=manifest['frames']
     assert [f['time'] for f in frames]==[aq.iso(SOURCE),aq.iso(SOURCE+timedelta(hours=1))]
     assert all(f['capturedAt'].startswith('2026-10-24T00:') for f in frames)
+    assert manifest['pendingHour'] is None
 
 
 def test_source_hour_correction_replaces_frame_instead_of_duplicating_it():

@@ -32,7 +32,8 @@ console.log('Default view checks passed: footprint-aware initial METAR zoom and 
 // Product defaults use independent keys and survive reloading the module.
 const storage=new Map();blocked=false;
 context.window.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)};
-assert.ok(views.saveMetar('plots',[44.8,-93.3],9.25));
+assert.ok(views.saveMetar('avgmetar',[44.8,-93.3],9.25));
+assert.equal(views.saveMetar('plots',[44.8,-93.3],9.25),false);
 assert.ok(views.saveMetar('clouds',[44.9,-93.4],10));
 assert.equal(views.saveMetar('madis',[45,-93.5],10.5),false);
 assert.equal(views.saveMetar('unknown',[45,-93],9),false);
@@ -40,21 +41,16 @@ assert.equal(views.saveMetar('rtmetar',[45,-93],9),false);
 assert.equal(views.savedMetar('rtmetar'),null);
 assert.equal(views.saveMetar('mesonet',[44.9,-93.5],10),false);
 vm.runInNewContext(fs.readFileSync('static/default-views.js','utf8'),context);
-assert.equal(context.window.WeatherDefaultViews.savedMetar('plots').zoom,9.25);
+assert.equal(context.window.WeatherDefaultViews.savedMetar('avgmetar').zoom,9.25);
 assert.equal(context.window.WeatherDefaultViews.savedMetar('clouds').zoom,10);
 
 storage.set('weather-metar-default-v1-clouds','bad json');assert.equal(views.savedMetar('clouds'),null);
 context.window.localStorage={getItem(){throw Error('Blocked');},setItem(){throw Error('Blocked');}};
-assert.equal(views.savedMetar('plots'),null);assert.equal(views.saveMetar('plots',[45,-93],9),false);
+assert.equal(views.savedMetar('avgmetar'),null);assert.equal(views.saveMetar('avgmetar',[45,-93],9),false);
 
 const reservedSites=airports.map(station=>({station,f:model.combinedReservation({...station,tempF:39,dewpointF:23,wind:{speedMph:0}},{dot:true,mphBarbs:true}).bounds}));
 for(const size of [{x:320,y:400},{x:375,y:560},{x:1800,y:720}]){
  const view=views.metar(reservedSites,size),reserved=boxes(view,size,reservedSites);
  assert.ok(!overlaps(reserved),'the factory view fits all three complete potential-wind reservations');
  assert.ok(reserved.every(b=>b.left>=16-1e-7&&b.right<=size.x-16+1e-7&&b.top>=16-1e-7&&b.bottom<=size.y-16+1e-7));
- const plotFocus=['KFCM','KMIC'];
- const plotSites=reservedSites.filter(site=>plotFocus.includes(site.station.station));
- const plotView=views.metar(reservedSites,size,plotFocus);
- assert.deepEqual(plotView,views.metar(plotSites,size,plotFocus),'KMSP has no effect on the PLOTS opening view');
- assert.ok(!overlaps(boxes(plotView,size,plotSites)),'PLOTS opens with room for both preferred airports');
 }

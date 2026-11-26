@@ -2,26 +2,25 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function element(){return{value:'',events:{},children:[],hidden:false,disabled:false,textContent:'',style:{setProperty(){}},setAttribute(k,v){this[k]=v;},append(...v){this.children.push(...v);},addEventListener(k,f){this.events[k]=f;}};}
 const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
-// Generic airports exercise unchanged individual PLOTS; the core trio is tested in metro_average.
+// Generic airports exercise the individual CLOUDS display.
 const stations=[{station:'KAAA',lat:3,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:71,dewpointF:50,wind:{speedMph:7,direction:270},layers:[{cover:'BKN',baseFtAGL:2700}]},{station:'KNEAR',lat:3.01,lon:1,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:70,dewpointF:49,wind:{speedMph:0},layers:[{cover:'CLR',baseFtAGL:null}]},{station:'KBBB',lat:9,lon:2,time:'2026-10-24T17:53:00Z',reportType:'METAR',tempF:72,dewpointF:51,wind:{speedMph:10,direction:225},layers:[{cover:'OVC',baseFtAGL:25000}]}];
 let data={checkedAt:'2026-10-24T18:01:00Z',serverTime:'2026-10-24T18:02:00Z',history:Array.from({length:12},(_,i)=>({hour:new Date(Date.UTC(2026,9,24,7+i)).toISOString(),stations:stations.map(s=>({...s,tempF:i===0?100:s.tempF}))}))};
 get('metar-product').value='clouds'; // Simulate a browser-restored old selection.
 let reads=0,fail=false,shown=[],zoomed=false,fullConfig,subscriber,created=0,footprints=0;const callbacks={};
 const map={setView(){return this;},getSize(){return{x:1000,y:700};},on(name,fn){callbacks[name]=fn;},latLngToContainerPoint([lat,lon]){return{x:zoomed?(lat-3)*10000+100:lat*50,y:lon*50};},invalidateSize(){}};
 const context={window:{WeatherPrepared:{read:async(url)=>{if(url==='/api/current')return {history:[]};reads++;if(fail)throw Error('Unavailable');return data;},subscribe(url,fn){if(url==='/api/station-plots?view=loop')subscriber=fn;}},WeatherFullscreen:{attach(c){fullConfig=c;}},WeatherSun:{sync(){}},addEventListener(){}},document:{getElementById:get,createElement:element,hidden:false},Intl,Math,Date,Number,Map,Set,setTimeout(){},setInterval(){},L:{map:()=>map,tileLayer:()=>({addTo(){}}),layerGroup:()=>({addTo(){return this;},clearLayers(){throw Error("Do not rebuild every marker on zoom");},removeLayer(marker){shown=shown.filter(s=>s!==marker);}}),divIcon:x=>x,marker:(position,config)=>{created++;return{position,...config,bindPopup(popup){this.popup=popup;return this;},addTo(){shown.push(this);return this;},setIcon(icon){this.icon=icon;return this;},setLatLng(position){this.position=position;return this;},setPopupContent(popup){this.popup=popup;return this;}};}}};
-vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.combinedFootprint;context.window.WeatherStationModel.combinedFootprint=s=>{footprints++;return footprint(s);};for(const path of ['static/avgmetar.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
+vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.cloudFootprint;context.window.WeatherStationModel.cloudFootprint=s=>{footprints++;return footprint(s);};for(const path of ['static/avgmetar.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
- assert.equal(get('metar-product').value,'avgmetar','AVGMETAR overrides a restored product selection on startup');
- context.window.WeatherMetars.select('metar');get('metar-product').events.change({target:{value:'plots'}});await flush();
- assert.equal(shown.length,2,'Neighbouring combined station plots cannot overlap');
+ assert.equal(get('metar-product').value,'avgmetar','Gridded PLOTS overrides a restored product selection on startup');
+ context.window.WeatherMetars.select('metar');get('metar-product').events.change({target:{value:'clouds'}});await flush();
+ assert.equal(shown.length,2,'Neighboring cloud plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'3');assert.equal(fullConfig.surfaceId,'metar-surface');
  const firstMarker=shown[0],initialFootprints=footprints;
  callbacks.moveend();assert.equal(created,2,'Existing markers survive map movement');assert.equal(shown[0],firstMarker);assert.equal(footprints,initialFootprints,'Four-frame footprints are cached until new data arrives');
  const svg=shown[0].icon.html;
- for(const cls of ['combined-station-plot','plot-temp','plot-dew','mesonet-dot','wind-barb'])assert.ok(svg.includes(cls),cls);
- assert.doesNotMatch(svg,/plot-speed|plot-ceiling|plot-sky|wind-calm/);
- assert.match(svg,/rotate\(270\)/,'A standard west-wind barb extends west toward the source');
+ assert.match(svg,/plot-sky/);
+ assert.doesNotMatch(svg,/plot-temp|wind-barb/);
  assert.deepEqual(Array.from(shown[0].position),[3,1],'Station circle is anchored to the exact airport');
  const popup=shown[0].popup.children.map(n=>n.textContent).join(' ');
  assert.match(popup,/Temperature: 71.0°F/);assert.match(popup,/Dewpoint: 50.0°F/);assert.match(popup,/Wind: 7 mph from 270°/);assert.match(popup,/BKN: 2,700 ft AGL/);
@@ -64,19 +63,15 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(get('metar-product').value,'clouds','visibility refresh keeps the selected product');
  context.window.WeatherMetars.select('radar');
  context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-product').value,'avgmetar','returning to METAR opens AVGMETAR');
- get('metar-product').events.change({target:{value:'plots'}});await flush();
- assert.equal(get('metar-surface').hidden,false,'PLOTS keeps the hourly map visible');
- for(const id of ['KUNKNOWN','KBASE','KSWITCH'])assert.ok(ids().includes(id),'cloud availability does not remove temperature/wind plots: '+id);
+ assert.equal(get('metar-product').value,'avgmetar','returning to METAR opens gridded PLOTS');
  const stp={...stations[0],station:'KSTP',lat:13,lon:10},sgs={...stp,station:'KSGS',lat:13.01};
  let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
  data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
- assert.ok(!ids().includes('KSTP')&&ids().includes('KSGS'),'PLOTS lets nearby KSGS use the space freed by KSTP');
- assert.ok(ids().includes('KAAA')&&ids().includes('KBBB'),'Other airport plots remain available');
  get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
  get('metar-product').events.change({target:{value:'plots'}});await flush();
- assert.ok(!ids().includes('KSTP')&&ids().includes('KSGS'),'Switching back to PLOTS clears the KSTP marker even at a roomy zoom');
- console.log('Combined METAR view passed: one plot, exact anchors, standard barbs, collision spacing, stable timeline, zoom and refresh retention.');
+ assert.equal(get('metar-product').value,'avgmetar','the retired mode falls back to gridded PLOTS');
+ assert.ok(!ids().includes('KSTP'),'switching back to gridded PLOTS clears individual markers');
+ console.log('METAR CLOUDS passed: exact anchors, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

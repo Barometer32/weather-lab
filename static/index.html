@@ -13,11 +13,11 @@
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=current-home-v35"></script>
-  <script defer src="/static/default-views.js?v=avgmetar-wind-v53"></script>
+  <script defer src="/static/default-views.js?v=grid-plots-v55"></script>
   <script defer src="/static/metar-model.js?v=current-home-v35"></script>
   <script defer src="/static/avgmetar.js?v=avgmetar-grid-v54"></script>
-  <script defer src="/static/metar-views.js?v=avgmetar-grid-v54"></script>
-  <script defer src="/static/air-quality-views.js?v=airq-source-fallback-v1"></script>
+  <script defer src="/static/metar-views.js?v=grid-plots-v55"></script>
+  <script defer src="/static/air-quality-views.js?v=airq-pending-hour-v2"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
   <script defer src="/static/app.js?v=satellite-truecolor-v51"></script>
@@ -34,7 +34,7 @@
 </header>
 <main>
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar">
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">EXPERIMENTAL · 25 MI GRID</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="avgmetar" selected>AVGMETAR</option><option value="plots">PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout" title="Current apparent solar elevation in Hopkins, MN"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">HOURLY AVERAGES · 25 MI GRID</p><div class="metar-title-row"><h1>METAR</h1><label class="sr-only" for="metar-product">Observation map</label><select id="metar-product" aria-label="Observation map"><option value="avgmetar" selected>PLOTS</option><option value="clouds">CLOUDS</option></select></div></div><div class="metar-view-controls"><span class="sun-angle-readout" title="Current apparent solar elevation in Hopkins, MN"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
     <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly metro average and distance-weighted temperature, dew point and wind estimates on a 25-mile grid"></div></div>
     <div class="radar-controls viewer-controls">
@@ -43,7 +43,7 @@
       <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
     </div>
   </div>
-  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS and CLOUDS use official routine airport METARs from :45–:59, closest to :53 and labeled with the following hour. Temperature is upper left and dewpoint lower left beside the station dot. Standard wind barbs start at the dot; feathers show mph. CLOUDS shows the lowest BKN/OVC height in thousands of feet. Each hour shows its own available reports; a missing hour does not exclude an airport from other hours. Barbs may cross one another. A slightly tighter wind area is reserved even during calm or variable winds. Light barb-to-number contact is allowed, while numeric labels remain separated. PLOTS shows surrounding airports, excluding KMSP and KSTP and prioritizing KFCM and KMIC. CLOUDS prioritizes KMSP, KFCM and KMIC, followed by KSTP. This spacing stays fixed through the loop; only actual reports are plotted for each hour. Displayed plots retain their complete wind symbols. More stations appear as you zoom in and labels have room.</p></div>
+  <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>PLOTS shows hourly averages on a 25-mile grid. Select a point for its contributing airports. CLOUDS shows individual airport reports and the lowest BKN/OVC height in thousands of feet.</p></div>
 </section>
 
 

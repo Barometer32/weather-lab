@@ -57,4 +57,4 @@ gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$web_
 gcloud run services update weather-lab "${run[@]}" --min="$warm_min"
 python3 verify_weather_release.py "$site" --all-products
 python3 cleanup_weather_jobs.py --apply --only-job weather-live-rapmetar
-printf 'Weather Lab is live at %s. AVGMETAR opens first.\n' "$site"
+printf 'Weather Lab is live at %s. Gridded PLOTS opens first.\n' "$site"

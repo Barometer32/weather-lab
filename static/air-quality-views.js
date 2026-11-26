@@ -3,6 +3,7 @@
 window.WeatherAirQuality = (() => {
   const el=id=>document.getElementById(id);
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+  const hour=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"numeric",minute:"2-digit"});
   const images=new Map();let data,index=0,followLatest=true,busy=false,serial=0,queued=false,queuedForce=false,notice="";
   async function imageReady(url){
     if(!images.has(url)){
@@ -13,7 +14,8 @@ window.WeatherAirQuality = (() => {
   function updateTime(){
     if(!data){el("airq-time").textContent=notice||"Loading Air Q snapshots…";return;}
     const frame=data.frames[index];
-    const warning=notice||(data.stale?"Background collection delayed":data.sourceDelayed?"AirNow map delayed":data._savedCopy?"Saved copy":"");
+    const pending=index===data.frames.length-1&&data.pendingHour? `Waiting for ${hour.format(new Date(data.pendingHour))} map`:"";
+    const warning=notice||(data.stale?"Background collection delayed":data.sourceDelayed?"AirNow map delayed":data._savedCopy?"Saved copy":pending);
     el("airq-time").textContent=`Data as of ${time.format(new Date(frame.sourceTime||frame.time))} · ${index+1}/${data.frames.length}${warning?" · "+warning:""}`;
     el("airq-timeline").setAttribute("aria-valuetext",el("airq-time").textContent);
   }

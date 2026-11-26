@@ -6,17 +6,10 @@ window.WeatherMetars = (() => {
   const defaultProduct="avgmetar";
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=defaultProduct,wantedHour=null;
   const historyHours=4;
-  const plotExcluded=new Set(["KMSP","KSTP"]);
-  const priorities={
-    plots:{preferred:["KFCM","KMIC"],secondary:[]},
-    clouds:{preferred:["KMSP","KFCM","KMIC"],secondary:["KSTP"]}
-  };
-  const priorityLocations={KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
+  const cloudPriority=["KMSP","KFCM","KMIC"];
   const windPlotOptions={dot:true,mphBarbs:true};
-  const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
   let busy=false,sourceData;
-  const plotCaches={avgmetar:new WeakMap(),plots:new WeakMap(),clouds:new WeakMap()};
-  const plotAvailable=station=>!plotExcluded.has(station.station);
+  const plotCaches={avgmetar:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
   el("metar-product").value=mode;
@@ -26,7 +19,7 @@ window.WeatherMetars = (() => {
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
     const view=saved||(mode==="avgmetar"
       ?{center:averages.center,zoom:8}
-      :window.WeatherDefaultViews?.metar(sites,map.getSize(),priorities[mode].preferred)||{center:[44.945,-93.343],zoom:9});
+      :window.WeatherDefaultViews?.metar(sites,map.getSize(),cloudPriority)||{center:[44.945,-93.343],zoom:9});
     map.setView(view.center,view.zoom,{animate:false});
   }
   function init(){
@@ -51,63 +44,41 @@ window.WeatherMetars = (() => {
     }
     return null;
   }
-  function prepareSpacing(){
-    if(mode==="avgmetar")return;
-    // Index each hour independently. A missing report in one hour must not
-    // remove the airport from another hour where it has usable data.
-    const {preferred,secondary}=priorities[mode];
-    const reports=data.history.map(frame=>frame.stations.filter(mode==="clouds"?cloudAvailable:plotAvailable));
+  function prepareCloudSpacing(){
+    if(mode!=="clouds")return;
+    // Index each hour independently so a missing ceiling only affects that hour.
     const bySite=new Map();
-    for(const [index,stations] of reports.entries())for(const station of stations){
-      const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
-      const reservation=mode==="plots"?model.combinedReservation(station,windPlotOptions):null;
-      const f=reservation?.bounds||model.cloudFootprint(station);
-      frames[index]=reservation?.boxes||[f];
-      bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
+    for(const [frameIndex,frame] of data.history.entries())for(const station of frame.stations.filter(cloudAvailable)){
+      const old=bySite.get(station.station),frames=old?.frames||Array(data.history.length).fill(null);
+      const f=model.cloudFootprint(station);
+      frames[frameIndex]=f;
+      bySite.set(station.station,{station,frames,
         f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
-    if(mode==="plots")for(const id of preferred)if(!bySite.has(id)){
-      // Layout-only reservation: it never becomes a report or a plotted value.
-      const [lat,lon]=priorityLocations[id],station={station:id,lat,lon,tempF:-99,dewpointF:-99};
-      const reserve=model.combinedReservation(station,windPlotOptions);
-      bySite.set(id,{station,frames:Array.from({length:data.history.length},()=>reserve.boxes),radius:reserve.radius,f:reserve.bounds,reserveOnly:true});
-    }
     const rank=s=>{
-      const i=preferred.indexOf(s.station);return i<0?preferred.length+(secondary.includes(s.station)?0:1):i;
+      const i=cloudPriority.indexOf(s.station);
+      return i<0?cloudPriority.length+(s.station==="KSTP"?0:1):i;
     };
     sites=[...bySite.values()].sort((a,b)=>rank(a.station)-rank(b.station)||a.station.station.localeCompare(b.station.station));
   }
-  function visible(stations){
-    const {preferred,secondary}=priorities[mode];
+  function visibleClouds(stations){
     const size=map.getSize(),point=s=>map.latLngToContainerPoint([s.lat,s.lon]);
     const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
-    const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
+    const shift=(b,p)=>({left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
     const candidates=[];
-    for(const {station,f,frames,radius,reserveOnly} of sites){
-      if(mode==="clouds"&&!frames[index].length)continue;
+    for(const {station,f,frames} of sites){
+      if(!frames[index])continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
-      const boxes=(mode==="plots"?frames.flat():frames[index]).map(b=>shift(b,p));
-      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:(radius||0)*windSpacingFactor,reserveOnly,
-        reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
+      candidates.push({id:station.station,bounds:shift(f,p),box:shift(frames[index],p),
+        reportHours:frames.filter(Boolean).length,conflicts:new Set()});
     }
-    const reaches=(circle,label)=>{
-      const dx=Math.max(label.left-circle.point.x,0,circle.point.x-label.right);
-      const dy=Math.max(label.top-circle.point.y,0,circle.point.y-label.bottom);
-      return dx*dx+dy*dy<=circle.radius*circle.radius;
-    };
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
-      if(!overlap(a.bounds,b.bounds))continue;
-      // Use slightly tighter all-bearing spacing and loop-wide label widths.
-      // Calm winds and timeline changes cannot temporarily admit a neighbor.
-      const body=a.boxes.some(x=>b.boxes.some(y=>overlap(x,y)));
-      const sweep=mode==="plots"&&(a.boxes.some(label=>label.kind==="text"&&reaches(b,label))||b.boxes.some(label=>label.kind==="text"&&reaches(a,label)));
-      if(body||sweep){a.conflicts.add(b);b.conflicts.add(a);}
+      if(overlap(a.bounds,b.bounds)&&overlap(a.box,b.box)){a.conflicts.add(b);b.conflicts.add(a);}
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const reservedPrimary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
-    const primary=reservedPrimary.filter(site=>!site.reserveOnly);
+    const primary=cloudPriority.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
     // Keep as many preferred airports as fit before considering their neighbors.
     let best=[];
     for(let mask=0;mask<2**primary.length;mask++){
@@ -116,9 +87,10 @@ window.WeatherMetars = (() => {
       best=subset;
     }
     for(const site of best)take(site);
-    for(const site of candidates)if(site.reserveOnly||(!preferred.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
+    for(const site of candidates)if(!cloudPriority.includes(site.id)&&primary.some(core=>core.conflicts.has(site)))remaining.delete(site);
     // Give CLOUDS its existing secondary priority when there is room.
-    for(const id of secondary){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
+    const stPaul=candidates.find(site=>site.id==="KSTP");
+    if(remaining.has(stPaul))take(stPaul);
     // Fill remaining gaps with the least-conflicting stations first.
     while(remaining.size){
       let best,degree=Infinity;
@@ -154,15 +126,15 @@ window.WeatherMetars = (() => {
     if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
     index=Math.max(0,Math.min(index,hours.length-1));
     const frame=hours[index];
-    const reports=mode==="avgmetar"?averages.estimates(frame):mode==="plots"?frame.stations.filter(plotAvailable):frame.stations;
-    draw(mode==="avgmetar"?visibleAverages(reports):visible(reports));
+    const reports=mode==="avgmetar"?averages.estimates(frame):frame.stations;
+    draw(mode==="avgmetar"?visibleAverages(reports):visibleClouds(reports));
     const slider=el("metar-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="avgmetar"
       ?`Hourly metro average and distance-weighted temperature, dew point and wind estimates on a ${averages.spacing}-mile grid`
-      :mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
+      :"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL");
     el("metar-status").textContent=`${reports.length} ${mode==="avgmetar"?"estimates":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function describeAverageWind(wind){
@@ -233,7 +205,7 @@ window.WeatherMetars = (() => {
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
     sourceData=next;data={...next,history};
-    prepareSpacing();
+    prepareCloudSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
     render();
@@ -251,12 +223,12 @@ window.WeatherMetars = (() => {
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
   function selectProduct(product){
     const previous=mode;
-    mode=product==="clouds"||product==="plots"?product:defaultProduct;
+    mode=product==="clouds"?"clouds":defaultProduct;
     el("metar-product").value=mode;
-    el("metar-eyebrow").textContent=mode==="avgmetar"?`EXPERIMENTAL · ${averages.spacing} MI GRID`:"AIRPORT METARS · UPPER MIDWEST";
-    if(data)prepareSpacing();
+    el("metar-eyebrow").textContent=mode==="avgmetar"?`HOURLY AVERAGES · ${averages.spacing} MI GRID`:"AIRPORT METARS · UPPER MIDWEST";
+    if(data)prepareCloudSpacing();
     if(map&&(window.WeatherDefaultViews?.savedMetar?.(mode)
-      || (previous!==mode && (previous==="avgmetar"||mode==="avgmetar"))))reset();
+      || previous!==mode))reset();
     render();
     load();
   }

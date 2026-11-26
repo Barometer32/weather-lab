@@ -327,8 +327,11 @@ def collect(store,now,fetch=None,*,fetch_direct=None):
 def public_manifest(data,now):
     frames=recent_frames(data,now)
     if not frames:raise ValueError('No recent Air Q snapshots have been captured yet')
+    latest=moment(frames[-1]['sourceTime'])
+    next_hour=latest.replace(minute=0,second=0,microsecond=0)+timedelta(hours=1)
     return {**{k:v for k,v in data.items() if k!='directETag'},'frames':frames,'historyPending':len(frames)<12,'timeBasis':'source','checkMinutes':CHECK_MINUTES,
-            'sourceDelayed':now-moment(frames[-1]['sourceTime'])>=SOURCE_DELAY_AFTER}
+            'pendingHour':iso(next_hour) if next_hour<=now else None,
+            'sourceDelayed':now-latest>=SOURCE_DELAY_AFTER}
 
 
 def main():

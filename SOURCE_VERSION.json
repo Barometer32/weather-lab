@@ -15,7 +15,6 @@
   "defaultMetarProduct": "avgmetar",
   "metarProducts": [
     "avgmetar",
-    "plots",
     "clouds"
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",
