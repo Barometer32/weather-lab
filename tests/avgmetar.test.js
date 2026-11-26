@@ -41,8 +41,8 @@ function distance(a, b) {
     + Math.cos(a.lat * radians) * Math.cos(b.lat * radians) * Math.sin((a.lon - b.lon) * radians / 2) ** 2;
   return 2 * 3958.76 * Math.asin(Math.sqrt(angle));
 }
-nearly(distance(metro, east), 40);
-nearly(distance(metro, north), 40);
+nearly(distance(metro, east), 25);
+nearly(distance(metro, north), 25);
 for (const source of metro.contributors) {
   nearly(source.miles, metro.contributors[0].miles);
   nearly(source.weight, 1 / 3);
@@ -83,7 +83,7 @@ assert.equal(variable.direction, null);
 assert.equal(variable.variable, true);
 
 (async () => {
-  const map = viewer({history}, {width: 1200, height: 800});
+  const map = viewer({history}, {width: 1200, height: 800, zoom: 8});
   await map.load();
   assert.equal(map.get('metar-product').value, 'avgmetar');
   const center = map.marker('AVG-METRO');
@@ -103,5 +103,5 @@ assert.equal(variable.variable, true);
   assert.ok(!map.ids().includes('KMSP'));
   await map.mode('avgmetar');
   assert.ok(map.ids().includes('AVG-METRO'));
-  console.log('AVGMETAR passed: fixed 40-mile grid, equal metro mean, nearest-station weighting, and hourly view switching.');
+  console.log('AVGMETAR passed: fixed 25-mile grid, equal metro mean, nearest-station weighting, and hourly view switching.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

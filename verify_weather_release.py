@@ -47,8 +47,8 @@ def check_layout(base):
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/avgmetar.js?v=avgmetar-wind-v53' in html
-    assert '/static/metar-views.js?v=avgmetar-wind-v53' in html
+    assert '/static/avgmetar.js?v=avgmetar-grid-v54' in html
+    assert '/static/metar-views.js?v=avgmetar-grid-v54' in html
     assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
     assert 'id="metar-notice"' not in html

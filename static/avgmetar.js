@@ -3,7 +3,7 @@
 window.WeatherAvgMetar = (() => {
   const earthMiles = 3958.76;
   const radians = Math.PI / 180;
-  const spacing = 40;
+  const spacing = 25;
   const mphPerKnot = 1.150779;
   const metroAirports = [
     {id: "KMSP", lat: 44.8852, lon: -93.2313},
