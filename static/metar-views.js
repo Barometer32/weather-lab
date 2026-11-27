@@ -18,7 +18,7 @@ window.WeatherMetars = (() => {
     if(!map)return;
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
     const view=saved||(mode==="avgmetar"
-      ?{center:averages.center,zoom:8}
+      ?{center:averages.center,zoom:map.getSize().x<600?7:7.25}
       :window.WeatherDefaultViews?.metar(sites,map.getSize(),cloudPriority)||{center:[44.945,-93.343],zoom:9});
     map.setView(view.center,view.zoom,{animate:false});
   }
@@ -104,17 +104,16 @@ window.WeatherMetars = (() => {
   }
 
   function visibleAverages(stations){
-    const size=map.getSize(),origin=map.latLngToContainerPoint(averages.center);
-    const spacing=Math.min(...[averages.nextEast,averages.nextNorth].map(where=>{
-      const point=map.latLngToContainerPoint(where);
-      return Math.hypot(point.x-origin.x,point.y-origin.y);
-    }));
-    // At wide zooms, thin the grid by whole rows and columns without sliding it.
-    const stride=2**Math.max(0,Math.ceil(Math.log2(84/Math.max(1,spacing))));
+    const size=map.getSize(),placed=[];
+    // Keep room for wind barbs in any direction. This allows zoom to reveal
+    // nearby cities without switching them in and out as their winds change.
+    const minSpacingSquared=80**2;
     return stations.filter(station=>{
-      if(station.east%stride!==0||station.north%stride!==0)return false;
       const p=map.latLngToContainerPoint([station.lat,station.lon]);
-      return p.x>=0&&p.y>=0&&p.x<=size.x&&p.y<=size.y;
+      if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)return false;
+      if(placed.some(q=>(p.x-q.x)**2+(p.y-q.y)**2<minSpacingSquared))return false;
+      placed.push(p);
+      return true;
     });
   }
 
@@ -133,7 +132,7 @@ window.WeatherMetars = (() => {
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
     el("metar-map").setAttribute("aria-label",mode==="avgmetar"
-      ?`Hourly metro average and distance-weighted temperature, dew point and wind estimates on a ${averages.spacing}-mile grid`
+      ?"Hourly airport averages for the Twin Cities metro and regional cities"
       :"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL");
     el("metar-status").textContent=`${reports.length} ${mode==="avgmetar"?"estimates":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
@@ -153,10 +152,10 @@ window.WeatherMetars = (() => {
       const existing=active.get(station.station);
       if(existing?.station===station&&existing.mode===mode)continue;
       const plots=plotCaches[mode];
+      const title=mode==="avgmetar"?`${station.name} average`:station.station;
       let cached=plots.get(station);
       if(!cached){
       const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
-      const title=mode==="avgmetar"?(station.metro?"Metro average":"Grid estimate"):station.station;
       popup.append(node("strong",title),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs);
@@ -164,7 +163,7 @@ window.WeatherMetars = (() => {
         :`${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`;
       popup.append(node("p",`Wind: ${windText}`));
       if(mode==="avgmetar"){
-        popup.append(node("p",station.metro?"Equal weight per airport":"Distance-weighted from the three nearest reporting airports"));
+        popup.append(node("p",station.metro?"Equal weight per airport":"50% local airport, 50% split by distance between the two nearest reporting airports"));
         if(wind.meanSpeedMph!==null&&Math.abs(wind.speedMph-wind.meanSpeedMph)>=.05){
           popup.append(node("p",`Mean reported speed: ${wind.meanSpeedMph.toFixed(1)} mph`));
         }
@@ -187,7 +186,7 @@ window.WeatherMetars = (() => {
       cached={icon,popup};plots.set(station,cached);
       }
       if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${title} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
     }
   }
   function adopt(next){
@@ -225,7 +224,7 @@ window.WeatherMetars = (() => {
     const previous=mode;
     mode=product==="clouds"?"clouds":defaultProduct;
     el("metar-product").value=mode;
-    el("metar-eyebrow").textContent=mode==="avgmetar"?`HOURLY AVERAGES · ${averages.spacing} MI GRID`:"AIRPORT METARS · UPPER MIDWEST";
+    el("metar-eyebrow").textContent=mode==="avgmetar"?"HOURLY CITY AVERAGES":"AIRPORT METARS · UPPER MIDWEST";
     if(data)prepareCloudSpacing();
     if(map&&(window.WeatherDefaultViews?.savedMetar?.(mode)
       || previous!==mode))reset();

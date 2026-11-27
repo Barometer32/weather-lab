@@ -26,6 +26,8 @@ for (const frame of history) {
   frame.stations.push(
     {...msp, station: 'KNEAR', lat: 44.884, tempF: 31, dewpointF: 30},
     {...msp, station: 'KSTP', lat: 44.9345, lon: -93.0600},
+    {...msp, station: 'KMKT', lat: 44.2184, lon: -93.9179},
+    {...msp, station: 'KULM', lat: 44.3227, lon: -94.5024},
   );
 }
 const data = {checkedAt: '2026-11-17T18:02:00Z', history};
@@ -36,14 +38,15 @@ const data = {checkedAt: '2026-11-17T18:02:00Z', history};
     assert.equal(map.get('metar-product').value, 'avgmetar');
     for (const [i] of history.entries()) {
       map.frame(i);
-      assert.equal(Boolean(map.marker('AVG-METRO')), i !== 1);
-      assert.ok(map.ids().length && map.ids().every(id => id.startsWith('AVG-')));
+      assert.equal(Boolean(map.marker('Metro average')), i !== 1);
+      assert.ok(map.marker('Mankato average'));
+      assert.ok(map.ids().length && map.ids().every(id => id.endsWith(' average')));
     }
     await map.mode('clouds');
     assert.ok(map.ids().includes('KMSP'), 'CLOUDS still uses the original KMSP report');
     await map.mode('plots');
     assert.equal(map.get('metar-product').value, 'avgmetar');
-    assert.ok(map.ids().every(id => id.startsWith('AVG-')));
+    assert.ok(map.ids().every(id => id.endsWith(' average')));
     assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'));
   }
   console.log('METAR PLOTS uses averages only, with the original CLOUDS reports available.');

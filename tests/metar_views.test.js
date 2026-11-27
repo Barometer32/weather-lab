@@ -12,7 +12,7 @@ const context={window:{WeatherPrepared:{read:async(url)=>{if(url==='/api/current
 vm.runInNewContext(fs.readFileSync('static/metar-model.js','utf8'),context);const footprint=context.window.WeatherStationModel.cloudFootprint;context.window.WeatherStationModel.cloudFootprint=s=>{footprints++;return footprint(s);};for(const path of ['static/avgmetar.js','static/metar-views.js'])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=>s.title.split(' · ')[0]);
 (async()=>{
- assert.equal(get('metar-product').value,'avgmetar','Gridded PLOTS overrides a restored product selection on startup');
+ assert.equal(get('metar-product').value,'avgmetar','City-average PLOTS overrides a restored product selection on startup');
  context.window.WeatherMetars.select('metar');get('metar-product').events.change({target:{value:'clouds'}});await flush();
  assert.equal(shown.length,2,'Neighboring cloud plots cannot overlap');
  assert.equal(reads,1);assert.equal(get('metar-timeline').max,'3');assert.equal(fullConfig.surfaceId,'metar-surface');
@@ -63,7 +63,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.equal(get('metar-product').value,'clouds','visibility refresh keeps the selected product');
  context.window.WeatherMetars.select('radar');
  context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-product').value,'avgmetar','returning to METAR opens gridded PLOTS');
+ assert.equal(get('metar-product').value,'avgmetar','returning to METAR opens city-average PLOTS');
  const stp={...stations[0],station:'KSTP',lat:13,lon:10},sgs={...stp,station:'KSGS',lat:13.01};
  let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
  data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
@@ -71,7 +71,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
  get('metar-product').events.change({target:{value:'plots'}});await flush();
- assert.equal(get('metar-product').value,'avgmetar','the retired mode falls back to gridded PLOTS');
- assert.ok(!ids().includes('KSTP'),'switching back to gridded PLOTS clears individual markers');
+ assert.equal(get('metar-product').value,'avgmetar','the retired mode falls back to city-average PLOTS');
+ assert.ok(!ids().includes('KSTP'),'switching back to city-average PLOTS clears individual markers');
  console.log('METAR CLOUDS passed: exact anchors, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

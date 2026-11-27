@@ -5,7 +5,7 @@ import collector
 import verify_weather_release as verify
 
 
-def test_gridded_plots_default_passes_release_layout_check():
+def test_city_average_plots_default_passes_release_layout_check():
     html = app.app.test_client().get('/').text
     with patch.object(verify, 'read', return_value=html):
         verify.check_layout('local')

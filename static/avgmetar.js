@@ -3,14 +3,60 @@
 window.WeatherAvgMetar = (() => {
   const earthMiles = 3958.76;
   const radians = Math.PI / 180;
-  const spacing = 25;
   const mphPerKnot = 1.150779;
   const metroAirports = [
     {id: "KMSP", lat: 44.8852, lon: -93.2313},
     {id: "KFCM", lat: 44.8321, lon: -93.4705},
     {id: "KMIC", lat: 45.0623, lon: -93.3511},
   ];
-  const bounds = [[40, -100], [50, -85]];
+  // Display order also gives the larger cities priority when plots crowd at wide zooms.
+  const cities = [
+    ["KMKT", "Mankato"],
+    ["KSTC", "St. Cloud"],
+    ["KDLH", "Duluth"],
+    ["KRWF", "Redwood Falls"],
+    ["KRST", "Rochester"],
+    ["KEAU", "Eau Claire"],
+    ["KBRD", "Brainerd"],
+    ["KBJI", "Bemidji"],
+    ["KAXN", "Alexandria"],
+    ["KFAR", "Fargo"],
+    ["KFSD", "Sioux Falls"],
+    ["KLSE", "La Crosse"],
+    ["KDSM", "Des Moines"],
+    ["KMSN", "Madison"],
+    ["KGRB", "Green Bay"],
+    ["KMKE", "Milwaukee"],
+    ["KGFK", "Grand Forks"],
+    ["KABR", "Aberdeen"],
+    ["KCID", "Cedar Rapids"],
+    ["KSUX", "Sioux City"],
+    ["KALO", "Waterloo"],
+    ["KDBQ", "Dubuque"],
+    ["KAUW", "Wausau"],
+    ["KBDH", "Willmar"],
+    ["KGPZ", "Grand Rapids"],
+    ["KHIB", "Hibbing"],
+    ["KDTL", "Detroit Lakes"],
+    ["KFFM", "Fergus Falls"],
+    ["KTVF", "Thief River Falls"],
+    ["KINL", "International Falls"],
+    ["KCKC", "Grand Marais"],
+    ["KHCD", "Hutchinson"],
+    ["KULM", "New Ulm"],
+    ["KMML", "Marshall"],
+    ["KOTG", "Worthington"],
+    ["KFRM", "Fairmont"],
+    ["KAEL", "Albert Lea"],
+    ["KFBL", "Faribault"],
+    ["KRGK", "Red Wing"],
+    ["KATY", "Watertown"],
+    ["KJMS", "Jamestown"],
+    ["KMCW", "Mason City"],
+    ["KSPW", "Spencer"],
+    ["KASX", "Ashland"],
+    ["KRHI", "Rhinelander"],
+  ];
   const xyz = (lat, lon) => [
     Math.cos(lat * radians) * Math.cos(lon * radians),
     Math.cos(lat * radians) * Math.sin(lon * radians),
@@ -31,40 +77,18 @@ window.WeatherAvgMetar = (() => {
     Math.atan2(normal[1], normal[0]) / radians,
   ]);
 
-  function gridPosition(east, north) {
-    const [lat, lon] = center.map(value => value * radians);
-    const heading = Math.atan2(east, north);
-    const arc = Math.hypot(east, north) * spacing / earthMiles;
-    const nextLat = Math.asin(Math.sin(lat) * Math.cos(arc) + Math.cos(lat) * Math.sin(arc) * Math.cos(heading));
-    const nextLon = lon + Math.atan2(Math.sin(heading) * Math.sin(arc) * Math.cos(lat),
-      Math.cos(arc) - Math.sin(lat) * Math.sin(nextLat));
-    return [nextLat / radians, nextLon / radians];
-  }
-
   const centerVector = xyz(...center);
-  const metroPoint = {station: "AVG-METRO", lat: center[0], lon: center[1], east: 0, north: 0};
-  const [[south, west], [north, east]] = bounds;
-  const extent = Math.ceil(Math.max(...[south, north].flatMap(lat =>
-    [west, east].map(lon => miles(chordSquared(centerVector, xyz(lat, lon)))))) / spacing);
-  const grid = [];
-  for (let row = -extent; row <= extent; row++) {
-    for (let col = -extent; col <= extent; col++) {
-      if (row === 0 && col === 0) continue;
-      const [lat, lon] = gridPosition(col, row);
-      if (lat >= south && lat <= north && lon >= west && lon <= east) {
-        grid.push({station: `AVG-${col},${row}`, lat, lon, east: col, north: row, vector: xyz(lat, lon)});
-      }
-    }
-  }
+  const metroPoint = {station: "AVG-METRO", name: "Metro", lat: center[0], lon: center[1]};
 
-  function nearestThree(point, reports) {
+  function nearestNeighbors(local, reports) {
     const nearest = [];
     for (const report of reports) {
-      const distance = chordSquared(point.vector, report.vector);
+      if (report.station === local.station) continue;
+      const distance = chordSquared(local.vector, report.vector);
       const index = nearest.findIndex(item => distance < item.distance);
       if (index !== -1) nearest.splice(index, 0, {report, distance});
-      else if (nearest.length < 3) nearest.push({report, distance});
-      if (nearest.length > 3) nearest.pop();
+      else if (nearest.length < 2) nearest.push({report, distance});
+      if (nearest.length > 2) nearest.pop();
     }
     return nearest;
   }
@@ -108,6 +132,13 @@ window.WeatherAvgMetar = (() => {
     return {speedMph: direction === null ? 0 : speedMph, direction, variable: false, meanSpeedMph, vectorCount};
   }
 
+  function cityWeights(neighbors) {
+    // Half belongs to the city's airport. Split the rest by inverse distance.
+    const [first, second] = neighbors.map(source => 1 / Math.max(1, source.miles));
+    const total = first + second;
+    return [.5, .5 * first / total, .5 * second / total];
+  }
+
   function average(point, sources, time, metro = false) {
     const contributors = sources.map(({report, distance}) => ({
       station: report.station,
@@ -115,9 +146,8 @@ window.WeatherAvgMetar = (() => {
       report,
       wind: stationWind(report.wind),
     }));
-    const weights = contributors.map(source => metro ? 1 : 1 / Math.max(1, source.miles));
-    const total = weights.reduce((sum, weight) => sum + weight, 0);
-    contributors.forEach((source, i) => { source.weight = weights[i] / total; });
+    const weights = metro ? [1 / 3, 1 / 3, 1 / 3] : cityWeights(contributors.slice(1));
+    contributors.forEach((source, i) => { source.weight = weights[i]; });
     function mean(read) {
       const values = contributors.map(source => read(source.report));
       return values.every(Number.isFinite)
@@ -125,7 +155,7 @@ window.WeatherAvgMetar = (() => {
         : null;
     }
     return {
-      station: point.station, lat: point.lat, lon: point.lon, east: point.east, north: point.north, time, metro,
+      ...point, time, metro,
       tempF: mean(report => report.tempF),
       dewpointF: mean(report => report.dewpointF),
       wind: averageWind(contributors),
@@ -148,11 +178,17 @@ window.WeatherAvgMetar = (() => {
       metro.map(report => ({report, distance: chordSquared(centerVector, report.vector)})), frame.hour, true)] : [];
     if (byId.size >= 3) {
       const uniqueReports = [...byId.values()];
-      for (const point of grid) points.push(average(point, nearestThree(point, uniqueReports), frame.hour));
+      for (const [id, name] of cities) {
+        const local = byId.get(id);
+        if (!local) continue;
+        const point = {station: `AVG-${id}`, name, lat: local.lat, lon: local.lon};
+        const sources = [{report: local, distance: 0}, ...nearestNeighbors(local, uniqueReports)];
+        points.push(average(point, sources, frame.hour));
+      }
     }
     cache.set(frame, points);
     return points;
   }
 
-  return {center, spacing, nextEast: gridPosition(1, 0), nextNorth: gridPosition(0, 1), estimates};
+  return {center, estimates};
 })();

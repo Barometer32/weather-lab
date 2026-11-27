@@ -12,13 +12,13 @@ const airports = [
   ['KFCM', 44.8321, -93.4705, 44, 0],
   ['KMIC', 45.0623, -93.3511, 50, 10],
 ];
-const [eastLat, eastLon] = model.nextEast;
+const mankatoLat = 44.2184;
+const mankatoLon = -93.9179;
 const localAirports = [
-  ['KE01', eastLat, eastLon, 30, 90],
-  ['KE02', eastLat + .04, eastLon, 45, 90],
-  ['KE03', eastLat + .09, eastLon, 60, 90],
-  ['KE04', eastLat + .12, eastLon, 90, 90],
-  ['KSTP', eastLat, eastLon, 99, 90],
+  ['KMKT', mankatoLat, mankatoLon, 30, 90],
+  ['KNEAR', mankatoLat + .04, mankatoLon, 45, 90],
+  ['KNEXT', mankatoLat + .09, mankatoLon, 60, 90],
+  ['KFARTHER', mankatoLat + .12, mankatoLon, 90, 90],
 ];
 const reports = [...airports, ...localAirports].map(([station, lat, lon, tempF, direction]) => ({
   station, lat, lon, tempF, dewpointF: tempF - 5, reportType: 'METAR', wind: {speedMph: 10, direction},
@@ -31,18 +31,13 @@ const history = Array.from({length: 4}, (_, i) => ({
 const frame = history[0];
 const points = model.estimates(frame);
 const metro = points.find(point => point.metro);
-const east = points.find(point => point.east === 1 && point.north === 0);
-const north = points.find(point => point.north === 1 && point.east === 0);
+const mankato = points.find(point => point.station === 'AVG-KMKT');
 
 const nearly = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`);
 const radians = Math.PI / 180;
-function distance(a, b) {
-  const angle = Math.sin((a.lat - b.lat) * radians / 2) ** 2
-    + Math.cos(a.lat * radians) * Math.cos(b.lat * radians) * Math.sin((a.lon - b.lon) * radians / 2) ** 2;
-  return 2 * 3958.76 * Math.asin(Math.sqrt(angle));
-}
-nearly(distance(metro, east), 25);
-nearly(distance(metro, north), 25);
+assert.deepEqual(Array.from(points, point => point.name), ['Metro', 'Mankato'],
+  'Only the metro and selected city airport have plots');
+assert.deepEqual([mankato.lat, mankato.lon], [mankatoLat, mankatoLon]);
 for (const source of metro.contributors) {
   nearly(source.miles, metro.contributors[0].miles);
   nearly(source.weight, 1 / 3);
@@ -52,11 +47,16 @@ nearly(metro.dewpointF, 44);
 nearly(metro.wind.meanSpeedMph, 10);
 nearly(metro.wind.speedMph, 10 * (1 + 2 * Math.cos(10 * radians)) / 3);
 nearly((metro.wind.direction + 1) % 360, 1);
-assert.deepEqual(Array.from(east.contributors, source => source.station), ['KE01', 'KSTP', 'KE02']);
-nearly(east.contributors[0].weight, east.contributors[1].weight);
-assert.ok(east.contributors[1].weight > east.contributors[2].weight);
-const total = east.contributors.reduce((sum, source) => sum + 1 / Math.max(1, source.miles), 0);
-nearly(east.tempF, (30 + 99 + 45 / east.contributors[2].miles) / total);
+assert.deepEqual(Array.from(mankato.contributors, source => source.station), ['KMKT', 'KNEAR', 'KNEXT']);
+nearly(mankato.contributors[0].weight, .5);
+const [,first,second] = mankato.contributors;
+nearly(first.weight + second.weight, .5);
+nearly(first.weight / second.weight, second.miles / first.miles);
+nearly(mankato.tempF, 30 * .5 + 45 * first.weight + 60 * second.weight);
+nearly(mankato.dewpointF, mankato.tempF - 5);
+nearly(mankato.wind.direction, 90);
+assert.ok(!model.estimates({...frame, stations: reports.filter(report => report.station !== 'KMKT')})
+  .some(point => point.name === 'Mankato'), 'A city waits for its own airport report');
 assert.equal(model.estimates(frame), points, 'Changing zoom can reuse an hourly calculation');
 const later = model.estimates(history[1]).find(point => point.metro);
 assert.deepEqual([later.lat, later.lon], [metro.lat, metro.lon]);
@@ -86,7 +86,7 @@ assert.equal(variable.variable, true);
   const map = viewer({history}, {width: 1200, height: 800, zoom: 8});
   await map.load();
   assert.equal(map.get('metar-product').value, 'avgmetar');
-  const center = map.marker('AVG-METRO');
+  const center = map.marker('Metro average');
   assert.ok(center);
   assert.equal(center.popup.children[0].textContent, 'Metro average');
   assert.ok(center.popup.children.some(line => line.textContent.startsWith('KMSP ·')));
@@ -94,13 +94,16 @@ assert.equal(variable.variable, true);
   assert.ok(center.popup.children.some(line => line.textContent.includes("9.9 mph from N (0°)")));
   assert.ok(center.popup.children.some(line => line.textContent.includes("10.0 mph from N (350°)")));
   map.frame(0);
-  assert.match(map.marker('AVG-METRO').popup.children[2].textContent, /49\.0°F/);
-  assert.ok(map.ids().includes('AVG-1,0'));
-  map.zoom(6);
-  assert.ok(!map.ids().includes('AVG-1,0') && map.ids().includes('AVG-METRO'));
+  assert.match(map.marker('Metro average').popup.children[2].textContent, /49\.0°F/);
+  const city = map.marker('Mankato average');
+  assert.ok(city);
+  assert.equal(city.popup.children[0].textContent, 'Mankato average');
+  assert.ok(city.popup.children.some(line => line.textContent.startsWith('KMKT · 0.0 mi · 50%')));
+  map.zoom(5);
+  assert.ok(!map.marker('Mankato average') && map.marker('Metro average'));
   await map.mode('clouds');
-  assert.ok(map.ids().every(id => !id.startsWith('AVG-')));
+  assert.ok(map.ids().every(id => !id.endsWith(' average')));
   await map.mode('avgmetar');
-  assert.ok(map.ids().includes('AVG-METRO'));
-  console.log('AVGMETAR passed: fixed 25-mile grid, equal metro mean, nearest-station weighting, and hourly view switching.');
+  assert.ok(map.marker('Metro average'));
+  console.log('AVGMETAR passed: city anchors, equal metro mean, nearest-airport weighting, and hourly view switching.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
