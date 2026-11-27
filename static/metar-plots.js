@@ -5,13 +5,24 @@ window.WeatherMetarPlots = (() => {
   const metroId = "AVG-METRO";
   // Same equidistant point used for the original three-airport average.
   const metroCenter = [44.941104509329946, -93.3874108503608];
-  const cities = [
+  const primaryCities = [
     ["KMKT", "Mankato", [44.2184, -93.9179]],
     ["KRWF", "Redwood Falls", [44.5483, -95.0804]],
     ["KSTC", "St. Cloud", [45.5442, -94.0516]],
     ["KRST", "Rochester", [43.904, -92.4921]],
     ["KDLH", "Duluth", [46.8435, -92.1866]],
   ];
+  const cities = [
+    ...primaryCities,
+    ["KAEL", "Albert Lea", [43.6823, -93.3722]],
+    ["KAXN", "Alexandria", [45.8680, -95.3940]],
+    ["KBRD", "Brainerd", [46.4021, -94.1273]],
+    ["KHCD", "Hutchinson", [44.8597, -94.3855]],
+    ["KJMR", "Mora", [45.8885, -93.2690]],
+    ["KRGK", "Red Wing", [44.5926, -92.4844]],
+    ["KBDH", "Willmar", [45.1111, -95.1258]],
+  ];
+  const priority = [metroId, ...primaryCities.map(([id]) => id)];
   const names = new Map(cities.map(([id, name]) => [id, name]));
   names.set(metroId, "Twin Cities average");
   const locations = [metroCenter, ...cities.map(([, , location]) => location)];
@@ -63,5 +74,5 @@ window.WeatherMetarPlots = (() => {
     return plots;
   }
 
-  return {metroId, metroAirports, locations, names, reports};
+  return {metroId, metroAirports, locations, names, priority, reports};
 })();

@@ -94,7 +94,7 @@ window.WeatherMetars = (() => {
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const focus=mode==="plots"?[cityPlots.metroId]:preferred;
+    const focus=mode==="plots"?cityPlots.priority:preferred;
     const primary=focus.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
     // Prefer the largest nonoverlapping subset of the priority locations.
     let best=[];
@@ -134,7 +134,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and five Minnesota airports");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and selected Minnesota airports");
     el("metar-status").textContent=`${reports.length} ${mode==="plots"?"plots":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
