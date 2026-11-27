@@ -33,7 +33,8 @@ console.log('Default view checks passed: footprint-aware initial METAR zoom and 
 const storage=new Map();blocked=false;
 context.window.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)};
 storage.set('weather-metar-default-v1-avgmetar',JSON.stringify({center:[44.8,-93.3],zoom:8.25}));
-assert.equal(views.savedMetar('plots').zoom,8.25);
+storage.set('weather-metar-default-v1-plots',JSON.stringify({center:[44.8,-93.3],zoom:10}));
+assert.equal(views.savedMetar('plots'),null,'the broader regional view gets its own saved default');
 assert.ok(views.saveMetar('plots',[44.8,-93.3],9.25));
 assert.equal(views.saveMetar('avgmetar',[44.8,-93.3],8.25),false);
 assert.ok(views.saveMetar('clouds',[44.9,-93.4],10));

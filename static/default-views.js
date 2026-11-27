@@ -3,7 +3,6 @@
 window.WeatherDefaultViews = (()=>{
   try{for(const mode of ["mesonet","rtmetar"])window.localStorage.removeItem("weather-metar-default-v1-"+mode);}catch(_){}
   const airports=[{station:"KFCM",lat:44.8272,lon:-93.4571},{station:"KMIC",lat:45.0619,lon:-93.3539},{station:"KMSP",lat:44.8831,lon:-93.2289}];
-  const stPaul={station:"KSTP",lat:44.9345,lon:-93.0600};
   const fallbackFootprint={left:-42,right:42,top:-42,bottom:42},radarKey="weather-radar-default-v1";
   const factoryRadar={center:[44.925,-93.462],zoom:8};
   function project(lat,lon,zoom){
@@ -16,7 +15,7 @@ window.WeatherDefaultViews = (()=>{
   }
   function overlap(a,b){return a.left<b.right+2&&a.right>b.left-2&&a.top<b.bottom+2&&a.bottom>b.top-2;}
   function metar(sites,size,stationIds=airports.map(airport=>airport.station)){
-    const focus=[...airports,stPaul].filter(airport=>stationIds.includes(airport.station)).map(airport=>{
+    const focus=airports.filter(airport=>stationIds.includes(airport.station)).map(airport=>{
       const found=sites.find(s=>s.station.station===airport.station);
       return {station:found?.station||airport,f:found?.f||fallbackFootprint};
     });
@@ -38,20 +37,16 @@ window.WeatherDefaultViews = (()=>{
     const view={center,zoom};if(!valid(view))return false;
     try{window.localStorage.setItem(radarKey,JSON.stringify(view));return true;}catch(_){return false;}
   }
+  // This regional selection needs a separate default from the old metro zoom.
+  const metarKeys={plots:"weather-metar-default-v2-plots",clouds:"weather-metar-default-v1-clouds"};
   function savedMetar(mode){
-    if(!["plots","clouds"].includes(mode))return null;
-    // Keep a saved map location from the old averages view if needed.
-    for(const product of mode==="plots"?["plots","avgmetar"]:[mode]){
-      try{
-        const view=JSON.parse(window.localStorage.getItem("weather-metar-default-v1-"+product));
-        if(valid(view))return view;
-      }catch(_){}
-    }
+    if(!Object.hasOwn(metarKeys,mode))return null;
+    try{const view=JSON.parse(window.localStorage.getItem(metarKeys[mode]));if(valid(view))return view;}catch(_){}
     return null;
   }
   function saveMetar(mode,center,zoom){
-    const view={center,zoom};if(!["plots","clouds"].includes(mode)||!valid(view))return false;
-    try{window.localStorage.setItem("weather-metar-default-v1-"+mode,JSON.stringify(view));return true;}catch(_){return false;}
+    const view={center,zoom};if(!Object.hasOwn(metarKeys,mode)||!valid(view))return false;
+    try{window.localStorage.setItem(metarKeys[mode],JSON.stringify(view));return true;}catch(_){return false;}
   }
   return {metar,radar,saveRadar,savedMetar,saveMetar};
 })();

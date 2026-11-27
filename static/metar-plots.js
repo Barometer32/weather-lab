@@ -1,0 +1,67 @@
+"use strict";
+
+window.WeatherMetarPlots = (() => {
+  const metroAirports = ["KMSP", "KFCM", "KMIC"];
+  const metroId = "AVG-METRO";
+  // Same equidistant point used for the original three-airport average.
+  const metroCenter = [44.941104509329946, -93.3874108503608];
+  const cities = [
+    ["KMKT", "Mankato", [44.2184, -93.9179]],
+    ["KRWF", "Redwood Falls", [44.5483, -95.0804]],
+    ["KSTC", "St. Cloud", [45.5442, -94.0516]],
+    ["KRST", "Rochester", [43.904, -92.4921]],
+    ["KDLH", "Duluth", [46.8435, -92.1866]],
+  ];
+  const names = new Map(cities.map(([id, name]) => [id, name]));
+  names.set(metroId, "Twin Cities average");
+  const locations = [metroCenter, ...cities.map(([, , location]) => location)];
+  const radians = Math.PI / 180;
+
+  function averageWind(stations) {
+    let east = 0, north = 0, vectorCount = 0, directed = false;
+    let totalSpeed = 0, speedCount = 0, variable = false;
+    for (const {wind} of stations) {
+      const knots = wind?.speedKnots;
+      const speed = Number.isFinite(knots) && knots >= 0 ? knots * 1.150779 : wind?.speedMph;
+      if (!Number.isFinite(speed) || speed < 0) continue;
+      totalSpeed += speed;
+      speedCount++;
+      variable ||= wind.variable === true;
+      if (speed === 0) {
+        vectorCount++;
+        continue;
+      }
+      const bearing = wind.direction;
+      if (wind.variable || !Number.isFinite(bearing) || bearing < 0 || bearing > 360) continue;
+      east += speed * Math.sin(bearing * radians);
+      north += speed * Math.cos(bearing * radians);
+      vectorCount++;
+      directed = true;
+    }
+    // Variable winds contribute speed when no directed wind is available.
+    // Calm reports count as zero vectors in a directed average.
+    if (!directed) return {speedMph: speedCount ? totalSpeed / speedCount : null, direction: null, variable};
+    const speedMph = Math.hypot(east, north) / vectorCount;
+    if (speedMph < .05) return {speedMph: 0, direction: null, variable: false};
+    return {speedMph, direction: (Math.atan2(east, north) / radians + 360) % 360, variable: false};
+  }
+
+  function reports(frame) {
+    const byId = new Map(frame.stations.filter(report => report.reportType === "METAR")
+      .map(report => [report.station, report]));
+    const metro = metroAirports.map(id => byId.get(id));
+    const plots = cities.map(([id]) => byId.get(id)).filter(Boolean);
+    if (metro.every(report => Number.isFinite(report?.tempF))) {
+      plots.unshift({
+        station: metroId, lat: metroCenter[0], lon: metroCenter[1], time: frame.hour,
+        tempF: metro.reduce((sum, report) => sum + report.tempF, 0) / metro.length,
+        dewpointF: metro.every(report => Number.isFinite(report.dewpointF))
+          ? metro.reduce((sum, report) => sum + report.dewpointF, 0) / metro.length : null,
+        wind: averageWind(metro),
+      });
+    }
+    return plots;
+  }
+
+  return {metroId, metroAirports, locations, names, reports};
+})();

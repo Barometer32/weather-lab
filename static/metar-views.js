@@ -1,14 +1,13 @@
 "use strict";
 // Four-hour METAR loop with independent airport eligibility in each hour.
 window.WeatherMetars = (() => {
-  const el=id=>document.getElementById(id),model=window.WeatherStationModel;
+  const el=id=>document.getElementById(id),model=window.WeatherStationModel,cityPlots=window.WeatherMetarPlots;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
   const defaultProduct="plots";
   let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=defaultProduct,wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const secondary=["KSTP"];
-  const priorityLocations={KMSP:[44.8852,-93.2313],KFCM:[44.8321,-93.4705],KMIC:[45.0623,-93.3511]};
   const windPlotOptions={dot:true,mphBarbs:true};
   const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
   let busy=false,sourceData;
@@ -20,8 +19,11 @@ window.WeatherMetars = (() => {
   function reset(){
     if(!map)return;
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
-    const focus=mode==="plots"?[...preferred,...secondary]:preferred;
-    const view=saved||window.WeatherDefaultViews?.metar(sites,map.getSize(),focus)||{center:[44.945,-93.343],zoom:9};
+    if(mode==="plots"&&!saved){
+      map.fitBounds(cityPlots.locations,{padding:[32,32],animate:false});
+      return;
+    }
+    const view=saved||window.WeatherDefaultViews?.metar(sites,map.getSize(),preferred)||{center:[44.945,-93.343],zoom:9};
     map.setView(view.center,view.zoom,{animate:false});
   }
   function init(){
@@ -49,7 +51,7 @@ window.WeatherMetars = (() => {
   function prepareSpacing(){
     // Index each hour independently. A missing report in one hour must not
     // remove the airport from another hour where it has usable data.
-    const reports=data.history.map(frame=>frame.stations.filter(station=>mode!=="clouds"||cloudAvailable(station)));
+    const reports=mode==="plots"?data.plots:data.history.map(frame=>frame.stations.filter(cloudAvailable));
     const bySite=new Map();
     for(const [index,stations] of reports.entries())for(const station of stations){
       const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
@@ -58,12 +60,6 @@ window.WeatherMetars = (() => {
       frames[index]=reservation?.boxes||[f];
       bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
         f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
-    }
-    if(mode==="plots")for(const id of preferred)if(!bySite.has(id)){
-      // Layout-only reservation: it never becomes a report or a plotted value.
-      const [lat,lon]=priorityLocations[id],station={station:id,lat,lon,tempF:-99,dewpointF:-99};
-      const reserve=model.combinedReservation(station,windPlotOptions);
-      bySite.set(id,{station,frames:Array.from({length:data.history.length},()=>reserve.boxes),radius:reserve.radius,f:reserve.bounds,reserveOnly:true});
     }
     const rank=s=>{
       const i=preferred.indexOf(s.station);return i<0?preferred.length+(secondary.includes(s.station)?0:1):i;
@@ -75,11 +71,11 @@ window.WeatherMetars = (() => {
     const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
     const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
     const candidates=[];
-    for(const {station,f,frames,radius,reserveOnly} of sites){
+    for(const {station,f,frames,radius} of sites){
       if(mode==="clouds"&&!frames[index].length)continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
       const boxes=(mode==="plots"?frames.flat():frames[index]).map(b=>shift(b,p));
-      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:(radius||0)*windSpacingFactor,reserveOnly,
+      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:(radius||0)*windSpacingFactor,
         reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
     }
     const reaches=(circle,label)=>{
@@ -98,10 +94,9 @@ window.WeatherMetars = (() => {
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const reservedPrimary=preferred.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
-    const primary=reservedPrimary.filter(site=>!site.reserveOnly);
-    // At a wide zoom, retain the largest nonoverlapping subset of the three
-    // preferred airports. Once there is room, all three always beat neighbors.
+    const focus=mode==="plots"?[cityPlots.metroId]:preferred;
+    const primary=focus.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
+    // Prefer the largest nonoverlapping subset of the priority locations.
     let best=[];
     for(let mask=0;mask<2**primary.length;mask++){
       const subset=primary.filter((_,i)=>mask&(1<<i));
@@ -109,7 +104,7 @@ window.WeatherMetars = (() => {
       best=subset;
     }
     for(const site of best)take(site);
-    for(const site of candidates)if(site.reserveOnly||(!preferred.includes(site.id)&&reservedPrimary.some(core=>core.conflicts.has(site))))remaining.delete(site);
+    for(const site of candidates)if(!focus.includes(site.id)&&primary.some(core=>core.conflicts.has(site)))remaining.delete(site);
     // KSTP wins available space after the core trio, before KSGS or others.
     // KSGS remains eligible when zooming gives both stations room.
     for(const id of secondary){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
@@ -133,30 +128,37 @@ window.WeatherMetars = (() => {
     if(followLatest){const last=hours.findLastIndex(f=>f.stations.length);index=last<0?hours.length-1:last;}
     index=Math.max(0,Math.min(index,hours.length-1));
     const frame=hours[index];
-    draw(visible(frame.stations));
+    const reports=mode==="plots"?data.plots[index]:frame.stations;
+    draw(visible(reports));
     const slider=el("metar-timeline");slider.max=String(hours.length-1);slider.value=String(index);slider.disabled=hours.length<2;
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs with state and county boundaries");
-    el("metar-status").textContent=`${frame.stations.length} airport reports for this hour${data.stale?" · Background updates delayed":""}`;
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and five Minnesota airports");
+    el("metar-status").textContent=`${reports.length} ${mode==="plots"?"plots":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
     const keep=new Set(drawn.map(s=>s.station));
-    for(const [id,entry] of active)if(!keep.has(id)){markers.removeLayer(entry.marker);active.delete(id);}
+    for(const [id,entry] of active)if(!keep.has(id)||entry.mode!==mode){markers.removeLayer(entry.marker);active.delete(id);}
     for(const station of drawn){
       const existing=active.get(station.station);
       if(existing?.station===station&&existing.mode===mode)continue;
       const plots=plotCaches[mode];
+      const name=mode==="plots"?cityPlots.names.get(station.station):null;
+      const metro=station.station===cityPlots.metroId;
       let cached=plots.get(station);
       if(!cached){
       const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      popup.append(node("strong",name?(metro?name:`${name} (${station.station})`):station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
+      if(metro){
+        popup.append(node("p",`Equal average of ${cityPlots.metroAirports.join(" · ")}`));
+      }else{
         popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
         popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
+      }
       if(barb.kind==="barb"){
         const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
         popup.append(node("p",`Barb feathers: ${feathers}`));
@@ -165,7 +167,7 @@ window.WeatherMetars = (() => {
       cached={icon,popup};plots.set(station,cached);
       }
       if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${name||station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
     }
   }
   function adopt(next){
@@ -182,7 +184,7 @@ window.WeatherMetars = (() => {
     // timeline backwards after a newer usable window has been displayed.
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
-    sourceData=next;data={...next,history};
+    sourceData=next;data={...next,history,plots:history.map(cityPlots.reports)};
     prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
@@ -203,6 +205,7 @@ window.WeatherMetars = (() => {
     const previous=mode;
     mode=product==="clouds"?"clouds":defaultProduct;
     el("metar-product").value=mode;
+    el("metar-eyebrow").textContent=mode==="plots"?"MINNESOTA · HOURLY METARS":"AIRPORT METARS · UPPER MIDWEST";
     if(data)prepareSpacing();
     if(map&&(previous!==mode||window.WeatherDefaultViews?.savedMetar?.(mode)))reset();
     render();

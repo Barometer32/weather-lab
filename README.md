@@ -7,7 +7,7 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Current pages
 
-- **METAR** opens first with PLOTS selected. PLOTS shows individual airport temperatures, dewpoints and mph wind barbs from four hourly METAR batches. CLOUDS shows each airport's sky cover and lowest broken or overcast ceiling. Both maps prioritize KMSP, KFCM and KMIC, followed by KSTP, and reveal nearby airports as zoom makes room.
+- **METAR** opens first with PLOTS selected. Each of the four hourly frames shows the KMSP, KFCM and KMIC average at the metro center and individual airport reports for Mankato, Redwood Falls, St. Cloud, Rochester and Duluth. Temperature and dewpoint use equal weights for the metro plot. Its wind barb uses the average wind vector. CLOUDS shows each airport's sky cover and lowest broken or overcast ceiling. It prioritizes KMSP, KFCM and KMIC, followed by KSTP, and reveals nearby airports as zoom makes room.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
