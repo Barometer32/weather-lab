@@ -1,4 +1,4 @@
-"""Verify prepared weather products and city averages in PLOTS with standard-library tools."""
+"""Verify prepared weather products and individual airports in PLOTS with standard-library tools."""
 import argparse
 from datetime import datetime
 import json
@@ -41,15 +41,15 @@ def check_layout(base):
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=current-home-v35' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
-    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["avgmetar", "clouds"]
-    assert '<option value="avgmetar" selected>PLOTS</option>' in html
-    assert 'HOURLY CITY AVERAGES' in html
+    assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
+    assert '<option value="plots" selected>PLOTS</option>' in html
+    assert 'AIRPORT METARS · UPPER MIDWEST' in html
     assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
-    assert '/static/avgmetar.js?v=city-averages-v56' in html
-    assert '/static/metar-views.js?v=city-averages-v56' in html
+    assert '/static/avgmetar.js' not in html
+    assert '/static/metar-views.js?v=airport-plots-v57' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
     assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
@@ -62,7 +62,7 @@ def check_layout(base):
     assert 'id="forecast-periods"' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
-    print("Verified city-average PLOTS home with CLOUDS and all other retained tabs.")
+    print("Verified individual airport PLOTS home with CLOUDS and all other retained tabs.")
 
 
 def check_hourly(base):
@@ -83,7 +83,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
+    for path in ("/static/avgmetar.js", "/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
                  "/api/rapmetar", "/static/rapmetar-views.js"):
         try:
             read(base, path)

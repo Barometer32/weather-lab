@@ -12,9 +12,9 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "defaultMetarProduct": "avgmetar",
+  "defaultMetarProduct": "plots",
   "metarProducts": [
-    "avgmetar",
+    "plots",
     "clouds"
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",

@@ -19,7 +19,7 @@ const history = Array.from({length: 4}, (_, hour) => ({
     layers: [{cover: 'BKN', baseFtAGL: 2000 + 1000 * i}],
   })),
 }));
-// A missing KMIC report should only remove the center for that frame.
+// A missing KMIC report affects only that station and hour.
 history[1].stations.pop();
 for (const frame of history) {
   const msp = frame.stations.find(s => s.station === 'KMSP');
@@ -33,21 +33,26 @@ for (const frame of history) {
 const data = {checkedAt: '2026-11-17T18:02:00Z', history};
 (async () => {
   for (const width of [320, 375, 1870]) {
-    const map = viewer(data, {width, zoom: 8});
+    const map = viewer(data, {width, zoom: 9.5});
     await map.load();
-    assert.equal(map.get('metar-product').value, 'avgmetar');
+    assert.equal(map.get('metar-product').value, 'plots');
     for (const [i] of history.entries()) {
       map.frame(i);
-      assert.equal(Boolean(map.marker('Metro average')), i !== 1);
-      assert.ok(map.marker('Mankato average'));
-      assert.ok(map.ids().length && map.ids().every(id => id.endsWith(' average')));
+      const msp = map.marker('KMSP');
+      assert.ok(msp && map.marker('KSTP') && map.marker('KFCM'));
+      assert.equal(Boolean(map.marker('KMIC')), i !== 1);
+      assert.ok(!map.marker('KNEAR'), 'KMSP has priority over an overlapping airport');
+      assert.equal(msp.popup.children[2].textContent, `Temperature: ${70 + 4 * i}.0°F`);
+      assert.deepEqual(Array.from(msp.position), [airports[0].lat, airports[0].lon]);
+      assert.match(msp.icon.html, /data-mph=/);
+      assert.ok(map.ids().every(id => history[i].stations.some(s => s.station === id)));
     }
     await map.mode('clouds');
-    assert.ok(map.ids().includes('KMSP'), 'CLOUDS still uses the original KMSP report');
-    await map.mode('plots');
-    assert.equal(map.get('metar-product').value, 'avgmetar');
-    assert.ok(map.ids().every(id => id.endsWith(' average')));
+    assert.match(map.marker('KMSP').icon.html, /plot-sky/);
+    await map.mode('avgmetar');
+    assert.equal(map.get('metar-product').value, 'plots');
+    assert.match(map.marker('KSTP').icon.html, /plot-temp/);
     assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'));
   }
-  console.log('METAR PLOTS uses averages only, with the original CLOUDS reports available.');
+  console.log('METAR PLOTS shows individual reports, including KMSP and KSTP, with independent hourly eligibility.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
