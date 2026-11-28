@@ -11,11 +11,12 @@ GitHub branch: `rtmetar-default-20261111`.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
+- **HOURLY** shows the next 24 hours from equal-weight NOAA LAMP forecasts for KMSP, KFCM and KMIC. Each row uses the named hour for conditions and the following hour's P01 for precipitation through the end of that row. Cloud ceilings use rounded category estimates.
 - **AIR Q** uses prepared Minnesota maps from EPA AirNow’s latest and 24-hour combined AQI contour layers. Each source hour appears after its image loads.
 
 ## Background updates
 
-`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Six Cloud Scheduler tasks are required:
+`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Seven Cloud Scheduler tasks are required:
 
 | Task | Endpoint |
 |---|---|
@@ -24,9 +25,10 @@ GitHub branch: `rtmetar-default-20261111`.
 | weather-live-radar | /collect/radar-KMPX |
 | weather-live-satellite | /collect/satellite |
 | weather-live-forecast | /collect/forecast |
+| weather-live-hourly | /collect/hourly |
 | weather-live-air-quality | /collect/air-quality |
 
-The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
+The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Hourly checks at :55 for the available :30 LAMP bulletin and saves it as `live/hourly.json`. Page views read saved objects without triggering collection.
 
 ## Operate
 
@@ -42,7 +44,7 @@ Clean obsolete schedules and old deployment versions without a rebuild:
 python3 cleanup_weather_jobs.py --apply --old-revisions
 ```
 
-Without `--apply`, cleanup is a preview. Cleanup checks the retained `/api/current` feed and all six required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
+Without `--apply`, cleanup is a preview. Cleanup checks the retained `/api/current` feed and all required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for release details and [THIRD_PARTY.md](THIRD_PARTY.md) for software/data credits.
 

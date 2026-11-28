@@ -1,4 +1,4 @@
-"""Remove obsolete, verified Weather Lab schedules; preserve the six live tasks."""
+"""Remove obsolete, verified Weather Lab schedules while preserving live tasks."""
 import argparse
 import json
 import subprocess
@@ -15,6 +15,7 @@ REQUIRED = {
     'weather-live-radar': 'radar-KMPX',
     'weather-live-satellite': 'satellite',
     'weather-live-forecast': 'forecast',
+    'weather-live-hourly': 'hourly',
     'weather-live-air-quality': 'air-quality',
 }
 # Older jobs with this name predate the weather-live-* naming convention.
@@ -128,7 +129,7 @@ def cleanup(apply=False, only_job=None):
     after = {r['name']: configuration(r) for r in remaining if r['name'].split('/')[-1] in REQUIRED}
     if after != required_before:
         raise ValueError('A required schedule changed; inspect Cloud Scheduler')
-    print('Cleanup complete. All six required schedules are enabled and unchanged.', flush=True)
+    print(f'Cleanup complete. All {len(REQUIRED)} required schedules are enabled and unchanged.', flush=True)
 
 
 def revision_plan(info, revisions, scheduled_uris=()):

@@ -12,6 +12,7 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
+  "lampForecastCollectionSchedule": "55 * * * *",
   "defaultMetarProduct": "plots",
   "metarProducts": [
     "plots",
@@ -57,6 +58,7 @@
     "weather-live-radar",
     "weather-live-satellite",
     "weather-live-forecast",
+    "weather-live-hourly",
     "weather-live-air-quality"
   ],
   "metarSunReadout": true,

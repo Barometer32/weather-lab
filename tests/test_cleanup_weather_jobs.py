@@ -17,7 +17,7 @@ def required():
     return [job(name) for name in cleanup.REQUIRED]
 
 
-def test_cleanup_removes_only_verified_owned_obsolete_jobs_and_keeps_six():
+def test_cleanup_removes_only_verified_owned_obsolete_jobs_and_keeps_required():
     rows=required()+[job('weather-live-nbm','nbm',state='PAUSED'),job('weather-live-mn-asos-audit','mn-asos-audit'),
                      job('weather-live-duplicate','current-hourly'),job('other-project-task')]
     foreign=job('weather-live-foreign');foreign['httpTarget']['uri']='https://other.example/collect/retired';rows.append(foreign)
@@ -45,7 +45,7 @@ def test_apply_checks_twice_and_never_deletes_or_updates_required_jobs():
     with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_site'),patch.object(cleanup,'jobs',side_effect=lambda:deepcopy(rows)),patch.object(cleanup,'gcloud',side_effect=cloud):
         cleanup.cleanup(True)
     assert len(calls)==1 and calls[0][3]==cleanup.PARENT+'weather-live-nbm'
-    assert len(rows)==6
+    assert len(rows)==len(cleanup.REQUIRED)
 
 
 def test_targeted_cleanup_retires_rapmetar_without_deleting_other_jobs():
@@ -80,6 +80,15 @@ def test_current_configuration_preserves_noncurrent_schedules_and_no_rollbacks()
     assert any('--schedule=*/2 * * * *' in c for c in commands)
     assert any(c[1:4]==['scheduler','jobs','resume'] for c in commands)
     assert not any(c[3] in ('delete','pause') for c in commands)
+
+
+def test_hourly_configuration_creates_missing_schedule_on_release():
+    rows = [r for r in required() if not r['name'].endswith('/weather-live-hourly')]
+    commands = configure(rows, COLLECTOR)
+    create = next(c for c in commands if c[1:5] == ['scheduler', 'jobs', 'create', 'http'])
+    assert create[5] == 'weather-live-hourly'
+    assert '--schedule=55 * * * *' in create
+    assert '--uri=' + COLLECTOR + '/collect/hourly' in create
 
 
 def test_revision_cleanup_protects_active_latest_and_scheduled_tag():
