@@ -7,16 +7,16 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Current pages
 
-- **METAR** opens first with PLOTS selected. Each of the four hourly frames shows the KMSP, KFCM and KMIC average at the metro center and individual airport reports for selected cities in Minnesota, Wisconsin, Iowa, North Dakota and South Dakota. The default view stays centered on Minnesota, and larger regional cities take priority among the added airports. The metro average, Mankato, Redwood Falls, St. Cloud, Rochester and Duluth take priority when plots crowd. Temperature and dewpoint use equal weights for the metro plot. Its wind barb uses the average wind vector. CLOUDS shows each airport's sky cover and lowest broken or overcast ceiling. It prioritizes KMSP, KFCM and KMIC, followed by KSTP, and reveals nearby airports as zoom makes room.
+- **METAR** opens first and plots individual routine airport reports across the existing Upper Midwest coverage area. Each eligible station can appear in any of the four hourly frames. Zoom and pan to reveal nearby airports as spacing allows. The source continues to exclude KCFE for recurring suspect reports.
+- **CLOUDS** has its own tab. It shows each eligible airport's sky cover and lowest broken or overcast ceiling, prioritizing KMSP, KFCM and KMIC followed by KSTP where markers crowd.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
-- **HOURLY** shows the next 24 hours from equal-weight NOAA LAMP forecasts for KMSP, KFCM and KMIC. Each row uses the named hour for conditions and the following hour's P01 for precipitation through the end of that row. Cloud ceilings use rounded category estimates.
 - **AIR Q** uses prepared Minnesota maps from EPA AirNow’s latest and 24-hour combined AQI contour layers. Each source hour appears after its image loads.
 
 ## Background updates
 
-`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Seven Cloud Scheduler tasks are required:
+`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Six Cloud Scheduler tasks are required:
 
 | Task | Endpoint |
 |---|---|
@@ -25,10 +25,9 @@ GitHub branch: `rtmetar-default-20261111`.
 | weather-live-radar | /collect/radar-KMPX |
 | weather-live-satellite | /collect/satellite |
 | weather-live-forecast | /collect/forecast |
-| weather-live-hourly | /collect/hourly |
 | weather-live-air-quality | /collect/air-quality |
 
-The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Hourly checks at :55 for the available :30 LAMP bulletin and saves it as `live/hourly.json`. Page views read saved objects without triggering collection.
+The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
 
 ## Operate
 
@@ -55,4 +54,4 @@ python3 -m pytest -q
 for test in tests/*.test.js; do node "$test" || exit; done
 ```
 
-`verify_weather_release.py https://weather-lab.cloud.run --all-products` checks METAR PLOTS/CLOUDS, imagery and the other retained products. `metar_history.py` retains the bounded official archive reader used by map recovery. `data-lifecycle.json` and `extend_satellite_lifecycle.py` document and preserve the weather bucket's existing retention rules.
+`verify_weather_release.py https://weather-lab.cloud.run --all-products` checks METAR, CLOUDS, imagery and the other retained products. `metar_history.py` retains the bounded official archive reader used by map recovery. `data-lifecycle.json` and `extend_satellite_lifecycle.py` document and preserve the weather bucket's existing retention rules.

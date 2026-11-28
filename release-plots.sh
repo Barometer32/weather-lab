@@ -39,7 +39,7 @@ collector_revision="$(gcloud run services describe weather-collector "${run[@]}"
   python3 -c 'import json,sys; print(next(t["revisionName"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")==sys.argv[1]))' "$tag")"
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 python3 configure_live_jobs.py
-for job in weather-live-current weather-live-metar-clouds weather-live-radar weather-live-satellite weather-live-forecast weather-live-hourly weather-live-air-quality; do
+for job in weather-live-current weather-live-metar-clouds weather-live-radar weather-live-satellite weather-live-forecast weather-live-air-quality; do
   gcloud scheduler jobs run "$job" "${scheduler[@]}"
 done
 log="$(mktemp /tmp/weather-ready.XXXXXX)"
@@ -57,4 +57,5 @@ gcloud run services update-traffic weather-lab "${run[@]}" --to-revisions="$web_
 gcloud run services update weather-lab "${run[@]}" --min="$warm_min"
 python3 verify_weather_release.py "$site" --all-products
 python3 cleanup_weather_jobs.py --apply --only-job weather-live-rapmetar
-printf 'Weather Lab is live at %s. PLOTS opens with the Twin Cities average and selected Upper Midwest airports.\n' "$site"
+python3 cleanup_weather_jobs.py --apply --only-job weather-live-hourly
+printf 'Weather Lab is live at %s. METAR opens with individual Upper Midwest airports. CLOUDS has its own tab.\n' "$site"

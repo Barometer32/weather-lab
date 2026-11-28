@@ -12,10 +12,8 @@
     "ntmicro"
   ],
   "forecastCollectionSchedule": "*/5 * * * *",
-  "lampForecastCollectionSchedule": "55 * * * *",
-  "defaultMetarProduct": "plots",
-  "metarProducts": [
-    "plots",
+  "metarTabs": [
+    "metar",
     "clouds"
   ],
   "hourlyMapPreparedPayload": "live/metar-loop.json",
@@ -58,7 +56,6 @@
     "weather-live-radar",
     "weather-live-satellite",
     "weather-live-forecast",
-    "weather-live-hourly",
     "weather-live-air-quality"
   ],
   "metarSunReadout": true,

@@ -19,6 +19,7 @@ const airports = [
   ['KRGK', 44.5926, -92.4844, 34, 180],
   ['KBDH', 45.1111, -95.1258, 37, 180],
   ['KSTP', 44.9345, -93.0600, 31, 180],
+  ['KANE', 45.145, -93.211, 42, 140],
 ];
 const history = Array.from({length: 4}, (_, hour) => ({
   hour: new Date(Date.UTC(2026, 10, 17, 15 + hour)).toISOString(),
@@ -38,74 +39,35 @@ history[2].stations = history[2].stations.map(report => report.station === 'KDLH
 
 (async () => {
   const data = {checkedAt: '2026-11-17T18:02:00Z', history};
-  for (const width of [320, 375, 1870]) {
-    const wide = width > 1000;
-    const map = viewer(data, {width, height: wide ? 780 : 560, zoom: wide ? 7.5 : 6.75, center: [45.28, -93.79]});
-    await map.load();
-    assert.equal(map.get('metar-product').value, 'plots');
-    for (const [i] of history.entries()) {
-      map.frame(i);
-      const names = ['Mankato', 'Redwood Falls', 'St. Cloud', 'Rochester'];
-      if (i !== 2) names.push('Duluth');
-      if (i !== 1) names.push('Twin Cities average');
-      const additions = ['Albert Lea', 'Alexandria', 'Brainerd', 'Hutchinson', 'Mora', 'Red Wing', 'Willmar'];
-      const visible = map.ids();
-      assert.ok(names.every(name => visible.includes(name)), 'The original plots keep priority');
-      assert.ok(visible.every(name => names.includes(name) || additions.includes(name)));
-      if (wide) assert.deepEqual(visible, [...names, ...additions].sort());
-      else assert.ok(additions.some(name => visible.includes(name)), 'More cities fit on narrow views too');
-      const metro = map.marker('Twin Cities average');
-      if (metro) {
-        assert.deepEqual(Array.from(metro.position), [44.941104509329946, -93.3874108503608]);
-        assert.equal(metro.popup.children[2].textContent, `Temperature: ${33 + i}.0°F`);
-        assert.equal(metro.popup.children[3].textContent, `Dewpoint: ${18 + i}.0°F`);
-        assert.ok(metro.popup.children.some(line => line.textContent.includes('KMSP · KFCM · KMIC')));
-        assert.match(metro.icon.html, /data-mph="10"[^>]*rotate\(0\)/);
+  const map = viewer(data, {width: 1800, height: 850, zoom: 10, center: [44.98, -93.34]});
+  await map.load();
+  assert.equal(map.get('metar-title').textContent, 'METAR');
+  for (let hour = 0; hour < 4; hour++) {
+    map.frame(hour);
+    assert.ok(!map.ids().includes('AVG-METRO') && !map.ids().includes('METRO'));
+    for (const [id, lat, lon, temperature] of airports.filter(([station]) => ['KMSP', 'KFCM', 'KMIC', 'KSTP', 'KANE'].includes(station))) {
+      const plot = map.marker(id);
+      if (id === 'KMIC' && hour === 1) {
+        assert.equal(plot, undefined);
+        continue;
       }
-      const mankato = map.marker('Mankato');
-      assert.deepEqual(Array.from(mankato.position), [44.2184, -93.9179]);
-      assert.equal(mankato.popup.children[0].textContent, 'Mankato (KMKT)');
-      assert.equal(mankato.popup.children[2].textContent, `Temperature: ${40 + i}.0°F`);
-      if (wide) assert.equal(map.marker('Brainerd').popup.children[2].textContent, `Temperature: ${29 + i}.0°F`);
+      assert.ok(plot, id + ' is plotted at its own station');
+      assert.deepEqual(Array.from(plot.position), [lat, lon]);
+      assert.equal(plot.popup.children[2].textContent, 'Temperature: ' + (temperature + hour) + '.0°F');
+      assert.match(plot.icon.html, /plot-temp/);
     }
-    await map.mode('clouds');
-    assert.match(map.marker('KMSP').icon.html, /plot-sky/);
-    assert.equal(map.marker('Twin Cities average'), undefined);
-    await map.mode('plots');
-    assert.match(map.marker('Mankato').icon.html, /plot-temp/);
-    assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'));
   }
 
-  const regionalAirports = [
-    ['KBJI', 'Bemidji', 47.5076, -94.9279],
-    ['KFAR', 'Fargo', 46.9242, -96.8119],
-    ['KFSD', 'Sioux Falls', 43.5775, -96.7539],
-    ['KEAU', 'Eau Claire', 44.8665, -91.4881],
-    ['KRPD', 'Rice Lake', 45.4186, -91.7764],
-    ['KDBQ', 'Dubuque', 42.3984, -90.7091],
-  ];
-  const regionalHistory = history.map(frame => ({
-    ...frame,
-    stations: [...frame.stations, ...regionalAirports.map(([station, , lat, lon]) => ({
-      ...frame.stations[0], station, lat, lon, tempF: 48,
-    }))],
-  }));
-  const regionalMap = viewer({...data, history: regionalHistory},
-    {width: 1700, height: 800, zoom: 7, center: [45, -93.3]});
-  await regionalMap.load();
-  for (const [, name, lat, lon] of regionalAirports) {
-    const marker = regionalMap.marker(name);
-    assert.ok(marker, `${name} has an individual regional plot`);
-    assert.deepEqual(Array.from(marker.position), [lat, lon]);
-    assert.equal(marker.popup.children[2].textContent, 'Temperature: 48.0°F');
-  }
-  const wisconsinHistory = regionalHistory.map(frame => ({
-    ...frame, stations: frame.stations.filter(report => ['KEAU', 'KRPD'].includes(report.station)),
-  }));
-  const wisconsinMap = viewer({...data, history: wisconsinHistory},
-    {width: 320, height: 400, zoom: 5.25, center: [45, -91.6]});
-  await wisconsinMap.load();
-  assert.ok(wisconsinMap.marker('Eau Claire') && !wisconsinMap.marker('Rice Lake'),
-    'The larger regional city wins when the two plots crowd');
-  console.log('METAR PLOTS shows selected Upper Midwest airport reports, spacing priorities and the metro average.');
+  const duluth = viewer(data, {width: 800, height: 500, zoom: 10, center: [46.84, -92.19]});
+  await duluth.load();
+  assert.ok(duluth.marker('KDLH'));
+  duluth.frame(2);
+  assert.equal(duluth.marker('KDLH'), undefined, 'Special reports are excluded from the routine loop');
+  await map.mode('clouds');
+  assert.equal(map.get('metar-title').textContent, 'CLOUDS');
+  assert.match(map.marker('KMSP').icon.html, /plot-sky/);
+  await map.mode('metar');
+  assert.match(map.marker('KMSP').icon.html, /plot-temp/);
+  assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'));
+  console.log('METAR plots individual airport reports, including airports outside the old city list.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

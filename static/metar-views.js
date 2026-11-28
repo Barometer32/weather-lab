@@ -1,26 +1,27 @@
 "use strict";
 // Four-hour METAR loop with independent airport eligibility in each hour.
 window.WeatherMetars = (() => {
-  const el=id=>document.getElementById(id),model=window.WeatherStationModel,cityPlots=window.WeatherMetarPlots;
+  const el=id=>document.getElementById(id),model=window.WeatherStationModel;
   const time=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
-  const defaultProduct="plots";
-  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode=defaultProduct,wantedHour=null;
+  let map,markers,data,index=0,followLatest=true,moving=false,sites=[],mode="plots",wantedHour=null;
   const historyHours=4;
   const preferred=["KMSP","KFCM","KMIC"];
   const secondary=["KSTP"];
+  const regionalHubs=["KMKT","KRWF","KSTC","KRST","KDLH","KMKE","KMSN","KFAR","KFSD","KGRB","KSUX","KALO","KEAU","KLSE","KGFK","KAUW","KBJI"];
+  const regionalView=[[43.68,-95.4],[46.85,-92.18]];
   const windPlotOptions={dot:true,mphBarbs:true};
   const windSpacingFactor=.90; // Small barb-to-number contact is acceptable.
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
   const active=new Map();
-  el("metar-product").value=mode;
+  const panelFor=product=>el(product==="clouds"?"clouds":"metar");
   const node=(tag,text)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;};
   function reset(){
     if(!map)return;
     const saved=window.WeatherDefaultViews?.savedMetar?.(mode);
     if(mode==="plots"&&!saved){
-      map.fitBounds(cityPlots.locations,{padding:[32,32],animate:false});
+      map.fitBounds(regionalView,{padding:[32,32],animate:false});
       return;
     }
     const view=saved||window.WeatherDefaultViews?.metar(sites,map.getSize(),preferred)||{center:[44.945,-93.343],zoom:9};
@@ -94,7 +95,7 @@ window.WeatherMetars = (() => {
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
-    const focus=mode==="plots"?cityPlots.priority:preferred;
+    const focus=preferred;
     const primary=focus.map(id=>candidates.find(s=>s.id===id)).filter(Boolean);
     // Prefer the largest nonoverlapping subset of the priority locations.
     let best=[];
@@ -105,7 +106,7 @@ window.WeatherMetars = (() => {
     }
     for(const site of best)take(site);
     for(const site of candidates)if(!focus.includes(site.id)&&primary.some(core=>core.conflicts.has(site)))remaining.delete(site);
-    const nextPriority=mode==="plots"?cityPlots.regionalHubs:secondary;
+    const nextPriority=mode==="plots"?[...secondary,...regionalHubs]:secondary;
     for(const id of nextPriority){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
     // Fill remaining gaps with the least-conflicting stations first.
     while(remaining.size){
@@ -120,7 +121,7 @@ window.WeatherMetars = (() => {
   }
 
   function render(){
-    if(el("metar").hidden||moving)return;
+    if(panelFor(mode).hidden||moving)return;
     if(!data)return;
     init();
     const hours=data.history;
@@ -133,7 +134,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and selected Upper Midwest airports");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for individual Upper Midwest airports");
     el("metar-status").textContent=`${reports.length} ${mode==="plots"?"plots":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
@@ -143,21 +144,16 @@ window.WeatherMetars = (() => {
       const existing=active.get(station.station);
       if(existing?.station===station&&existing.mode===mode)continue;
       const plots=plotCaches[mode];
-      const name=mode==="plots"?cityPlots.names.get(station.station):null;
-      const metro=station.station===cityPlots.metroId;
+      const name=mode==="plots"?station.name:null;
       let cached=plots.get(station);
       if(!cached){
       const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
-      popup.append(node("strong",name?(metro?name:`${name} (${station.station})`):station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
+      popup.append(node("strong",name?`${name} (${station.station})`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
       const wind=station.wind||{},barb=model.combinedWind(wind,mode!=="clouds"&&windPlotOptions.mphBarbs),layer=model.firstCloudLayer(station);
       popup.append(node("p",`Wind: ${Number.isFinite(barb.speed)?Math.round(barb.speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
-      if(metro){
-        popup.append(node("p",`Equal average of ${cityPlots.metroAirports.join(" · ")}`));
-      }else{
-        popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
-        popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
-      }
+      popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
+      popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
       if(barb.kind==="barb"){
         const feathers=mode==="clouds"?`${barb.roundedKnots} kt (nearest 5 kt)`:`${barb.roundedMph} mph`;
         popup.append(node("p",`Barb feathers: ${feathers}`));
@@ -166,7 +162,7 @@ window.WeatherMetars = (() => {
       cached={icon,popup};plots.set(station,cached);
       }
       if(existing){existing.marker.setIcon(cached.icon).setLatLng([station.lat,station.lon]).setPopupContent(cached.popup);existing.station=station;existing.mode=mode;}
-      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${name||station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
+      else {const marker=L.marker([station.lat,station.lon],{icon:cached.icon,title:`${station.station} · METAR`,keyboard:true}).bindPopup(cached.popup).addTo(markers);active.set(station.station,{marker,station,mode});}
     }
   }
   function adopt(next){
@@ -183,7 +179,7 @@ window.WeatherMetars = (() => {
     // timeline backwards after a newer usable window has been displayed.
     if(data&&Date.parse(history.at(-1).hour)<Date.parse(data.history.at(-1).hour))return;
     const selected=data?.history[index]?.hour||wantedHour;
-    sourceData=next;data={...next,history,plots:history.map(cityPlots.reports)};
+    sourceData=next;data={...next,history,plots:history.map(frame=>frame.stations.filter(report=>report.reportType==="METAR"))};
     prepareSpacing();
     const restored=!followLatest&&selected?data.history.findIndex(f=>f.hour===selected):-1;
     index=restored>=0?restored:followLatest?data.history.length-1:0;
@@ -202,15 +198,19 @@ window.WeatherMetars = (() => {
   window.WeatherPrepared.subscribe("/api/station-plots?view=loop",adopt);
   function selectProduct(product){
     const previous=mode;
-    mode=product==="clouds"?"clouds":defaultProduct;
-    el("metar-product").value=mode;
+    if(previous!==product){
+      // Reuse the map and timeline in both tab panels. Leaflet and the
+      // controls stay attached to the same DOM nodes.
+      mode=product;
+      panelFor(mode).append(...panelFor(previous).children);
+    }
+    el("metar-title").textContent=mode==="plots"?"METAR":"CLOUDS";
     el("metar-eyebrow").textContent=mode==="plots"?"UPPER MIDWEST · HOURLY METARS":"AIRPORT METARS · UPPER MIDWEST";
     if(data)prepareSpacing();
     if(map&&(previous!==mode||window.WeatherDefaultViews?.savedMetar?.(mode)))reset();
     render();
     load();
   }
-  el("metar-product").addEventListener("change",event=>selectProduct(event.target.value));
   el("refresh-metar").addEventListener("click",()=>load(true));
   el("metar-reset").addEventListener("click",reset);
   el("metar-set-default").addEventListener("click",()=>{
@@ -221,11 +221,11 @@ window.WeatherMetars = (() => {
     setTimeout(()=>{button.textContent="Set default";},2000);
   });
   el("metar-timeline").addEventListener("input",event=>{if(!data)return;index=Number(event.target.value);wantedHour=data.history[index]?.hour;followLatest=index===data.history.length-1;render();});
-  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"METAR map",onResize:()=>{if(map){map.invalidateSize({pan:false});render();}}});
-  setInterval(()=>{if(!document.hidden&&!el("metar").hidden)load();},30000);
-  window.addEventListener("weather-layout-resize",()=>{if(map&&!el("metar").hidden)map.invalidateSize({pan:false});});
-  return {select(id){if(id==="metar"){
-    selectProduct(defaultProduct);
+  window.WeatherFullscreen.attach({surfaceId:"metar-surface",buttonId:"metar-fullscreen",label:"weather map",onResize:()=>{if(map&&!panelFor(mode).hidden){map.invalidateSize({pan:false});render();}}});
+  setInterval(()=>{if(!document.hidden&&!panelFor(mode).hidden)load();},30000);
+  window.addEventListener("weather-layout-resize",()=>{if(map&&!panelFor(mode).hidden)map.invalidateSize({pan:false});});
+  return {select(id){if(id==="metar"||id==="clouds"){
+    selectProduct(id==="clouds"?"clouds":"plots");
     setTimeout(()=>map?.invalidateSize({pan:false}),0);
   }},refresh(){render();load();}};
 })();

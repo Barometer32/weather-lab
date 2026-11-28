@@ -43,27 +43,6 @@ p { line-height: 1.55; }
 .history-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
 .history-heading span { font-size: 14px; color: var(--muted); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }
-#hourly { width: 100%; max-width: 42rem; margin-inline: auto; }
-#hourly-cycle { font-size: .8125rem; }
-#hourly-status { margin: 0 0 8px; }
-#hourly-table { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.hourly-table thead th { position: sticky; top: 0; z-index: 1; background: #f2f6f3; }
-.hourly-table th, .hourly-table td { padding: 6px 10px; font-size: .875rem; line-height: 1.25; }
-.hourly-table { font-variant-numeric: tabular-nums; }
-.hourly-table tbody tr:last-child > * { border-bottom: 0; }
-.hourly-table tbody th { background: transparent; }
-.hourly-table tbody tr:nth-child(even) { background: #f7f9f8; }
-.hourly-table small { font-size: .85em; font-weight: 400; color: var(--muted); }
-.hourly-table tbody th small { display: block; }
-.hourly-table td small { margin-inline-start: .4em; }
-.hourly-table .hourly-precip { color: #235c86; font-weight: 600; }
-@media (max-width:600px) {
-  .hourly-table th, .hourly-table td { padding: 6px 5px; font-size: .75rem; }
-  .hourly-table td small { display: block; margin-inline-start: 0; }
-}
-@media (max-width:360px) {
-  .hourly-table th, .hourly-table td { padding-inline: 3px; font-size: .6875rem; }
-}
 table { border-collapse: collapse; width: 100%; text-align: left; white-space: nowrap; }
 th, td { padding: 15px 24px; border-bottom: 1px solid #e5ebe7; }
 th { background: #f4f7f5; font-size: 14px; }
@@ -213,7 +192,7 @@ footer { max-width: 1280px; margin: 0 auto; padding: 20px 32px 30px; font-size: 
 .plot-speed { fill:#1254c4; font-size:13px; }
 .plot-wind-state { fill:#111; font-size:8px; }
 
-#metar-clouds .section-heading, #metar .section-heading { flex-wrap:wrap; }
+:is(#metar,#clouds) .section-heading { flex-wrap:wrap; }
 @media(max-width:600px) {
   .metar-view-controls { width:100%; justify-content:space-between; gap:8px; }
 }
@@ -277,9 +256,6 @@ body.map-expanded { overflow:hidden; overscroll-behavior:none; }
 
 
 /* One METAR surface shared by all four isolated products. */
-.metar-product-row { display:flex; align-items:center; gap:10px; margin:-4px 0 16px; }
-.metar-product-row label { color:var(--muted); font-size:14px; }
-.metar-product-row select { background:white; color:#243d2e; border:1px solid var(--border); border-radius:6px; min-height:42px; padding:8px 12px; min-width:170px; }
 #metar-map { height:clamp(540px,70dvh,680px); min-height:360px; background:white; z-index:0; }
 @media (max-width:600px) { #metar-map { height:clamp(400px,64dvh,620px); } }
 
@@ -299,7 +275,7 @@ main > [role="tabpanel"] > * { flex-shrink:0; }
 h1 { font-size:23px; margin:2px 0 0; line-height:1.15; }
 .section-heading .eyebrow { font-size:10px; letter-spacing:1px; line-height:1.35; }
 .section-heading > div { min-width:0; }
-#metar .section-heading { flex-wrap:nowrap; }
+:is(#metar,#clouds) .section-heading { flex-wrap:nowrap; }
 .metar-view-controls { width:auto; flex-wrap:nowrap; justify-content:flex-end; gap:12px; }
 main > [role="tabpanel"] > .map-viewer { display:flex; flex-direction:column; flex:1 1 0; min-height:0; }
 .map-viewer > .map-area { flex:1 1 0; min-height:0; }
@@ -367,17 +343,14 @@ body.map-focus main { padding-top:6px; }
   .viewer-controls .viewer-actions { justify-self:end; }
 }
 
-.metar-title-row { display:flex; align-items:center; gap:10px; }
 .sun-angle-readout { display:inline-flex; align-items:baseline; gap:6px; color:var(--muted); white-space:nowrap; }
 .sun-angle-readout strong { color:#182521; font-size:24px; font-variant-numeric:tabular-nums; line-height:1; }
 @media(max-width:600px) {
   .sun-angle-readout { flex-direction:column; align-items:center; gap:3px; font-size:10px; line-height:1; }
   .sun-angle-readout strong { font-size:18px; }
 }
-#metar-product { min-height:38px; max-width:105px; padding:5px 7px; border:1px solid var(--border); border-radius:6px; background:white; color:inherit; font:inherit; font-size:13px; }
-@media(max-width:600px) { .metar-title-row { gap:6px; } #metar-product { max-width:85px; min-height:40px; padding:4px; font-size:12px; } }
-body.map-focus #metar .section-heading { display:flex; min-height:44px; margin-bottom:6px; }
-body.map-focus #metar .eyebrow { display:none; }
+body.map-focus :is(#metar,#clouds) .section-heading { display:flex; min-height:44px; margin-bottom:6px; }
+body.map-focus :is(#metar,#clouds) .eyebrow { display:none; }
 
 /* Current MADIS has no timeline; keep its timestamp and map actions visible. */
 #metar-history[hidden]{display:none!important}
@@ -417,5 +390,4 @@ body.map-focus #metar .eyebrow { display:none; }
   .scan-timeline { height:36px; }
   .section-heading { min-height:36px; }
   .section-heading button { min-height:32px; padding:5px 8px; font-size:12px; }
-  #metar-product { min-height:32px; }
 }

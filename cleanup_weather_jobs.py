@@ -15,7 +15,6 @@ REQUIRED = {
     'weather-live-radar': 'radar-KMPX',
     'weather-live-satellite': 'satellite',
     'weather-live-forecast': 'forecast',
-    'weather-live-hourly': 'hourly',
     'weather-live-air-quality': 'air-quality',
 }
 # Older jobs with this name predate the weather-live-* naming convention.

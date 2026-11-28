@@ -82,13 +82,11 @@ def test_current_configuration_preserves_noncurrent_schedules_and_no_rollbacks()
     assert not any(c[3] in ('delete','pause') for c in commands)
 
 
-def test_hourly_configuration_creates_missing_schedule_on_release():
-    rows = [r for r in required() if not r['name'].endswith('/weather-live-hourly')]
-    commands = configure(rows, COLLECTOR)
-    create = next(c for c in commands if c[1:5] == ['scheduler', 'jobs', 'create', 'http'])
-    assert create[5] == 'weather-live-hourly'
-    assert '--schedule=55 * * * *' in create
-    assert '--uri=' + COLLECTOR + '/collect/hourly' in create
+def test_hourly_lamp_schedule_is_retired():
+    old = job('weather-live-hourly', 'hourly')
+    rows = required() + [old]
+    assert cleanup.plan(rows, COLLECTOR) == ([old], [])
+    assert all('weather-live-hourly' not in command for command in configure(rows, COLLECTOR))
 
 
 def test_revision_cleanup_protects_active_latest_and_scheduled_tag():

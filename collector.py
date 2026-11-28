@@ -17,7 +17,7 @@ from current_hourly import collect as collect_current_hourly
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality", "current-hourly", "hourly")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality", "current-hourly")}
 
 
 def collect_radar_legacy(store, now):
@@ -202,21 +202,6 @@ def collect_forecast(store, now):
     return {"periods": len(data["periods"]), "feed": data.get("forecastFeed")}
 
 
-def collect_hourly(store, now):
-    from lamp_hourly import SNAPSHOT_KEY, fetch_forecast, fetch_initial_forecast, iso, latest_cycle
-
-    previous = store.read_json(SNAPSHOT_KEY)
-    cycle = latest_cycle(now)
-    if previous and previous["cycle"] >= iso(cycle):
-        return {"cycle": previous["cycle"], "status": "already prepared"}
-    if previous:
-        data = fetch_forecast(weather.download, cycle, now)
-    else:
-        data = fetch_initial_forecast(weather.download, cycle, now)
-    store.write_json(SNAPSHOT_KEY, data)
-    return {"cycle": data["cycle"], "hours": len(data["rows"])}
-
-
 @app.get("/healthz")
 def health():
     return jsonify(status="ok")
@@ -227,7 +212,6 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecast,
-            "hourly": collect_hourly,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds,
             "current-hourly": collect_current_hourly}
