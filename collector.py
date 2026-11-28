@@ -15,7 +15,7 @@ from realtime import get_store
 from satellite import PRODUCTS, page_url, parse_loop
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "stations")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "observations", "forecast", "metar-clouds", "stations", "hourly")}
 
 
 def collect_radar_legacy(store, now):
@@ -161,6 +161,21 @@ def collect_forecast(store, now):
     return {"periods": len(data["periods"])}
 
 
+def collect_hourly(store, now):
+    from lamp_hourly import SNAPSHOT_KEY, fetch_forecast, fetch_initial_forecast, iso, latest_cycle
+
+    previous = store.read_json(SNAPSHOT_KEY)
+    cycle = latest_cycle(now)
+    if previous and previous["cycle"] >= iso(cycle):
+        return {"cycle": previous["cycle"], "status": "already prepared"}
+    if previous:
+        data = fetch_forecast(weather.download, cycle, now)
+    else:
+        data = fetch_initial_forecast(weather.download, cycle, now)
+    store.write_json(SNAPSHOT_KEY, data)
+    return {"cycle": data["cycle"], "hours": len(data["rows"])}
+
+
 def collect_stations(store, now):
     from station_plots import collect, VERSION as STATION_VERSION
     import surface_analysis
@@ -201,7 +216,7 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "observations": collect_observations, "forecast": collect_forecast,
-            "metar-clouds": collect_metar_clouds, "stations": collect_stations}
+            "metar-clouds": collect_metar_clouds, "stations": collect_stations, "hourly": collect_hourly}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = "metar-clouds" if kind == "observations" else kind

@@ -47,7 +47,7 @@ not prove that Artifact Registry has recovered.
 
 ## Page and data
 
-The four tabs are Observations (default), Radar, Satellite, and Forecast.
+The five tabs are Observations (default), Radar, Satellite, Forecast, and Hourly.
 All station plots combine IEM open bulk feeds from twelve states with the
 UW–Madison Wisconet public map API, filtered to the Upper Midwest. Airport, RWIS, agricultural and other
 sites with temperature/dew point/wind from :30–:59 appear, with more plots revealed
@@ -63,7 +63,7 @@ hour. KFCM/KMIC/KMSP remain independent. KCFE/KFCE and KSGS are excluded.
 Cloud mode labels only the lowest reported BKN/OVC base, rounded to thousands
 of feet with a minimum displayed value of 1. It retains its twelve hourly positions and shares airport collection with
 the station job. The legacy average observation API remains compatibility-only.
-There is no model, AI, direct restricted MADIS or separate MnDOT collector.
+No numerical model runs locally. There is no AI, direct restricted MADIS or separate MnDOT collector.
 
 Radar keeps native KMPX lowest 0.5-degree completed scans, including available
 supplemental scans, across the previous two hours with no frame-count cap or
@@ -76,7 +76,8 @@ Boundaries remain sharp; the three personal reference dots are removed.
 
 Satellite keeps the original COD Central Minnesota True Color, Day Cloud
 Phase and Nighttime Microphysics products and manual timeline. Forecast keeps
-the compact NWS MapClick JSON forecast for 44.9244, -93.4140.
+the compact NWS MapClick JSON forecast for 44.9244, -93.4140. Hourly blends the
+24 upcoming hours of NOAA LAMP guidance for KMSP, KFCM and KMIC.
 
 ## Managed resources and schedules
 
@@ -93,6 +94,7 @@ minimum 0 / maximum 1 instance and request-based billing.
 | weather-live-satellite | Every five minutes |
 | weather-live-forecast | Every five minutes |
 | weather-live-stations | Once hourly at :00, /collect/stations; shares airport/cloud collection |
+| weather-live-hourly | Once hourly at :55, /collect/hourly |
 
 Scheduler uses OIDC with the weather-scheduler identity, which may invoke the
 private collector. The script creates missing managed resources, resumes its
@@ -109,8 +111,8 @@ gcloud run services list --project=weather-lab-20261013-204529 --region=us-centr
 gcloud storage ls gs://weather-lab-20261013-204529-weather-data/live/
 ```
 
-There should be four active Weather Lab Scheduler jobs. Expected manifests
-include radar-KMPX.json, radar-state-KMPX.json, station-plots.json, metar-clouds.json, forecast.json
+There should be five active Weather Lab Scheduler jobs. Expected manifests
+include radar-KMPX.json, radar-state-KMPX.json, station-plots.json, metar-clouds.json, forecast.json, hourly.json
 and three satellite product manifests. A legacy observations.json may remain
 but is not used by the page.
 
@@ -127,10 +129,10 @@ the previous successful saved data and show delayed data where applicable.
 ## Costs and stopping
 
 Charges depend on collector runtime, storage operations, traffic, builds,
-image storage and remaining account-wide free tiers. Four Scheduler jobs are
+image storage and remaining account-wide free tiers. Five Scheduler jobs are
 managed. Saving code to GitHub does not deploy Google Cloud.
 
-Pause the four managed Scheduler jobs to stop unattended collection while
+Pause the five managed Scheduler jobs to stop unattended collection while
 keeping the site and saved data. Storage and Artifact Registry costs can remain
 while idle. Disabling billing and deleting the Google project is the complete
 shutdown route when the site is no longer wanted.

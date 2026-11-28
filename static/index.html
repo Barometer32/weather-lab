@@ -20,6 +20,7 @@
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">Radar</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">Satellite</button>
     <button role="tab" id="tab-forecast" aria-selected="false" aria-controls="forecast" tabindex="-1">Forecast</button>
+    <button role="tab" id="tab-hourly" aria-selected="false" aria-controls="hourly" tabindex="-1">Hourly</button>
   </nav>
 </header>
 <main>
@@ -82,6 +83,26 @@
   <p class="notice" id="forecast-status" role="status" hidden></p>
   <div class="forecast-list" id="forecast-periods" aria-live="polite"><p>Loading the official point forecast…</p></div>
   <p class="source">Official day/night forecast for 44.9244°N, 93.4140°W. <a href="https://forecast.weather.gov/MapClick.php?lat=44.9244&amp;lon=-93.414&amp;unit=0&amp;lg=english&amp;FcstType=text&amp;TextType=1" target="_blank" rel="noopener">Open the NWS forecast</a></p>
+</section>
+<section id="hourly" role="tabpanel" aria-labelledby="tab-hourly" hidden>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">NWS LAMP · KMSP · KFCM · KMIC</p>
+      <h1>Hourly forecast</h1>
+      <p id="hourly-cycle">Loading the latest LAMP run…</p>
+    </div>
+    <button class="secondary" id="refresh-hourly">Refresh</button>
+  </div>
+  <p class="notice" id="hourly-status" role="status" hidden></p>
+  <div class="table-wrap" id="hourly-table" hidden>
+    <table class="hourly-table" aria-label="Hourly forecast in Central time">
+      <thead><tr>
+        <th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dewpoint</th>
+        <th scope="col">Wind</th><th scope="col">Clouds</th><th scope="col">Precip.</th>
+      </tr></thead>
+      <tbody id="hourly-rows"></tbody>
+    </table>
+  </div>
 </section>
 <section id="satellite" role="tabpanel" aria-labelledby="tab-satellite" hidden>
   <div class="section-heading"><div><p class="eyebrow">GOES-EAST · CENTRAL MINNESOTA</p><h1>Local satellite</h1><p>Latest 24 images · drag the timeline to explore</p></div><button class="secondary" id="refresh-satellite">Refresh images</button></div>

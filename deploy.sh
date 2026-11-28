@@ -123,6 +123,7 @@ weather_schedule radar '* * * * *' radar-KMPX
 weather_schedule satellite '*/5 * * * *'
 weather_schedule forecast '*/5 * * * *'
 weather_schedule stations '0 * * * *' stations 300 0
+weather_schedule hourly '55 * * * *' hourly 90
 
 gcloud run deploy weather-lab --image="$WEATHER_IMAGE" --region="$WEATHER_REGION" --allow-unauthenticated --service-account="$WEATHER_WEB_SA" --set-env-vars="WEATHER_DATA_BUCKET=${WEATHER_DATA_BUCKET}" --cpu-throttling --cpu=1 --memory=1Gi --min-instances=0 --max-instances=1 --concurrency=8 --timeout=90
 
@@ -136,7 +137,7 @@ if gcloud storage buckets describe "gs://${WEATHER_OLD_BUCKET}" >/dev/null 2>&1;
     fi
   done
   if ! gcloud storage buckets delete "gs://${WEATHER_OLD_BUCKET}" --quiet; then
-    printf '%s\n' 'The retired forecast bucket is not empty; remaining objects were retained. No model collection jobs remain.'
+    printf '%s\n' 'The retired forecast bucket is not empty; remaining objects were retained. The retired model job was removed.'
   fi
 fi
 printf '%s\n' 'Background collection enabled. The first two-hour radar and satellite backfill can take a few minutes.'

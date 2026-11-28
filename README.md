@@ -1,11 +1,12 @@
 # WEATHER LAB
 
-A phone-friendly Twin Cities weather page with four views:
+A phone-friendly Twin Cities weather page with five views:
 
 - **Observations (first/default):** individual hourly station plots from Wisconet and IEM airport, road-weather, agricultural and other networks across the Upper Midwest. Temperature/dew point in °F and wind-flow arrows/speed in mph. Twelve hourly snapshots from reports within :30–:59; zoom in to reveal more plots. The dropdown retains routine hourly airport cloud ceilings. KCFE/KFCE and KSGS remain excluded.
 - **Radar:** KMPX native Level II lowest-tilt reflectivity, a two-hour loop, the original continuous COD-style reflectivity gradient from 10 dBZ, and a manual timeline.
 - **Satellite:** local Central Minnesota GOES-East True Color, Day Cloud Phase, and Nighttime Microphysics, with state/county lines and a manual timeline.
 - **Forecast:** the official NWS day/night forecast for Hopkins at **44.9244, -93.4140**, displayed as compact seven-day rows.
+- **Hourly:** the equal blend of official station-based LAMP guidance for KMSP, KFCM and KMIC.
 
 ## Run locally
 
@@ -78,6 +79,12 @@ NWS source issue time comes from the same MapClick response as its narrative and
 
 The old HRRR/RRFS collector, GRIB dependencies and blend storage code are removed. Only lightweight feed/image collection is scheduled; no numerical weather model or AI computation runs. The compatibility-only airport average API is retained.
 
+## Hourly LAMP forecast
+
+One background request around **:55** each hour reads the operational NOAA :30 bulletin. The 24 local-time rows begin at the next top of the hour. The three airport forecasts share one cycle. Temperature and dewpoint are in whole °F. Mean wind speed is in whole mph, with a speed-weighted compass direction and Calm at 3 mph or less. Each row uses its start time for conditions and its end time for the P01 probability of at least 0.01 inches of precipitation during the displayed hour. Missing values stay blank. The most recent prepared cycle stays available during a failed refresh.
+
+Cloud cover is blended using the category midpoints in octas. For Broken or Overcast, the displayed height is an approximate ceiling above ground, rounded to the nearest thousand feet from the midpoint of each qualifying station's category. A ceiling below 500 feet is shown as `<1k`. Where all qualifying ceilings are in the open-ended category, the height is `>12k`. In a mixed case, 12,000 feet serves as the lower-bound estimate for that category. The highest category includes unlimited ceilings. See the [NOAA LAMP format](https://vlab.noaa.gov/web/mdl/lamp-card-2.7.0).
+
 ## Deploy/update
 
 See [DEPLOYMENT.md](DEPLOYMENT.md). In the existing Google Cloud Shell checkout:
@@ -88,7 +95,7 @@ git pull --ff-only
 bash deploy.sh weather-lab-20261013-204529
 ```
 
-The script retires old model, KEVX radar, separate observations, Surface, and separate METAR-cloud Scheduler jobs. It builds the app, creates the private collector/data bucket, and configures **four** authenticated Scheduler jobs: KMPX radar every minute; satellite every five minutes; NWS forecast every five minutes; and the combined station/airport-cloud collector once hourly at :00. Deployment resumes paused jobs and triggers initial collection. Both services can scale to zero. Prepared images expire after one day; live manifests and station history remain. Changes take effect after deployment in authenticated Cloud Shell.
+The script retires old model, KEVX radar, separate observations, Surface, and separate METAR-cloud Scheduler jobs. It builds the app, creates the private collector/data bucket, and configures **five** authenticated Scheduler jobs. KMPX radar runs every minute, satellite and the NWS text forecast every five minutes, the combined station/airport-cloud collector at :00, and Hourly LAMP at :55. Deployment resumes paused jobs and triggers initial collection. Both services can scale to zero. Prepared images expire after one day; live manifests and station history remain. Changes take effect after deployment in authenticated Cloud Shell.
 
 If Cloud Build rejects a build submission despite the caller's required permissions being present, build directly in Cloud Shell with its installed Docker daemon:
 

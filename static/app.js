@@ -159,6 +159,77 @@ async function loadForecast() {
   } finally { forecastBusy = false; $("refresh-forecast").disabled = false; }
 }
 
+let hourlyBusy = false, hourlyData, hourlyError;
+const hourlyDay = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", month:"short", day:"numeric"});
+const hourlyClock = new Intl.DateTimeFormat("en-US", {timeZone:"America/Chicago", hour:"numeric"});
+
+function renderHourly() {
+  const rows = (hourlyData?.rows || []).filter(row => new Date(row.endTime).getTime() > Date.now());
+  $("hourly-cycle").textContent = hourlyData ? `LAMP run ${fullTime.format(new Date(hourlyData.cycle))}` : "Hourly data unavailable";
+  const status = hourlyError || (hourlyData?.stale ? "The latest LAMP run is delayed." : "");
+  $("hourly-status").hidden = !status && rows.length > 0;
+  $("hourly-status").textContent = status || "No upcoming hourly forecast rows are available.";
+  $("hourly-table").hidden = rows.length === 0;
+  const rendered = document.createDocumentFragment();
+  let previousDay;
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    const hour = document.createElement("th");
+    hour.scope = "row";
+    const valid = new Date(row.time);
+    const day = hourlyDay.format(valid);
+    if (day !== previousDay) {
+      const dayLabel = document.createElement("small");
+      dayLabel.textContent = day;
+      hour.append(dayLabel);
+    }
+    previousDay = day;
+    const clock = document.createElement("time");
+    clock.dateTime = row.time;
+    clock.title = fullTime.format(valid);
+    clock.textContent = hourlyClock.format(valid);
+    hour.append(clock);
+    tr.append(hour);
+
+    const speed = row.windMph;
+    const blendedWind = speed == null ? "—" : speed <= 3 ? "Calm" :
+      `${row.windDirection == null ? "VRB" : directions[Math.round(row.windDirection / 45) % 8]} ${speed} mph`;
+    for (const value of [temp(row.tempF), temp(row.dewpointF), blendedWind]) {
+      const cell = tr.insertCell();
+      cell.textContent = value;
+    }
+    const cloud = tr.insertCell();
+    cloud.textContent = row.cloudCover || "—";
+    if (row.ceiling) {
+      const ceiling = document.createElement("small");
+      ceiling.textContent = `${row.ceiling} ft`;
+      cloud.append(ceiling);
+    }
+    const precip = tr.insertCell();
+    precip.className = "hourly-precip";
+    precip.textContent = row.precipChance == null ? "—" : `${row.precipChance}%`;
+    precip.title = `${fullTime.format(valid)} to ${fullTime.format(new Date(row.endTime))}`;
+    rendered.append(tr);
+  }
+  $("hourly-rows").replaceChildren(rendered);
+}
+
+async function loadHourly() {
+  if (hourlyBusy) return;
+  hourlyBusy = true;
+  $("refresh-hourly").disabled = true;
+  try {
+    hourlyData = await api("/api/hourly");
+    hourlyError = null;
+  } catch (error) {
+    hourlyError = error.message;
+  } finally {
+    hourlyBusy = false;
+    $("refresh-hourly").disabled = false;
+    renderHourly();
+  }
+}
+
 let satelliteMap, satelliteFrames = [], satelliteOverlays = [], satelliteBoundaries = [], satelliteIndex = 0;
 let satelliteRequest = 0, satelliteBusy = false, satelliteLoadingProduct;
 const satelliteLayers = new Map();
@@ -270,12 +341,13 @@ async function loadSatellite(force = false) {
   }
 }
 
-const tabs = ["metar-clouds","radar","satellite","forecast"];
+const tabs = ["metar-clouds","radar","satellite","forecast","hourly"];
 function selectTab(id) {
   for(const name of tabs) {$(name).hidden=name!==id; $("tab-"+name).setAttribute("aria-selected",String(name===id)); $("tab-"+name).tabIndex=name===id?0:-1;}
   WeatherCloudViews.select(id);
   if(id === "radar") { loadRadar(); setTimeout(()=>map && map.invalidateSize(),0); } else { ++radarRequest; radarBusy=false; $("refresh-radar").disabled=false; }
   if(id === "forecast") loadForecast();
+  if(id === "hourly") loadHourly();
   if(id === "satellite") { loadSatellite(); setTimeout(()=>satelliteMap && satelliteMap.invalidateSize(),0); } else { ++satelliteRequest; satelliteBusy = false; $("refresh-satellite").disabled = false; }
 }
 for(const id of tabs) {
@@ -288,6 +360,7 @@ for(const id of tabs) {
   });
 }
 $("refresh-forecast").addEventListener("click",loadForecast);
+$("refresh-hourly").addEventListener("click", loadHourly);
 $("refresh-radar").addEventListener("click",loadRadar);
 $("timeline").addEventListener("input",event=>showFrame(Number(event.target.value)));
 $("fullscreen").addEventListener("click",async()=>{
@@ -322,6 +395,7 @@ setInterval(()=>{if(!document.hidden&&!$("radar").hidden)loadRadar();},30000);
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)loadForecast();},300000);
 
 setInterval(()=>{if(!document.hidden&&!$("forecast").hidden)renderForecast();},30000);
+setInterval(()=>{if(!document.hidden&&!$("hourly").hidden)loadHourly();},60000);
 
 $("refresh-satellite").addEventListener("click",()=>loadSatellite(true));
 $("satellite-product").addEventListener("change",()=>loadSatellite(true));
@@ -361,6 +435,7 @@ document.addEventListener("visibilitychange",()=>{
     if (!$("radar").hidden) loadRadar();
     if (!$("satellite").hidden) loadSatellite();
     if (!$("forecast").hidden) loadForecast();
+    if (!$("hourly").hidden) loadHourly();
     if (!$("metar-clouds").hidden) WeatherCloudViews.select("metar-clouds");
   }
 });
