@@ -105,9 +105,8 @@ window.WeatherMetars = (() => {
     }
     for(const site of best)take(site);
     for(const site of candidates)if(!focus.includes(site.id)&&primary.some(core=>core.conflicts.has(site)))remaining.delete(site);
-    // KSTP wins available space after the core trio, before KSGS or others.
-    // KSGS remains eligible when zooming gives both stations room.
-    for(const id of secondary){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
+    const nextPriority=mode==="plots"?cityPlots.regionalHubs:secondary;
+    for(const id of nextPriority){const site=[...remaining].find(s=>s.id===id);if(site)take(site);}
     // Fill remaining gaps with the least-conflicting stations first.
     while(remaining.size){
       let best,degree=Infinity;
@@ -134,7 +133,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and selected Minnesota airports");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly temperature, dewpoint and wind for the Twin Cities average and selected Upper Midwest airports");
     el("metar-status").textContent=`${reports.length} ${mode==="plots"?"plots":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
@@ -205,7 +204,7 @@ window.WeatherMetars = (() => {
     const previous=mode;
     mode=product==="clouds"?"clouds":defaultProduct;
     el("metar-product").value=mode;
-    el("metar-eyebrow").textContent=mode==="plots"?"MINNESOTA · HOURLY METARS":"AIRPORT METARS · UPPER MIDWEST";
+    el("metar-eyebrow").textContent=mode==="plots"?"UPPER MIDWEST · HOURLY METARS":"AIRPORT METARS · UPPER MIDWEST";
     if(data)prepareSpacing();
     if(map&&(previous!==mode||window.WeatherDefaultViews?.savedMetar?.(mode)))reset();
     render();

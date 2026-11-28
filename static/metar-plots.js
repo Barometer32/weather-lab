@@ -12,7 +12,7 @@ window.WeatherMetarPlots = (() => {
     ["KRST", "Rochester", [43.904, -92.4921]],
     ["KDLH", "Duluth", [46.8435, -92.1866]],
   ];
-  const cities = [
+  const initialCities = [
     ...primaryCities,
     ["KAEL", "Albert Lea", [43.6823, -93.3722]],
     ["KAXN", "Alexandria", [45.8680, -95.3940]],
@@ -22,10 +22,46 @@ window.WeatherMetarPlots = (() => {
     ["KRGK", "Red Wing", [44.5926, -92.4844]],
     ["KBDH", "Willmar", [45.1111, -95.1258]],
   ];
+  // Choose real airport locations to fill the regional gaps at similar intervals.
+  const cities = [
+    ...initialCities,
+    // Minnesota
+    ["KBJI", "Bemidji"],
+    ["KFFM", "Fergus Falls"],
+    ["KCKC", "Grand Marais"],
+    ["KHIB", "Hibbing"],
+    ["KINL", "International Falls"],
+    ["KTVF", "Thief River Falls"],
+    ["KOTG", "Worthington"],
+    // North and South Dakota
+    ["KFAR", "Fargo"],
+    ["KGFK", "Grand Forks"],
+    ["KABR", "Aberdeen"],
+    ["KFSD", "Sioux Falls"],
+    ["KATY", "Watertown"],
+    // Wisconsin
+    ["KASX", "Ashland"],
+    ["KEAU", "Eau Claire"],
+    ["KGRB", "Green Bay"],
+    ["KLSE", "La Crosse"],
+    ["KMSN", "Madison"],
+    ["KMKE", "Milwaukee"],
+    ["KRHI", "Rhinelander"],
+    ["KRPD", "Rice Lake"],
+    ["KAUW", "Wausau"],
+    // Iowa
+    ["KDBQ", "Dubuque"],
+    ["KFOD", "Fort Dodge"],
+    ["KMCW", "Mason City"],
+    ["KSUX", "Sioux City"],
+    ["KSPW", "Spencer"],
+    ["KALO", "Waterloo"],
+  ];
   const priority = [metroId, ...primaryCities.map(([id]) => id)];
+  const regionalHubs = ["KMKE", "KMSN", "KFAR", "KFSD", "KGRB", "KSUX", "KALO", "KEAU", "KLSE", "KGFK", "KAUW", "KBJI"];
   const names = new Map(cities.map(([id, name]) => [id, name]));
   names.set(metroId, "Twin Cities average");
-  const locations = [metroCenter, ...cities.map(([, , location]) => location)];
+  const locations = [metroCenter, ...initialCities.map(([, , location]) => location)];
   const radians = Math.PI / 180;
 
   function averageWind(stations) {
@@ -74,5 +110,5 @@ window.WeatherMetarPlots = (() => {
     return plots;
   }
 
-  return {metroId, metroAirports, locations, names, priority, reports};
+  return {metroId, metroAirports, locations, names, priority, regionalHubs, reports};
 })();

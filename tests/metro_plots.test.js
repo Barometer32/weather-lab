@@ -75,5 +75,37 @@ history[2].stations = history[2].stations.map(report => report.station === 'KDLH
     assert.match(map.marker('Mankato').icon.html, /plot-temp/);
     assert.ok(map.reads.every(url => url === '/api/station-plots?view=loop'));
   }
-  console.log('METAR PLOTS shows the metro average and selected airport reports across Minnesota.');
+
+  const regionalAirports = [
+    ['KBJI', 'Bemidji', 47.5076, -94.9279],
+    ['KFAR', 'Fargo', 46.9242, -96.8119],
+    ['KFSD', 'Sioux Falls', 43.5775, -96.7539],
+    ['KEAU', 'Eau Claire', 44.8665, -91.4881],
+    ['KRPD', 'Rice Lake', 45.4186, -91.7764],
+    ['KDBQ', 'Dubuque', 42.3984, -90.7091],
+  ];
+  const regionalHistory = history.map(frame => ({
+    ...frame,
+    stations: [...frame.stations, ...regionalAirports.map(([station, , lat, lon]) => ({
+      ...frame.stations[0], station, lat, lon, tempF: 48,
+    }))],
+  }));
+  const regionalMap = viewer({...data, history: regionalHistory},
+    {width: 1700, height: 800, zoom: 7, center: [45, -93.3]});
+  await regionalMap.load();
+  for (const [, name, lat, lon] of regionalAirports) {
+    const marker = regionalMap.marker(name);
+    assert.ok(marker, `${name} has an individual regional plot`);
+    assert.deepEqual(Array.from(marker.position), [lat, lon]);
+    assert.equal(marker.popup.children[2].textContent, 'Temperature: 48.0°F');
+  }
+  const wisconsinHistory = regionalHistory.map(frame => ({
+    ...frame, stations: frame.stations.filter(report => ['KEAU', 'KRPD'].includes(report.station)),
+  }));
+  const wisconsinMap = viewer({...data, history: wisconsinHistory},
+    {width: 320, height: 400, zoom: 5.25, center: [45, -91.6]});
+  await wisconsinMap.load();
+  assert.ok(wisconsinMap.marker('Eau Claire') && !wisconsinMap.marker('Rice Lake'),
+    'The larger regional city wins when the two plots crowd');
+  console.log('METAR PLOTS shows selected Upper Midwest airport reports, spacing priorities and the metro average.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,4 +1,4 @@
-"""Verify prepared weather products and Minnesota PLOTS with standard-library tools."""
+"""Verify prepared weather products and Upper Midwest PLOTS with standard-library tools."""
 import argparse
 from datetime import datetime
 import json
@@ -43,14 +43,14 @@ def check_layout(base):
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "radar", "satellite", "forecast", "air-quality"]
     assert re.findall(r'<option value="([^\"]+)"[^>]*>[^<]+</option>', html.split('id="metar-product"', 1)[1].split('</select>', 1)[0]) == ["plots", "clouds"]
     assert '<option value="plots" selected>PLOTS</option>' in html
-    assert 'MINNESOTA · HOURLY METARS' in html
+    assert 'UPPER MIDWEST · HOURLY METARS' in html
     assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '/static/avgmetar.js' not in html
-    assert '/static/metar-plots.js?v=minnesota-plots-v59' in html
-    assert '/static/metar-views.js?v=minnesota-plots-v59' in html
+    assert '/static/metar-plots.js?v=upper-midwest-plots-v60' in html
+    assert '/static/metar-views.js?v=upper-midwest-plots-v60' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
     assert '/static/prepared-data.js?v=satellite-truecolor-v51' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
@@ -63,7 +63,7 @@ def check_layout(base):
     assert 'id="forecast-periods"' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
-    print("Verified Minnesota PLOTS home with CLOUDS and all other retained tabs.")
+    print("Verified Upper Midwest PLOTS home with CLOUDS and all other retained tabs.")
 
 
 def check_hourly(base):
