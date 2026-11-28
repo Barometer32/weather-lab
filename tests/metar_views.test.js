@@ -70,7 +70,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(get('metar-title').textContent,'METAR','METAR tab restores station plots');
- assert.ok(ids().includes('KAAA'),'METAR displays eligible airports outside the former city list');
+ assert.ok(!ids().includes('KAAA'),'METAR includes only selected regional airports');
 
  const fcm={...stations[0],station:'KFCM',lat:21,lon:1,layers:[{cover:'BKN',baseFtAGL:10000}]};
  const msp={...stations[0],station:'KMSP',lat:22,lon:1};
@@ -82,13 +82,15 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.match(shown.find(marker=>marker.title.startsWith('KFCM')).icon.html,/>10<\/text>/);
  fcmX+=6;callbacks.moveend();
  assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'Even a small label overlap keeps the higher-priority plot');
+ const rst={...fcm,station:'KRST',reportType:'METAR'},mkt={...msp,station:'KMKT',reportType:'METAR'};
+ data={...data,history:data.history.map(frame=>({...frame,stations:[rst,mkt]}))};subscriber(data);
  context.window.WeatherMetars.select('metar');await flush();
- const reserved=context.window.WeatherStationModel.combinedReservation(fcm,{dot:true,mphBarbs:true,compact:true});
+ const reserved=context.window.WeatherStationModel.combinedReservation(rst,{dot:true,mphBarbs:true,compact:true});
  fcmX=200+reserved.boxes[0].left-reserved.radius+2;
  callbacks.moveend();
- assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'A barb can skim another station’s readings');
+ assert.ok(ids().includes('KRST')&&ids().includes('KMKT'),'A barb can skim another station’s readings');
  fcmX+=6;callbacks.moveend();
- assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'A deeper barb overlap keeps the higher-priority plot');
+ assert.ok(ids().includes('KRST')&&!ids().includes('KMKT'),'A deeper barb overlap keeps the higher-priority city');
 
  const stpNearby={...stp,lat:23};
  let stpX=226;

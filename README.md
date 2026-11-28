@@ -7,7 +7,7 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Current pages
 
-- **METAR** opens first and plots individual routine airport reports across the existing Upper Midwest coverage area. Each eligible station can appear in any of the four hourly frames. Compact wind barbs show speed in mph. Barbs can cross each other or skim the edges of neighboring readings. Zoom and pan to reveal nearby airports as spacing allows. The source continues to exclude KCFE for recurring suspect reports.
+- **METAR** opens first and plots a spaced selection of major airports across Minnesota, Wisconsin, Iowa, and the Dakotas within the existing hourly feed coverage. The Twin Cities use one equal average of KMSP, KFCM, and KMIC, plotted at a point equidistant from the airports. Each of the four hourly frames uses its own reports. Compact wind barbs show speed in mph.
 - **CLOUDS** has its own tab. It shows each eligible airport's sky cover and lowest broken or overcast ceiling, prioritizing KMSP, KFCM and KMIC followed by KSTP where markers crowd. The placement keeps station symbols and ceiling labels clear of one another.
 - **RADAR** uses native KMPX Level II lowest-tilt scans and a two-hour timeline.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
