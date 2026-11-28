@@ -67,14 +67,6 @@ window.WeatherStationModel = (() => {
     const label=skyCode(station)?cloudPlotLabel(station):"";
     return {left:-6.6*scale,right:(label?8+textWidth(label)+2:6.6)*scale,top:(label?-9:-6.6)*scale,bottom:(label?9:6.6)*scale};
   }
-  function cloudCollisionBoxes(station,bounds=cloudFootprint(station)){
-    const paddingRadius=6.6*scale;
-    const boxes=[{left:-paddingRadius,right:paddingRadius,top:-paddingRadius,bottom:paddingRadius,
-      kind:"cloud-circle",radius:5.6*scale}];
-    // Ceiling digits occupy less vertical space than the full line box.
-    if(bounds.right>paddingRadius)boxes.push({left:6*scale,right:bounds.right,top:-6*scale,bottom:6*scale,kind:"ceiling"});
-    return boxes;
-  }
   function singleStationModel(station,mode){
     if(mode==="clouds")return {html:cloudStationModel(station),size:[64*scale,24*scale],anchor:[12*scale,12*scale]};
     if(mode==="wind"){
@@ -196,7 +188,7 @@ window.WeatherStationModel = (() => {
     return {boxes,radius,bounds:{left:Math.min(-radius,...boxes.map(b=>b.left)),right:Math.max(radius,...boxes.map(b=>b.right)),
       top:Math.min(-radius,...boxes.map(b=>b.top)),bottom:Math.max(radius,...boxes.map(b=>b.bottom))}};
   }
-  return {cloudCollisionBoxes,combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

@@ -74,14 +74,14 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
 
  const fcm={...stations[0],station:'KFCM',lat:21,lon:1,layers:[{cover:'BKN',baseFtAGL:10000}]};
  const msp={...stations[0],station:'KMSP',lat:22,lon:1};
- let fcmX=171;
+ let fcmX=165;
  map.latLngToContainerPoint=([lat])=>({x:lat===21?fcmX:200,y:200});
  data={...data,history:data.history.map(frame=>({...frame,stations:[fcm,msp]}))};subscriber(data);
  context.window.WeatherMetars.select('clouds');await flush();
- assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'A light ceiling-label overlap beyond the previous allowance keeps both priority plots');
+ assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'Both priority plots fit when their labels clear the neighboring circle');
  assert.match(shown.find(marker=>marker.title.startsWith('KFCM')).icon.html,/>10<\/text>/);
- fcmX+=4;callbacks.moveend();
- assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'A larger overlap still prevents an unreadable plot');
+ fcmX+=6;callbacks.moveend();
+ assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'Even a small label overlap keeps the higher-priority plot');
  context.window.WeatherMetars.select('metar');await flush();
  const reserved=context.window.WeatherStationModel.combinedReservation(fcm,{dot:true,mphBarbs:true,compact:true});
  fcmX=200+reserved.boxes[0].left-reserved.radius+2;
@@ -91,18 +91,19 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'A deeper barb overlap keeps the higher-priority plot');
 
  const stpNearby={...stp,lat:23};
- let stpY=192;
- map.latLngToContainerPoint=([lat])=>lat===23?{x:223,y:stpY}:{x:200,y:200};
+ let stpX=226;
+ map.latLngToContainerPoint=([lat])=>lat===23?{x:stpX,y:192}:{x:200,y:200};
  data={...data,history:data.history.map((frame,i)=>({...frame,stations:[
    {...msp,layers:[{cover:'BKN',baseFtAGL:i===3?10000:9000}]},stpNearby,
  ]}))};subscriber(data);
  context.window.WeatherMetars.select('clouds');await flush();
  for(const [frame,height] of [[2,9],[3,10]]){
    get('metar-timeline').events.input({target:{value:String(frame)}});
-   assert.ok(ids().includes('KMSP')&&ids().includes('KSTP'),'KSTP remains visible across the KMSP ceiling width change');
+   assert.ok(ids().includes('KMSP'));
+   assert.equal(ids().includes('KSTP'),height===9,'KSTP only shows while KMSP’s ceiling label leaves enough room');
    assert.match(shown.find(marker=>marker.title.startsWith('KMSP')).icon.html,new RegExp(`>${height}</text>`));
  }
- stpY=195;callbacks.moveend();
- assert.ok(ids().includes('KMSP')&&!ids().includes('KSTP'),'A label over the middle of a circle is still a collision');
+ stpX=233;callbacks.moveend();
+ assert.ok(ids().includes('KMSP')&&ids().includes('KSTP'),'KSTP returns when there is room for the two-digit ceiling');
  console.log('METAR CLOUDS passed: exact anchors, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

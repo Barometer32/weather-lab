@@ -10,7 +10,7 @@ window.WeatherMetars = (() => {
   const regionalHubs=["KMKT","KRWF","KSTC","KRST","KDLH","KMKE","KMSN","KFAR","KFSD","KGRB","KSUX","KALO","KEAU","KLSE","KGFK","KAUW","KBJI"];
   const regionalView=[[43.68,-95.4],[46.85,-92.18]];
   const windPlotOptions={dot:true,mphBarbs:true,compact:true};
-  const barbEdgeOverlap=4,ceilingOverlap=3; // Screen pixels, including the symbol halos.
+  const barbEdgeOverlap=4; // Screen pixels, including the symbol halos.
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
@@ -58,7 +58,7 @@ window.WeatherMetars = (() => {
       const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
       const reservation=mode==="plots"?model.combinedReservation(station,windPlotOptions):null;
       const f=reservation?.bounds||model.cloudFootprint(station);
-      frames[index]=reservation?.boxes||model.cloudCollisionBoxes(station,f);
+      frames[index]=reservation?.boxes||[f];
       bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
         f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
@@ -84,17 +84,6 @@ window.WeatherMetars = (() => {
       const dy=Math.max(box.top-y,0,y-box.bottom);
       return dx*dx+dy*dy<radius*radius;
     };
-    const touches=(a,b)=>{
-      if(a.kind!=="ceiling"&&b.kind!=="ceiling")return overlap(a,b);
-      const [label,other]=a.kind==="ceiling"?[a,b]:[b,a];
-      if(other.kind==="cloud-circle"){
-        // A ceiling can graze the circle without reserving its empty corners.
-        return circleHitsBox((other.left+other.right)/2,(other.top+other.bottom)/2,
-          Math.max(0,other.radius-ceilingOverlap),label);
-      }
-      return Math.min(a.right,b.right)-Math.max(a.left,b.left)>ceilingOverlap
-        && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>ceilingOverlap;
-    };
     const coversReading=(station,label)=>{
       const {x,y}=station.point;
       return circleHitsBox(x,y,station.radius,label);
@@ -102,7 +91,7 @@ window.WeatherMetars = (() => {
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
       if(!overlap(a.bounds,b.bounds))continue;
-      const body=a.boxes.some(x=>b.boxes.some(y=>touches(x,y)));
+      const body=a.boxes.some(x=>b.boxes.some(y=>overlap(x,y)));
       // Reserve every possible wind bearing through the timeline. Barbs can
       // cross each other and skim labels, while deeper contact hides a plot.
       const wind=mode==="plots"&&(a.boxes.some(label=>label.kind==="text"&&coversReading(b,label))

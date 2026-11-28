@@ -29,7 +29,6 @@
   "metarCollisionGeometry": "all-bearing compact barb reservation with a four-pixel edge allowance and separate number boxes",
   "metarRequireCompleteStationHistory": false,
   "metarWindReservation": "mph barbs compressed eight percent along the staff",
-  "cloudCeilingOverlapPx": 3,
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
   "retiredHennepinMesonet": true,

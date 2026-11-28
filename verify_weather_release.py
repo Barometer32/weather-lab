@@ -39,7 +39,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
-    assert '/static/metar-model.js?v=cloud-ceiling-fit-v1' in html
+    assert '/static/metar-model.js?v=cloud-strict-spacing-v1' in html
     assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "clouds", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="metar-product"' not in html
     assert 'UPPER MIDWEST · HOURLY METARS' in html
@@ -49,7 +49,7 @@ def check_layout(base):
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '/static/avgmetar.js' not in html
     assert '/static/metar-plots.js' not in html
-    assert '/static/metar-views.js?v=cloud-ceiling-fit-v1' in html
+    assert '/static/metar-views.js?v=cloud-strict-spacing-v1' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
     assert '/static/prepared-data.js?v=metar-cloud-tabs-v1' in html
     assert '/static/sun-angle.js?v=metar-sun-v48' in html
