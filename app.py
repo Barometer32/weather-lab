@@ -432,6 +432,27 @@ def forecast_api():
         return jsonify(error="The NWS forecast is unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/hourly")
+def lamp_hourly_api():
+    from lamp_hourly import SNAPSHOT_NAME, fetch_initial_forecast, latest_cycle
+
+    now = utcnow()
+    cycle = latest_cycle(now)
+    try:
+        data = prepared_snapshot(SNAPSHOT_NAME, 4200)
+        if data is None and os.environ.get("WEATHER_PREPARED_ONLY") != "true":
+            data = cached(f"lamp-hourly-{iso(cycle)}", 60,
+                          lambda: fetch_initial_forecast(download, cycle, now))
+        if data:
+            rows = [row for row in data["rows"] if row["endTime"] > iso(now)]
+            if rows:
+                stale = data["cycle"] < iso(latest_cycle(now - timedelta(minutes=3)))
+                return jsonify({**data, "rows": rows, "stale": stale}), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("Hourly LAMP forecast unavailable")
+    return jsonify(error="The hourly LAMP forecast is being prepared. Please try again shortly."), 503, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/satellite/<product>")
 def satellite_api(product):
     from satellite import DEFAULT_PRODUCT, PRODUCTS, page_url, parse_loop, latest_frames, frame_window

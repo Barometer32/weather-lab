@@ -41,7 +41,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '/static/metar-model.js?v=cloud-strict-spacing-v1' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "hourly", "air-quality"]
     assert 'id="metar-product"' not in html
     assert 'AIRPORT METARS · UPPER MIDWEST' in html
     assert 'rapmet' not in html.lower()
@@ -53,19 +53,20 @@ def check_layout(base):
     assert '/static/metar-views.js?v=clouds-only-v1' in html
     assert '/static/observations.js?v=observations-v1' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
-    assert '/static/prepared-data.js?v=observations-v1' in html
+    assert '/static/prepared-data.js?v=lamp-v1' in html
     assert '/static/sun-angle.js?v=observations-v1' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' in html and 'id="observations-sun"' in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
     assert '<option value="truecolor" selected>True Color</option>' in options
-    assert '/static/app.js?v=observations-v1' in html
-    assert '/static/style.css?v=observations-v1' in html
+    assert '/static/app.js?v=lamp-v1' in html
+    assert '/static/style.css?v=lamp-v1' in html
     assert 'id="forecast-periods"' in html
     assert '<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>' in html
-    assert 'id="hourly"' not in html
-    assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
+    assert '<section id="hourly" role="tabpanel" aria-labelledby="tab-hourly" hidden>' in html
+    assert '/static/lamp-hourly.js?v=lamp-v1' in html and 'id="hourly-rows"' in html
+    assert 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
     print("Verified OBSERVATIONS opens first and CLOUDS has its own tab.")
 
@@ -100,7 +101,7 @@ def check_observations(base):
 
 
 def check_removed(base):
-    for path in ("/api/current", "/api/hourly", "/static/metar-plots.js", "/static/avgmetar.js", "/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
+    for path in ("/api/current", "/static/metar-plots.js", "/static/avgmetar.js", "/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
                  "/api/rapmetar", "/static/rapmetar-views.js"):
         try:
             read(base, path)
@@ -109,6 +110,20 @@ def check_removed(base):
         else:
             raise AssertionError(f"Retired endpoint still exists: {path}")
     print("Verified retired observation endpoints and page script are removed.")
+
+
+def check_lamp(base):
+    data = json.loads(read(base, "/api/hourly"))
+    rows = data["rows"]
+    assert data.get("checkedAt") and data.get("cycle") and 1 <= len(rows) <= 24
+    assert any(row["precipChance"] is not None for row in rows)
+    for row in rows:
+        start = datetime.fromisoformat(row["time"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(row["endTime"].replace("Z", "+00:00"))
+        assert (end - start).total_seconds() == 3600
+        assert row["precipChance"] is None or 0 <= row["precipChance"] <= 100
+    assert all(left["endTime"] == right["time"] for left, right in zip(rows, rows[1:]))
+    print(f"Verified HOURLY: {len(rows)} LAMP hours from {data['cycle']}.")
 
 
 def check_products(base):
@@ -150,6 +165,7 @@ if __name__ == "__main__":
     if not args.layout_only:
         check_hourly(args.url)
         check_observations(args.url)
+        check_lamp(args.url)
         check_removed(args.url)
         if args.all_products:
             check_products(args.url)

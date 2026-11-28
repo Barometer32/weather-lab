@@ -403,3 +403,25 @@ body.map-focus :is(#metar,#clouds) .eyebrow { display:none; }
 .observations-table { overflow-x:auto;border:1px solid var(--border);border-radius:8px; }
 .observations-table table { width:100%;font-size:14px;white-space:nowrap; }.observations-table td,.observations-table th { padding:12px 14px; }
 @media(max-width:650px) { .observations-readings { grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"temperature wind" "dewpoint sun";gap:10px;margin-top:16px; }.observations-reading { min-height:116px;padding:16px 8px; }.observations-reading p { font-size:29px;margin-top:17px; }.observations-table table { font-size:12px; }.observations-table td,.observations-table th { padding:10px 6px; } }
+
+#hourly { width: 100%; max-width: 42rem; margin-inline: auto; }
+#hourly-cycle { font-size: .8125rem; }
+#hourly-status { margin: 0 0 8px; }
+#hourly-table { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.hourly-table thead th { position: sticky; top: 0; z-index: 1; background: #f2f6f3; }
+.hourly-table th, .hourly-table td { padding: 6px 10px; font-size: .875rem; line-height: 1.25; }
+.hourly-table { font-variant-numeric: tabular-nums; }
+.hourly-table tbody tr:last-child > * { border-bottom: 0; }
+.hourly-table tbody th { background: transparent; }
+.hourly-table tbody tr:nth-child(even) { background: #f7f9f8; }
+.hourly-table small { font-size: .85em; font-weight: 400; color: var(--muted); }
+.hourly-table tbody th small { display: block; }
+.hourly-table td small { margin-inline-start: .4em; }
+.hourly-table .hourly-precip { color: #235c86; font-weight: 600; }
+@media (max-width:600px) {
+  .hourly-table th, .hourly-table td { padding: 6px 5px; font-size: .75rem; }
+  .hourly-table td small { display: block; margin-inline-start: 0; }
+}
+@media (max-width:360px) {
+  .hourly-table th, .hourly-table td { padding-inline: 3px; font-size: .6875rem; }
+}

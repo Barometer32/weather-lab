@@ -35,7 +35,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
  assert.ok(warm.requests.includes('/api/observations')&&!warm.requests.includes('/api/observations/current'),'startup fetches the restored hourly summary');
  assert.ok(!warm.requests.includes('/api/observations/rtma'),'startup never fetches the retired RTMA trial');
  assert.ok(!warm.requests.includes('/api/rtmetar')&&!warm.requests.includes('/api/mesonet'),'startup never requests retired station products');
- assert.ok(['/api/station-plots?view=loop','/api/forecast','/api/air-quality','/api/radar?site=KMPX','/api/satellite/truecolor','/api/satellite/dcphase','/api/satellite/ntmicro'].every(url=>warm.requests.includes(url)),'default and retained views prime their prepared manifests');
+ assert.ok(['/api/station-plots?view=loop','/api/forecast','/api/hourly','/api/air-quality','/api/radar?site=KMPX','/api/satellite/truecolor','/api/satellite/dcphase','/api/satellite/ntmicro'].every(url=>warm.requests.includes(url)),'default and retained views prime their prepared manifests');
  assert.ok(!warm.requests.includes('/api/satellite/02')&&deleted.includes('/api/satellite/02'),'the retired Visible Red manifest is cleared and never requested');
  assert.ok(!warm.requests.includes('/api/current'),'the maps no longer request the metro average');
  assert.ok(!warm.requests.includes('/api/airport-observations')&&!warm.requests.includes('/api/rapmet'),'removed observations and RAPMET do not preload');

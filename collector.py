@@ -166,6 +166,31 @@ def collect_forecast(store, now):
     return {"periods": len(data["periods"]), "feed": data.get("forecastFeed")}
 
 
+def collect_lamp_forecast(store, now):
+    from lamp_hourly import SNAPSHOT_KEY, fetch_forecast, fetch_initial_forecast, iso, latest_cycle
+
+    cycle = latest_cycle(now)
+    previous = store.read_json(SNAPSHOT_KEY)
+    if previous and previous["cycle"] >= iso(cycle):
+        return {"cycle": previous["cycle"], "status": "already prepared"}
+    fetch = fetch_forecast if previous else fetch_initial_forecast
+    data = fetch(weather.download, cycle, now)
+    store.write_json(SNAPSHOT_KEY, data)
+    return {"cycle": data["cycle"], "hours": len(data["rows"])}
+
+
+def collect_forecasts(store, now):
+    # Use the existing five-minute job. Either product can refresh when the
+    # other source is unavailable, and each keeps its own prepared snapshot.
+    try:
+        return collect_forecast(store, now)
+    finally:
+        try:
+            collect_lamp_forecast(store, now)
+        except Exception:
+            app.logger.exception("Background LAMP collection failed; previous forecast retained")
+
+
 @app.get("/healthz")
 def health():
     return jsonify(status="ok")
@@ -175,7 +200,7 @@ def health():
 def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
-            "forecast": collect_forecast,
+            "forecast": collect_forecasts,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
