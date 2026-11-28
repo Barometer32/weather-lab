@@ -43,7 +43,7 @@ p { line-height: 1.55; }
 .history-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
 .history-heading span { font-size: 14px; color: var(--muted); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }
-#hourly { width: 100%; max-width: 42rem; }
+#hourly { width: 100%; max-width: 42rem; margin-inline: auto; }
 #hourly-cycle { font-size: .8125rem; }
 #hourly-status { margin: 0 0 8px; }
 #hourly-table { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
