@@ -456,6 +456,52 @@ def satellite_api(product):
         return jsonify(error="Satellite imagery is unavailable. Please try Refresh images."), 502
 
 
+def observation_history(reports, now):
+    """Build the last twelve hours of complete official three-airport averages."""
+    target = now.replace(minute=0, second=0, microsecond=0)
+    earliest = target - timedelta(hours=11)
+    by_hour = {}
+    for report in reports:
+        station = report.get("icaoId")
+        raw = report.get("rawOb") or ""
+        if station not in STATIONS or not raw or "NIL" in raw.partition(" RMK")[0].split():
+            continue
+        hour = routine_hour(report, now, first_minute=50)
+        if hour is None or not earliest <= hour <= target:
+            continue
+        hourly = by_hour.setdefault(hour, {})
+        previous = hourly.get(station)
+        if previous is None or routine_report_rank(report, hour) <= routine_report_rank(previous, hour):
+            hourly[station] = report
+    history = []
+    for hour, stations in sorted(by_hour.items(), reverse=True):
+        if len(stations) != len(STATIONS):
+            continue
+        selected = [metar_precision(report, fallback=False) for report in stations.values()]
+        summary = summarize(selected, hour, mean_digits=8)
+        wind = summary["wind"]
+        if any(count != len(STATIONS) for count in (summary["tempCount"], summary["dewpointCount"], wind["speedCount"])):
+            continue
+        history.append({"hour": iso(hour), "tempF": math.floor(summary["tempF"] + .5),
+                        "dewpointF": math.floor(summary["dewpointF"] + .5),
+                        "wind": {"speedMph": math.floor(wind["speedMph"] + .5),
+                                 "direction": wind["direction"], "variable": wind["variable"]}})
+    return history
+
+
+@app.get("/api/observations")
+def observations_api():
+    try:
+        data = prepared_snapshot("metar-clouds", 3600)
+        if data is not None:
+            now = utcnow()
+            history = observation_history(data.get("observationReports", []), now)
+            return jsonify(history=history, checkedAt=data["checkedAt"], serverTime=iso(now)), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("Prepared three-airport observations unavailable")
+    return jsonify(error="Hourly observations are being prepared."), 503, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/station-plots")
 def station_plots_api():
     from metar_clouds import current, ready_plot_frames, LOOP_VERSION

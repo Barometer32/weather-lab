@@ -1,9 +1,9 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const label={},events={};let interval,tick;
+const label={},observations={},events={};let interval,tick;
 let localMs=Date.parse('2026-10-21T04:03:54Z');
 class ClockDate extends Date {constructor(...args){super(...(args.length?args:[localMs]));}static now(){return localMs;}}
-const context={window:{},document:{getElementById:id=>{assert.equal(id,"sun-angle");return label;},addEventListener:(e,f)=>events[e]=f,hidden:false},Date:ClockDate,Math,setInterval:(f,ms)=>{interval=ms;tick=f;}};
+const context={window:{},document:{getElementById:id=>({"sun-angle":label,"observations-sun":observations})[id],addEventListener:(e,f)=>events[e]=f,hidden:false},Date:ClockDate,Math,setInterval:(f,ms)=>{interval=ms;tick=f;}};
 vm.runInNewContext(fs.readFileSync('static/sun-angle.js','utf8'),context);
 const sun=context.window.WeatherSun.elevation;
 assert.ok(sun(new Date('2026-06-21T18:15:00Z'))>68&&sun(new Date('2026-06-21T18:15:00Z'))<69);
@@ -13,6 +13,7 @@ assert.ok(sun(new Date('2026-03-20T12:00:00Z'),0,0)>87);
 assert.equal(sun(new Date('2026-10-19T14:00:00-05:00')),sun(new Date('2026-10-19T19:00:00Z')));
 assert.ok(Number.isFinite(sun(new Date('2028-02-29T18:00:00Z'))));
 assert.match(label.textContent,/^-?\d+\.\d°$/);
+assert.equal(observations.textContent,label.textContent);
 assert.equal(interval,10000);events.visibilitychange();
 // Fixtures evaluated independently with NOAA's full published main.js calculator.
 for(const [stamp,expected] of [

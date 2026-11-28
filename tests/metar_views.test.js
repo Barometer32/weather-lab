@@ -56,21 +56,13 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
   assert.equal(ids().includes('KSWITCH'),i!==0,'a missing cloud report removes only its own hour');
   assert.ok(shown.every(s=>!s.icon.html.includes('?')),'no question-mark cloud markers remain');
  }
- assert.equal(get('metar-title').textContent,'CLOUDS');
  context.window.WeatherMetars.refresh();await flush();
- assert.equal(get('metar-title').textContent,'CLOUDS','visibility refresh keeps the selected product');
- context.window.WeatherMetars.select('radar');
- context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-title').textContent,'METAR','returning to METAR opens station plots');
  const stp={...stations[0],station:'KSTP',lat:13,lon:10},sgs={...stp,station:'KSGS',lat:13.01};
  let roomy=false;map.latLngToContainerPoint=([lat,lon])=>({x:lat===13?600:lat===13.01?(roomy?800:610):lat*40,y:lat>=13?500:lon*50});
  data={...data,history:data.history.slice(-4).map(frame=>({...frame,stations:[...stations,stp,sgs]}))};subscriber(data);
  context.window.WeatherMetars.select('clouds');await flush();
  assert.ok(ids().includes('KSTP')&&!ids().includes('KSGS'),'CLOUDS also favors KSTP');
  roomy=true;callbacks.moveend();assert.ok(ids().includes('KSTP')&&ids().includes('KSGS'),'KSGS returns when zoom creates room');
- context.window.WeatherMetars.select('metar');await flush();
- assert.equal(get('metar-title').textContent,'METAR','METAR tab restores station plots');
- assert.ok(!ids().includes('KAAA'),'METAR includes only selected regional airports');
 
  const fcm={...stations[0],station:'KFCM',lat:21,lon:1,layers:[{cover:'BKN',baseFtAGL:10000}]};
  const msp={...stations[0],station:'KMSP',lat:22,lon:1};
@@ -82,15 +74,6 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.match(shown.find(marker=>marker.title.startsWith('KFCM')).icon.html,/>10<\/text>/);
  fcmX+=6;callbacks.moveend();
  assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'Even a small label overlap keeps the higher-priority plot');
- const rst={...fcm,station:'KRST',reportType:'METAR'},mkt={...msp,station:'KMKT',reportType:'METAR'};
- data={...data,history:data.history.map(frame=>({...frame,stations:[rst,mkt]}))};subscriber(data);
- context.window.WeatherMetars.select('metar');await flush();
- const reserved=context.window.WeatherStationModel.combinedReservation(rst,{dot:true,mphBarbs:true,compact:true});
- fcmX=200+reserved.boxes[0].left-reserved.radius+2;
- callbacks.moveend();
- assert.ok(ids().includes('KRST')&&ids().includes('KMKT'),'A barb can skim another station’s readings');
- fcmX+=6;callbacks.moveend();
- assert.ok(ids().includes('KRST')&&!ids().includes('KMKT'),'A deeper barb overlap keeps the higher-priority city');
 
  const stpNearby={...stp,lat:23};
  let stpX=226;

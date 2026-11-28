@@ -32,7 +32,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
   return new Response(JSON.stringify(url.includes('radar')?manifests:url.includes('satellite')?{frames:[{url:'/api/prepared/old-sat.jpg'},{url:url.endsWith('/truecolor')?'/api/prepared/sat.jpg':'/api/prepared/alternate.jpg'}]}:{history:[],frames:[]}));
  });
  await warm.api.prime();for(let i=0;i<8;i++)await flush();
- assert.ok(!warm.requests.includes('/api/observations/current'),'startup never fetches OBSERVATIONS');
+ assert.ok(warm.requests.includes('/api/observations')&&!warm.requests.includes('/api/observations/current'),'startup fetches the restored hourly summary');
  assert.ok(!warm.requests.includes('/api/observations/rtma'),'startup never fetches the retired RTMA trial');
  assert.ok(!warm.requests.includes('/api/rtmetar')&&!warm.requests.includes('/api/mesonet'),'startup never requests retired station products');
  assert.ok(['/api/station-plots?view=loop','/api/forecast','/api/air-quality','/api/radar?site=KMPX','/api/satellite/truecolor','/api/satellite/dcphase','/api/satellite/ntmicro'].every(url=>warm.requests.includes(url)),'default and retained views prime their prepared manifests');

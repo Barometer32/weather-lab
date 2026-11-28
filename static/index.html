@@ -3,28 +3,29 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Weather Lab</title>
-  <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
+  <meta name="description" content="Hourly Twin Cities observations, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=metar-cloud-tabs-v1">
-  <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
-  <script defer src="/static/sun-angle.js?v=metar-sun-v48"></script>
-  <script defer src="/static/prepared-data.js?v=metar-cloud-tabs-v1"></script>
+  <link rel="stylesheet" href="/static/style.css?v=observations-v1">
+  <link rel="preload" href="/api/observations" as="fetch" crossorigin="anonymous">
+  <script defer src="/static/sun-angle.js?v=observations-v1"></script>
+  <script defer src="/static/prepared-data.js?v=observations-v1"></script>
   <script defer src="/static/vendor/leaflet.js?v=1.9.4"></script>
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=metar-cloud-tabs-v1"></script>
   <script defer src="/static/default-views.js?v=minnesota-plots-v58"></script>
   <script defer src="/static/metar-model.js?v=cloud-strict-spacing-v1"></script>
-  <script defer src="/static/metar-views.js?v=regional-metro-v2"></script>
+  <script defer src="/static/metar-views.js?v=clouds-only-v1"></script>
+  <script defer src="/static/observations.js?v=observations-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-hours-v3"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
-  <script defer src="/static/app.js?v=metar-cloud-tabs-v1"></script>
+  <script defer src="/static/app.js?v=observations-v1"></script>
 </head>
 <body>
 <header><div class="header-inner"><a class="brand" href="/">Weather Lab</a></div>
   <nav aria-label="Weather views" role="tablist">
-    <button role="tab" id="tab-metar" aria-selected="true" aria-controls="metar">METAR</button>
+    <button role="tab" id="tab-observations" aria-selected="true" aria-controls="observations">OBSERVATIONS</button>
     <button role="tab" id="tab-clouds" aria-selected="false" aria-controls="clouds" tabindex="-1">CLOUDS</button>
     <button role="tab" id="tab-radar" aria-selected="false" aria-controls="radar" tabindex="-1">RADAR</button>
     <button role="tab" id="tab-satellite" aria-selected="false" aria-controls="satellite" tabindex="-1">SATELLITE</button>
@@ -33,14 +34,29 @@
   </nav>
 </header>
 <main>
-<section id="metar" role="tabpanel" aria-labelledby="tab-metar">
-  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">UPPER MIDWEST · HOURLY METARS · WIND MPH</p><h1 id="metar-title">METAR</h1></div><div class="metar-view-controls"><span class="sun-angle-readout" title="Current apparent solar elevation in Hopkins, MN"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
+<section id="observations" role="tabpanel" aria-labelledby="tab-observations">
+  <div class="observations-content">
+    <div class="section-heading"><div><p class="eyebrow">KMSP · KFCM · KMIC · OFFICIAL HOURLY METARS</p><h1>Current conditions</h1></div><button id="refresh-observations" class="secondary">Refresh</button></div>
+    <p id="observations-time" role="status">Loading official hourly reports…</p>
+    <div class="observations-readings">
+      <div class="observations-reading observations-temperature"><h2>Temperature</h2><p id="observations-temperature">—</p></div>
+      <div class="observations-reading observations-dewpoint"><h2>Dewpoint</h2><p id="observations-dewpoint">—</p></div>
+      <div class="observations-reading observations-wind"><h2>Wind</h2><p id="observations-wind">—</p></div>
+      <div class="observations-reading observations-sun"><h2>Sun angle</h2><p id="observations-sun">—</p></div>
+    </div>
+    <h2 class="observations-history-heading">Last 12 hours</h2>
+    <div class="observations-table"><table><thead><tr><th scope="col">Hour</th><th scope="col">Temperature</th><th scope="col">Dewpoint</th><th scope="col">Wind</th></tr></thead><tbody id="observations-history"></tbody></table></div>
+  </div>
+</section>
+
+<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>
+  <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">AIRPORT METARS · UPPER MIDWEST</p><h1 id="metar-title">CLOUDS</h1></div><div class="metar-view-controls"><span class="sun-angle-readout" title="Current apparent solar elevation in Hopkins, MN"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs in mph"></div></div>
+    <div class="map-area"><div id="metar-map" aria-label="Airport sky cover and lowest broken or overcast ceiling, in thousands of feet AGL"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
-      <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen METAR map">Full screen</button></div>
+      <div class="viewer-actions"><button class="secondary" id="metar-set-default">Set default</button><button class="secondary" id="metar-reset">Reset view</button><button id="metar-fullscreen" class="secondary" aria-label="Open full-screen cloud map">Full screen</button></div>
     </div>
   </div>
   <div class="page-notes" hidden><p id="metar-status" role="status"></p><p>Individual airport reports for the Upper Midwest.</p></div>
@@ -48,7 +64,7 @@
 
 
 
-<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden></section>
+
 
 <section id="radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
   <div class="section-heading"><div><p class="eyebrow" id="radar-eyebrow">KMPX · 0.5° BASE REFLECTIVITY</p><h1 id="radar-title">Local radar</h1></div><button class="secondary" id="refresh-radar">Refresh scans</button></div>

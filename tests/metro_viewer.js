@@ -12,7 +12,7 @@ module.exports=function viewer(data,{width=375,height=560,zoom=9,center=[44.945,
  for(const path of ['static/metar-model.js',codePath])vm.runInNewContext(fs.readFileSync(path,'utf8'),context);
  const flush=()=>new Promise(setImmediate);
  return {get,reads,marker:id=>shown.get(id),ids:()=>[...shown.keys()].sort(),
-  async load(){context.window.WeatherMetars.select('metar');await flush();},
+  async load(){context.window.WeatherMetars.select('clouds');await flush();},
   async mode(value){context.window.WeatherMetars.select(value);await flush();},
   frame(value){get('metar-timeline').events.input({target:{value:String(value)}});},
   zoom(value){zoom=value;events.moveend();},

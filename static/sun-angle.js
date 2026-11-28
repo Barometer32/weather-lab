@@ -32,8 +32,10 @@ window.WeatherSun = (() => {
   }
   function update(){
     const value=`${elevation(new Date(Date.now()+clockOffset)).toFixed(1)}°`;
-    const readout=document.getElementById("sun-angle");
-    if(readout)readout.textContent=value;
+    for(const id of ["sun-angle","observations-sun"]){
+      const readout=document.getElementById(id);
+      if(readout)readout.textContent=value;
+    }
   }
   function sync(serverTime, requestStarted=Date.now()) {
     const server=Date.parse(serverTime),received=Date.now();

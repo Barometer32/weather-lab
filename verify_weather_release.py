@@ -30,42 +30,44 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-metar" aria-selected="true"' in html
+    assert 'id="tab-observations" aria-selected="true"' in html
+    assert '<section id="observations" role="tabpanel" aria-labelledby="tab-observations">' in html
+    assert 'id="observations-history"' in html
+    assert 'id="tab-metar"' not in html and '<section id="metar"' not in html
     assert 'id="tab-current"' not in html and '<section id="current"' not in html
     assert 'current-hourly.js' not in html
-    assert 'id="tab-observations"' not in html and '<section id="observations"' not in html
     assert 'airport-observations.js' not in html
     assert 'rtma-observations.js' not in html
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
-    assert '<section id="metar" role="tabpanel" aria-labelledby="tab-metar">' in html
     assert '/static/metar-model.js?v=cloud-strict-spacing-v1' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["metar", "clouds", "radar", "satellite", "forecast", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "air-quality"]
     assert 'id="metar-product"' not in html
-    assert 'UPPER MIDWEST · HOURLY METARS' in html
+    assert 'AIRPORT METARS · UPPER MIDWEST' in html
     assert 'rapmet' not in html.lower()
     assert 'rtmetar' not in html.lower()
     assert 'mesonet-views.js' not in html and 'id="mesonet-map"' not in html
     assert 'id="tab-mesonet"' not in html and '<section id="mesonet"' not in html
     assert '/static/avgmetar.js' not in html
     assert '/static/metar-plots.js' not in html
-    assert '/static/metar-views.js?v=regional-metro-v2' in html
+    assert '/static/metar-views.js?v=clouds-only-v1' in html
+    assert '/static/observations.js?v=observations-v1' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
-    assert '/static/prepared-data.js?v=metar-cloud-tabs-v1' in html
-    assert '/static/sun-angle.js?v=metar-sun-v48' in html
+    assert '/static/prepared-data.js?v=observations-v1' in html
+    assert '/static/sun-angle.js?v=observations-v1' in html
     assert 'id="metar-notice"' not in html
-    assert 'id="sun-angle"' in html and 'id="current-sun"' not in html
+    assert 'id="sun-angle"' in html and 'id="observations-sun"' in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
     assert '<option value="truecolor" selected>True Color</option>' in options
-    assert '/static/app.js?v=metar-cloud-tabs-v1' in html
-    assert '/static/style.css?v=metar-cloud-tabs-v1' in html
+    assert '/static/app.js?v=observations-v1' in html
+    assert '/static/style.css?v=observations-v1' in html
     assert 'id="forecast-periods"' in html
     assert '<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>' in html
     assert 'id="hourly"' not in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
-    print("Verified standalone METAR and CLOUDS tabs, with METAR first.")
+    print("Verified OBSERVATIONS opens first and CLOUDS has its own tab.")
 
 
 def check_hourly(base):
@@ -82,7 +84,19 @@ def check_hourly(base):
             stamp = datetime.fromisoformat(station["time"].replace("Z", "+00:00"))
             assert 45 <= stamp.minute <= 59
     assert any(s.get("layers") for frame in frames for s in frame["stations"]), "No CLOUDS reports are ready"
-    print("Verified prepared METAR and CLOUDS: four consecutive hours with independent airport reports.")
+    print("Verified CLOUDS: four consecutive hours with independent airport reports.")
+
+
+def check_observations(base):
+    data = json.loads(read(base, "/api/observations"))
+    history = data["history"]
+    assert data.get("checkedAt") and 0 < len(history) <= 12, "No complete observations are prepared"
+    hours = [row["hour"] for row in history]
+    assert hours == sorted(set(hours), reverse=True)
+    for row in history:
+        assert isinstance(row["tempF"], int) and isinstance(row["dewpointF"], int)
+        assert isinstance(row["wind"]["speedMph"], int)
+    print(f"Verified OBSERVATIONS: {len(history)} complete three-airport hours.")
 
 
 def check_removed(base):
@@ -135,6 +149,7 @@ if __name__ == "__main__":
     check_layout(args.url)
     if not args.layout_only:
         check_hourly(args.url)
+        check_observations(args.url)
         check_removed(args.url)
         if args.all_products:
             check_products(args.url)

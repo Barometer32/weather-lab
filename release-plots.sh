@@ -59,4 +59,4 @@ python3 verify_weather_release.py "$site" --all-products
 python3 cleanup_weather_jobs.py --apply --only-job weather-live-rapmetar
 python3 cleanup_weather_jobs.py --apply --only-job weather-live-hourly
 python3 cleanup_weather_jobs.py --apply --only-job weather-live-current
-printf 'Weather Lab is live at %s. METAR opens with major regional airports and the Twin Cities average. CLOUDS has its own tab.\n' "$site"
+printf 'Weather Lab is live at %s. OBSERVATIONS opens first with the Twin Cities average. CLOUDS has its own tab.\n' "$site"
