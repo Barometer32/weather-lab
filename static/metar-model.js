@@ -67,6 +67,12 @@ window.WeatherStationModel = (() => {
     const label=skyCode(station)?cloudPlotLabel(station):"";
     return {left:-6.6*scale,right:(label?8+textWidth(label)+2:6.6)*scale,top:(label?-9:-6.6)*scale,bottom:(label?9:6.6)*scale};
   }
+  function cloudCollisionBoxes(station,bounds=cloudFootprint(station)){
+    const radius=6.6*scale;
+    const boxes=[{left:-radius,right:radius,top:-radius,bottom:radius}];
+    if(bounds.right>radius)boxes.push({left:6*scale,right:bounds.right,top:bounds.top,bottom:bounds.bottom,kind:"ceiling"});
+    return boxes;
+  }
   function singleStationModel(station,mode){
     if(mode==="clouds")return {html:cloudStationModel(station),size:[64*scale,24*scale],anchor:[12*scale,12*scale]};
     if(mode==="wind"){
@@ -87,6 +93,42 @@ window.WeatherStationModel = (() => {
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
   const barbScale=1.1448,barbLengthScale=.9405;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
+  const plotWind={labelY:4,stateY:18,shape:"M0 -8L5.4 -2H.9V6H-.9V-2H-5.4Z",radius:9};
+  // Leave clearance for the rotated arrow and the 1.5px label halo.
+  const airportLabelOffset=12;
+  function plotWindSpeed(wind){
+    // Convert original knots when available so prepared mph is not rounded twice.
+    const speed=Number.isFinite(wind?.speedKnots)?wind.speedKnots*1.150779:wind?.speedMph;
+    return Number.isFinite(speed)&&speed>=0?Math.round(speed):null;
+  }
+  function airportPlot(station){
+    const c=combined,w=plotWind,wind=station.wind||{},speed=plotWindSpeed(wind);
+    const text=(cls,x,y,label,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${label}</text>`;
+    let arrow="",state="";
+    if(speed>0){
+      if(wind.variable||!Number.isFinite(wind.direction)){
+        state=text("plot-wind-state",0,w.stateY,wind.variable?"VRB":"?","middle");
+      }else{
+        arrow=windVector(wind,speed,c.x,c.y,w.shape);
+      }
+    }
+    const visualWidth=Math.max(c.width,c.x+airportLabelOffset+textWidth(numeric(speed))+2);
+    const html=`<svg class="metar-plot combined-station-plot" width="${visualWidth*scale}" height="${c.height*scale}" viewBox="0 0 ${visualWidth} ${c.height}" aria-hidden="true">${text("plot-temp",-airportLabelOffset,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",-airportLabelOffset,c.dewY,numeric(station.dewpointF),"end")}${arrow}<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${state}${text("plot-speed",airportLabelOffset,w.labelY,numeric(speed))}</svg>`;
+    return {html,size:[visualWidth*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
+  }
+  function airportPlotReservation(station){
+    const c=combined,w=plotWind,wind=station.wind,speed=plotWindSpeed(wind);
+    const label=(x,y,value)=>[x-textWidth(numeric(value))-2,x+2,y-13,y+3];
+    // Keep the wind slot reserved through the entire loop, including calm hours.
+    const windRight=airportLabelOffset+Math.max(textWidth("00"),textWidth(numeric(speed)))+2;
+    const slots=[label(-airportLabelOffset,c.tempY,station.tempF),label(-airportLabelOffset,c.dewY,station.dewpointF),
+      [-w.radius,w.radius,-w.radius,w.radius],[airportLabelOffset-2,windRight,w.labelY-13,w.labelY+3]];
+    if(speed>0&&(wind.variable||!Number.isFinite(wind.direction)))slots.push([-12,12,w.stateY-10,w.stateY+3]);
+    const boxes=slots.map(([left,right,top,bottom])=>({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale}));
+    const bounds={left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
+      top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
+    return {boxes,bounds};
+  }
   function combinedWind(wind={},mphBarbs=false){
     wind=wind||{};
     const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
@@ -188,7 +230,7 @@ window.WeatherStationModel = (() => {
     return {boxes,radius,bounds:{left:Math.min(-radius,...boxes.map(b=>b.left)),right:Math.max(radius,...boxes.map(b=>b.right)),
       top:Math.min(-radius,...boxes.map(b=>b.top)),bottom:Math.max(radius,...boxes.map(b=>b.bottom))}};
   }
-  return {combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  return {airportPlot,airportPlotReservation,plotWindSpeed,cloudCollisionBoxes,combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

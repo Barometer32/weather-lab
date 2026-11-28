@@ -26,10 +26,10 @@
     "KFCM",
     "KMIC"
   ],
-  "metarCollisionGeometry": "stable all-bearing wind reservation at 90% radius; slight barb-to-number contact allowed; numeric labels kept separate",
+  "metarCollisionGeometry": "compact all-bearing wind arrow slot and separate number boxes across the timeline",
   "metarRequireCompleteStationHistory": false,
-  "metarWindReservation": "normal complete barb even in calm/VRB; expands for longer reported wind symbols",
-  "metarWindSpacingFactor": 0.9,
+  "metarWindReservation": "fixed downwind arrow radius with mph label to the right",
+  "cloudCeilingOverlapPx": 2,
   "retiredObservationCollectorsIncludeRTMA": true,
   "retiredPublicConditionsCollector": true,
   "retiredHennepinMesonet": true,

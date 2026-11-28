@@ -71,5 +71,16 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  context.window.WeatherMetars.select('metar');await flush();
  assert.equal(get('metar-title').textContent,'METAR','METAR tab restores station plots');
  assert.ok(ids().includes('KAAA'),'METAR displays eligible airports outside the former city list');
+
+ const fcm={...stations[0],station:'KFCM',lat:21,lon:1,layers:[{cover:'BKN',baseFtAGL:10000}]};
+ const msp={...stations[0],station:'KMSP',lat:22,lon:1};
+ let fcmX=169.5;
+ map.latLngToContainerPoint=([lat])=>({x:lat===21?fcmX:200,y:200});
+ data={...data,history:data.history.map(frame=>({...frame,stations:[fcm,msp]}))};subscriber(data);
+ context.window.WeatherMetars.select('clouds');await flush();
+ assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'A light ceiling-label overlap keeps both priority plots');
+ assert.match(shown.find(marker=>marker.title.startsWith('KFCM')).icon.html,/>10<\/text>/);
+ fcmX+=4;callbacks.moveend();
+ assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'A larger overlap still prevents an unreadable plot');
  console.log('METAR CLOUDS passed: exact anchors, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
