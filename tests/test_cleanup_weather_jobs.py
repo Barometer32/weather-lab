@@ -82,6 +82,16 @@ def test_current_configuration_preserves_noncurrent_schedules_and_no_rollbacks()
     assert not any(c[3] in ('delete','pause') for c in commands)
 
 
+def test_hrmetar_job_is_created_with_three_minute_schedule():
+    rows = [row for row in required() if not row['name'].endswith('/weather-live-hrmetar')]
+    create, = [command for command in configure(rows, COLLECTOR)
+               if command[3] == 'create']
+    assert create[4:6] == ['http', 'weather-live-hrmetar']
+    assert '--schedule=*/3 * * * *' in create
+    assert '--uri=' + COLLECTOR + '/collect/hrmetar' in create
+    assert '--oidc-service-account-email=' + cleanup.ACCOUNT in create
+
+
 def test_current_schedule_is_retired_only_when_it_targets_the_old_collector():
     old = job('weather-live-current', 'current-hourly')
     rows = required() + [old]

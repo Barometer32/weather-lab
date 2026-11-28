@@ -425,3 +425,9 @@ body.map-focus :is(#metar,#clouds) .eyebrow { display:none; }
 @media (max-width:360px) {
   .hourly-table th, .hourly-table td { padding-inline: 3px; font-size: .6875rem; }
 }
+
+#hrmetar { overflow-y:auto; }
+.hrmetar-content { width:100%; max-width:42rem; margin-inline:auto; }
+.hrmetar-readings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:16px 0 24px; }
+.hrmetar-readings .observations-reading { min-height:0; padding:12px 4px; }
+.hrmetar-readings .observations-reading p { margin:10px 0 0; font-size:clamp(20px,5vw,30px); overflow-wrap:anywhere; }

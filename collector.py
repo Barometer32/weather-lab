@@ -16,7 +16,7 @@ from realtime import get_store
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality")}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality", "hrmetar")}
 
 
 def collect_radar(store, now):
@@ -191,6 +191,12 @@ def collect_forecasts(store, now):
             app.logger.exception("Background LAMP collection failed; previous forecast retained")
 
 
+def collect_hrmetar(store, now):
+    from hrmetar import collect
+
+    return collect(store, weather.download, now)
+
+
 @app.get("/healthz")
 def health():
     return jsonify(status="ok")
@@ -201,6 +207,7 @@ def collect(kind):
     jobs = {"radar-KMPX": lambda store, now: collect_radar_site(store, now, "KMPX"),
             "satellite": collect_satellite,
             "forecast": collect_forecasts,
+            "hrmetar": collect_hrmetar,
             "air-quality": collect_air_quality,
             "metar-clouds": collect_metar_clouds}
     if kind not in jobs:

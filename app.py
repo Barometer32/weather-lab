@@ -432,6 +432,22 @@ def forecast_api():
         return jsonify(error="The NWS forecast is unavailable. Please try again shortly."), 502
 
 
+@app.get("/api/hrmetar")
+def hrmetar_api():
+    from hrmetar import MAX_AGE, SNAPSHOT_NAME
+
+    try:
+        data = prepared_snapshot(SNAPSHOT_NAME, 600)
+        if data:
+            current = data.get("current")
+            if current and current["observedAt"] < iso(utcnow() - MAX_AGE):
+                current = None
+            return jsonify(current=current, checkedAt=data["checkedAt"], stale=data["stale"]), 200, {"Cache-Control": "no-store"}
+    except Exception:
+        app.logger.exception("Prepared five-minute ASOS observations unavailable")
+    return jsonify(error="Five-minute ASOS observations are being prepared."), 503, {"Cache-Control": "no-store"}
+
+
 @app.get("/api/hourly")
 def lamp_hourly_api():
     from lamp_hourly import SNAPSHOT_NAME, fetch_initial_forecast, latest_cycle

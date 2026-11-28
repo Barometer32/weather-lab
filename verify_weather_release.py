@@ -41,7 +41,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '/static/metar-model.js?v=cloud-strict-spacing-v1' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "hourly", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "hourly", "hrmetar", "air-quality"]
     assert 'id="metar-product"' not in html
     assert 'AIRPORT METARS · UPPER MIDWEST' in html
     assert 'rapmet' not in html.lower()
@@ -53,19 +53,22 @@ def check_layout(base):
     assert '/static/metar-views.js?v=clouds-only-v1' in html
     assert '/static/observations.js?v=observations-v1' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
-    assert '/static/prepared-data.js?v=lamp-v1' in html
+    assert '/static/prepared-data.js?v=hrmetar-v1' in html
     assert '/static/sun-angle.js?v=observations-v1' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' in html and 'id="observations-sun"' in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
     assert '<option value="truecolor" selected>True Color</option>' in options
-    assert '/static/app.js?v=lamp-v1' in html
-    assert '/static/style.css?v=lamp-v1' in html
+    assert '/static/app.js?v=hrmetar-v1' in html
+    assert '/static/style.css?v=hrmetar-v1' in html
     assert 'id="forecast-periods"' in html
     assert '<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>' in html
     assert '<section id="hourly" role="tabpanel" aria-labelledby="tab-hourly" hidden>' in html
     assert '/static/lamp-hourly.js?v=lamp-v1' in html and 'id="hourly-rows"' in html
+    hrmetar = html.split('<section id="hrmetar" role="tabpanel" aria-labelledby="tab-hrmetar" hidden>', 1)[1].split('</section>', 1)[0]
+    assert 'id="hrmetar-observed-time"' in hrmetar and 'hourly-rows' not in hrmetar
+    assert '/static/hrmetar.js?v=hrmetar-v1' in html
     assert 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
     print("Verified OBSERVATIONS opens first and CLOUDS has its own tab.")
@@ -126,6 +129,19 @@ def check_lamp(base):
     print(f"Verified HOURLY: {len(rows)} LAMP hours from {data['cycle']}.")
 
 
+def check_hrmetar(base):
+    data = json.loads(read(base, "/api/hrmetar"))
+    current = data.get("current")
+    assert data.get("checkedAt") and not data.get("stale"), "HRMETAR collector is delayed"
+    assert current, "No complete five-minute KMSP, KFCM and KMIC observations are prepared"
+    observed = datetime.fromisoformat(current["observedAt"])
+    assert observed.minute % 5 == 0 and not (observed.second or observed.microsecond)
+    assert isinstance(current["tempC"], (int, float))
+    assert isinstance(current["dewpointC"], (int, float))
+    assert isinstance(current["windMph"], int)
+    print(f"Verified HRMETAR: three-airport five-minute average for {observed.isoformat()}.")
+
+
 def check_products(base):
     """Verify every retained tab reads fresh prepared data and saved imagery."""
     products = [("RADAR", "/api/radar?site=KMPX", "frames"),
@@ -166,6 +182,7 @@ if __name__ == "__main__":
         check_hourly(args.url)
         check_observations(args.url)
         check_lamp(args.url)
+        check_hrmetar(args.url)
         check_removed(args.url)
         if args.all_products:
             check_products(args.url)

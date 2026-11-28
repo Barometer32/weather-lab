@@ -39,7 +39,7 @@ collector_revision="$(gcloud run services describe weather-collector "${run[@]}"
   python3 -c 'import json,sys; print(next(t["revisionName"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")==sys.argv[1]))' "$tag")"
 gcloud run services update-traffic weather-collector "${run[@]}" --to-revisions="$collector_revision=100"
 python3 configure_live_jobs.py
-for job in weather-live-metar-clouds weather-live-radar weather-live-satellite weather-live-forecast weather-live-air-quality; do
+for job in weather-live-metar-clouds weather-live-radar weather-live-satellite weather-live-forecast weather-live-hrmetar weather-live-air-quality; do
   gcloud scheduler jobs run "$job" "${scheduler[@]}"
 done
 log="$(mktemp /tmp/weather-ready.XXXXXX)"

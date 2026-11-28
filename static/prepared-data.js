@@ -7,7 +7,8 @@ window.WeatherPrepared = (() => {
   const metarLoop="/api/station-plots?view=loop";
   const radarManifest="/api/radar?site=KMPX",satelliteManifest="/api/satellite/truecolor";
   const observations="/api/observations";
-  const paths=[observations,metarLoop,radarManifest,"/api/forecast","/api/hourly",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
+  const hrmetar="/api/hrmetar";
+  const paths=[hrmetar,observations,metarLoop,radarManifest,"/api/forecast","/api/hourly",satelliteManifest,"/api/satellite/dcphase","/api/satellite/ntmicro","/api/air-quality"];
   const maxSavedAge=url=>url.includes("station-plots")?3600000:url.includes("forecast")?21600000:url.includes("air-quality")?10800000:900000;
   const freshFor=url=>url.includes("radar")?15000:30000;
   async function disk(){try{return await window.caches?.open(cacheName);}catch(_){return null;}}
@@ -17,7 +18,6 @@ window.WeatherPrepared = (() => {
     cache.delete("/api/conditions",{ignoreSearch:true}),
     cache.delete("/api/satellite/13"),
     cache.delete("/api/satellite/02",{ignoreSearch:true}),
-    cache.delete("/api/hrmetar",{ignoreSearch:true}),
     cache.delete("/api/mesonet",{ignoreSearch:true}),
     cache.delete("/api/rtmetar",{ignoreSearch:true}),
     cache.delete("/api/rapmet",{ignoreSearch:true}),
@@ -100,7 +100,7 @@ window.WeatherPrepared = (() => {
   async function prime(){
     // Start all prepared manifests independently. Slow imagery must never
     // block the CLOUDS loop before the user switches views.
-    await Promise.allSettled(paths.map(url=>read(url)));
+    await Promise.allSettled(paths.filter(url=>url!==hrmetar).map(url=>read(url)));
   }
   function warmLatest(){
     const connection=window.navigator?.connection;

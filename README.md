@@ -13,11 +13,12 @@ GitHub branch: `rtmetar-default-20261111`.
 - **SATELLITE** defaults to True Color, with Day Cloud Phase and NT Microphysics. The last 24 available source images are retained.
 - **FORECAST** shows the NWS Hopkins day/night text forecast, including falling-temperature arrows and targets.
 - **HOURLY** blends up to 24 hours of NOAA LAMP guidance across KMSP, KFCM and KMIC. Each row uses P01 from the following hour and averages available finite ceiling estimates. The existing forecast job checks for new runs every five minutes.
+- **HRMETAR** shows the latest common five-minute NOAA MADIS HF-ASOS report for KMSP, KFCM and KMIC. It averages whole-degree Celsius inputs and displays the source observation time. Its collector checks every three minutes.
 - **AIR Q** uses prepared Minnesota maps from EPA AirNow’s latest and 24-hour combined AQI contour layers. Each source hour appears after its image loads.
 
 ## Background updates
 
-`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Five Cloud Scheduler tasks are required:
+`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Six Cloud Scheduler tasks are required:
 
 | Task | Endpoint |
 |---|---|
@@ -25,6 +26,7 @@ GitHub branch: `rtmetar-default-20261111`.
 | weather-live-radar | /collect/radar-KMPX |
 | weather-live-satellite | /collect/satellite |
 | weather-live-forecast | /collect/forecast |
+| weather-live-hrmetar | /collect/hrmetar |
 | weather-live-air-quality | /collect/air-quality |
 
 Airport reports for OBSERVATIONS and CLOUDS are checked every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
