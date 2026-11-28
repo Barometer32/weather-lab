@@ -60,6 +60,7 @@ def check_layout(base):
     assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
     assert '<option value="truecolor" selected>True Color</option>' in options
     assert '/static/app.js?v=hourly-lamp-v1' in html
+    assert '/static/style.css?v=hourly-lamp-v2' in html
     assert 'id="forecast-periods"' in html
     assert '<section id="hourly" role="tabpanel" aria-labelledby="tab-hourly" hidden>' in html
     assert 'lamp-forecast.js' not in html and 'id="forecast-hourly"' not in html and 'forecast-switch' not in html

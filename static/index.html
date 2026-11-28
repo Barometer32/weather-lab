@@ -6,7 +6,7 @@
   <meta name="description" content="Hourly airport plots, cloud maps, MPX radar, GOES satellite imagery, and the NWS Hopkins forecast.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
-  <link rel="stylesheet" href="/static/style.css?v=hourly-lamp-v1">
+  <link rel="stylesheet" href="/static/style.css?v=hourly-lamp-v2">
   <link rel="preload" href="/api/station-plots?view=loop" as="fetch" crossorigin="anonymous">
   <script defer src="/static/sun-angle.js?v=metar-sun-v48"></script>
   <script defer src="/static/prepared-data.js?v=hourly-lamp-v1"></script>
@@ -92,11 +92,11 @@
     <button class="secondary" id="refresh-hourly">Refresh</button>
   </div>
   <p class="notice" id="hourly-status" role="status" hidden></p>
-  <div class="table-wrap" id="hourly-table" hidden>
+  <div class="table-wrap" id="hourly-table" role="region" aria-label="Hourly forecast rows" tabindex="0" hidden>
     <table class="hourly-table" aria-label="Hourly forecast in Central time">
       <thead><tr>
         <th scope="col">Hour</th><th scope="col">Temp</th><th scope="col">Dewpoint</th>
-        <th scope="col">Wind</th><th scope="col">Clouds</th><th scope="col">Precip.</th>
+        <th scope="col">Wind</th><th scope="col">Clouds</th><th scope="col" title="P01 probability of at least 0.01 inches during the listed hour">Precip.</th>
       </tr></thead>
       <tbody id="hourly-rows"></tbody>
     </table>
