@@ -89,5 +89,20 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve)),ids=()=>shown.map(s=
  assert.ok(ids().includes('KFCM')&&ids().includes('KMSP'),'A barb can skim another station’s readings');
  fcmX+=6;callbacks.moveend();
  assert.ok(ids().includes('KMSP')&&!ids().includes('KFCM'),'A deeper barb overlap keeps the higher-priority plot');
+
+ const stpNearby={...stp,lat:23};
+ let stpY=192;
+ map.latLngToContainerPoint=([lat])=>lat===23?{x:223,y:stpY}:{x:200,y:200};
+ data={...data,history:data.history.map((frame,i)=>({...frame,stations:[
+   {...msp,layers:[{cover:'BKN',baseFtAGL:i===3?10000:9000}]},stpNearby,
+ ]}))};subscriber(data);
+ context.window.WeatherMetars.select('clouds');await flush();
+ for(const [frame,height] of [[2,9],[3,10]]){
+   get('metar-timeline').events.input({target:{value:String(frame)}});
+   assert.ok(ids().includes('KMSP')&&ids().includes('KSTP'),'KSTP remains visible across the KMSP ceiling width change');
+   assert.match(shown.find(marker=>marker.title.startsWith('KMSP')).icon.html,new RegExp(`>${height}</text>`));
+ }
+ stpY=195;callbacks.moveend();
+ assert.ok(ids().includes('KMSP')&&!ids().includes('KSTP'),'A label over the middle of a circle is still a collision');
  console.log('METAR CLOUDS passed: exact anchors, collision spacing, stable timeline, zoom and refresh retention.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

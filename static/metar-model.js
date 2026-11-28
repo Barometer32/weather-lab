@@ -68,9 +68,11 @@ window.WeatherStationModel = (() => {
     return {left:-6.6*scale,right:(label?8+textWidth(label)+2:6.6)*scale,top:(label?-9:-6.6)*scale,bottom:(label?9:6.6)*scale};
   }
   function cloudCollisionBoxes(station,bounds=cloudFootprint(station)){
-    const radius=6.6*scale;
-    const boxes=[{left:-radius,right:radius,top:-radius,bottom:radius}];
-    if(bounds.right>radius)boxes.push({left:6*scale,right:bounds.right,top:bounds.top,bottom:bounds.bottom,kind:"ceiling"});
+    const paddingRadius=6.6*scale;
+    const boxes=[{left:-paddingRadius,right:paddingRadius,top:-paddingRadius,bottom:paddingRadius,
+      kind:"cloud-circle",radius:5.6*scale}];
+    // Ceiling digits occupy less vertical space than the full line box.
+    if(bounds.right>paddingRadius)boxes.push({left:6*scale,right:bounds.right,top:-6*scale,bottom:6*scale,kind:"ceiling"});
     return boxes;
   }
   function singleStationModel(station,mode){

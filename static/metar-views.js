@@ -79,16 +79,25 @@ window.WeatherMetars = (() => {
       candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:Math.max(0,radius-barbEdgeOverlap),
         reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
     }
+    const circleHitsBox=(x,y,radius,box)=>{
+      const dx=Math.max(box.left-x,0,x-box.right);
+      const dy=Math.max(box.top-y,0,y-box.bottom);
+      return dx*dx+dy*dy<radius*radius;
+    };
     const touches=(a,b)=>{
       if(a.kind!=="ceiling"&&b.kind!=="ceiling")return overlap(a,b);
+      const [label,other]=a.kind==="ceiling"?[a,b]:[b,a];
+      if(other.kind==="cloud-circle"){
+        // A ceiling can graze the circle without reserving its empty corners.
+        return circleHitsBox((other.left+other.right)/2,(other.top+other.bottom)/2,
+          Math.max(0,other.radius-ceilingOverlap),label);
+      }
       return Math.min(a.right,b.right)-Math.max(a.left,b.left)>ceilingOverlap
         && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>ceilingOverlap;
     };
     const coversReading=(station,label)=>{
       const {x,y}=station.point;
-      const dx=Math.max(label.left-x,0,x-label.right);
-      const dy=Math.max(label.top-y,0,y-label.bottom);
-      return dx*dx+dy*dy<station.radius*station.radius;
+      return circleHitsBox(x,y,station.radius,label);
     };
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
