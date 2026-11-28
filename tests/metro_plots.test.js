@@ -55,9 +55,8 @@ history[2].stations = history[2].stations.map(report => report.station === 'KDLH
       assert.deepEqual(Array.from(plot.position), [lat, lon]);
       assert.equal(plot.popup.children[2].textContent, 'Temperature: ' + (temperature + hour) + '.0°F');
       assert.match(plot.icon.html, /plot-temp/);
-      assert.match(plot.icon.html, /class="wind-vector"/);
-      assert.match(plot.icon.html, /class="plot-speed"[^>]*>10<\/text>/);
-      assert.doesNotMatch(plot.icon.html, /wind-barb/);
+      assert.match(plot.icon.html, /class="wind-barb" data-mph="10"/);
+      assert.doesNotMatch(plot.icon.html, /wind-vector|plot-speed/);
     }
   }
 

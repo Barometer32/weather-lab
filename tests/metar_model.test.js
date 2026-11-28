@@ -76,17 +76,14 @@ for(const code of ['CLR','SCT','BKN','OVC']){
 const small=model.cloudFootprint({layers:[{cover:'BKN',baseFtAGL:1000}]}),large=model.cloudFootprint({layers:[{cover:'BKN',baseFtAGL:12000}]});
 assert.ok(large.right>small.right,'reserve enough width for multi-digit heights');
 
-const airport=model.airportPlot({...station,wind:{speedKnots:10,speedMph:11,direction:90}});
-assert.match(airport.html, /wind-vector" transform="translate\(40 36\) rotate\(270\)/);
-assert.match(airport.html, /class="plot-speed" x="52" y="40" text-anchor="start">12<\/text>/);
-const calmAirport=model.airportPlot({...station,wind:{speedMph:0,direction:0}});
-assert.match(calmAirport.html, /class="plot-speed"[^>]*>0<\/text>/);
-assert.doesNotMatch(calmAirport.html, /wind-vector/);
-const variableAirport=model.airportPlot({...station,wind:{speedMph:9,variable:true,direction:0}});
-assert.match(variableAirport.html, />VRB<\/text>/);
-assert.match(variableAirport.html, /class="plot-speed"[^>]*>9<\/text>/);
-assert.doesNotMatch(variableAirport.html, /wind-vector/);
-const reserved=model.airportPlotReservation(station);
-assert.deepEqual(reserved.bounds,model.airportPlotReservation({...station,wind:{speedMph:0}}).bounds);
-assert.ok(reserved.boxes[3].left>reserved.boxes[2].right,'Speed stays clear of the arrow at all bearings');
+const barbOptions={dot:true,mphBarbs:true,compact:true};
+const compactBarb=model.combinedWind(station.wind,true,true),normalBarb=model.combinedWind(station.wind,true);
+assert.equal(compactBarb.lines.length,normalBarb.lines.length,'Shortening preserves the mph feathers');
+assert.ok(Math.abs(compactBarb.lines[0][1][1]/normalBarb.lines[0][1][1]-.92)<1e-9);
+assert.match(model.combinedStationModel(station,barbOptions).html,/class="wind-barb" data-mph="20"[^>]*rotate\(90\)/);
+const reserved=model.combinedReservation(station,barbOptions);
+assert.equal(reserved.radius,model.combinedReservation({...station,wind:{speedMph:0}},barbOptions).radius);
+assert.ok(reserved.radius<model.combinedReservation(station,{dot:true,mphBarbs:true}).radius);
+const variable=model.combinedReservation({...station,wind:{speedMph:9,variable:true}},barbOptions);
+assert.ok(variable.boxes.some(box=>box.kind==="wind-state"),'Reserve room for the visible VRB label');
 console.log('Separate station checks passed: sky cover, lowest BKN/OVC, calm/unknown wind, downwind vectors and tighter fixed values.');

@@ -93,43 +93,7 @@ window.WeatherStationModel = (() => {
   const combined={width:88,height:72,x:40,y:36,tempX:-7.5,tempY:-5,dewX:-7.5,dewY:14,ceilingX:8,ceilingY:4};
   const barbScale=1.1448,barbLengthScale=.9405;
   const numeric=v=>Number.isFinite(v)?String(Math.round(v)):"—";
-  const plotWind={labelY:4,stateY:18,shape:"M0 -8L5.4 -2H.9V6H-.9V-2H-5.4Z",radius:9};
-  // Leave clearance for the rotated arrow and the 1.5px label halo.
-  const airportLabelOffset=12;
-  function plotWindSpeed(wind){
-    // Convert original knots when available so prepared mph is not rounded twice.
-    const speed=Number.isFinite(wind?.speedKnots)?wind.speedKnots*1.150779:wind?.speedMph;
-    return Number.isFinite(speed)&&speed>=0?Math.round(speed):null;
-  }
-  function airportPlot(station){
-    const c=combined,w=plotWind,wind=station.wind||{},speed=plotWindSpeed(wind);
-    const text=(cls,x,y,label,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${label}</text>`;
-    let arrow="",state="";
-    if(speed>0){
-      if(wind.variable||!Number.isFinite(wind.direction)){
-        state=text("plot-wind-state",0,w.stateY,wind.variable?"VRB":"?","middle");
-      }else{
-        arrow=windVector(wind,speed,c.x,c.y,w.shape);
-      }
-    }
-    const visualWidth=Math.max(c.width,c.x+airportLabelOffset+textWidth(numeric(speed))+2);
-    const html=`<svg class="metar-plot combined-station-plot" width="${visualWidth*scale}" height="${c.height*scale}" viewBox="0 0 ${visualWidth} ${c.height}" aria-hidden="true">${text("plot-temp",-airportLabelOffset,c.tempY,numeric(station.tempF),"end")}${text("plot-dew",-airportLabelOffset,c.dewY,numeric(station.dewpointF),"end")}${arrow}<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>${state}${text("plot-speed",airportLabelOffset,w.labelY,numeric(speed))}</svg>`;
-    return {html,size:[visualWidth*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
-  }
-  function airportPlotReservation(station){
-    const c=combined,w=plotWind,wind=station.wind,speed=plotWindSpeed(wind);
-    const label=(x,y,value)=>[x-textWidth(numeric(value))-2,x+2,y-13,y+3];
-    // Keep the wind slot reserved through the entire loop, including calm hours.
-    const windRight=airportLabelOffset+Math.max(textWidth("00"),textWidth(numeric(speed)))+2;
-    const slots=[label(-airportLabelOffset,c.tempY,station.tempF),label(-airportLabelOffset,c.dewY,station.dewpointF),
-      [-w.radius,w.radius,-w.radius,w.radius],[airportLabelOffset-2,windRight,w.labelY-13,w.labelY+3]];
-    if(speed>0&&(wind.variable||!Number.isFinite(wind.direction)))slots.push([-12,12,w.stateY-10,w.stateY+3]);
-    const boxes=slots.map(([left,right,top,bottom])=>({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale}));
-    const bounds={left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
-      top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
-    return {boxes,bounds};
-  }
-  function combinedWind(wind={},mphBarbs=false){
+  function combinedWind(wind={},mphBarbs=false,compact=false){
     wind=wind||{};
     const mph=windMph(wind),speed=Number.isFinite(mph)&&mph>=0?mph:null;
     const knots=Number.isFinite(wind.speedKnots)&&wind.speedKnots>=0?wind.speedKnots:speed==null?null:speed/1.150779;
@@ -147,8 +111,8 @@ window.WeatherStationModel = (() => {
     for(let i=0;i<flags;i++){pennants.push([[0,y],[9.5,y-4.8],[0,y+6]]);y+=8;}
     for(let i=0;i<full;i++){lines.push([[0,y],[9.5,y-4.8]]);y+=5;}
     if(half){if(!flags&&!full)y+=5;lines.push([[0,y],[4.75,y-2.4]]);}
-    // Retain the existing compression, stroke and exact station anchor.
-    for(const point of [...lines.flat(),...pennants.flat()])point[1]*=barbLengthScale;
+    const lengthScale=barbLengthScale*(compact ? .92 : 1);
+    for(const point of [...lines.flat(),...pennants.flat()])point[1]*=lengthScale;
     // A conventional meteorological barb points FROM the reported bearing.
     const rotation=((wind.direction%360)+360)%360,a=rotation*Math.PI/180;
     const points=[...lines.flat(),...pennants.flat()].map(([x,y])=>[barbScale*(x*Math.cos(a)-y*Math.sin(a)),barbScale*(x*Math.sin(a)+y*Math.cos(a))]);
@@ -163,15 +127,15 @@ window.WeatherStationModel = (() => {
     const flags=wind.pennants.map(points=>`<polygon class="wind-flag" points="${points.map(p=>p.join(",")).join(" ")}" fill="#111" stroke="white" stroke-width="1.2" paint-order="stroke fill"/>`).join("");
     return `<g class="wind-barb" data-${wind.roundedMph===undefined?`knots="${wind.roundedKnots}"`:`mph="${wind.roundedMph}"`} transform="translate(${combined.x} ${combined.y}) rotate(${wind.rotation}) scale(${barbScale})"><path class="wind-barb-halo" d="${path}" fill="none" stroke="white" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path class="wind-shaft" d="${path}" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>${flags}</g>`;
   }
-  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
-    const w=combinedWind(station.wind,mphBarbs),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+  function combinedStationModel(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false,compact=false}={}){
+    const w=combinedWind(station.wind,mphBarbs,compact),c=combined,ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     const text=(cls,x,y,value,anchor="start")=>`<text class="${cls}" x="${c.x+x}" y="${c.y+y}" text-anchor="${anchor}">${value}</text>`;
     const state=w.kind==="unknown"?text("plot-wind-state",0,29,w.state,"middle"):"";
     const html=`<svg class="metar-plot combined-station-plot" width="${c.width*scale}" height="${c.height*scale}" viewBox="0 0 ${c.width} ${c.height}" aria-hidden="true">${combinedBarb(w,dot)}${text("plot-temp",c.tempX,c.tempY,numeric(celsius?station.tempC:station.tempF),"end")}${text("plot-dew",c.dewX,c.dewY,numeric(celsius?station.dewpointC:station.dewpointF),"end")}${dot||mesonet&&!skyCode(station)?`<circle class="mesonet-dot" cx="${c.x}" cy="${c.y}" r="2" fill="#111"/>`:skySymbol(station,c.x,c.y)}${ceiling?text("plot-ceiling",c.ceilingX,c.ceilingY,ceiling):""}${state}</svg>`;
     return {html,size:[c.width*scale,c.height*scale],anchor:[c.x*scale,c.y*scale]};
   }
-  function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false}={}){
-    const c=combined,w=combinedWind(station.wind,mphBarbs),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
+  function combinedFootprint(station,{mesonet=false,dot=false,mphBarbs=false,celsius=false,compact=false}={}){
+    const c=combined,w=combinedWind(station.wind,mphBarbs,compact),ceiling=dot||mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     let left=dot?-3:-8.5,right=dot?3:8.5,top=dot?-3:-8.5,bottom=dot?3:8.5;
     function include(x,y,width,anchor){
       const start=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
@@ -186,7 +150,7 @@ window.WeatherStationModel = (() => {
     return {left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale};
   }
   function combinedCollisionBoxes(station,options={}){
-    const {dot=false,mphBarbs=false,celsius=false}=options,c=combined,w=combinedWind(station.wind,mphBarbs);
+    const {dot=false,mphBarbs=false,celsius=false,compact=false}=options,c=combined,w=combinedWind(station.wind,mphBarbs,compact);
     const boxes=[],add=(left,right,top,bottom,kind="text")=>boxes.push({left:left*scale,right:right*scale,top:top*scale,bottom:bottom*scale,kind});
     function text(x,y,label,anchor="end",small=false,kind="text"){
       const width=textWidth(label,small),left=anchor==="end"?x-width:anchor==="middle"?x-width/2:x;
@@ -198,7 +162,7 @@ window.WeatherStationModel = (() => {
     add(-radius,radius,-radius,radius,"anchor");
     const ceiling=dot||options.mesonet&&!skyCode(station)?"":cloudPlotLabel(station);
     if(ceiling)text(c.ceilingX,c.ceilingY,ceiling,"start");
-    if(w.kind==="unknown")text(0,29,w.state,"middle",true,"barb");
+    if(w.kind==="unknown")text(0,29,w.state,"middle",true,"wind-state");
     if(w.kind==="barb"){
       const angle=w.rotation*Math.PI/180;
       const rotate=([x,y])=>[barbScale*(x*Math.cos(angle)-y*Math.sin(angle)),barbScale*(x*Math.sin(angle)+y*Math.cos(angle))];
@@ -224,13 +188,13 @@ window.WeatherStationModel = (() => {
     const boxes=combinedCollisionBoxes(station,options).filter(b=>b.kind!=="barb");
     // Reserve a complete normal barb even for calm/VRB/missing wind. A circle
     // covers every bearing, independent of the direction in any single hour.
-    // Longer reported barbs enlarge it; they are never clipped or shortened.
+    // Longer reported barbs enlarge the radius beyond the normal footprint.
     const winds=[{speedMph:45,direction:0},{...(station.wind||{}),direction:0}];
-    const radius=Math.max(...winds.flatMap(w=>combinedWind(w,options.mphBarbs).points.map(([x,y])=>Math.hypot(x,y)+2)))*scale;
+    const radius=Math.max(...winds.flatMap(w=>combinedWind(w,options.mphBarbs,options.compact).points.map(([x,y])=>Math.hypot(x,y)+2)))*scale;
     return {boxes,radius,bounds:{left:Math.min(-radius,...boxes.map(b=>b.left)),right:Math.max(radius,...boxes.map(b=>b.right)),
       top:Math.min(-radius,...boxes.map(b=>b.top)),bottom:Math.max(radius,...boxes.map(b=>b.bottom))}};
   }
-  return {airportPlot,airportPlotReservation,plotWindSpeed,cloudCollisionBoxes,combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
+  return {cloudCollisionBoxes,combinedStationModel,combinedFootprint,combinedCollisionBoxes,combinedReservation,combinedWind,stationModel,cloudStationModel,singleStationModel,singleFootprint,cloudPlotLabel,cloudFootprint,firstCloudLayer,cloudHeightText,cloudLayers,skyCode,footprint,scale,
     cloudIconSize:[64*scale,24*scale],cloudIconAnchor:[12*scale,12*scale],
     iconSize:[width*scale,height*scale],iconAnchor:[cx*scale,cy*scale]};
 })();

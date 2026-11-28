@@ -9,7 +9,8 @@ window.WeatherMetars = (() => {
   const secondary=["KSTP"];
   const regionalHubs=["KMKT","KRWF","KSTC","KRST","KDLH","KMKE","KMSN","KFAR","KFSD","KGRB","KSUX","KALO","KEAU","KLSE","KGFK","KAUW","KBJI"];
   const regionalView=[[43.68,-95.4],[46.85,-92.18]];
-  const ceilingOverlap=2; // Allow cloud labels to share a small edge of their halos.
+  const windPlotOptions={dot:true,mphBarbs:true,compact:true};
+  const barbEdgeOverlap=4,ceilingOverlap=3; // Screen pixels, including the symbol halos.
   let busy=false,sourceData;
   const plotCaches={plots:new WeakMap(),clouds:new WeakMap()};
   const cloudAvailable=station=>["CLR","SKC","NSC","NCD","CAVOK","FEW","SCT","BKN","OVC","VV"].includes(model.skyCode(station))&&model.cloudPlotLabel(station)!=="?";
@@ -55,10 +56,10 @@ window.WeatherMetars = (() => {
     const bySite=new Map();
     for(const [index,stations] of reports.entries())for(const station of stations){
       const old=bySite.get(station.station),frames=old?.frames||Array.from({length:data.history.length},()=>[]);
-      const reservation=mode==="plots"?model.airportPlotReservation(station):null;
+      const reservation=mode==="plots"?model.combinedReservation(station,windPlotOptions):null;
       const f=reservation?.bounds||model.cloudFootprint(station);
       frames[index]=reservation?.boxes||model.cloudCollisionBoxes(station,f);
-      bySite.set(station.station,{station,frames,
+      bySite.set(station.station,{station,frames,radius:Math.max(old?.radius||0,reservation?.radius||0),
         f:old?{left:Math.min(old.f.left,f.left),right:Math.max(old.f.right,f.right),top:Math.min(old.f.top,f.top),bottom:Math.max(old.f.bottom,f.bottom)}:f});
     }
     const rank=s=>{
@@ -71,11 +72,11 @@ window.WeatherMetars = (() => {
     const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
     const shift=(b,p)=>({...b,left:p.x+b.left,right:p.x+b.right,top:p.y+b.top,bottom:p.y+b.bottom});
     const candidates=[];
-    for(const {station,f,frames} of sites){
+    for(const {station,f,frames,radius} of sites){
       if(mode==="clouds"&&!frames[index].length)continue;
       const p=point(station);if(p.x<0||p.y<0||p.x>size.x||p.y>size.y)continue;
       const boxes=(mode==="plots"?frames.flat():frames[index]).map(b=>shift(b,p));
-      candidates.push({id:station.station,bounds:shift(f,p),boxes,
+      candidates.push({id:station.station,bounds:shift(f,p),boxes,point:p,radius:Math.max(0,radius-barbEdgeOverlap),
         reportHours:frames.filter(boxes=>boxes.length).length,conflicts:new Set()});
     }
     const touches=(a,b)=>{
@@ -83,10 +84,21 @@ window.WeatherMetars = (() => {
       return Math.min(a.right,b.right)-Math.max(a.left,b.left)>ceilingOverlap
         && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>ceilingOverlap;
     };
+    const coversReading=(station,label)=>{
+      const {x,y}=station.point;
+      const dx=Math.max(label.left-x,0,x-label.right);
+      const dy=Math.max(label.top-y,0,y-label.bottom);
+      return dx*dx+dy*dy<station.radius*station.radius;
+    };
     for(let i=0;i<candidates.length;i++)for(let j=0;j<i;j++){
       const a=candidates[i],b=candidates[j];
       if(!overlap(a.bounds,b.bounds))continue;
-      if(a.boxes.some(x=>b.boxes.some(y=>touches(x,y)))){a.conflicts.add(b);b.conflicts.add(a);}
+      const body=a.boxes.some(x=>b.boxes.some(y=>touches(x,y)));
+      // Reserve every possible wind bearing through the timeline. Barbs can
+      // cross each other and skim labels, while deeper contact hides a plot.
+      const wind=mode==="plots"&&(a.boxes.some(label=>label.kind==="text"&&coversReading(b,label))
+        ||b.boxes.some(label=>label.kind==="text"&&coversReading(a,label)));
+      if(body||wind){a.conflicts.add(b);b.conflicts.add(a);}
     }
     const keep=new Set(),remaining=new Set(candidates);
     const take=site=>{keep.add(site.id);remaining.delete(site);for(const other of site.conflicts)remaining.delete(other);};
@@ -129,7 +141,7 @@ window.WeatherMetars = (() => {
     slider.style.setProperty("--progress",`${hours.length>1?100*index/(hours.length-1):0}%`);
     el("metar-time").textContent=`${data._savedCopy?"Saved · ":""}${time.format(new Date(frame.hour))} · ${index+1}/${hours.length}`;
     slider.setAttribute("aria-valuetext",el("metar-time").textContent);
-    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and downwind arrows with speed in mph");
+    el("metar-map").setAttribute("aria-label",mode==="clouds"?"Airport sky-cover circles with the lowest BKN or OVC height to the right, in thousands of feet AGL":"Hourly airport temperature, dewpoint and wind barbs in mph");
     el("metar-status").textContent=`${reports.length} ${mode==="plots"?"plots":"airport reports"} for this hour${data.stale?" · Background updates delayed":""}`;
   }
   function draw(drawn){
@@ -142,15 +154,15 @@ window.WeatherMetars = (() => {
       const name=mode==="plots"?station.name:null;
       let cached=plots.get(station);
       if(!cached){
-      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.airportPlot(station),popup=node("div");popup.className="cloud-popup";
+      const plot=mode==="clouds"?model.singleStationModel(station,"clouds"):model.combinedStationModel(station,windPlotOptions),popup=node("div");popup.className="cloud-popup";
       popup.append(node("strong",name?`${name} (${station.station})`:station.station),node("p",station.time?time.format(new Date(station.time)):"Report time unavailable"));
       for(const [label,value] of [["Temperature",station.tempF],["Dewpoint",station.dewpointF]])popup.append(node("p",`${label}: ${Number.isFinite(value)?value.toFixed(1)+"°F":"unavailable"}`));
-      const wind=station.wind||{},barb=mode==="clouds"?model.combinedWind(wind):null,layer=model.firstCloudLayer(station);
-      const speed=barb?barb.speed:model.plotWindSpeed(wind);
+      const wind=station.wind||{},mph=mode==="plots",barb=model.combinedWind(wind,mph,mph),layer=model.firstCloudLayer(station);
+      const speed=barb.speed;
       popup.append(node("p",`Wind: ${Number.isFinite(speed)?Math.round(speed)+" mph":"unknown"}${Number.isFinite(wind.direction)?" from "+Math.round(wind.direction)+"°":wind.variable?" · variable direction":""}`));
       popup.append(node("p",`Cloud cover: ${model.skyCode(station)||"unavailable"}`));
       popup.append(node("p",layer?`${layer.cover}: ${layer.baseFtAGL.toLocaleString()} ft AGL`:model.cloudPlotLabel(station)==="?"?"Cloud report or ceiling height unavailable":"No BKN/OVC layer reported"));
-      if(barb?.kind==="barb")popup.append(node("p",`Barb feathers: ${barb.roundedKnots} kt (nearest 5 kt)`));
+      if(barb.kind==="barb")popup.append(node("p",`Barb feathers: ${mph?`${barb.roundedMph} mph`:`${barb.roundedKnots} kt (nearest 5 kt)`}`));
       const icon=L.divIcon({className:"weather-station",html:plot.html,iconSize:plot.size,iconAnchor:plot.anchor});
       cached={icon,popup};plots.set(station,cached);
       }

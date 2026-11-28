@@ -14,8 +14,8 @@
   <script defer src="/static/native-radar.js?v=radar-timeline-v2"></script>
   <script defer src="/static/map-fullscreen.js?v=metar-cloud-tabs-v1"></script>
   <script defer src="/static/default-views.js?v=minnesota-plots-v58"></script>
-  <script defer src="/static/metar-model.js?v=wind-vectors-v1"></script>
-  <script defer src="/static/metar-views.js?v=wind-vectors-v1"></script>
+  <script defer src="/static/metar-model.js?v=compact-wind-barbs-v1"></script>
+  <script defer src="/static/metar-views.js?v=compact-wind-barbs-v1"></script>
   <script defer src="/static/air-quality-views.js?v=airq-source-hours-v3"></script>
   <script defer src="/static/radar-roads.js?v=primary-roads-option-v1"></script>
   <script defer src="/static/viewport-fit.js?v=viewport-v1"></script>
@@ -36,7 +36,7 @@
 <section id="metar" role="tabpanel" aria-labelledby="tab-metar">
   <div class="section-heading"><div><p class="eyebrow" id="metar-eyebrow">UPPER MIDWEST · HOURLY METARS · WIND MPH</p><h1 id="metar-title">METAR</h1></div><div class="metar-view-controls"><span class="sun-angle-readout" title="Current apparent solar elevation in Hopkins, MN"><span class="sun-angle-label">Sun angle</span> <strong id="sun-angle">—</strong></span><button class="secondary" id="refresh-metar">Refresh</button></div></div>
   <div id="metar-surface" class="cloud-map-surface map-viewer">
-    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and downwind arrows with speed in mph"></div></div>
+    <div class="map-area"><div id="metar-map" data-station-model="combined-v1" aria-label="Hourly airport temperature, dewpoint and wind barbs in mph"></div></div>
     <div class="radar-controls viewer-controls">
       <span class="viewer-frame-time" id="metar-time" aria-live="polite">Loading hourly METARs…</span>
       <div class="timeline-control" id="metar-history"><label class="sr-only" for="metar-timeline">METAR history</label><input id="metar-timeline" class="scan-timeline" type="range" min="0" max="0" step="1" value="0" aria-label="METAR timeline: current hour plus previous 3 hours" disabled></div>
