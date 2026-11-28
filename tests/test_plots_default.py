@@ -5,11 +5,11 @@ import collector
 import verify_weather_release as verify
 
 
-def test_observations_default_passes_release_layout_check():
+def test_hrmetar_default_passes_release_layout_check():
     html = app.app.test_client().get('/').text
     with patch.object(verify, 'read', return_value=html):
         verify.check_layout('local')
-    assert 'id="tab-observations" aria-selected="true"' in html
+    assert 'id="tab-hrmetar" aria-selected="true"' in html
     assert 'id="tab-clouds"' in html and 'id="tab-metar"' not in html
     assert 'id="tab-hourly"' in html
     assert 'id="metar-history" hidden' not in html

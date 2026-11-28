@@ -35,6 +35,6 @@ def test_only_complete_five_minute_groups_use_whole_celsius(tmp_path):
 
     result = latest_average(station_rows(gzip.compress(path.read_bytes()), now))
     assert result == {
-        "observedAt": "2026-11-28T15:05:00Z", "tempC": -1.7, "dewpointC": -6,
+        "observedAt": "2026-11-28T15:05:00Z", "tempC": -5 / 3, "dewpointC": -6,
         "windMph": 9, "windDirection": 0,
     }

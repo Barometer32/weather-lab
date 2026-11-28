@@ -30,8 +30,8 @@ def read(base, path):
 
 def check_layout(base):
     html = read(base, "/")
-    assert 'id="tab-observations" aria-selected="true"' in html
-    assert '<section id="observations" role="tabpanel" aria-labelledby="tab-observations">' in html
+    assert 'id="tab-hrmetar" aria-selected="true"' in html
+    assert '<section id="observations" role="tabpanel" aria-labelledby="tab-observations" hidden>' in html
     assert 'id="observations-history"' in html
     assert 'id="tab-metar"' not in html and '<section id="metar"' not in html
     assert 'id="tab-current"' not in html and '<section id="current"' not in html
@@ -41,7 +41,7 @@ def check_layout(base):
     assert 'id="tab-conditions"' not in html and 'conditions-views.js' not in html
     assert 'current-observations.js' not in html and '/api/observations/' not in html
     assert '/static/metar-model.js?v=cloud-strict-spacing-v1' in html
-    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["observations", "clouds", "radar", "satellite", "forecast", "hourly", "hrmetar", "air-quality"]
+    assert re.findall(r'<button role="tab" id="tab-([^\"]+)"', html) == ["hrmetar", "observations", "clouds", "radar", "satellite", "forecast", "hourly", "air-quality"]
     assert 'id="metar-product"' not in html
     assert 'AIRPORT METARS · UPPER MIDWEST' in html
     assert 'rapmet' not in html.lower()
@@ -54,24 +54,25 @@ def check_layout(base):
     assert '/static/observations.js?v=observations-v1' in html
     assert '/static/air-quality-views.js?v=airq-source-hours-v3' in html
     assert '/static/prepared-data.js?v=hrmetar-v1' in html
-    assert '/static/sun-angle.js?v=observations-v1' in html
+    assert '/static/sun-angle.js?v=hrmetar-v2' in html
     assert 'id="metar-notice"' not in html
     assert 'id="sun-angle"' in html and 'id="observations-sun"' in html
     options = html.split('id="satellite-product"', 1)[1].split('</select>', 1)[0]
     assert re.findall(r'<option value="([^\"]+)"', options) == ["truecolor", "dcphase", "ntmicro"]
     assert '<option value="truecolor" selected>True Color</option>' in options
-    assert '/static/app.js?v=hrmetar-v1' in html
-    assert '/static/style.css?v=hrmetar-v1' in html
+    assert '/static/app.js?v=hrmetar-v2' in html
+    assert '/static/style.css?v=hrmetar-v2' in html
     assert 'id="forecast-periods"' in html
     assert '<section id="clouds" role="tabpanel" aria-labelledby="tab-clouds" hidden>' in html
     assert '<section id="hourly" role="tabpanel" aria-labelledby="tab-hourly" hidden>' in html
     assert '/static/lamp-hourly.js?v=lamp-v1' in html and 'id="hourly-rows"' in html
-    hrmetar = html.split('<section id="hrmetar" role="tabpanel" aria-labelledby="tab-hrmetar" hidden>', 1)[1].split('</section>', 1)[0]
+    hrmetar = html.split('<section id="hrmetar" role="tabpanel" aria-labelledby="tab-hrmetar">', 1)[1].split('</section>', 1)[0]
     assert 'id="hrmetar-observed-time"' in hrmetar and 'hourly-rows' not in hrmetar
-    assert '/static/hrmetar.js?v=hrmetar-v1' in html
+    assert 'id="hrmetar-sun"' in hrmetar
+    assert '/static/hrmetar.js?v=hrmetar-v2' in html
     assert 'id="forecast-hourly"' not in html and 'forecast-switch' not in html
     assert 'tempest' not in html.lower()
-    print("Verified OBSERVATIONS opens first and CLOUDS has its own tab.")
+    print("Verified HRMETAR opens first and includes the live sun angle.")
 
 
 def check_hourly(base):

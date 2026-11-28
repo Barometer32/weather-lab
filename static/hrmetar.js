@@ -7,13 +7,13 @@ window.WeatherHrmetar = (() => {
   });
   const maxAgeMs = 30 * 60 * 1000;
   const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const temperature = value => Number.isFinite(value) ? `${value.toFixed(1)}°C` : "—";
+  const fahrenheit = celsius => Number.isFinite(celsius) ? `${Math.round(celsius * 9 / 5 + 32)}°F` : "—";
   let active = false, busy = false, current;
 
   function render(message) {
     if (current && Date.now() - Date.parse(current.observedAt) > maxAgeMs) current = null;
-    el("hrmetar-temperature").textContent = temperature(current?.tempC);
-    el("hrmetar-dewpoint").textContent = temperature(current?.dewpointC);
+    el("hrmetar-temperature").textContent = fahrenheit(current?.tempC);
+    el("hrmetar-dewpoint").textContent = fahrenheit(current?.dewpointC);
     const speed = current?.windMph, bearing = current?.windDirection;
     const heading = Number.isFinite(bearing) ? directions[Math.round(bearing / 45) % 8] : "VRB";
     el("hrmetar-wind").textContent = Number.isFinite(speed) ? (speed <= 3 ? "CALM" : `${heading} ${speed} mph`) : "—";

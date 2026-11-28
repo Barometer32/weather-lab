@@ -79,8 +79,8 @@ def latest_average(rows):
     direction = wind["direction"]
     return {
         "observedAt": iso(datetime.fromtimestamp(stamp, timezone.utc)),
-        "tempC": round(mean(row["tempC"] for row in entries), 1),
-        "dewpointC": round(mean(row["dewpointC"] for row in entries), 1),
+        "tempC": mean(row["tempC"] for row in entries),
+        "dewpointC": mean(row["dewpointC"] for row in entries),
         "windMph": math.floor(wind["speedMph"] + .5),
         "windDirection": direction % 360 if direction is not None else None,
     }
