@@ -18,12 +18,12 @@ def test_individual_airport_plots_default_passes_release_layout_check():
 def test_retired_routes_do_not_read_storage_or_download_anything():
     with patch('app.get_store') as store, patch('app.download') as source:
         client = app.app.test_client()
-        for path in ['/api/hourly','/static/metar-plots.js','/static/avgmetar.js','/api/tempest','/static/tempest-views.js','/api/airport-observations','/static/airport-observations.js','/api/rapmet','/api/rapmetar','/static/rapmetar-views.js','/static/rapmet-views.js','/static/rapmet-stations.json','/api/conditions', '/static/conditions-views.js', '/static/conditions-model.js', '/api/rtmetar', '/api/mesonet', '/static/mesonet-views.js', '/api/observations', '/api/observations/hourly', '/api/observations/current', '/api/observations/rtma', '/static/current-observations.js', '/static/rtma-observations.js', '/static/current-hourly.js']:
+        for path in ['/api/current','/api/hourly','/static/metar-plots.js','/static/avgmetar.js','/api/tempest','/static/tempest-views.js','/api/airport-observations','/static/airport-observations.js','/api/rapmet','/api/rapmetar','/static/rapmetar-views.js','/static/rapmet-views.js','/static/rapmet-stations.json','/api/conditions', '/static/conditions-views.js', '/static/conditions-model.js', '/api/rtmetar', '/api/mesonet', '/static/mesonet-views.js', '/api/observations', '/api/observations/hourly', '/api/observations/current', '/api/observations/rtma', '/static/current-observations.js', '/static/rtma-observations.js', '/static/current-hourly.js']:
             assert client.get(path).status_code == 404
         store.assert_not_called()
         source.assert_not_called()
     with patch('collector.get_store') as store:
         client = collector.app.test_client()
-        for path in ['/collect/hourly','/collect/tempest','/collect/airport-observations','/collect/rapmet','/collect/rapmetar','/collect/hennepin-mesonet', '/collect/public-conditions', '/collect/rtmetar', '/collect/mesonet', '/collect/hourly-observations', '/collect/rapid-observations', '/collect/observation-stations', '/collect/rtma-observations']:
+        for path in ['/collect/current-hourly','/collect/hourly','/collect/tempest','/collect/airport-observations','/collect/rapmet','/collect/rapmetar','/collect/hennepin-mesonet', '/collect/public-conditions', '/collect/rtmetar', '/collect/mesonet', '/collect/hourly-observations', '/collect/rapid-observations', '/collect/observation-stations', '/collect/rtma-observations']:
             assert client.post(path).status_code == 404
         store.assert_not_called()

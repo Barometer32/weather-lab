@@ -86,7 +86,7 @@ def check_hourly(base):
 
 
 def check_removed(base):
-    for path in ("/api/hourly", "/static/metar-plots.js", "/static/avgmetar.js", "/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
+    for path in ("/api/current", "/api/hourly", "/static/metar-plots.js", "/static/avgmetar.js", "/api/tempest", "/static/tempest-views.js", "/api/airport-observations", "/static/airport-observations.js", "/api/rapmet", "/static/rapmet-views.js", "/static/rapmet-stations.json", "/api/satellite/02", "/api/prepared/satellite/02/20261114230000.jpg", "/api/conditions", "/static/conditions-model.js", "/static/conditions-views.js", "/api/rtmetar", "/api/mesonet", "/static/mesonet-views.js", "/api/observations/current", "/api/observations/rtma", "/static/current-observations.js", "/static/rtma-observations.js",
                  "/api/rapmetar", "/static/rapmetar-views.js"):
         try:
             read(base, path)

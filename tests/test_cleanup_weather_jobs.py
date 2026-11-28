@@ -42,7 +42,7 @@ def test_apply_checks_twice_and_never_deletes_or_updates_required_jobs():
     def cloud(*args,**kwargs):
         calls.append(args)
         if args[:3]==('scheduler','jobs','delete'):rows[:]=[r for r in rows if r['name']!=args[3]]
-    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_site'),patch.object(cleanup,'jobs',side_effect=lambda:deepcopy(rows)),patch.object(cleanup,'gcloud',side_effect=cloud):
+    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_hourly'),patch.object(cleanup,'jobs',side_effect=lambda:deepcopy(rows)),patch.object(cleanup,'gcloud',side_effect=cloud):
         cleanup.cleanup(True)
     assert len(calls)==1 and calls[0][3]==cleanup.PARENT+'weather-live-nbm'
     assert len(rows)==len(cleanup.REQUIRED)
@@ -57,7 +57,7 @@ def test_targeted_cleanup_retires_rapmetar_without_deleting_other_jobs():
         assert args[:4] == ('scheduler', 'jobs', 'delete', rapid['name'])
         rows.remove(rapid)
 
-    with patch.object(cleanup, 'service', return_value=COLLECTOR), patch.object(cleanup, 'check_site'), patch.object(cleanup, 'jobs', side_effect=lambda: deepcopy(rows)), patch.object(cleanup, 'gcloud', side_effect=delete) as cloud:
+    with patch.object(cleanup, 'service', return_value=COLLECTOR), patch.object(cleanup, 'check_hourly'), patch.object(cleanup, 'jobs', side_effect=lambda: deepcopy(rows)), patch.object(cleanup, 'gcloud', side_effect=delete) as cloud:
         cleanup.cleanup(True, 'weather-live-rapmetar')
         cleanup.cleanup(True, 'weather-live-rapmetar')
         cloud.assert_called_once()
@@ -67,9 +67,9 @@ def test_targeted_cleanup_retires_rapmetar_without_deleting_other_jobs():
 def test_cleanup_preview_never_mutates_and_changed_candidate_stops_apply():
     rows=required()+[job('weather-live-nbm')]
     changed=deepcopy(rows);changed[-1]['schedule']='* * * * *'
-    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_site'),patch.object(cleanup,'jobs',return_value=rows),patch.object(cleanup,'gcloud') as cloud:
+    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_hourly'),patch.object(cleanup,'jobs',return_value=rows),patch.object(cleanup,'gcloud') as cloud:
         cleanup.cleanup(False);cloud.assert_not_called()
-    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_site'),patch.object(cleanup,'jobs',side_effect=[rows,changed]),patch.object(cleanup,'gcloud') as cloud:
+    with patch.object(cleanup,'service',side_effect=[COLLECTOR,'https://weather.example']),patch.object(cleanup,'check_hourly'),patch.object(cleanup,'jobs',side_effect=[rows,changed]),patch.object(cleanup,'gcloud') as cloud:
         with pytest.raises(ValueError,match='Candidate changed'):cleanup.cleanup(True)
         cloud.assert_not_called()
 
@@ -80,6 +80,16 @@ def test_current_configuration_preserves_noncurrent_schedules_and_no_rollbacks()
     assert any('--schedule=*/2 * * * *' in c for c in commands)
     assert any(c[1:4]==['scheduler','jobs','resume'] for c in commands)
     assert not any(c[3] in ('delete','pause') for c in commands)
+
+
+def test_current_schedule_is_retired_only_when_it_targets_the_old_collector():
+    old = job('weather-live-current', 'current-hourly')
+    rows = required() + [old]
+    assert cleanup.plan(rows, COLLECTOR) == ([old], [])
+    assert configure(rows, COLLECTOR) == []
+
+    old['httpTarget']['uri'] = COLLECTOR+'/collect/metar-clouds'
+    assert cleanup.plan(rows, COLLECTOR) == ([], [old])
 
 
 def test_hourly_lamp_schedule_is_retired():

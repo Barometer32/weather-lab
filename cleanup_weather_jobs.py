@@ -3,14 +3,13 @@ import argparse
 import json
 import subprocess
 from urllib.parse import urlsplit
-from urllib.request import urlopen
+from verify_weather_release import check_hourly
 
 PROJECT = 'weather-lab-261105-184200-1a9b'
 REGION = 'us-central1'
 PARENT = f'projects/{PROJECT}/locations/{REGION}/jobs/'
 ACCOUNT = f'weather-scheduler@{PROJECT}.iam.gserviceaccount.com'
 REQUIRED = {
-    'weather-live-current': 'current-hourly',
     'weather-live-metar-clouds': 'metar-clouds',
     'weather-live-radar': 'radar-KMPX',
     'weather-live-satellite': 'satellite',
@@ -19,6 +18,7 @@ REQUIRED = {
 }
 # Older jobs with this name predate the weather-live-* naming convention.
 LEGACY_NAMES = {'weather-hourly'}
+RETIRED_CURRENT_JOB = 'weather-live-current'
 
 
 def gcloud(*args, output=True):
@@ -61,6 +61,10 @@ def plan(rows, collector):
     for name, row in by_name.items():
         if name in REQUIRED:
             continue
+        if (name == RETIRED_CURRENT_JOB
+                and row.get('httpTarget', {}).get('uri') != collector+'/collect/current-hourly'):
+            leave.append(row)
+            continue
         if ((name.startswith('weather-live-') or name in LEGACY_NAMES)
                 and row.get('state') in ('ENABLED','PAUSED') and owned(row, collector)):
             remove.append(row)
@@ -76,20 +80,12 @@ def service(name):
     return row['status']['url']
 
 
-def check_site(web):
-    with urlopen(web+'/api/current', timeout=30) as response:
-        data = json.load(response)
-    if (data.get('version') != 'official-hourly-t-remarks-v1'
-            or not (data.get('current') or {}).get('complete')):
-        raise ValueError('The CURRENT page does not yet have a complete official hour')
-
-
 def cleanup(apply=False, only_job=None):
     if only_job in REQUIRED:
         raise ValueError('Schedule is still required: '+only_job)
     collector = service('weather-collector')
     web = service('weather-lab')
-    check_site(web)
+    check_hourly(web)
     before = jobs()
     remove, leave = plan(before, collector)
     if only_job is not None:

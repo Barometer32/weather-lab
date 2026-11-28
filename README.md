@@ -16,18 +16,17 @@ GitHub branch: `rtmetar-default-20261111`.
 
 ## Background updates
 
-`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Six Cloud Scheduler tasks are required:
+`weather-lab` serves the pages and prepared data. The private `weather-collector` service prepares data while the site is closed. Five Cloud Scheduler tasks are required:
 
 | Task | Endpoint |
 |---|---|
-| weather-live-current | /collect/current-hourly |
 | weather-live-metar-clouds | /collect/metar-clouds |
 | weather-live-radar | /collect/radar-KMPX |
 | weather-live-satellite | /collect/satellite |
 | weather-live-forecast | /collect/forecast |
 | weather-live-air-quality | /collect/air-quality |
 
-The retained `/api/current` feed calculates three-airport averages separately from the maps. METAR checks every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
+METAR checks every two minutes. Forecast checks every five minutes. Page views read saved objects without triggering collection.
 
 ## Operate
 
@@ -43,7 +42,7 @@ Clean obsolete schedules and old deployment versions without a rebuild:
 python3 cleanup_weather_jobs.py --apply --old-revisions
 ```
 
-Without `--apply`, cleanup is a preview. Cleanup checks the retained `/api/current` feed and all required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
+Without `--apply`, cleanup is a preview. Cleanup verifies the prepared METAR and CLOUDS loop, along with all required job targets, service accounts and enabled states. Only verified Weather Lab-owned jobs outside that set are removed. Unverified jobs are listed and retained. Current/latest deployment revisions and tags referenced by remaining schedules are protected. No extra rollback copies are created. Old experimental source and deployment scripts have been removed.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for release details and [THIRD_PARTY.md](THIRD_PARTY.md) for software/data credits.
 

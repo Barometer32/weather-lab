@@ -13,46 +13,10 @@ from PIL import Image
 
 import app as weather
 from realtime import get_store
-from current_hourly import collect as collect_current_hourly
 from satellite import PRODUCTS, FRAME_COUNT, page_url, parse_loop, latest_frames, frame_window
 
 app = Flask(__name__)
-locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality", "current-hourly")}
-
-
-def collect_radar_legacy(store, now):
-    previous = store.read_json("live/radar.json") or {}
-    old = {f["id"]: f for f in previous.get("frames", [])} if previous.get("renderVersion") == weather.RENDER_VERSION else {}
-    scans = weather.get_scans(now)
-    frames = [old[frame["id"]] for frame in scans if frame["id"] in old]
-    deadline = time.monotonic() + 150
-    added = 0
-
-    def publish():
-        data = weather.radar_manifest(sorted(frames, key=lambda f: f["time"]), now)
-        data.update(checkedAt=weather.iso(now), unavailableScans=len(scans)-len(frames))
-        store.write_json("live/radar.json", data)
-
-    # Latest first, with durable checkpoints during the initial history backfill.
-    for frame in reversed(scans):
-        if frame["id"] in old:
-            continue
-        if time.monotonic() >= deadline:
-            break
-        try:
-            png, bounds = weather.radar_frame(frame["id"])
-            key = f"radar/{weather.RENDER_VERSION}/{frame['id']}.png"
-            store.write(key, png, "image/png")
-            frames.append({**frame, "bounds": bounds, "url": f"/api/prepared/{key}"})
-            added += 1
-            if added == 1 or added % 4 == 0:
-                publish()
-        except Exception:
-            app.logger.exception("Could not prepare radar %s", frame["id"])
-    if not frames:
-        raise ValueError("No radar frames prepared; previous manifest retained")
-    publish()
-    return {"frames": len(frames), "unavailable": len(scans)-len(frames)}
+locks = {name: threading.Lock() for name in ("radar-KMPX", "satellite", "forecast", "metar-clouds", "air-quality")}
 
 
 def collect_radar(store, now):
@@ -213,8 +177,7 @@ def collect(kind):
             "satellite": collect_satellite,
             "forecast": collect_forecast,
             "air-quality": collect_air_quality,
-            "metar-clouds": collect_metar_clouds,
-            "current-hourly": collect_current_hourly}
+            "metar-clouds": collect_metar_clouds}
     if kind not in jobs:
         return jsonify(error="Unknown collection"), 404
     lock_kind = kind

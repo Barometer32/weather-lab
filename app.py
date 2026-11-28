@@ -14,7 +14,6 @@ import threading
 import time
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
 
 from flask import Flask, Response, jsonify, request, send_from_directory, render_template
 from werkzeug.security import safe_join
@@ -382,19 +381,6 @@ def prepared_hourly_snapshot(name):
     return data
 
 
-def prepared_observations():
-    store = get_store()
-    if store is not None:
-        # Main observations and both METAR maps read one atomically published
-        # source object. Legacy observations remain usable during deployment.
-        shared = cached("prepared-metar-clouds", 10, lambda: store.read_json("live/metar-clouds.json"))
-        if shared and "observationReports" in shared:
-            shared = prepared_hourly_snapshot("metar-clouds")
-            return {"reports": shared["observationReports"],
-                    "checkedAt": shared["checkedAt"], "stale": shared["stale"]}
-    return prepared_hourly_snapshot("observations")
-
-
 def local_hourly_metars(now):
     from metar_clouds import collect
     # Local development also shares its source between the two API routes.
@@ -422,60 +408,8 @@ def get_forecast(now=None):
 
 @app.get("/")
 def index():
-    # Home renders without touching any observation feed or prepared Current data.
+    # Home renders without fetching weather reports.
     return render_template("index.html"), 200, {"Cache-Control": "no-store"}
-
-
-
-def observation_time(stamp, full=False):
-    moment = datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(ZoneInfo("America/Chicago"))
-    return moment.strftime("%b %-d, %-I:%M %p %Z" if full else "%-I:%M %p %Z")
-
-
-def observation_temperature(value):
-    return f"{math.floor(value*10+.5)/10:.1f}°F" if value is not None else "—"
-
-
-def observation_wind(wind):
-    speed, direction = wind.get("speedMph"), wind.get("direction")
-    if speed is None:
-        return "—"
-    if speed < .5:
-        return "Calm"
-    heading = "Variable" if direction is None else ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[math.floor(direction/45+.5)%8]
-    return f"{heading} {math.floor(speed+.5)}"
-
-
-def observation_qa(qa, stale=False):
-    if stale:
-        return "Refresh failed; displayed readings may be stale"
-    if qa["allStationsUsed"]:
-        return "Basic QA passed; all 3 stations used"
-    checks = qa["checks"]
-    return f"Basic QA incomplete; {qa['stationsUsed']}/3 stations passed. Temperature {checks['temperature']}/3, dew point {checks['dewpoint']}/3, wind {checks['wind']}/3"
-
-
-def observation_notice(data):
-    current, warnings = data["current"], []
-    if not current["available"]:
-        reason = ("waiting for a routine report near :53 from "+", ".join(current["missingStations"])) if current["missingStations"] else "all 3 routine reports must pass temperature, dew point and wind QA"
-        warnings.append(f"Hourly average unavailable: {reason}. Shared collection at :00; hourly history remains below.")
-    if data.get("stale"):
-        warnings.append("Background observation checks are delayed; check the displayed observation hour.")
-    return " ".join(warnings)
-
-
-def observation_payload(saved_only=False):
-    data = prepared_observations()
-    if saved_only and data is None:
-        return None
-    if data is None:
-        shared = local_hourly_metars(utcnow())
-        data = {"reports": shared["observationReports"], "checkedAt": shared["checkedAt"], "stale": False}
-    result = observations(data["reports"])
-    if data:
-        result.update(checkedAt=data["checkedAt"], stale=data["stale"])
-    return result
 
 
 @app.get("/api/forecast")
@@ -581,20 +515,6 @@ def station_plots_api():
     except Exception:
         app.logger.exception("Prepared regional observations unavailable")
         return jsonify(error="Station plots are unavailable. Please refresh shortly."), 502
-
-
-@app.get("/api/current")
-def current_hourly_api():
-    from current_hourly import KEY, present
-    try:
-        store = get_store()
-        saved = cached("prepared-current-hourly", 10, lambda: store.read_json(KEY)) if store else None
-        if not saved:
-            return jsonify(error="Official hourly METAR history is being prepared."), 503, {"Cache-Control": "no-store"}
-        return jsonify(present(saved, utcnow())), 200, {"Cache-Control": "no-store"}
-    except Exception:
-        app.logger.exception("Prepared CURRENT history could not be read")
-        return jsonify(error="Hourly METAR history is unavailable. Please refresh shortly."), 503, {"Cache-Control": "no-store"}
 
 
 @app.get("/api/metar-clouds")

@@ -48,6 +48,7 @@ if a[:3]==['run','services','describe']:
         assert [calls[i][2:] for i in cleanup] == [
             ['--apply', '--only-job', 'weather-live-rapmetar'],
             ['--apply', '--only-job', 'weather-live-hourly'],
+            ['--apply', '--only-job', 'weather-live-current'],
         ]
         runs=[c[3] for c in calls if c[:3]==['scheduler','jobs','run']]
-        assert set(runs)=={'weather-live-current','weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality'}
+        assert set(runs)=={'weather-live-metar-clouds','weather-live-radar','weather-live-satellite','weather-live-forecast','weather-live-air-quality'}
