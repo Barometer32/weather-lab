@@ -86,7 +86,7 @@ def test_current_schedule_is_retired_only_when_it_targets_the_old_collector():
     old = job('weather-live-current', 'current-hourly')
     rows = required() + [old]
     assert cleanup.plan(rows, COLLECTOR) == ([old], [])
-    assert configure(rows, COLLECTOR) == []
+    assert configure(rows, COLLECTOR) == configure(required(), COLLECTOR)
 
     old['httpTarget']['uri'] = COLLECTOR+'/collect/metar-clouds'
     assert cleanup.plan(rows, COLLECTOR) == ([], [old])

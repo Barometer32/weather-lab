@@ -36,6 +36,11 @@ window.WeatherMetars = (() => {
     // South Dakota
     ["KABR","Aberdeen"],["KATY","Watertown"],["KHON","Huron"],
     ["KYKN","Yankton"],["K9V9","Chamberlain"],
+    // Fill gaps after the existing regional hubs have been placed.
+    ["KBDH","Willmar"],["KMML","Marshall"],["KHCD","Hutchinson"],
+    ["KAEL","Albert Lea"],
+    ["KRPD","Rice Lake"],["KISW","Wisconsin Rapids"],
+    ["KMIW","Marshalltown"],["KMHE","Mitchell"],["KBWP","Wahpeton"],
   ]);
   const regionalView=[[40.5,-100],[49.4,-86.6]];
   const windPlotOptions={dot:true,mphBarbs:true,compact:true};

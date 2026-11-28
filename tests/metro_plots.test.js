@@ -62,7 +62,7 @@ for (const station of ['KMSP', 'KFCM', 'KMIC']) getReport(2, station).wind = {sp
   for (let hour = 0; hour < 4; hour++) {
     map.frame(hour);
     const metro = map.marker('METRO');
-    for (const id of ['KMSP', 'KFCM', 'KMIC', 'KSTP', 'KANE', 'KFCY', 'KHCD', 'KRGK']) {
+    for (const id of ['KMSP', 'KFCM', 'KMIC', 'KSTP', 'KANE', 'KFCY', 'KRGK']) {
       assert.equal(map.marker(id), undefined, id + ' must stay out of METAR plots');
     }
     if (hour === 1) {
@@ -83,7 +83,7 @@ for (const station of ['KMSP', 'KFCM', 'KMIC']) getReport(2, station).wind = {sp
       'Variable reports contribute speed while the other stations determine direction');
   }
 
-  for (const id of ['KMKT', 'KSTC', 'KRWF', 'KDLH', 'KFAR', 'KFSD', 'KDSM', 'KMKE']) {
+  for (const id of ['KMKT', 'KSTC', 'KRWF', 'KHCD', 'KAEL', 'KDLH', 'KFAR', 'KFSD', 'KDSM', 'KMKE']) {
     const [, lat, lon, temperature] = airports.find(([station]) => station === id);
     const city = viewer(data, {width: 800, height: 500, zoom: 9, center: [lat, lon]});
     await city.load();
